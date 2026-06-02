@@ -1,0 +1,19 @@
+{
+  "name": "multi-tenant-chat-platform",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "backend",
+    "dashboard",
+    "chat-widget"
+  ],
+  "scripts": {
+    "dev:backend": "npm --workspace backend run dev",
+    "dev:dashboard": "npm --workspace dashboard run dev",
+    "build": "npm run build --workspace dashboard && npm run build --workspace chat-widget && copy /Y \"chat-widget\\dist\\chat-widget.iife.js\" \"backend\\src\\public\\chat-widget.js\"",
+    "seed": "npm --workspace backend run seed",
+    "check": "npm --workspace backend run check && node scripts/static-check.mjs && npm run build",
+    "test": "npm --workspace backend run test",
+    "lint": "node scripts/static-check.mjs"
+  }
+}

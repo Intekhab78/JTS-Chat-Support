@@ -1,0 +1,21 @@
+# Root
+node_modules/
+
+# Backend
+backend/node_modules/
+backend/.env
+backend/uploads/
+
+# Dashboard
+dashboard/node_modules/
+dashboard/dist/
+
+# Chat Widget
+chat-widget/node_modules/
+chat-widget/dist/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
