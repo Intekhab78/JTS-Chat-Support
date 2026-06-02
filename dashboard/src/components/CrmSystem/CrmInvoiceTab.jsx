@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Plus, FileText, CheckCircle, X, Save, Trash2, Pencil, Download, Share2, AlertCircle, ReceiptText, RefreshCw } from "lucide-react";
-import { api, API_BASE } from "../../api/client.js";
+import { api, getApiBase } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { QuickCreateItemModal, ItemAutocomplete } from "../ItemAutocomplete.jsx";
 
@@ -184,6 +184,7 @@ export default function CRMInvoiceTab({ customer, websiteId, initialInvoices = [
   const [confirmDeleteId, setConfirmDeleteId] = useState("");
   const [error, setError] = useState("");
   const [generatingPdfId, setGeneratingPdfId] = useState("");
+  const [apiBaseUrl, setApiBaseUrl] = useState("");
 
   // Sync internal state with props if provided
   useEffect(() => {
@@ -193,6 +194,10 @@ export default function CRMInvoiceTab({ customer, websiteId, initialInvoices = [
       fetchInvoices();
     }
   }, [initialInvoices, customer?._id]);
+
+  useEffect(() => {
+    getApiBase().then(setApiBaseUrl);
+  }, []);
 
   const fetchInvoices = async () => {
     if (!customer?._id) return;
@@ -285,7 +290,7 @@ export default function CRMInvoiceTab({ customer, websiteId, initialInvoices = [
       setError("Please generate a PDF first before sharing.");
       return;
     }
-    const fullUrl = `${API_BASE}${invoice.pdfUrl}`;
+    const fullUrl = `${apiBaseUrl}${invoice.pdfUrl}`;
     if (navigator.share) {
       navigator.share({
         title: `Invoice ${invoice.invoiceId}`,
@@ -448,7 +453,7 @@ export default function CRMInvoiceTab({ customer, websiteId, initialInvoices = [
                     {invoice.pdfUrl ? (
                       <>
                         <a
-                          href={`${API_BASE}${invoice.pdfUrl}`}
+                          href={`${apiBaseUrl}${invoice.pdfUrl}`}
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-600 transition-all hover:bg-emerald-100"

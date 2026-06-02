@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Search, Filter, Calendar, Download, ChevronRight, User, Globe, MessageSquare, X, Clock } from "lucide-react";
-import { api, API_BASE } from "../api/client.js";
+import { api, apiUrl } from "../api/client.js";
 import ChatPanel from "./ChatPanel.jsx";
 import PaginationControls from "./PaginationControls.jsx";
 import { getPaginationMeta } from "../utils/pagination.js";
@@ -66,7 +66,7 @@ export default function ConversationHistory() {
     fetchHistory();
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const params = new URLSearchParams();
     if (searchTerm) params.append("searchTerm", searchTerm);
     if (filterWebsite) params.append("websiteId", filterWebsite);
@@ -74,7 +74,7 @@ export default function ConversationHistory() {
     if (startDate) params.append("startDate", startDate);
     if (endDate) params.append("endDate", endDate);
 
-    window.open(`${API_BASE}/api/analytics/export/csv?${params.toString()}`, "_blank");
+    window.open(await apiUrl(`/api/analytics/export/csv?${params.toString()}`), "_blank");
   };
 
   const viewSession = async (session) => {

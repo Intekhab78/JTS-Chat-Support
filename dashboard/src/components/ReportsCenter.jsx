@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import { Download, Globe, Users, Clock3, BadgeCheck, TrendingUp, Building2, Trophy, Activity, FileText, Sparkles, ShieldCheck, Target, ArrowRight } from "lucide-react";
-import { API_BASE } from "../api/client.js";
+import { apiUrl } from "../api/client.js";
 import PaginationControls from "./PaginationControls.jsx";
 import { getPaginationMeta } from "../utils/pagination.js";
 
@@ -103,7 +103,7 @@ export default function ReportsCenter({ analytics = {}, selectedWebsiteId = "", 
       if (reportRange?.startDate) params.set("startDate", reportRange.startDate);
       if (reportRange?.endDate) params.set("endDate", reportRange.endDate);
       const query = params.toString();
-      const response = await fetch(`${API_BASE}/api/analytics/export/csv${query ? `?${query}` : ""}`, {
+      const response = await fetch(await apiUrl(`/api/analytics/export/csv${query ? `?${query}` : ""}`), {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("dashboard_token")}`
         }

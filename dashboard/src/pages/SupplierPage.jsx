@@ -11,7 +11,7 @@ import {
   AreaChart, Area, Cell, PieChart, Pie 
 } from 'recharts';
 import { useAuth } from "../context/AuthContext.jsx";
-import { api, API_BASE } from "../api/client.js";
+import { api, apiUrl } from "../api/client.js";
 
 function formatCurrency(amount) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
@@ -83,7 +83,7 @@ export default function SupplierPage() {
   const downloadPO = async (orderId) => {
     try {
       const token = localStorage.getItem("dashboard_token");
-      const res = await fetch(`${API_BASE}/api/supplier/orders/${orderId}/pdf`, {
+      const res = await fetch(await apiUrl(`/api/supplier/orders/${orderId}/pdf`), {
         headers: {
           Authorization: `Bearer ${token}`
         }

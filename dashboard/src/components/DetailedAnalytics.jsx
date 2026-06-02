@@ -1,6 +1,6 @@
 import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import { Download, Globe, TrendingUp, Award } from "lucide-react";
-import { API_BASE } from "../api/client.js";
+import { apiUrl } from "../api/client.js";
 
 const COLORS = ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6'];
 
@@ -16,7 +16,7 @@ export default function DetailedAnalytics({ analytics }) {
 
   const handleExport = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/analytics/export/csv`, {
+      const response = await fetch(await apiUrl("/api/analytics/export/csv"), {
         headers: {
           "Authorization": `Bearer ${localStorage.getItem("dashboard_token")}`
         }

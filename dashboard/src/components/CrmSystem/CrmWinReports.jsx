@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { X, BarChart, Clock } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { API_BASE } from "../../api/client.js";
+import { apiUrl } from "../../api/client.js";
 import { formatCurrency } from "./CrmUIComponents.jsx";
 
 function formatSecondsToReadable(sec) {
@@ -44,7 +44,7 @@ export default function CrmWinReports({ websiteId = "", preset = "month", onClos
         if (websiteId) params.set("websiteId", websiteId);
         params.set("startDate", range.startDate);
         params.set("endDate", range.endDate);
-        const res = await fetch(`${API_BASE}/api/crm/reports?${params.toString()}`, {
+        const res = await fetch(await apiUrl(`/api/crm/reports?${params.toString()}`), {
           headers: { Authorization: `Bearer ${localStorage.getItem("dashboard_token")}` }
         });
         if (!res.ok) throw new Error("Failed to load CRM reports");
@@ -56,7 +56,7 @@ export default function CrmWinReports({ websiteId = "", preset = "month", onClos
           const tsParams = new URLSearchParams();
           if (websiteId) tsParams.set("websiteId", websiteId);
           tsParams.set("days", String(days));
-          const tsRes = await fetch(`${API_BASE}/api/crm/reports/won-timeseries?${tsParams.toString()}`, {
+          const tsRes = await fetch(await apiUrl(`/api/crm/reports/won-timeseries?${tsParams.toString()}`), {
             headers: { Authorization: `Bearer ${localStorage.getItem("dashboard_token")}` }
           });
           if (tsRes.ok) {

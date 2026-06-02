@@ -1,10 +1,58 @@
-const DEFAULT_PROD_API_URL = "https://chat-backend-3pcj.onrender.com";
-const API_BASE = (
-  import.meta.env.VITE_API_URL ||
-  (import.meta.env.PROD ? DEFAULT_PROD_API_URL : "http://localhost:5000")
-).trim().replace(/\/+$/, "");
+const DEFAULT_LOCAL_API_URL = "http://localhost:5000";
+const DEFAULT_REMOTE_API_URL = "https://chatapi.jtsonline.shop";
+const LOCAL_API_URL = (import.meta.env.VITE_LOCAL_API_URL || DEFAULT_LOCAL_API_URL).trim().replace(/\/+$/, "");
+const REMOTE_API_URL = (import.meta.env.VITE_REMOTE_API_URL || DEFAULT_REMOTE_API_URL).trim().replace(/\/+$/, "");
+const EXPLICIT_API_URL = (import.meta.env.VITE_API_URL || "").trim().replace(/\/+$/, "");
+
+export let API_BASE = EXPLICIT_API_URL || (import.meta.env.PROD ? REMOTE_API_URL : LOCAL_API_URL);
+
+let apiBasePromise = null;
+
+async function canReachLocalApi() {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 1200);
+
+  try {
+    const response = await fetch(`${LOCAL_API_URL}/health`, {
+      method: "GET",
+      cache: "no-store",
+      signal: controller.signal
+    });
+    return response.ok;
+  } catch {
+    return false;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+export async function getApiBase() {
+  if (EXPLICIT_API_URL) {
+    API_BASE = EXPLICIT_API_URL;
+    return API_BASE;
+  }
+
+  if (import.meta.env.PROD) {
+    API_BASE = REMOTE_API_URL;
+    return API_BASE;
+  }
+
+  if (!apiBasePromise) {
+    apiBasePromise = canReachLocalApi().then((localIsReachable) => {
+      API_BASE = localIsReachable ? LOCAL_API_URL : REMOTE_API_URL;
+      return API_BASE;
+    });
+  }
+
+  return apiBasePromise;
+}
+
+export async function apiUrl(path = "") {
+  return `${await getApiBase()}${path}`;
+}
 
 export async function api(path, options = {}) {
+  const apiBase = await getApiBase();
   const token = localStorage.getItem("dashboard_token");
   const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
   const headers = {
@@ -16,7 +64,7 @@ export async function api(path, options = {}) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${apiBase}${path}`, {
     ...options,
     headers
   });
@@ -48,5 +96,3 @@ api.get = (path, options = {}) => api(path, { ...options, method: "GET" });
 api.post = (path, body, options = {}) => api(path, { ...options, method: "POST", body: JSON.stringify(body) });
 api.patch = (path, body, options = {}) => api(path, { ...options, method: "PATCH", body: JSON.stringify(body) });
 api.delete = (path, options = {}) => api(path, { ...options, method: "DELETE" });
-
-export { API_BASE };

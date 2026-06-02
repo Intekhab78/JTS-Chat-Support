@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Plus, CheckCircle, Package, Search, Download, FileText, Clock3 } from "lucide-react";
-import { api, API_BASE } from "../api/client.js";
+import { api, apiUrl } from "../api/client.js";
 import { ItemAutocomplete, QuickCreateItemModal } from "./ItemAutocomplete.jsx";
 import ProcurementAnalytics from "./ProcurementAnalytics.jsx";
 
@@ -97,7 +97,7 @@ export default function PurchaseProcurementTab({ websiteId }) {
   const downloadPO = async (orderId) => {
     try {
       const token = localStorage.getItem("dashboard_token");
-      const res = await fetch(`${API_BASE}/api/procurement/orders/${orderId}/pdf`, {
+      const res = await fetch(await apiUrl(`/api/procurement/orders/${orderId}/pdf`), {
         headers: {
           Authorization: `Bearer ${token}`
         }

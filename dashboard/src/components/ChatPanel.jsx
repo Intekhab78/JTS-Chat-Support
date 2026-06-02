@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, API_BASE } from "../api/client.js";
+import { api, apiUrl } from "../api/client.js";
 import { Paperclip, FileText, Check, CheckCheck, Send, Ticket, PlusCircle, UserPlus } from "lucide-react";
 import { cleanString } from "../utils/stringUtils.js";
 import { useToast } from "../context/ToastContext.jsx";
@@ -117,7 +117,7 @@ export default function ChatPanel({ session, messages, onSend, onTyping, isTypin
 
     try {
       const token = localStorage.getItem("dashboard_token");
-      const res = await fetch(`${API_BASE}/api/chat/upload`, {
+      const res = await fetch(await apiUrl("/api/chat/upload"), {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`

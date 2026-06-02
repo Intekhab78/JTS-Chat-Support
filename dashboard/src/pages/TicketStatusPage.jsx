@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { API_BASE } from "../api/client.js";
+import { apiUrl } from "../api/client.js";
 
 const STATUS_STEPS = ["open", "in_progress", "waiting", "resolved", "closed"];
 
@@ -23,7 +23,7 @@ export default function TicketStatusPage() {
 
   useEffect(() => {
     if (!ticketId) return;
-    fetch(`${API_BASE}/api/tickets/public/${ticketId}`)
+    apiUrl(`/api/tickets/public/${ticketId}`).then((url) => fetch(url))
       .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.message)))
       .then(data => { setTicket(data); setLoading(false); })
       .catch(err => { setError(typeof err === "string" ? err : "Ticket not found."); setLoading(false); });

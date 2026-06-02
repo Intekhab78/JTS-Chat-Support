@@ -5,7 +5,7 @@ import {
    Link, Copy, CheckCheck, ChevronRight, Tag, Activity,
    ArrowUpRight, History, Settings2, Edit3, Layers, LayoutGrid, List
 } from "lucide-react";
-import { api, API_BASE } from "../api/client.js";
+import { api, apiUrl } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import PaginationControls from "./PaginationControls.jsx";
 import { getPaginationMeta } from "../utils/pagination.js";
@@ -503,9 +503,9 @@ export default function TicketManager({ websiteId }) {
       await runBulkUpdate({ assignedAgent: agentId.trim() || null });
    };
 
-   const handleBulkExport = () => {
+   const handleBulkExport = async () => {
       const token = localStorage.getItem("dashboard_token");
-      window.open(`${API_BASE}/api/tickets/export?token=${encodeURIComponent(token || "")}`, "_blank");
+      window.open(await apiUrl(`/api/tickets/export?token=${encodeURIComponent(token || "")}`), "_blank");
    };
 
    const filtered = tickets.filter(t => {

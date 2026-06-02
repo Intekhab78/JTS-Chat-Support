@@ -1,9 +1,21 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { useAuth } from "./AuthContext.jsx";
-import { API_BASE } from "../api/client.js";
+import { getApiBase } from "../api/client.js";
 
 const SocketContext = createContext(null);
+
+function getSocketTransports(apiBase) {
+  try {
+    const { hostname } = new URL(apiBase);
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      return ["polling", "websocket"];
+    }
+  } catch {
+    // Fall back to polling for malformed/relative URLs.
+  }
+  return ["polling"];
+}
 
 /**
  * useSocket — returns the shared Socket.IO instance (or null while disconnected).
@@ -40,23 +52,30 @@ export const SocketProvider = ({ children }) => {
       return;
     }
 
-    const newSocket = io(API_BASE, {
-      auth: {
-        type: "agent",
-        token
-      },
-      reconnection: true,
-      reconnectionAttempts: 15,
-      reconnectionDelay: 1000,
-      transports: ["polling", "websocket"],
-      withCredentials: true
+    let cancelled = false;
+    let newSocket = null;
+
+    getApiBase().then((apiBase) => {
+      if (cancelled) return;
+      newSocket = io(apiBase, {
+        auth: {
+          type: "agent",
+          token
+        },
+        reconnection: true,
+        reconnectionAttempts: 15,
+        reconnectionDelay: 1000,
+        transports: getSocketTransports(apiBase),
+        withCredentials: true
+      });
+
+      socketRef.current = newSocket;
+      setSocket(newSocket);
     });
 
-    socketRef.current = newSocket;
-    setSocket(newSocket);
-
     return () => {
-      newSocket.disconnect();
+      cancelled = true;
+      newSocket?.disconnect();
       socketRef.current = null;
     };
   }, [user?._id]); // depend on user ID, not the full user object to avoid stale triggers

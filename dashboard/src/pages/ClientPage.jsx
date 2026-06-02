@@ -28,7 +28,7 @@ import AdminSubscriptionManager from "../components/AdminSubscriptionManager.jsx
 import InventoryManager from "../components/InventoryManager.jsx";
 import CustomerManager from "../components/CustomerManager.jsx";
 import BillingPage from "./BillingPage.jsx";
-import { api, API_BASE } from "../api/client.js";
+import { api } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { NotificationService } from "../utils/notifications.js";
 import { useSocket } from "../context/SocketContext.jsx";

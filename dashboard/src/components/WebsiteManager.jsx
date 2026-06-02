@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Globe, Plus, Trash2, Copy, Check, Settings, Code, Palette, X } from "lucide-react";
-import { api, API_BASE } from "../api/client.js";
+import { api, getApiBase } from "../api/client.js";
 import WidgetCustomizer from "./WidgetCustomizer.jsx";
 import PaginationControls from "./PaginationControls.jsx";
 import { getPaginationMeta } from "../utils/pagination.js";
@@ -54,6 +54,7 @@ export default function WebsiteManager() {
   });
   const [customizingWebsite, setCustomizingWebsite] = useState(null);
   const [page, setPage] = useState(1);
+  const [widgetBaseUrl, setWidgetBaseUrl] = useState("");
 
   const fetchWebsites = async () => {
     try {
@@ -68,6 +69,7 @@ export default function WebsiteManager() {
 
   useEffect(() => {
     fetchWebsites();
+    getApiBase().then(setWidgetBaseUrl);
   }, []);
 
   useEffect(() => {
@@ -608,11 +610,11 @@ export default function WebsiteManager() {
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-60"></div>
                     <div className="text-slate-700/50 select-none hidden sm:block text-right pt-[2px] font-black">01<br />02<br />03<br />04<br />05<br />06<br />07</div>
                     <div className="text-indigo-100/90 whitespace-pre-wrap break-all w-full overflow-x-auto selection:bg-indigo-500/40 tracking-tight">
-                      {`<script>\n  (function(){\n    var s = document.createElement("script");\n    s.src = "${API_BASE}/chat-widget.js";\n    s.setAttribute("data-api-key", "${website.apiKey}");\n    document.body.appendChild(s);\n  })();\n</script>`}
+                      {`<script>\n  (function(){\n    var s = document.createElement("script");\n    s.src = "${widgetBaseUrl}/chat-widget.js";\n    s.setAttribute("data-api-key", "${website.apiKey}");\n    document.body.appendChild(s);\n  })();\n</script>`}
                     </div>
                   </div>
                   <button
-                    onClick={() => handleCopy(`<script>\n  (function(){\n    var s = document.createElement("script");\n    s.src = "${API_BASE}/chat-widget.js";\n    s.setAttribute("data-api-key", "${website.apiKey}");\n    document.body.appendChild(s);\n  })();\n</script>`, website._id)}
+                    onClick={() => handleCopy(`<script>\n  (function(){\n    var s = document.createElement("script");\n    s.src = "${widgetBaseUrl}/chat-widget.js";\n    s.setAttribute("data-api-key", "${website.apiKey}");\n    document.body.appendChild(s);\n  })();\n</script>`, website._id)}
                     className="absolute right-6 top-1/2 -translate-y-1/2 w-14 h-14 bg-white/10 hover:bg-indigo-600 text-white rounded-2xl backdrop-blur-xl shadow-2xl hover:scale-110 active:scale-90 transition-all outline-none border border-white/10 flex items-center justify-center group-hover/copy:bg-indigo-500"
                   >
                     {copiedId === website._id ? <Check size={20} className="text-emerald-400" /> : <Copy size={20} />}
