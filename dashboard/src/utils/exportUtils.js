@@ -1,56 +1,57 @@
-/**
- * CRM Data Export Utilities
- */
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+import * as XLSX from "xlsx";
+import Papa from "papaparse";
 
-export const downloadCSV = (data, filename = "crm_export.csv") => {
+export const exportToCSV = (data, filename) => {
   if (!data || !data.length) return;
-
-  // 1. Extract headers (keys) from the first object
-  const headers = Object.keys(data[0]).filter(k => 
-    !["_id", "__v", "websiteId", "ownerId", "interactionHistory", "internalNotes", "tags"].includes(k)
-  );
-
-  // 2. Map data to CSV rows
-  const rows = data.map(record => {
-    return headers.map(header => {
-      let val = record[header];
-      
-      // Handle special formatting
-      if (val instanceof Date) val = val.toISOString().split("T")[0];
-      if (typeof val === "object" && val !== null) val = JSON.stringify(val);
-      
-      // Escape commas and quotes for CSV safety
-      const stringVal = String(val ?? "").replace(/"/g, '""');
-      return `"${stringVal}"`;
-    }).join(",");
-  });
-
-  // 3. Combine headers and rows
-  const csvContent = [headers.join(","), ...rows].join("\n");
-
-  // 4. Create download link
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
+  const csv = Papa.unparse(data);
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
   link.setAttribute("href", url);
-  link.setAttribute("download", filename);
+  link.setAttribute("download", `${filename}.csv`);
   link.style.visibility = "hidden";
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
 };
 
-export const exportSummaryToCSV = (summary) => {
-  if (!summary) return;
+export const downloadCSV = exportToCSV;
+
+export const exportToExcel = (data, filename) => {
+  if (!data || !data.length) return;
+  const worksheet = XLSX.utils.json_to_sheet(data);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
+  XLSX.writeFile(workbook, `${filename}.xlsx`);
+};
+
+export const exportToPDF = (data, filename, title = "Report") => {
+  if (!data || !data.length) return;
+  const doc = new jsPDF();
   
-  const data = [
-    { Label: "Total Leads", Value: summary.totalLeads },
-    { Label: "Revenue", Value: summary.revenue },
-    { Label: "Weighted Forecast", Value: summary.weightedRevenue },
-    { Label: "Conversion Rate (%)", Value: summary.conversionRate },
-    { Label: "Customer LTV", Value: summary.ltv },
-    { Label: "CAC", Value: summary.cac }
-  ];
+  // Title
+  doc.setFontSize(18);
+  doc.text(title, 14, 22);
   
-  downloadCSV(data, `crm_summary_${new Date().toISOString().split("T")[0]}.csv`);
+  // Timestamp
+  doc.setFontSize(11);
+  doc.setTextColor(100);
+  doc.text(`Generated on ${new Date().toLocaleString()}`, 14, 30);
+
+  // AutoTable
+  const keys = Object.keys(data[0]);
+  const rows = data.map(obj => keys.map(k => obj[k]));
+  
+  doc.autoTable({
+    startY: 40,
+    head: [keys.map(k => k.toUpperCase())],
+    body: rows,
+    theme: 'grid',
+    styles: { fontSize: 10, cellPadding: 3 },
+    headStyles: { fillColor: [79, 70, 229] } // Indigo 600
+  });
+
+  doc.save(`${filename}.pdf`);
 };

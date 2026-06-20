@@ -344,7 +344,7 @@ export default function PurchaseProcurementTab({ websiteId }) {
         />
       )}
 
-      <div className="bg-white rounded-[32px] border border-slate-200/60 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-[32px] border border-slate-200/60 shadow-sm overflow-x-auto">
         <table className="w-full text-left">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>

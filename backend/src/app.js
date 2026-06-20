@@ -22,6 +22,7 @@ import crmRoutes from "./routes/crmRoutes.js";
 import auditRoutes from "./routes/auditRoutes.js";
 import webhookRoutes from "./routes/webhookRoutes.js";
 import stripeWebhookRoutes from "./routes/stripeWebhookRoutes.js";
+import flowRoutes from "./routes/flowRoutes.js";
 import billingRoutes from "./routes/billingRoutes.js";
 import trackingRoutes from "./routes/trackingRoutes.js";
 import roleRoutes from "./routes/roleRoutes.js";
@@ -147,6 +148,7 @@ export function createApp() {
   app.use("/api/crm", crmRoutes);
   app.use("/api/audit-logs", auditRoutes);
   app.use("/api/webhooks", webhookRoutes);
+  app.use("/api/flows", flowRoutes);
   app.use("/api/billing", billingRoutes);
   app.use("/api/tracking", trackingRoutes);
   app.use("/api/roles", roleRoutes);

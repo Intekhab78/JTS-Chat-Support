@@ -149,7 +149,7 @@ export default function CustomerManager({ websiteId }) {
         {success && (
           <div className="p-4 bg-white border-l-4 border-emerald-500 shadow-2xl rounded-r-2xl animate-in slide-in-from-right-full">
             <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1 flex items-center gap-2">
-              <CheckCircle2 size={14} /> Operation Successful
+              <CheckCircle2 size={14} /> Your changes have been saved successfully.
             </p>
             <p className="text-xs font-bold text-slate-500">{success}</p>
           </div>

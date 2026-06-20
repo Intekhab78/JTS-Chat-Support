@@ -225,6 +225,10 @@ function BoardCard({ customer, canManagePipeline, onOpenCustomer, draggedCustome
             <span className="text-slate-700 truncate text-right">{customer.interestLevel || "Warm"}</span>
           </div>
           <div className="flex items-center justify-between gap-3 text-[9px] font-black uppercase tracking-[0.16em]">
+            <span className="text-slate-400">Requirement</span>
+            <span className="text-indigo-600 truncate text-right max-w-[120px]">{customer.requirement || "None"}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3 text-[9px] font-black uppercase tracking-[0.16em]">
             <span className="text-slate-400">Probability</span>
             <span className="text-slate-700 truncate text-right">{customer.probability || 0}%</span>
           </div>

@@ -46,6 +46,7 @@ const userSchema = new mongoose.Schema(
     managerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     websiteIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Website" }],
     lastActiveAt: { type: Date, default: Date.now },
+    dashboardPreferences: { type: Object, default: {} },
     // Password Reset
     resetPasswordToken: { type: String, default: null },
     resetPasswordExpires: { type: Date, default: null },

@@ -36,7 +36,11 @@ export async function sendEmail({ to, subject, html, attachments = [] }) {
     }
     return info;
   } catch (error) {
-    console.error("[Email] Error sending email:", error);
+    if (error.code === 'EAUTH') {
+      console.error("[Email] Authentication failed (Too many logins / Invalid credentials). Email skipped.");
+    } else {
+      console.error("[Email] Error sending email:", error.message || error);
+    }
     // Don't throw — we don't want email failure to crash the app logic
     return null;
   }

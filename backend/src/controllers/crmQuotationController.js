@@ -12,10 +12,19 @@ import {
 } from "../utils/crmUtils.js";
 import { formatCurrency } from "../utils/formatters.js";
 import { advancePurchaseWorkflow } from "../services/purchaseWorkflowService.js";
+import { assertWebsiteAccess } from "../utils/websiteScope.js";
 
 export const createQuotation = asyncHandler(async (req, res) => {
   const { customerId, websiteId, items, subtotal, tax, total, currency, notes, terms, validUntil } = req.body;
   if (!customerId || !websiteId || !items || !total) throw new AppError("Missing required fields.", 400);
+
+  const customer = await Customer.findById(customerId);
+  if (!customer) throw new AppError("Customer not found.", 404);
+  assertWebsiteAccess(req.user, req.ownedWebsiteIds, websiteId);
+  assertWebsiteAccess(req.user, req.ownedWebsiteIds, customer.websiteId);
+  if (String(customer.websiteId) !== String(websiteId)) {
+    throw new AppError("Customer does not belong to this website.", 400);
+  }
 
   const isManager = ["admin", "client", "manager"].includes(req.user.role);
   const requiresApproval = total > 50000 && !isManager;
@@ -47,6 +56,10 @@ export const createQuotation = asyncHandler(async (req, res) => {
 
 export const getCustomerQuotations = asyncHandler(async (req, res) => {
   const { customerId } = req.params;
+  const customer = await Customer.findById(customerId);
+  if (!customer) throw new AppError("Customer not found.", 404);
+  assertWebsiteAccess(req.user, req.ownedWebsiteIds, customer.websiteId);
+
   const quotes = await Quotation.find({ customerId }).sort({ createdAt: -1 });
   res.json(quotes);
 });
@@ -56,6 +69,7 @@ export const updateQuotationStatus = asyncHandler(async (req, res) => {
   const { status } = req.body;
   const quotation = await Quotation.findById(id);
   if (!quotation) throw new AppError("Quotation not found.", 404);
+  assertWebsiteAccess(req.user, req.ownedWebsiteIds, quotation.websiteId);
 
   quotation.status = status;
   await quotation.save();
@@ -82,6 +96,7 @@ export const updateQuotationStatus = asyncHandler(async (req, res) => {
 export const sendQuotation = asyncHandler(async (req, res) => {
   const quotation = await Quotation.findById(req.params.id);
   if (!quotation) throw new AppError("Quotation not found.", 404);
+  assertWebsiteAccess(req.user, req.ownedWebsiteIds, quotation.websiteId);
 
   quotation.status = "sent";
   try {
@@ -106,6 +121,9 @@ export const createQuotationPayment = asyncHandler(async (req, res) => {
   const stripe = new Stripe(stripeKey);
 
   const quotation = await Quotation.findById(req.params.id);
+  if (!quotation) throw new AppError("Quotation not found.", 404);
+  assertWebsiteAccess(req.user, req.ownedWebsiteIds, quotation.websiteId);
+
   const paymentIntent = await stripe.paymentIntents.create({
     amount: Math.round(quotation.total * 100),
     currency: (quotation.currency || 'INR').toLowerCase(),
@@ -116,17 +134,28 @@ export const createQuotationPayment = asyncHandler(async (req, res) => {
 });
 
 export const updateQuotation = asyncHandler(async (req, res) => {
-  const quotation = await Quotation.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  res.json(quotation);
+  const quotation = await Quotation.findById(req.params.id);
+  if (!quotation) throw new AppError("Quotation not found.", 404);
+  assertWebsiteAccess(req.user, req.ownedWebsiteIds, quotation.websiteId);
+
+  const updated = await Quotation.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  res.json(updated);
 });
 
 export const deleteQuotation = asyncHandler(async (req, res) => {
+  const quotation = await Quotation.findById(req.params.id);
+  if (!quotation) throw new AppError("Quotation not found.", 404);
+  assertWebsiteAccess(req.user, req.ownedWebsiteIds, quotation.websiteId);
+
   await Quotation.findByIdAndDelete(req.params.id);
   res.json({ success: true });
 });
 
 export const approveQuotation = asyncHandler(async (req, res) => {
   const quotation = await Quotation.findById(req.params.id);
+  if (!quotation) throw new AppError("Quotation not found.", 404);
+  assertWebsiteAccess(req.user, req.ownedWebsiteIds, quotation.websiteId);
+
   quotation.status = "sent";
   await quotation.save();
   await advancePurchaseWorkflow({
@@ -140,6 +169,9 @@ export const approveQuotation = asyncHandler(async (req, res) => {
 
 export const denyQuotation = asyncHandler(async (req, res) => {
   const quotation = await Quotation.findById(req.params.id);
+  if (!quotation) throw new AppError("Quotation not found.", 404);
+  assertWebsiteAccess(req.user, req.ownedWebsiteIds, quotation.websiteId);
+
   quotation.status = "denied";
   await quotation.save();
   res.json(quotation);

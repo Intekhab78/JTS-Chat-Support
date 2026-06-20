@@ -19,6 +19,8 @@ export const addCustomerNote = asyncHandler(async (req, res) => {
   if (!noteText) throw new AppError("Note text is required", 400);
 
   const customer = await Customer.findById(req.params.id);
+  if (!customer) throw new AppError("Customer not found", 404);
+
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
   if (!ownedWebsiteIds.map(String).includes(String(customer.websiteId))) throw new AppError("Access denied", 403);
 
@@ -29,7 +31,7 @@ export const addCustomerNote = asyncHandler(async (req, res) => {
   await emitCustomerActivity({
     actor: req.user, websiteId: customer.websiteId, customerId: customer._id,
     type: type === "note" ? "note_added" : `${type}_logged`,
-    summary: `Interaction logged for ${customer.name}`, metadata: { note: noteText, interactionType: type }
+    summary: `Note logged for ${customer.name}`, metadata: { note: noteText, interactionType: type }
   });
 
   res.json(customer);
@@ -39,7 +41,13 @@ export const sendCustomerEmail = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_SEND_EMAIL);
   const { subject, body } = req.body;
   const customer = await Customer.findById(req.params.id).populate("websiteId");
-  
+  if (!customer) throw new AppError("Customer not found", 404);
+
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!ownedWebsiteIds.map(String).includes(String(customer.websiteId._id || customer.websiteId))) {
+    throw new AppError("Access denied", 403);
+  }
+
   const { html } = salesOutreachTemplate({ customerName: customer.name, salesName: req.user.name, body, websiteName: customer.websiteId.websiteName });
   await sendEmail({ to: customer.email, subject, html, replyTo: req.user.email });
 
@@ -50,6 +58,12 @@ export const sendCustomerEmail = asyncHandler(async (req, res) => {
 
 export const getCustomerActivity = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.ACTIVITY_VIEW);
+  const customer = await Customer.findById(req.params.id);
+  if (!customer) throw new AppError("Customer not found", 404);
+
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!ownedWebsiteIds.map(String).includes(String(customer.websiteId))) throw new AppError("Access denied", 403);
+
   const activity = await listActivityForEntity({ entityType: "customer", entityId: req.params.id, limit: 100 });
   res.json(activity);
 });

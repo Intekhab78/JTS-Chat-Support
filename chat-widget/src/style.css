@@ -637,3 +637,84 @@
     transform: translateX(0);
   }
 }
+
+/* ── Flow Error Fallback ─────────────────────────────────────────────── */
+.csw-flow-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #b91c1c;
+  white-space: normal;
+  flex-shrink: 0;
+  animation: csw-pill-in 0.3s ease-out;
+}
+
+/* ── Emoji Picker ─────────────────────────────────────────────── */
+#csw-emoji-picker {
+  display: none;
+  position: absolute;
+  bottom: 64px;
+  right: 12px;
+  background: var(--csw-bg);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  padding: 10px;
+  max-width: 210px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  z-index: 2000;
+  backdrop-filter: blur(8px);
+}
+
+.csw-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* Custom Scrollbar for Emoji Picker Grid */
+.csw-emoji-grid::-webkit-scrollbar {
+  width: 4px;
+}
+.csw-emoji-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+.csw-emoji-grid::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+.csw-emoji-grid::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.csw-emoji-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none !important;
+  border: none !important;
+  font-size: 20px;
+  padding: 6px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.csw-emoji-item:hover {
+  background-color: #f1f5f9 !important;
+  transform: scale(1.15);
+}
+
+.csw-emoji-item:active {
+  background-color: #e2e8f0 !important;
+  transform: scale(0.95);
+}

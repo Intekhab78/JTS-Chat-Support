@@ -9,7 +9,7 @@ import { api } from "../api/client.js";
 import { useToast } from "../context/ToastContext.jsx";
 import { cleanString } from "../utils/stringUtils.js";
 
-export default function ConversationHub({ socket, initialSessions = [], websiteId, userRole = "agent", extraHeader = null }) {
+export default function ConversationHub({ socket, initialSessions = [], websiteId, userRole = "agent", extraHeader = null, currentUser = null }) {
   const toast = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const [sessions, setSessions] = useState(initialSessions);
@@ -23,6 +23,9 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
   
   // -- Bulk Selection State --
   const [selectedIds, setSelectedIds] = useState([]);
+  
+  const [sessionViewers, setSessionViewers] = useState({});
+  const [typingAgents, setTypingAgents] = useState({});
   
   const activeRequestRef = useRef("");
 
@@ -112,11 +115,38 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
       )));
     };
 
+    const handleIntelligenceUpdated = ({ sessionId, sentimentScore, sentimentLabel, aiSummary }) => {
+      setSessions((prev) => prev.map((s) => (
+        s.sessionId === sessionId ? { ...s, sentimentScore, sentimentLabel, aiSummary } : s
+      )));
+    };
+
+    const handleTyping = ({ sessionId, isTyping, sender, agentId, agentName }) => {
+      if (sender === "agent" && agentId !== currentUser?._id) {
+        setTypingAgents(prev => ({
+          ...prev,
+          [sessionId]: isTyping ? { agentId, agentName } : null
+        }));
+      }
+    };
+
+    const handlePresenceViewers = ({ sessionId, viewers }) => {
+      setSessionViewers(prev => ({ ...prev, [sessionId]: viewers }));
+    };
+
     socket.on("chat:new-message", handleNewMessage);
     socket.on("chat:session-updated", handleSessionUpdated);
     socket.on("chat:closed", handleClosed);
     socket.on("chat:assigned", handleAssigned);
     socket.on("chat:queued", handleQueued);
+    socket.on("chat:intelligence-updated", handleIntelligenceUpdated);
+    const handleControlRequested = ({ sessionId, requestedBy }) => {
+      toast.warning(`${requestedBy.name} (${requestedBy.role}) has requested control of this conversation. Click "Release Chat" if you wish to hand over control.`, 8000);
+    };
+
+    socket.on("chat:typing", handleTyping);
+    socket.on("presence:viewers", handlePresenceViewers);
+    socket.on("chat:control-requested", handleControlRequested);
 
     return () => {
       socket.off("chat:new-message", handleNewMessage);
@@ -124,6 +154,10 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
       socket.off("chat:closed", handleClosed);
       socket.off("chat:assigned", handleAssigned);
       socket.off("chat:queued", handleQueued);
+      socket.off("chat:intelligence-updated", handleIntelligenceUpdated);
+      socket.off("chat:typing", handleTyping);
+      socket.off("presence:viewers", handlePresenceViewers);
+      socket.off("chat:control-requested", handleControlRequested);
     };
   }, [socket, selectedSessionId]);
 
@@ -203,13 +237,19 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
             session={selectedSession}
             messages={messages}
             onSend={handleSend}
-            onTyping={(isTyping) => socket.emit("agent_typing", { sessionId: selectedSessionId, isTyping })}
+            onTyping={(isTyping) => socket.emit("agent:typing", { sessionId: selectedSessionId, isTyping })}
             onConvertToTicket={(s) => {
               setSessionToConvert(s);
               setShowTicketModal(true);
             }}
             onIntelClick={() => setIsDrawerOpen(true)}
             onConvertToLead={() => setIsDrawerOpen(true)} 
+            viewers={sessionViewers[selectedSessionId] || []}
+            typingAgent={typingAgents[selectedSessionId]}
+            currentUser={currentUser}
+            onTakeOver={() => socket.emit("agent:take-over-chat", { sessionId: selectedSessionId })}
+            onRelease={() => socket.emit("agent:release-chat", { sessionId: selectedSessionId })}
+            onRequestControl={() => socket.emit("agent:request-control", { sessionId: selectedSessionId })}
           />
         </div>
       </div>

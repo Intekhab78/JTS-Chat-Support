@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { Globe, Plus, Trash2, Copy, Check, Settings, Code, Palette, X } from "lucide-react";
+import { Globe, Plus, Trash2, Copy, Check, Settings, Code, Palette, X, Network } from "lucide-react";
 import { api, getApiBase } from "../api/client.js";
 import WidgetCustomizer from "./WidgetCustomizer.jsx";
+import FlowBuilder from "./FlowBuilder.jsx";
 import PaginationControls from "./PaginationControls.jsx";
 import { getPaginationMeta } from "../utils/pagination.js";
 
@@ -46,13 +47,18 @@ export default function WebsiteManager() {
     accentColor: "#f59e0b",
     launcherIcon: "💬",
     welcomeMessage: "Hi there! How can we help you today?",
-    awayMessage: "Hello! We're currently offline, but if you leave a message, we'll get back to you shortly.",
-    quickReplies: [],
     isActive: true,
+    enableChat: true,
+    enableLeadGeneration: true,
+    enableTicketing: true,
+    enableKnowledgeBase: true,
+    enableLiveAgent: true,
+    enableAutomation: true,
     businessHours: createDefaultBusinessHours(),
     webhooks: []
   });
   const [customizingWebsite, setCustomizingWebsite] = useState(null);
+  const [buildingFlowWebsite, setBuildingFlowWebsite] = useState(null);
   const [page, setPage] = useState(1);
   const [widgetBaseUrl, setWidgetBaseUrl] = useState("");
 
@@ -92,9 +98,13 @@ export default function WebsiteManager() {
       accentColor: "#f59e0b",
       launcherIcon: "💬",
       welcomeMessage: "Hi there! How can we help you today?",
-      awayMessage: "Hello! We're currently offline, but if you leave a message, we'll get back to you shortly.",
-      quickReplies: [],
       isActive: true,
+      enableChat: true,
+      enableLeadGeneration: true,
+      enableTicketing: true,
+      enableKnowledgeBase: true,
+      enableLiveAgent: true,
+      enableAutomation: true,
       businessHours: createDefaultBusinessHours(),
       webhooks: []
     });
@@ -109,9 +119,13 @@ export default function WebsiteManager() {
       accentColor: website.accentColor || "#f59e0b",
       launcherIcon: website.launcherIcon || "💬",
       welcomeMessage: website.welcomeMessage || "Hi there! How can we help you today?",
-      awayMessage: website.awayMessage || "Hello! We're currently offline, but if you leave a message, we'll get back to you shortly.",
-      quickReplies: website.quickReplies || [],
       isActive: website.isActive !== false,
+      enableChat: website.enableChat !== false,
+      enableLeadGeneration: website.enableLeadGeneration !== false,
+      enableTicketing: website.enableTicketing !== false,
+      enableKnowledgeBase: website.enableKnowledgeBase !== false,
+      enableLiveAgent: website.enableLiveAgent !== false,
+      enableAutomation: website.enableAutomation !== false,
       businessHours: website.businessHours || createDefaultBusinessHours(),
       webhooks: website.webhooks || []
     });
@@ -189,7 +203,7 @@ export default function WebsiteManager() {
                   {data.launcherIcon}
                 </div>
                 <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/5 p-3.5 rounded-2xl rounded-tl-sm text-[11px] text-slate-700 dark:text-slate-200 shadow-sm leading-relaxed font-bold">
-                  {data.awayMessage || 'Initiating support protocol...'}
+                  Initiating support protocol...
                 </div>
               </div>
             </div>
@@ -213,24 +227,50 @@ export default function WebsiteManager() {
 
   if (customizingWebsite) {
     return (
-      <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-700">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-1.5">
-            <h3 className="heading-md dark:text-white">Design Synthesis: {customizingWebsite.websiteName}</h3>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">Live branding engine for distributed widget deployment.</p>
+      <div className="space-y-10 animate-in fade-in duration-1000">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="heading-xl dark:text-white">Design System</h2>
+            <p className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-2">Customizing <span className="text-indigo-500">{customizingWebsite.websiteName}</span></p>
           </div>
           <button
             onClick={() => setCustomizingWebsite(null)}
-            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 text-slate-600 dark:text-slate-400 px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-950 hover:text-white transition-all shadow-sm"
+            className="w-14 h-14 rounded-[24px] bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-white/5 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 hover:border-red-100 dark:hover:border-red-500/20 transition-all hover:rotate-90 hover:scale-110 shadow-sm"
           >
-            Return to Fleet
+            <X size={24} />
           </button>
         </div>
         <WidgetCustomizer
           website={customizingWebsite}
           onUpdate={(updated) => {
+            setWebsites(websites.map(w => w._id === updated._id ? updated : w));
             setCustomizingWebsite(updated);
-            fetchWebsites();
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (buildingFlowWebsite) {
+    return (
+      <div className="space-y-10 animate-in fade-in duration-1000">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="heading-xl dark:text-white">Flow Builder</h2>
+            <p className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-2">Configure Bot Routing for <span className="text-indigo-500">{buildingFlowWebsite.websiteName}</span></p>
+          </div>
+          <button
+            onClick={() => setBuildingFlowWebsite(null)}
+            className="w-14 h-14 rounded-[24px] bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-white/5 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 hover:border-red-100 dark:hover:border-red-500/20 transition-all hover:rotate-90 hover:scale-110 shadow-sm"
+          >
+            <X size={24} />
+          </button>
+        </div>
+        <FlowBuilder
+          website={buildingFlowWebsite}
+          onUpdate={(updated) => {
+            setWebsites(websites.map(w => w._id === updated._id ? updated : w));
+            setBuildingFlowWebsite(updated);
           }}
         />
       </div>
@@ -281,85 +321,10 @@ export default function WebsiteManager() {
                     />
                   </div>
                 </div>
-                <div className="space-y-8">
-                  <div className="space-y-3">
-                    <label className="small-label dark:text-slate-400">Auto-Responder Signal</label>
-                    <textarea
-                      value={formData.awayMessage}
-                      onChange={(e) => setFormData({ ...formData, awayMessage: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-6 py-4.5 text-xs font-bold focus:border-indigo-500/50 outline-none transition-all h-[155px] resize-none text-slate-600 dark:text-slate-300 shadow-inner leading-relaxed"
-                      required
-                    />
-                  </div>
-                </div>
+
               </div>
 
-              {/* Quick Replies Section */}
-              <div className="pt-10 border-t border-slate-50 dark:border-white/5 space-y-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <label className="small-label dark:text-slate-400">Quick Replies & Auto-Responders</label>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Predefined pills that visitors can click to send/get info.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, quickReplies: [...formData.quickReplies, { text: "", autoResponse: "" }] })}
-                    className="bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
-                  >
-                    Add Pillar
-                  </button>
-                </div>
 
-                <div className="space-y-4">
-                  {formData.quickReplies.map((qr, idx) => (
-                    <div key={idx} className="flex items-start gap-4 p-6 bg-slate-50 dark:bg-black/20 rounded-[28px] border border-slate-100 dark:border-white/5 group relative animate-in slide-in-from-right-2 duration-300">
-                      <div className="flex-1 space-y-4">
-                        <div className="space-y-2">
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Button Text (Visitor Sees)</span>
-                          <input
-                            value={qr.text}
-                            onChange={(e) => {
-                              const newQR = [...formData.quickReplies];
-                              newQR[idx].text = e.target.value;
-                              setFormData({ ...formData, quickReplies: newQR });
-                            }}
-                            placeholder="e.g. Pricing Details?"
-                            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 text-[11px] font-black outline-none focus:border-indigo-500 transition-all shadow-sm"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Auto-Response (System Replies) — Optional</span>
-                          <textarea
-                            value={qr.autoResponse}
-                            onChange={(e) => {
-                              const newQR = [...formData.quickReplies];
-                              newQR[idx].autoResponse = e.target.value;
-                              setFormData({ ...formData, quickReplies: newQR });
-                            }}
-                            placeholder="e.g. Our basic plan starts at $29/mo..."
-                            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 text-[10px] font-bold outline-none focus:border-indigo-500 transition-all shadow-sm h-20 resize-none leading-relaxed"
-                          />
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newQR = formData.quickReplies.filter((_, i) => i !== idx);
-                          setFormData({ ...formData, quickReplies: newQR });
-                        }}
-                        className="mt-6 p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))}
-                  {formData.quickReplies.length === 0 && (
-                    <div className="py-10 text-center border-2 border-dashed border-slate-100 dark:border-white/5 rounded-[32px]">
-                      <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">No interactive pillars defined.</p>
-                    </div>
-                  )}
-                </div>
-              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                 <div className="space-y-4">
@@ -408,7 +373,6 @@ export default function WebsiteManager() {
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="small-label dark:text-slate-400">Business Hours</label>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Offline form appears automatically when closed.</p>
                   </div>
                   <button
                     type="button"
@@ -422,15 +386,20 @@ export default function WebsiteManager() {
                   </button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <input
+                  <select
                     value={formData.businessHours?.timezone || "Asia/Kolkata"}
                     onChange={(e) => setFormData({
                       ...formData,
                       businessHours: { ...formData.businessHours, timezone: e.target.value }
                     })}
                     className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-6 py-4 text-xs font-black"
-                    placeholder="Timezone, e.g. Asia/Kolkata"
-                  />
+                  >
+                    {(Intl.supportedValuesOf ? Intl.supportedValuesOf('timeZone') : [
+                      "Asia/Kolkata", "UTC", "America/New_York", "Europe/London", "Asia/Tokyo", "Australia/Sydney", "America/Los_Angeles", "Europe/Paris"
+                    ]).map(tz => (
+                      <option key={tz} value={tz}>{tz}</option>
+                    ))}
+                  </select>
                   <div className="grid grid-cols-2 gap-3">
                     <input
                       type="time"
@@ -457,6 +426,35 @@ export default function WebsiteManager() {
                       className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-4 py-4 text-xs font-black"
                     />
                   </div>
+                </div>
+              </div>
+
+              <div className="pt-10 border-t border-slate-50 dark:border-white/5 space-y-6">
+                <div className="space-y-1">
+                  <label className="small-label dark:text-slate-400">Enterprise Modules</label>
+                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Enable or disable specific features for this website.</p>
+                </div>
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[
+                    { key: "enableChat", label: "Live Chat" },
+                    { key: "enableLeadGeneration", label: "Lead Gen (CRM)" },
+                    { key: "enableTicketing", label: "Ticketing" },
+                    { key: "enableKnowledgeBase", label: "Help Center" },
+                    { key: "enableLiveAgent", label: "Live Agents" },
+                    { key: "enableAutomation", label: "Automations" },
+                  ].map((feat) => (
+                    <button
+                      key={feat.key}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, [feat.key]: !formData[feat.key] })}
+                      className={`flex flex-col items-start gap-3 p-4 rounded-[20px] border-2 transition-all ${formData[feat.key] ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-50 dark:bg-black/20 border-slate-100 dark:border-white/5 opacity-60'}`}
+                    >
+                      <div className={`w-3 h-3 rounded-full ${formData[feat.key] ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-300 dark:bg-slate-700'}`} />
+                      <span className={`text-[10px] font-black uppercase tracking-widest ${formData[feat.key] ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400'}`}>
+                        {feat.label}
+                      </span>
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -573,10 +571,25 @@ export default function WebsiteManager() {
               </div>
               <div className="flex flex-wrap gap-4 relative z-10 shrink-0">
                 <button
-                  onClick={() => setCustomizingWebsite(website)}
+                  onClick={async () => {
+                    try {
+                      // Fetch fully-populated website (with activeFlowId.nodes) before opening Flow Builder
+                      const populated = await api(`/api/websites/${website._id}`);
+                      setBuildingFlowWebsite(populated);
+                    } catch {
+                      // Fallback to existing data if fetch fails
+                      setBuildingFlowWebsite(website);
+                    }
+                  }}
                   className="px-8 py-4.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[11px] uppercase tracking-[0.2em] transition-all shadow-xl shadow-indigo-500/10 flex items-center gap-3 hover:scale-105 active:scale-95"
                 >
-                  <Palette size={16} /> Design System
+                  <Network size={16} /> Flow Builder
+                </button>
+                <button
+                  onClick={() => setCustomizingWebsite(website)}
+                  className="px-8 py-4.5 rounded-2xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black text-[11px] uppercase tracking-[0.2em] hover:bg-slate-950 dark:hover:bg-black hover:text-white transition-all shadow-sm border border-slate-200 dark:border-white/5 flex items-center gap-3 hover:scale-105 active:scale-95"
+                >
+                  <Palette size={16} /> Design
                 </button>
                 <button
                   onClick={() => handleEdit(website)}

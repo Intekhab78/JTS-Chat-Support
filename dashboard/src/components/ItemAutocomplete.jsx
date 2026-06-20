@@ -203,7 +203,7 @@ export function ItemAutocomplete({ value, onChange, onSelect, websiteId, placeho
             ))
           ) : (
             <li className="p-4 text-center">
-              <p className="text-[11px] font-bold text-slate-500 mb-3">No matching items found.</p>
+              <p className="text-[11px] font-bold text-slate-500 mb-3">You don't have any records yet. Create your first item to get started..</p>
               {onCreateNew && (
                 <button
                   type="button"

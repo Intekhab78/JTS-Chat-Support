@@ -47,6 +47,8 @@ export default function AgentPage() {
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [sessionSearch, setSessionSearch] = useState("");
   const [typingSessions, setTypingSessions] = useState({});
+  const [sessionViewers, setSessionViewers] = useState({});
+  const [typingAgents, setTypingAgents] = useState({});
   const [ticketModal, setTicketModal] = useState(false);
   const [ticketForm, setTicketForm] = useState({ subject: "", priority: "medium", crmStage: "none" });
   const [ticketResult, setTicketResult] = useState(null);
@@ -175,10 +177,30 @@ export default function AgentPage() {
       }
     });
 
-    socket.on("chat:typing", ({ sessionId, isTyping, sender }) => {
+    socket.on("chat:typing", ({ sessionId, isTyping, sender, agentId, agentName }) => {
       if (sender === "visitor") {
         setTypingSessions(prev => ({ ...prev, [sessionId]: isTyping }));
+      } else if (sender === "agent") {
+        if (agentId !== user?._id) {
+          setTypingAgents(prev => ({
+            ...prev,
+            [sessionId]: isTyping ? { agentId, agentName } : null
+          }));
+        }
       }
+    });
+
+    socket.on("presence:viewers", ({ sessionId, viewers }) => {
+      setSessionViewers(prev => ({ ...prev, [sessionId]: viewers }));
+    });
+
+    socket.on("chat:control-requested", ({ sessionId, requestedBy }) => {
+      setToast({
+        show: true,
+        message: `${requestedBy.name} (${requestedBy.role}) has requested control of this conversation. Please release the chat if you want to hand it over.`,
+        type: "warning"
+      });
+      NotificationService.notify("Control Requested", `${requestedBy.name} is requesting control of the chat.`);
     });
 
     socket.on("chat:delivered", ({ messageId }) => {
@@ -217,6 +239,15 @@ export default function AgentPage() {
       loadSessions();
     });
 
+    socket.on("chat:intelligence-updated", ({ sessionId, sentimentScore, sentimentLabel, aiSummary }) => {
+      setSessions(prev => prev.map(s => {
+        if (s.sessionId === sessionId) {
+          return { ...s, sentimentScore, sentimentLabel, aiSummary };
+        }
+        return s;
+      }));
+    });
+
     socket.on("visitor:status", ({ sessionId, isOnline, lastActiveAt }) => {
       setSessions(prev => prev.map(s => {
         const targetId = sessionId || selectedSessionIdRef.current;
@@ -237,7 +268,10 @@ export default function AgentPage() {
       socket.off("chat:read");
       socket.off("chat:assigned");
       socket.off("chat:session-updated");
+      socket.off("chat:intelligence-updated");
+      socket.off("presence:viewers");
       socket.off("visitor:status");
+      socket.off("chat:control-requested");
     };
   }, [user?._id, socket]);
 
@@ -573,9 +607,15 @@ export default function AgentPage() {
           onSend={sendMessage}
           onTyping={sendTyping}
           isTyping={typingSessions[selectedSessionId]}
+          viewers={sessionViewers[selectedSessionId] || []}
+          typingAgent={typingAgents[selectedSessionId]}
+          currentUser={user}
           onConvertToTicket={isBasicUser || !canUseTickets ? null : () => { setTicketModal(true); setTicketResult(null); }}
           canUseShortcuts={!isBasicUser && canUseShortcuts}
           disabled={!user?.isAvailable}
+          onTakeOver={() => socket.emit("agent:take-over-chat", { sessionId: selectedSessionId })}
+          onRelease={() => socket.emit("agent:release-chat", { sessionId: selectedSessionId })}
+          onRequestControl={() => socket.emit("agent:request-control", { sessionId: selectedSessionId })}
         />
 
         {selectedSession && (

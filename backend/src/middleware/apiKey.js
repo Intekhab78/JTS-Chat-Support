@@ -8,7 +8,7 @@ export async function requireWebsiteApiKey(req, res, next) {
     return res.status(401).json({ message: "API key is required" });
   }
 
-  const website = await Website.findOne({ apiKey });
+  const website = await Website.findOne({ apiKey }).populate("activeFlowId");
   if (!website) {
     return res.status(401).json({ message: "Invalid API key" });
   }

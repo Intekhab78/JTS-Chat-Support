@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createAgent, listAgents, updateAvailability, listClients, createClient, updateProfile, updateAgent, deleteAgent, getClientDetails } from "../controllers/userController.js";
+import { createAgent, listAgents, updateAvailability, listClients, createClient, updateProfile, updateDashboardPreferences, updateAgent, deleteAgent, getClientDetails } from "../controllers/userController.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 
 const router = Router();
@@ -13,5 +13,6 @@ router.get("/clients/:id/details", requireAuth, requireRole("admin"), getClientD
 router.post("/clients", requireAuth, requireRole("admin"), createClient);
 router.patch("/availability", requireAuth, requireRole("agent", "sales", "user", "client", "admin"), updateAvailability);
 router.patch("/profile", requireAuth, updateProfile);
+router.patch("/preferences", requireAuth, updateDashboardPreferences);
 
 export default router;

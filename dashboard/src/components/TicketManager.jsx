@@ -674,7 +674,6 @@ export default function TicketManager({ websiteId }) {
                         <div className="inline-flex min-w-max gap-2 rounded-[22px] border border-slate-200/80 bg-white/85 p-1.5 shadow-sm dark:bg-white/5 dark:border-white/5">
                            {[
                               { key: "all", label: "All Messages" },
-                              { key: "web", label: "Offline Messages" },
                               { key: "chat", label: "Live Chat Tickets" },
                               { key: "email", label: "Email Tickets" }
                            ].map((channel) => (

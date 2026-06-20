@@ -315,7 +315,46 @@ export async function processChatIntelligence(sessionId) {
     session.sentimentScore = normalizedScore;
     session.sentimentLabel = label;
     session.aiSummary = summary;
+    
+    // Track history timeline
+    session.sentimentHistory.push({
+      score: normalizedScore,
+      label: label,
+      timestamp: new Date()
+    });
+    if (session.sentimentHistory.length > 50) {
+      session.sentimentHistory.shift();
+    }
     await session.save();
+
+    // Trigger supervisor de-escalation suggest alert if sentiment < -0.6
+    if (normalizedScore < -0.6) {
+      try {
+        const populatedSession = await ChatSession.findById(session._id).populate("websiteId");
+        if (populatedSession && populatedSession.websiteId) {
+          const managerId = populatedSession.websiteId.managerId;
+          if (managerId) {
+            const { getIo } = await import("../sockets/index.js");
+            const io = getIo();
+            if (io) {
+              const { createNotification } = await import("./notificationService.js");
+              const notif = await createNotification({
+                recipient: managerId,
+                type: "system_alert",
+                title: "Critical Sentiment Alert",
+                message: `Customer sentiment is critical (${label}, score: ${normalizedScore.toFixed(2)}) on chat session ${session.sessionId}. Supervisor de-escalation recommended.`,
+                link: `/client?tab=chats&sessionId=${session.sessionId}`
+              });
+              if (notif) {
+                io.to(`us_${managerId}`).emit("notification:new", notif);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to generate supervisor alert notification:", err);
+      }
+    }
 
     return { sentimentScore: normalizedScore, sentimentLabel: label, aiSummary: summary };
   } catch (error) {

@@ -75,68 +75,7 @@ export async function createManagerTicketNotification(ticket) {
   });
 }
 
-export async function createTicketFromOfflineSession(session, { reason = "offline_message_timeout" } = {}) {
-  if (!session || session.offlineTicketGeneratedAt) return null;
 
-  const populatedSession = await session.populate([
-    { path: "visitorId", select: "name email visitorId" },
-    { path: "websiteId", select: "websiteName domain managerId" }
-  ]);
-
-  const websiteId = populatedSession.websiteId?._id || populatedSession.websiteId;
-  const managerId = populatedSession.websiteId?.managerId || null;
-  const visitor = populatedSession.visitorId || null;
-  const autoAssignedAgent = managerId
-    ? await findAvailableAgent({
-        managerId,
-        websiteId,
-        category: "general",
-        roles: ["agent", "sales", "user"]
-      })
-    : null;
-
-  const ticket = new Ticket({
-    ticketId: buildTicketId(),
-    shareToken: crypto.randomBytes(12).toString("hex"),
-    websiteId,
-    visitorId: visitor?._id || visitor || null,
-    customerId: populatedSession.customerId || null,
-    crn: populatedSession.crn || null,
-    assignedAgent: autoAssignedAgent?._id || null,
-    subject: `Offline message follow-up${populatedSession.websiteId?.websiteName ? ` - ${populatedSession.websiteId.websiteName}` : ""}`,
-    priority: inferTicketPriority({
-      subject: populatedSession.lastMessagePreview || "Offline message follow-up",
-      note: populatedSession.lastMessagePreview || ""
-    }),
-    status: "open",
-    lastMessagePreview: populatedSession.lastMessagePreview || "",
-    channel: "web",
-    department: "general"
-  });
-  Object.assign(ticket, buildTicketSlaFields(ticket.priority, new Date()));
-
-  if (ticket.assignedAgent) {
-    pushAssignmentHistory(ticket, {
-      assignedAgentId: ticket.assignedAgent,
-      assignedBy: null,
-      reason: "offline_timeout_auto_assignment"
-    });
-  }
-
-  await ticket.save();
-  await syncSalesOwnerFromTicket(ticket, null, "offline_timeout_auto_assignment");
-  await notifyAssignedAgent(ticket);
-  await createManagerTicketNotification(ticket);
-  await dispatchWebsiteWebhook(ticket.websiteId, "ticket.created", {
-    ticketId: ticket.ticketId,
-    status: ticket.status,
-    subject: ticket.subject,
-    channel: ticket.channel,
-    source: reason
-  });
-
-  return ticket;
-}
 
 export async function shareTicketLinkInChat({ session, ticket, actor }) {
   if (!session?._id || !ticket?.ticketId) return;
@@ -163,5 +102,33 @@ export async function shareTicketLinkInChat({ session, ticket, actor }) {
   const io = getSocketServer();
   if (io) {
     io.to(session.sessionId).emit("chat:message", payload);
+  }
+}
+
+export async function autoAssignTicket(ticket) {
+  try {
+    const website = await Website.findById(ticket.websiteId);
+    if (!website) return;
+
+    const agent = await findAvailableAgent({
+      managerId: website.managerId,
+      websiteId: website._id,
+      category: ticket.category || ticket.department || "general"
+    });
+
+    if (agent) {
+      ticket.assignedAgent = agent._id;
+      ticket.assignedAt = new Date();
+      if (!ticket.assignmentHistory) ticket.assignmentHistory = [];
+      ticket.assignmentHistory.push({
+        assignedAgent: agent._id,
+        reason: "auto_assignment_round_robin",
+        assignedAt: new Date()
+      });
+      await ticket.save();
+      console.log(`[TicketAutoAssign] Ticket ${ticket.ticketId} auto-assigned to agent: ${agent.name}`);
+    }
+  } catch (err) {
+    console.error("[TicketAutoAssign] Auto-assignment failed:", err);
   }
 }

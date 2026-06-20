@@ -72,7 +72,7 @@ async function createAndEmitNotification(io, { recipient, type, title, message, 
 // Automated Queue Processor
 async function processQueue(io) {
   try {
-    const queuedSessions = await ChatSession.find({ status: "queued", offlineMessagePending: { $ne: true } }).sort({ createdAt: 1 });
+    const queuedSessions = await ChatSession.find({ status: "queued" }).sort({ createdAt: 1 });
     for (const session of queuedSessions) {
       const website = await Website.findById(session.websiteId);
       if (!website) continue;
@@ -90,6 +90,13 @@ async function processQueue(io) {
           agentName: agent.name
         });
         io.to(`us_${agent._id}`).emit("chat:assigned", { sessionId: session.sessionId });
+        
+        try {
+          io.emit("chat:assigned", {
+            message: `Agent ${agent.name} assigned to chat session`,
+            user: agent.name
+          });
+        } catch (err) {}
 
         await createAndEmitNotification(io, {
           recipient: agent._id,
@@ -107,6 +114,31 @@ async function processQueue(io) {
     }
   } catch (err) {
     console.error("Queue Processing Error:", err);
+  }
+}
+
+async function broadcastSessionPresence(io, sessionId) {
+  try {
+    const sockets = await io.in(sessionId).fetchSockets();
+    const viewers = [];
+    const seen = new Set();
+    for (const s of sockets) {
+      if ((s.data.type === "agent" || s.data.type === "owner") && s.data.user) {
+        const userId = s.data.user._id.toString();
+        if (!seen.has(userId)) {
+          seen.add(userId);
+          viewers.push({
+            _id: s.data.user._id,
+            name: s.data.user.name,
+            role: s.data.user.role,
+            viewingTimeSec: Math.floor((Date.now() - (s.data.joinTime || Date.now())) / 1000)
+          });
+        }
+      }
+    }
+    io.to(sessionId).emit("presence:viewers", { sessionId, viewers });
+  } catch (err) {
+    console.error("Error broadcasting presence:", err);
   }
 }
 
@@ -210,15 +242,139 @@ export function createSocketServer(httpServer) {
       processQueue(io);
     }
 
-    socket.on("agent:join-session", ({ sessionId }) => {
-      const NON_SESSION_PREFIXES = ["ws_", "us_", "visitor_"];
+    socket.on("agent:join-session", async ({ sessionId }) => {
+      const NON_SESSION_PREFIXES = ["ws_", "us_", "visitor_", "lead_"];
+      const leftRooms = [];
       for (const room of socket.rooms) {
         if (room === socket.id) continue;
         if (room === sessionId) continue;
         if (NON_SESSION_PREFIXES.some(p => room.startsWith(p))) continue;
         socket.leave(room);
+        leftRooms.push(room);
       }
+      
+      socket.data.joinTime = Date.now();
       socket.join(sessionId);
+      
+      await broadcastSessionPresence(io, sessionId);
+      for (const room of leftRooms) {
+        await broadcastSessionPresence(io, room);
+      }
+    });
+
+    socket.on("agent:take-over-chat", async ({ sessionId }) => {
+      try {
+        const { user } = socket.data;
+        if (!user) return;
+        const session = await ChatSession.findOne({ sessionId });
+        if (!session) return;
+
+        session.assignedAgent = user._id;
+        session.status = "active";
+        session.acceptedAt = new Date();
+        await session.save();
+
+        const populated = await ChatSession.findById(session._id)
+          .populate("websiteId", "websiteName domain managerId")
+          .populate("visitorId", "visitorId name email")
+          .populate("assignedAgent", "name email role isOnline");
+
+        emitSessionUpdate(populated);
+        io.to(sessionId).emit("chat:assigned", { sessionId, agentName: user.name });
+        
+        await logAuditEvent({
+          actor: user,
+          action: "chat.taken_over",
+          entityType: "chat_session",
+          entityId: session._id,
+          websiteId: session.websiteId,
+          metadata: { sessionId }
+        });
+      } catch (err) {
+        console.error("Takeover error:", err);
+      }
+    });
+
+    socket.on("agent:release-chat", async ({ sessionId }) => {
+      try {
+        const { user } = socket.data;
+        if (!user) return;
+        const session = await ChatSession.findOne({ sessionId });
+        if (!session) return;
+
+        session.assignedAgent = null;
+        await session.save();
+
+        const populated = await ChatSession.findById(session._id)
+          .populate("websiteId", "websiteName domain managerId")
+          .populate("visitorId", "visitorId name email")
+          .populate("assignedAgent", "name email role isOnline");
+
+        emitSessionUpdate(populated);
+        io.to(sessionId).emit("chat:assigned", { sessionId, agentName: null });
+
+        await logAuditEvent({
+          actor: user,
+          action: "chat.released",
+          entityType: "chat_session",
+          entityId: session._id,
+          websiteId: session.websiteId,
+          metadata: { sessionId }
+        });
+      } catch (err) {
+        console.error("Release error:", err);
+      }
+    });
+
+    socket.on("agent:request-control", async ({ sessionId }) => {
+      try {
+        const { user } = socket.data;
+        if (!user) return;
+        const session = await ChatSession.findOne({ sessionId }).populate("assignedAgent");
+        if (!session || !session.assignedAgent) return;
+
+        const currentAgentId = session.assignedAgent._id.toString();
+        io.to(`us_${currentAgentId}`).emit("chat:control-requested", {
+          sessionId,
+          requestedBy: {
+            _id: user._id,
+            name: user.name,
+            role: user.role
+          }
+        });
+      } catch (err) {
+        console.error("Request control error:", err);
+      }
+    });
+
+    socket.on("disconnecting", async () => {
+      const NON_SESSION_PREFIXES = ["ws_", "us_", "visitor_", "lead_"];
+      for (const room of socket.rooms) {
+        if (room === socket.id) continue;
+        if (NON_SESSION_PREFIXES.some(p => room.startsWith(p))) continue;
+        try {
+          const sockets = await io.in(room).fetchSockets();
+          const viewers = [];
+          const seen = new Set();
+          for (const s of sockets) {
+            if (s.id === socket.id) continue;
+            if ((s.data.type === "agent" || s.data.type === "owner") && s.data.user) {
+              const userId = s.data.user._id.toString();
+              if (!seen.has(userId)) {
+                seen.add(userId);
+                viewers.push({
+                  _id: s.data.user._id,
+                  name: s.data.user.name,
+                  role: s.data.user.role
+                });
+              }
+            }
+          }
+          socket.to(room).emit("presence:viewers", { sessionId: room, viewers });
+        } catch (err) {
+          console.error("Error broadcasting disconnecting presence:", err);
+        }
+      }
     });
 
     socket.on("visitor:join-room", ({ sessionId }) => {
@@ -250,7 +406,12 @@ export function createSocketServer(httpServer) {
     });
 
     socket.on("agent:typing", ({ sessionId, isTyping }) => {
-      socket.to(sessionId).emit("chat:typing", { isTyping, sender: "agent" });
+      socket.to(sessionId).emit("chat:typing", { 
+        isTyping, 
+        sender: "agent",
+        agentId: socket.data.user?._id,
+        agentName: socket.data.user?.name
+      });
     });
 
     socket.on("visitor:message", async ({ sessionId, message, attachmentUrl = null, attachmentType = null, tempId = null }) => {
@@ -277,6 +438,13 @@ export function createSocketServer(httpServer) {
             emitSessionUpdate(await ChatSession.findById(session._id).populate("websiteId", "websiteName domain managerId").populate("visitorId", "visitorId name email").populate("assignedAgent", "name email role isOnline"));
             io.to(`us_${agent._id}`).emit("chat:assigned", { sessionId: session.sessionId });
             io.to(session.sessionId).emit("chat:assigned", { sessionId: session.sessionId, agentName: agent.name });
+            
+            try {
+              io.emit("chat:assigned", {
+                message: `Agent ${agent.name} assigned to chat session`,
+                user: agent.name
+              });
+            } catch (err) {}
             await createAndEmitNotification(io, {
               recipient: agent._id,
               type: "new_chat",
@@ -314,6 +482,26 @@ export function createSocketServer(httpServer) {
         if (session.assignedAgent) {
           io.to(`us_${session.assignedAgent._id || session.assignedAgent}`).emit("chat:message", payload);
         }
+
+        // Run intelligence processing in real-time
+        try {
+          const intel = await processChatIntelligence(sessionId);
+          if (intel) {
+            const intelPayload = {
+              sessionId,
+              sentimentScore: intel.sentimentScore,
+              sentimentLabel: intel.sentimentLabel,
+              aiSummary: intel.aiSummary
+            };
+            io.to(session.sessionId).emit("chat:intelligence-updated", intelPayload);
+            io.to(`ws_${session.websiteId._id}`).emit("chat:intelligence-updated", intelPayload);
+            if (session.assignedAgent) {
+              io.to(`us_${session.assignedAgent._id || session.assignedAgent}`).emit("chat:intelligence-updated", intelPayload);
+            }
+          }
+        } catch (intelErr) {
+          console.error("Error processing real-time chat intelligence (visitor):", intelErr);
+        }
       } catch (err) {
         console.error("[VISITOR_FATAL]:", err);
       }
@@ -340,7 +528,6 @@ export function createSocketServer(httpServer) {
           session.assignedAgent = user._id;
           session.acceptedAt = new Date();
         }
-        session.offlineMessagePending = false;
         await session.save();
         emitSessionUpdate(await ChatSession.findById(session._id).populate("websiteId", "websiteName domain managerId").populate("visitorId", "visitorId name email").populate("assignedAgent", "name email role isOnline"));
 
@@ -370,6 +557,26 @@ export function createSocketServer(httpServer) {
         socket.broadcast.to(session.sessionId).emit("chat:message", payload);
         io.to(`ws_${session.websiteId._id}`).emit("chat:new-message", payload);
         broadcastStatsUpdate(io, session.websiteId._id, session.websiteId.managerId);
+
+        // Run intelligence processing in real-time
+        try {
+          const intel = await processChatIntelligence(sessionId);
+          if (intel) {
+            const intelPayload = {
+              sessionId,
+              sentimentScore: intel.sentimentScore,
+              sentimentLabel: intel.sentimentLabel,
+              aiSummary: intel.aiSummary
+            };
+            io.to(session.sessionId).emit("chat:intelligence-updated", intelPayload);
+            io.to(`ws_${session.websiteId._id}`).emit("chat:intelligence-updated", intelPayload);
+            if (session.assignedAgent) {
+              io.to(`us_${session.assignedAgent._id || session.assignedAgent}`).emit("chat:intelligence-updated", intelPayload);
+            }
+          }
+        } catch (intelErr) {
+          console.error("Error processing real-time chat intelligence (agent):", intelErr);
+        }
       } catch (err) {
         console.error("[AGENT_FATAL]:", err);
       }
@@ -436,4 +643,11 @@ export function createSocketServer(httpServer) {
   });
 
   return io;
+}
+
+export function getIo() {
+  if (!ioInstance) {
+    logger.warn("getIo called but socket.io is not initialized yet");
+  }
+  return ioInstance;
 }

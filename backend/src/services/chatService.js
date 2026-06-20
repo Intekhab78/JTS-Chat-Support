@@ -8,6 +8,7 @@ import { incrementActiveChats, incrementResolvedChats, incrementVisitors, update
 import { getOrCreateCustomer, findDefaultCrmOwner } from "./customerService.js";
 import geoip from "geoip-lite";
 import { UAParser } from "ua-parser-js";
+import { getSocketServer } from "../sockets/index.js";
 
 export async function registerVisitor({ website, visitorToken, ipAddress, deviceInfo, name, email }) {
   // Strip literal "undefined" / "null" strings that may come from the widget
@@ -156,6 +157,13 @@ export async function findOrCreateSession({ website, visitor, currentPage = "", 
   });
 
   await incrementActiveChats(website._id, 1);
+
+  try {
+    getSocketServer().emit("chat:started", {
+      message: `New chat session started`,
+      user: visitor.name || "Anonymous Visitor"
+    });
+  } catch (err) {}
 
   return ChatSession.findById(session._id).populate("assignedAgent", "name email isOnline");
 }

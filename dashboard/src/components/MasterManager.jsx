@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Edit2, Trash2, Plus, X, Save, RefreshCw } from "lucide-react";
 import { api } from "../api/client.js";
+import EmptyState from "./EmptyState.jsx";
 
 export default function MasterManager({ type, websiteId, title, label }) {
   const [items, setItems] = useState([]);
@@ -164,7 +165,7 @@ export default function MasterManager({ type, websiteId, title, label }) {
               {loading ? (
                 <tr><td colSpan={type === "subcategory" ? 5 : 4} className="py-10 text-center text-[10px] font-black uppercase tracking-widest text-slate-300">Loading...</td></tr>
               ) : items.length === 0 ? (
-                <tr><td colSpan={type === "subcategory" ? 5 : 4} className="py-10 text-center text-[10px] font-black uppercase tracking-widest text-slate-300">No records found</td></tr>
+                <tr><td colSpan={type === "subcategory" ? 5 : 4} className="py-10 text-center text-[10px] font-black uppercase tracking-widest text-slate-300"><EmptyState /></td></tr>
               ) : items.map((item) => (
                 <tr key={item._id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-4">

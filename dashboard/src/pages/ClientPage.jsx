@@ -22,12 +22,13 @@ import { useToast } from "../context/ToastContext.jsx";
 import DepartmentManager from "../components/DepartmentManager.jsx";
 import CRMManager from "../components/CRMManager.jsx";
 import SecurityCenter from "../components/SecurityCenter.jsx";
-import ReportsCenter from "../components/ReportsCenter.jsx";
+import EnterpriseReportsCenter from "../components/EnterpriseReportsCenter.jsx";
 import RoleManager from "../components/RoleManager.jsx";
 import AdminSubscriptionManager from "../components/AdminSubscriptionManager.jsx";
 import InventoryManager from "../components/InventoryManager.jsx";
 import CustomerManager from "../components/CustomerManager.jsx";
 import BillingPage from "./BillingPage.jsx";
+import ExecutiveFlowDashboard from "../components/ExecutiveFlowDashboard.jsx";
 import { api } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { NotificationService } from "../utils/notifications.js";
@@ -462,6 +463,7 @@ export default function ClientPage() {
       { label: "Categories", href: "/admin?tab=categories" },
       { label: "Shortcuts", href: "/admin?tab=shortcuts" },
       { label: "Reports", href: "/admin?tab=reports" },
+      { label: "Flow Analytics", href: "/admin?tab=flow-analytics" },
       { label: "Historical Archive", href: "/admin?tab=history" },
       { label: "Security", href: "/admin?tab=security" },
       { label: "Subscriptions", href: "/admin?tab=subscriptions" },
@@ -506,6 +508,7 @@ export default function ClientPage() {
 
     if (hasPermission(user, PERMISSIONS.REPORTS_VIEW) && canUseReports) {
       menuItems.push({ label: "Reports", href: "/client?tab=reports" });
+      menuItems.push({ label: "Flow Analytics", href: "/client?tab=flow-analytics" });
     }
 
     if (hasPermission(user, PERMISSIONS.SETTINGS_MANAGE) && canUseSecurity) {
@@ -523,7 +526,13 @@ export default function ClientPage() {
   if (tab === "chats") {
     title = "Conversation Hub";
     subtitle = "Manage real-time agent interactions";
-    content = <ConversationHub socket={socket} initialSessions={sessions} websiteId={selectedWebsiteId} />;
+    content = <ConversationHub socket={socket} initialSessions={sessions} websiteId={selectedWebsiteId} currentUser={user} />;
+  }
+
+  if (tab === "flow-analytics") {
+    title = "Executive Flow Analytics";
+    subtitle = "Aggregated funnel performance, conversion tracking, and drop-off hotspots";
+    content = <ExecutiveFlowDashboard websiteId={selectedWebsiteId} />;
   }
 
   if (tab === "clients") {
@@ -559,15 +568,7 @@ export default function ClientPage() {
   if (tab === "reports" || tab === "analytics") {
     title = "Reports Center";
     subtitle = user?.role === "admin" ? "Global reporting across all clients and websites" : "Professional website-wise business reporting";
-    content = (
-      <ReportsCenter
-        analytics={analytics}
-        selectedWebsiteId={selectedWebsiteId}
-        isAdmin={user?.role === "admin"}
-        reportRange={reportRange}
-        onRangeChange={setReportRange}
-      />
-    );
+    content = <EnterpriseReportsCenter />;
   }
 
   if (tab === "shortcuts") {
@@ -701,7 +702,7 @@ export default function ClientPage() {
   }
 
   // Handle other tabs generically for now
-  if (!["overview", "chats", "websites", "agents", "clients", "reports", "tickets", "shortcuts", "history", "categories", "departments", "crm", "security", "billing", "subscriptions", "roles", "inventory-customer"].includes(tab)) {
+  if (!["overview", "chats", "websites", "agents", "clients", "reports", "tickets", "shortcuts", "history", "categories", "departments", "crm", "security", "billing", "subscriptions", "roles", "inventory-customer", "flow-analytics"].includes(tab)) {
     content = (
       <div className="bg-white p-24 rounded-[40px] border border-slate-200/60 shadow-sm text-center">
         <div className="max-w-xs mx-auto space-y-4">

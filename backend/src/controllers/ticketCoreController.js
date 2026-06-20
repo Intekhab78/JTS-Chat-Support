@@ -17,6 +17,7 @@ import { buildTicketSlaFields } from "../services/automationService.js";
 import { calculateTicketHeatScore, getTicketNBA } from "../services/intelligenceService.js";
 import { normalizeRole } from "../utils/roleUtils.js";
 import { notifyAssignedAgent, notifyVisitorOfTicketUpdate } from "../services/ticketService.js";
+import { getSocketServer } from "../sockets/index.js";
 
 export const getTickets = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.TICKET_VIEW);
@@ -78,6 +79,18 @@ export const updateTicket = asyncHandler(async (req, res) => {
     prevStatus,
     note: note && req.body.noteIsPublic !== false ? note : null
   });
+
+  try {
+    if (status === "resolved" && prevStatus !== "resolved") {
+      getSocketServer().emit("ticket:resolved", {
+        message: `Ticket #${ticket._id.toString().slice(-6)} was resolved`,
+        user: req.user.name
+      });
+    }
+  } catch (err) {
+    console.error("Socket emit failed", err);
+  }
+
   res.json(ticket);
 });
 
@@ -91,14 +104,19 @@ export const deleteTicket = asyncHandler(async (req, res) => {
 });
 
 export const bulkUpdateTickets = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.TICKET_UPDATE);
   const { ticketIds, updates } = req.body;
-  const result = await Ticket.updateMany({ _id: { $in: ticketIds } }, { $set: updates });
+  const filter = await buildTicketScopeFilter(req.user);
+  const result = await Ticket.updateMany({ _id: { $in: ticketIds }, ...filter }, { $set: updates });
   res.json({ success: true, count: result.modifiedCount });
 });
 
 export const bulkDeleteTickets = asyncHandler(async (req, res) => {
+  const role = normalizeRole(req.user.role);
+  if (!["admin", "client", "manager"].includes(role)) throw new AppError("Only managers can delete tickets", 403);
   const { ticketIds } = req.body;
-  const result = await Ticket.deleteMany({ _id: { $in: ticketIds } });
+  const filter = await buildTicketScopeFilter(req.user);
+  const result = await Ticket.deleteMany({ _id: { $in: ticketIds }, ...filter });
   res.json({ success: true, count: result.deletedCount });
 });
 
@@ -114,6 +132,8 @@ export const exportTickets = asyncHandler(async (req, res) => {
 
 export const getTicketActivity = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.ACTIVITY_VIEW);
+  const ticket = await findScopedTicketById(req.params.id, req.user);
+  if (!ticket) throw new AppError("Ticket not found", 404);
   const activity = await listActivityForEntity({ entityType: "ticket", entityId: req.params.id, limit: 100 });
   res.json(activity);
 });

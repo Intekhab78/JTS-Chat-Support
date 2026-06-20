@@ -120,7 +120,7 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
 
     setLoading(true);
     try {
-      const [itemData, movementData, catData, subCatData, sizeData, colorData] = await Promise.all([
+      const [itemData, movementData, catData, subCatData, sizeData, colorData, supplierData] = await Promise.all([
         api(`/api/inventory/items?websiteId=${websiteId}`),
         api(`/api/inventory/movements?websiteId=${websiteId}`),
         api(`/api/inventory/masters/category?websiteId=${websiteId}`),
@@ -137,7 +137,7 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
         subcategories: Array.isArray(subCatData) ? subCatData : [],
         sizes: Array.isArray(sizeData) ? sizeData : [],
         colors: Array.isArray(colorData) ? colorData : [],
-        suppliers: Array.isArray(colorData) ? (await api("/api/procurement/suppliers")) : []
+        suppliers: Array.isArray(supplierData) ? supplierData : []
       });
       setSelectedItemId((current) => {
         if (current && nextItems.some((item) => item._id === current)) return current;
@@ -508,7 +508,7 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                           </div>
                         </div>
 
-                        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+                        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-auto">
                           <table className="w-full table-fixed">
                             <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur">
                               <tr className="text-left">

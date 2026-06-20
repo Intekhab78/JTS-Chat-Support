@@ -15,7 +15,7 @@ import ManagerCrmReports from "../components/ManagerCrmReports.jsx";
 import CustomerManager from "../components/CustomerManager.jsx";
 import InventoryManager from "../components/InventoryManager.jsx";
 import PurchaseProcurementTab from "../components/PurchaseProcurementTab.jsx";
-import ReportsCenter from "../components/ReportsCenter.jsx";
+import EnterpriseReportsCenter from "../components/EnterpriseReportsCenter.jsx";
 import { hasPermission } from "../utils/permissions.js";
 import { PERMISSIONS } from "../constants/domain.js";
 
@@ -454,15 +454,7 @@ export default function ManagerPage() {
         subtitle="Comprehensive operational intelligence"
       >
         <div className="space-y-10">
-          <WebsiteScopeSelector />
-          <ReportsCenter
-            analytics={analytics || {}}
-            selectedWebsiteId={selectedWebsiteId}
-            isAdmin={false}
-            reportRange={reportRange}
-            onRangeChange={(range) => setReportRange(range)}
-          />
-          <ManagerCrmReports websites={websites} websiteId={selectedWebsiteId} />
+          <EnterpriseReportsCenter />
         </div>
       </Layout>
     );

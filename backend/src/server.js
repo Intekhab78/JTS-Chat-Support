@@ -5,6 +5,7 @@ import { env } from "./config/env.js";
 import { connectDatabase } from "./config/database.js";
 import { createSocketServer } from "./sockets/index.js";
 import { startSlaMonitor } from "./services/slaService.js";
+import { startCronJobs } from "./services/cronService.js";
 
 async function bootstrap() {
   try {
@@ -23,6 +24,9 @@ async function bootstrap() {
     const { startStockWatcher } = await import("./services/stockWatcher.js");
     startStockWatcher();
     logger.log("Stock watcher initialized");
+
+    startCronJobs();
+    logger.log("Cron jobs scheduled");
 
     server.on("error", (error) => {
       if (error.code === "EADDRINUSE") {

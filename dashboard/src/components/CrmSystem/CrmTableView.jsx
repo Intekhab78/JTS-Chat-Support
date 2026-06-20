@@ -123,6 +123,11 @@ export default function CrmTableView({
                             )}
                           </div>
                           <p className="text-[10px] text-slate-400 font-bold truncate">{c.email}</p>
+                          {c.requirement && (
+                            <p className="text-[9px] text-indigo-500 font-bold truncate mt-0.5" title={c.requirement}>
+                              {c.requirement}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </td>

@@ -204,6 +204,15 @@ export const createCustomer = asyncHandler(async (req, res) => {
     });
   }
 
+  try {
+    getSocketServer().emit("lead:created", {
+      message: `New CRM record created for ${customer.companyName || customer.name}`,
+      user: customer.name
+    });
+  } catch (err) {
+    console.error("Socket emit failed", err);
+  }
+
   res.status(201).json(customer);
 });
 

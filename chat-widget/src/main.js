@@ -27,6 +27,7 @@ import "./style.css";
   let currentBotNode = "root";
   let botPath = [];
   let botSelections = {};
+  let contextVariables = {};
   let feedbackSent = false;
   let isResetting = false;
   let activePreData = null;
@@ -41,18 +42,7 @@ import "./style.css";
   }
 
   function shouldShowFeedback(config) {
-    return !config?.showOfflineForm;
-  }
-
-  function showOfflineSubmissionSuccess(ui) {
-    ui.feedback.classList.remove("show");
-    ui.prechat.replaceChildren();
-    const message = document.createElement("div");
-    message.style.fontSize = "14px";
-    message.style.color = "var(--csw-text-muted)";
-    message.style.lineHeight = "1.6";
-    message.textContent = "Your message has been submitted. Our team will follow up by email.";
-    ui.prechat.appendChild(message);
+    return true;
   }
 
   function resetFeedbackUI(ui) {
@@ -119,11 +109,8 @@ import "./style.css";
           <label class="csw-prechat-label">Email Address</label>
           <input class="csw-prechat-input" id="csw-pre-email" type="email" placeholder="e.g. john@example.com" required />
         </div>
-        <div class="csw-prechat-field" id="csw-pre-message-field" style="display:none">
-          <label class="csw-prechat-label">Your Message</label>
-          <textarea class="csw-prechat-input" id="csw-pre-message" placeholder="Describe your issue or question..." rows="3" style="resize:none; min-height:80px;"></textarea>
-        </div>
-        <button class="csw-prechat-submit" id="csw-pre-submit">Start Conversation</button>
+
+        <button class="csw-prechat-submit" id="csw-pre-submit">Start Chat</button>
       </div>
       <div id="csw-chat-interface">
         <div id="csw-messages"></div>
@@ -135,16 +122,24 @@ import "./style.css";
           <button id="csw-emoji-btn" type="button" title="Add emoji">😊</button>
           <button id="csw-send" type="submit">&#10148;</button>
         </form>
-        <div id="csw-emoji-picker" style="display:none; position:absolute; bottom:60px; right:10px; background:white; border:1px solid #ccc; border-radius:8px; padding:8px; max-width:200px; z-index:1000;">
-          <div style="display:grid; grid-template-columns:repeat(6,1fr); gap:4px;">
-            😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😛 😝 😜 🤪 🤨 🧐 🤓 😎 🤩 🥳 😏 😒 😞 😔 😟 😕 🙁 ☹️ 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤬 🤯 😳 🥵 🥶 😱 😨 😰 😥 😓 🤗 🤔 🤭 🤫 🤥 😶 😐 😑 😬 🙄 😯 😦 😧 😮 😲 🥱 😴 🤤 😪 😵 🤐 🥴 🤢 🤮 🤧 😷 🤒 🤕 🤑 🤠 😈 👿 👹 👺 🤡 💩 👻 💀 ☠️ 👽 👾 🤖 🎃 😺 😸 😹 😻 😼 😽 🙀 😿 😾
-          </div>
+        <div id="csw-emoji-picker">
+          <div class="csw-emoji-grid" id="csw-emoji-grid"></div>
         </div>
       </div>
     `;
 
     document.body.appendChild(launcher);
     document.body.appendChild(panel);
+
+    const emojiGrid = panel.querySelector("#csw-emoji-grid");
+    const emojis = "😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😛 😝 😜 🤪 🤨 🧐 🤓 😎 🤩 🥳 😏 😒 😞 😔 😟 😕 🙁 ☹️ 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤬 🤯 😳 🥵 🥶 😱 😨 😰 😥 😓 🤗 🤔 🤭 🤫 🤥 😶 😐 😑 😬 🙄 😯 😦 😧 😮 😲 🥱 😴 🤤 😪 😵 🤐 🥴 🤢 🤮 🤧 😷 🤒 🤕 🤑 🤠 😈 👿 👹 👺 🤡 💩 👻 💀 ☠️ 👽 👾 🤖 🎃 😺 😸 😹 😻 😼 😽 🙀 😿 😾".split(" ");
+    emojis.forEach((emoji) => {
+      const btn = document.createElement("button");
+      btn.className = "csw-emoji-item";
+      btn.type = "button";
+      btn.textContent = emoji;
+      emojiGrid.appendChild(btn);
+    });
 
     launcher.onclick = () => panel.classList.toggle("open");
 
@@ -161,8 +156,6 @@ import "./style.css";
       quickReplies: panel.querySelector("#csw-quick-replies"),
       preName: panel.querySelector("#csw-pre-name"),
       preEmail: panel.querySelector("#csw-pre-email"),
-      preMessage: panel.querySelector("#csw-pre-message"),
-      preMessageField: panel.querySelector("#csw-pre-message-field"),
       preSubmit: panel.querySelector("#csw-pre-submit"),
       statusBar: panel.querySelector("#csw-status-bar"),
       headerTitle: panel.querySelector("#csw-header-title"),
@@ -369,14 +362,7 @@ import "./style.css";
     if (status) status.textContent = "Sending";
   }
 
-  function hasHumanAgentReply(messages = []) {
-    return messages.some((msg) => {
-      if (msg.sender !== "agent" || msg.isAi) return false;
-      const senderName = String(msg.senderName || "").trim().toLowerCase();
-      const websiteName = String(latestConfig?.websiteName || "").trim().toLowerCase();
-      return senderName !== "system" && senderName !== websiteName;
-    });
-  }
+
 
   function submitFeedback(ui, rating, comment = "") {
     if (!activeSessionId || feedbackSent) return;
@@ -402,7 +388,7 @@ import "./style.css";
           ui.messages.innerHTML = "";
           ui.prechat.style.display = "block";
           ui.chatInterface.style.display = "none";
-          ui.statusBar.textContent = "Start New Conversation";
+          ui.statusBar.textContent = "Start New Chat";
           ui.feedback.classList.remove("show");
           ui.form.style.display = "flex";
 
@@ -416,49 +402,383 @@ import "./style.css";
   }
 
   function renderBotNode(ui, nodeKey) {
-    if (!latestConfig?.botFlow || !latestConfig.botFlow.nodes) return;
+    // ── DEBUG: Root Node Loaded ─────────────────────────────────────────────
+    if (!latestConfig?.botFlow || !latestConfig.botFlow.nodes) {
+      console.warn('[FlowBot] ❌ No botFlow or nodes in config. botFlow:', latestConfig?.botFlow);
+      return;
+    }
+
     const node = latestConfig.botFlow.nodes[nodeKey];
-    if (!node) return;
+
+    if (!node) {
+      console.warn('[FlowBot] ❌ Node not found in flow tree. nodeKey:', nodeKey,
+        '| Available nodes:', Object.keys(latestConfig.botFlow.nodes));
+      return;
+    }
+
+    console.log('[FlowBot] ✅ Root Node Loaded:', nodeKey, '| type:', node.type,
+      '| message:', node.message?.substring(0, 50),
+      '| options count:', node.options?.length ?? 0);
 
     currentBotNode = nodeKey;
 
-    // Append bot message
-    appendMessage(ui, "agent", node.message, null, null, latestConfig.websiteName || "Support Bot", true);
+    let nodeType = node.type;
+    if (!nodeType) {
+      if (node.isForm) nodeType = "form";
+      else if (node.escalate) nodeType = "action";
+      else if (node.options && node.options.length > 0) nodeType = "button_group";
+      else nodeType = "message";
+    }
 
-    // Clear previous quick replies
+    if (nodeType === "condition") {
+      console.log('[FlowBot] 🔀 Condition node detected:', nodeKey);
+      handleConditionNode(ui, node);
+      return;
+    }
+
+    if (nodeType === "action") {
+      console.log('[FlowBot] ⚡ Action node detected:', nodeKey, '| actionType:', node.actionType);
+      handleActionNode(ui, node);
+      return;
+    }
+
+    if (node.message) {
+      appendMessage(ui, "agent", node.message, null, null, latestConfig.websiteName || "Support Bot", true);
+    }
+
     ui.quickReplies.innerHTML = "";
+    ui.quickReplies.classList.remove("bot-mode");
 
-    if (node.isSolution) {
-      // Step 5: Final Decision Buttons
-      const resolvedBtn = document.createElement("button");
-      resolvedBtn.className = "csw-qr-pill csw-bot-resolved";
-      resolvedBtn.innerHTML = "✅ Close Chat";
-      resolvedBtn.onclick = () => handleBotResolution(ui);
+    if (nodeType === "message" || nodeType === "button_group") {
+      if (node.isSolution) {
+        console.log('[FlowBot] ✅ Solution node — rendering close/agent buttons');
+        renderSolutionButtons(ui);
+      } else if (node.options && node.options.length > 0) {
+        // ── DEBUG: Child Nodes Found ──────────────────────────────────────
+        console.log('[FlowBot] 🔗 Child Nodes Found:', node.options.length,
+          '| Labels:', node.options.map(o => o.text).join(', '));
+        renderOptions(ui, node, nodeKey);
+      } else if (node.next) {
+        console.log('[FlowBot] ➡️ No options — advancing to next node:', node.next);
+        renderBotNode(ui, node.next);
+      } else {
+        // ── FALLBACK: options array empty or missing, nothing to navigate to
+        console.warn('[FlowBot] ⚠️ Node', nodeKey,
+          'has no options and no next. Flow ends here.',
+          '| options:', JSON.stringify(node.options));
+        if (node.options !== undefined) {
+          // options key exists but is empty — show error to visitor
+          renderFlowError(ui, 'Flow options failed to load. Please try again or contact support.');
+        }
+      }
+    } else if (nodeType === "form") {
+      if (node.fields) {
+        renderDynamicForm(ui, node, nodeKey);
+      } else {
+        renderBotForm(ui, node.formType);
+      }
+    }
+  }
 
-      const agentBtn = document.createElement("button");
-      agentBtn.className = "csw-qr-pill csw-bot-agent";
-      agentBtn.innerHTML = "💬 Talk to Agent";
-      agentBtn.onclick = () => handleBotEscalation(ui);
+  function handleConditionNode(ui, node) {
+    if (node.conditionType === "agents_online") {
+      if (latestConfig.isAgentOnline) {
+        renderBotNode(ui, node.trueNext);
+      } else {
+        renderBotNode(ui, node.falseNext);
+      }
+    } else {
+      renderBotNode(ui, node.trueNext || node.falseNext);
+    }
+  }
 
-      ui.quickReplies.appendChild(resolvedBtn);
-      ui.quickReplies.appendChild(agentBtn);
-    } else if (node.options) {
-      node.options.forEach((opt, idx) => {
-        const pill = document.createElement("button");
-        pill.className = "csw-qr-pill";
-        pill.textContent = opt.text;
-        pill.style.animationDelay = `${idx * 0.1}s`;
-        pill.onclick = () => {
-          appendMessage(ui, "visitor", opt.text, null, null, "You", false);
-          botPath.push(opt.text);
-          botSelections[nodeKey] = opt.text;
-          renderBotNode(ui, opt.next);
+  async function handleActionNode(ui, node) {
+    const actionType = node.actionType || (node.escalate ? "escalate" : "unknown");
 
-          // Sync with backend
-          submitBotStatus("in_progress", botPath, botSelections);
-        };
-        ui.quickReplies.appendChild(pill);
+    if (actionType === "escalate") {
+      handleBotEscalation(ui, node.department);
+      return;
+    }
+
+    if (node.message) {
+      appendMessage(ui, "agent", node.message, null, null, latestConfig.websiteName || "Support Bot", true);
+    }
+
+    try {
+      ui.statusBar.textContent = "Processing...";
+      const res = await fetch(`${API_BASE}/api/widget/action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+        body: JSON.stringify({
+          sessionId: activeSessionId,
+          actionType: actionType,
+          nodeData: node,
+          context: contextVariables
+        })
       });
+      ui.statusBar.textContent = "Connected";
+
+      if (node.next) {
+        renderBotNode(ui, node.next);
+      } else {
+        handleBotResolution(ui);
+      }
+    } catch (err) {
+      console.error("Action execution failed", err);
+      ui.statusBar.textContent = "Action Failed";
+    }
+  }
+
+  function renderOptions(ui, node, nodeKey) {
+    ui.quickReplies.classList.add("bot-mode");
+    node.options.forEach((opt, idx) => {
+      const pill = document.createElement("button");
+      pill.className = "csw-qr-pill";
+      pill.textContent = opt.text;
+      pill.style.animationDelay = `${idx * 0.1}s`;
+      pill.onclick = () => {
+        // ── DEBUG: Button Rendered & clicked ───────────────────────────
+        console.log('[FlowBot] 🖱️ Button clicked:', opt.text, '→ next node:', opt.next);
+        ui.quickReplies.innerHTML = "";
+        ui.quickReplies.classList.remove("bot-mode");
+        appendMessage(ui, "visitor", opt.text, null, null, "You", false);
+        botPath.push(opt.text);
+        botSelections[nodeKey] = opt.text;
+        if (!opt.next || !latestConfig.botFlow.nodes[opt.next]) {
+          console.error('[FlowBot] ❌ Broken link! next node not found:', opt.next,
+            '| Available:', Object.keys(latestConfig.botFlow.nodes));
+          renderFlowError(ui, 'Flow options failed to load. The next step could not be found.');
+          return;
+        }
+        renderBotNode(ui, opt.next);
+        submitBotStatus("in_progress", botPath, botSelections);
+      };
+      ui.quickReplies.appendChild(pill);
+      // ── DEBUG: Buttons Rendered ────────────────────────────────────
+      console.log('[FlowBot] 🔘 Button Rendered:', opt.text, '→', opt.next);
+    });
+    console.log('[FlowBot] ✅ Buttons Generated:', node.options.length, 'buttons for node:', nodeKey);
+  }
+
+  function renderFlowError(ui, message) {
+    // Fallback protection: show user-facing error instead of blank widget
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'csw-flow-error';
+    errorDiv.innerHTML = `
+      <span>⚠️</span>
+      <span>${message}</span>
+    `;
+    ui.quickReplies.innerHTML = '';
+    ui.quickReplies.appendChild(errorDiv);
+    console.error('[FlowBot] 🚨 Flow error displayed to visitor:', message);
+  }
+
+  function renderSolutionButtons(ui) {
+    const resolvedBtn = document.createElement("button");
+    resolvedBtn.className = "csw-qr-pill csw-bot-resolved";
+    resolvedBtn.innerHTML = "✅ Close Chat";
+    resolvedBtn.onclick = () => handleBotResolution(ui);
+
+    const agentBtn = document.createElement("button");
+    agentBtn.className = "csw-qr-pill csw-bot-agent";
+    agentBtn.innerHTML = "💬 Talk to Agent";
+    agentBtn.onclick = () => handleBotEscalation(ui);
+
+    ui.quickReplies.appendChild(resolvedBtn);
+    ui.quickReplies.appendChild(agentBtn);
+  }
+
+  function renderDynamicForm(ui, node, nodeKey) {
+    const formContainer = document.createElement("div");
+    formContainer.className = "csw-bot-form-container";
+    formContainer.style.cssText = "display:flex;flex-direction:column;gap:8px;padding:12px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;margin-bottom:12px;";
+
+    let formHtml = "";
+    node.fields.forEach(f => {
+      const req = f.required ? 'required' : '';
+      if (f.type === "dropdown") {
+        let optionsHtml = f.options.map(o => `<option value="${o}">${o}</option>`).join("");
+        formHtml += `<select id="dyn_${f.name}" style="padding:8px;border-radius:8px;border:1px solid #cbd5e1;font-size:12px;background:white;" ${req}>
+             <option value="" disabled selected>${f.label}</option>
+             ${optionsHtml}
+           </select>`;
+      } else if (f.type === "textarea" || f.name === "description" || f.name === "requirements") {
+        formHtml += `<textarea id="dyn_${f.name}" placeholder="${f.label}" style="padding:8px;border-radius:8px;border:1px solid #cbd5e1;font-size:12px;min-height:60px;" ${req}></textarea>`;
+      } else {
+        const inputType = f.type === "email" ? "email" : (f.type === "number" ? "number" : "text");
+        formHtml += `<input type="${inputType}" id="dyn_${f.name}" placeholder="${f.label}" style="padding:8px;border-radius:8px;border:1px solid #cbd5e1;font-size:12px;" ${req}/>`;
+      }
+    });
+
+    formHtml += `<button id="dyn_submit_${nodeKey}" style="background:#4f46e5;color:white;border:none;padding:8px;border-radius:8px;font-weight:bold;cursor:pointer;font-size:12px;">Submit</button>`;
+    formContainer.innerHTML = formHtml;
+    ui.quickReplies.appendChild(formContainer);
+
+    document.getElementById(`dyn_submit_${nodeKey}`).onclick = async (e) => {
+      const btn = e.target;
+
+      let isValid = true;
+      let formData = {};
+      node.fields.forEach(f => {
+        const el = document.getElementById(`dyn_${f.name}`);
+        if (f.required && !el.value.trim()) {
+          isValid = false;
+          el.style.borderColor = "red";
+        } else {
+          el.style.borderColor = "#cbd5e1";
+          formData[f.name] = el.value.trim();
+        }
+      });
+
+      if (!isValid) return;
+
+      btn.disabled = true;
+      btn.textContent = "Submitting...";
+
+      contextVariables = { ...contextVariables, ...formData };
+      await submitBotStatus("in_progress", botPath, { ...botSelections, [nodeKey]: "Form Submitted" });
+
+      if (node.next) {
+        renderBotNode(ui, node.next);
+      } else {
+        handleBotResolution(ui);
+      }
+    };
+  }
+
+  function renderBotForm(ui, formType) {
+    const formContainer = document.createElement("div");
+    formContainer.className = "csw-bot-form-container";
+    formContainer.style.cssText = "display:flex;flex-direction:column;gap:8px;padding:12px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;margin-bottom:12px;";
+
+    if (formType === "service_inquiry") {
+      formContainer.innerHTML = `
+        <input type="text" id="csw-lead-name" placeholder="Full Name" style="padding:8px;border-radius:8px;border:1px solid #cbd5e1;font-size:12px;"/>
+        <input type="email" id="csw-lead-email" placeholder="Email Address" style="padding:8px;border-radius:8px;border:1px solid #cbd5e1;font-size:12px;"/>
+        <input type="tel" id="csw-lead-phone" placeholder="Phone Number" style="padding:8px;border-radius:8px;border:1px solid #cbd5e1;font-size:12px;"/>
+        <input type="text" id="csw-lead-company" placeholder="Company Name" style="padding:8px;border-radius:8px;border:1px solid #cbd5e1;font-size:12px;"/>
+        <input type="number" id="csw-lead-budget" placeholder="Estimated Budget ($)" style="padding:8px;border-radius:8px;border:1px solid #cbd5e1;font-size:12px;"/>
+        <textarea id="csw-lead-req" placeholder="Project Requirements" style="padding:8px;border-radius:8px;border:1px solid #cbd5e1;font-size:12px;min-height:60px;"></textarea>
+        <button id="csw-lead-submit" style="background:#4f46e5;color:white;border:none;padding:8px;border-radius:8px;font-weight:bold;cursor:pointer;font-size:12px;">Submit Request</button>
+      `;
+      ui.quickReplies.appendChild(formContainer);
+
+      document.getElementById("csw-lead-submit").onclick = async (e) => {
+        const btn = e.target;
+        const nameEl = document.getElementById("csw-lead-name");
+        const emailEl = document.getElementById("csw-lead-email");
+
+        let isValid = true;
+        if (!nameEl.value.trim()) {
+          nameEl.style.borderColor = "red";
+          isValid = false;
+        } else {
+          nameEl.style.borderColor = "";
+        }
+        if (!emailEl.value.trim()) {
+          emailEl.style.borderColor = "red";
+          isValid = false;
+        } else {
+          emailEl.style.borderColor = "";
+        }
+
+        if (!isValid) return;
+
+        btn.disabled = true;
+        btn.textContent = "Submitting...";
+
+        try {
+          const payload = {
+            name: document.getElementById("csw-lead-name").value,
+            email: document.getElementById("csw-lead-email").value,
+            phone: document.getElementById("csw-lead-phone").value,
+            companyName: document.getElementById("csw-lead-company").value,
+            budget: document.getElementById("csw-lead-budget").value,
+            requirement: document.getElementById("csw-lead-req").value,
+            sessionId: activeSessionId
+          };
+
+          await fetch(`${API_BASE}/api/widget/lead`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+            body: JSON.stringify(payload)
+          });
+
+          formContainer.innerHTML = '<div style="color:#10b981;font-weight:bold;text-align:center;font-size:12px;">✅ Inquiry submitted! Our sales team will contact you shortly.</div>';
+          handleBotResolution(ui);
+        } catch (err) {
+          btn.disabled = false;
+          btn.textContent = "Submit Inquiry";
+          alert("Submission failed. Please try again.");
+        }
+      };
+    } else if (formType === "raise_ticket") {
+      formContainer.innerHTML = `
+        <input type="text" id="csw-ticket-subject" placeholder="Ticket Subject" style="padding:8px;border-radius:8px;border:1px solid #cbd5e1;font-size:12px;"/>
+        <select id="csw-ticket-dept" style="padding:8px;border-radius:8px;border:1px solid #cbd5e1;font-size:12px;background:white;">
+           <option value="support">Technical Support</option>
+           <option value="billing">Billing</option>
+           <option value="sales">Sales</option>
+        </select>
+        <select id="csw-ticket-priority" style="padding:8px;border-radius:8px;border:1px solid #cbd5e1;font-size:12px;background:white;">
+           <option value="low">Low Priority</option>
+           <option value="medium" selected>Medium Priority</option>
+           <option value="high">High Priority</option>
+           <option value="urgent">Urgent</option>
+        </select>
+        <textarea id="csw-ticket-desc" placeholder="Describe your issue in detail..." style="padding:8px;border-radius:8px;border:1px solid #cbd5e1;font-size:12px;min-height:80px;"></textarea>
+        <button id="csw-ticket-submit" style="background:#4f46e5;color:white;border:none;padding:8px;border-radius:8px;font-weight:bold;cursor:pointer;font-size:12px;">Create Ticket</button>
+      `;
+      ui.quickReplies.appendChild(formContainer);
+
+      document.getElementById("csw-ticket-submit").onclick = async (e) => {
+        const btn = e.target;
+        const subjectEl = document.getElementById("csw-ticket-subject");
+        const descEl = document.getElementById("csw-ticket-desc");
+
+        let isValid = true;
+        if (!subjectEl.value.trim()) {
+          subjectEl.style.borderColor = "red";
+          isValid = false;
+        } else {
+          subjectEl.style.borderColor = "";
+        }
+        if (!descEl.value.trim()) {
+          descEl.style.borderColor = "red";
+          isValid = false;
+        } else {
+          descEl.style.borderColor = "";
+        }
+
+        if (!isValid) return;
+
+        btn.disabled = true;
+        btn.textContent = "Creating...";
+
+        try {
+          const payload = {
+            subject: document.getElementById("csw-ticket-subject").value,
+            department: document.getElementById("csw-ticket-dept").value,
+            priority: document.getElementById("csw-ticket-priority").value,
+            description: document.getElementById("csw-ticket-desc").value,
+            sessionId: activeSessionId
+          };
+
+          const res = await fetch(`${API_BASE}/api/widget/ticket`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+
+          formContainer.innerHTML = `<div style="color:#10b981;font-weight:bold;text-align:center;font-size:12px;">✅ Ticket ${data.ticketId} created! You will be notified via email on updates.</div>`;
+          handleBotResolution(ui);
+        } catch (err) {
+          btn.disabled = false;
+          btn.textContent = "Create Ticket";
+          alert("Failed to create ticket.");
+        }
+      };
     }
   }
 
@@ -476,9 +796,9 @@ import "./style.css";
     }, 1500);
   }
 
-  async function handleBotEscalation(ui) {
+  async function handleBotEscalation(ui, department = "general") {
     ui.quickReplies.innerHTML = "";
-    appendMessage(ui, "agent", "Connecting you to an agent... Please wait.", null, null, "System", false);
+    appendMessage(ui, "agent", `Connecting you to the ${department} department... Please wait.`, null, null, "System", false);
 
     await submitBotStatus("escalated", botPath, botSelections);
 
@@ -521,15 +841,9 @@ import "./style.css";
 
       // Apply Welcome Message to Pre-chat screen
       if (ui.prechat.querySelector('div')) {
-        ui.prechat.querySelector('div').textContent = config.showOfflineForm
-          ? (config.awayMessage || "We're currently offline. Leave your details and we will get back to you.")
-          : (config.welcomeMessage || "Hello! Please introduce yourself to start a live conversation with our team.");
+        ui.prechat.querySelector('div').textContent = config.welcomeMessage || "Hello! Please introduce yourself to start a live conversation with our team.";
       }
-      ui.preSubmit.textContent = config.showOfflineForm ? "Leave a Message" : "Start Conversation";
-      // Show message textarea only in offline mode
-      if (ui.preMessageField) {
-        ui.preMessageField.style.display = config.showOfflineForm ? "block" : "none";
-      }
+      ui.preSubmit.textContent = "Start Conversation";
 
       // 3. Initialize Session
       const initRes = await fetch(`${origin}/api/widget/init`, {
@@ -572,34 +886,11 @@ import "./style.css";
           ui.panel.querySelector("#csw-header-subtitle").textContent = `Last active: ${timeStr}`;
         }
 
-        ui.statusBar.textContent = config.showOfflineForm
-          ? "Offline | Message Form"
-          : (config.isAgentOnline ? "Online | Support Team" : "Away | Leaving a Message");
-        if (!config.showOfflineForm) {
-          setupUpload(ui, apiKey);
-        }
+        ui.statusBar.textContent = config.isAgentOnline ? "Online | Support Team" : "Away | Support Team";
+        setupUpload(ui, apiKey);
 
         // 4b. Render Quick Replies
         ui.quickReplies.innerHTML = "";
-        const shouldShowQuickReplies = !hasHumanAgentReply(data.messages);
-        if (shouldShowQuickReplies && config.quickReplies && config.quickReplies.length > 0) {
-          config.quickReplies.forEach((qr, idx) => {
-            const pill = document.createElement("button");
-            pill.className = "csw-qr-pill";
-            pill.textContent = qr.text;
-            pill.style.animationDelay = `${idx * 0.1}s`;
-            pill.onclick = () => {
-              const tempId = `temp-${Date.now()}`;
-              if (!sendVisitorMessage({ message: qr.text, tempId })) {
-                ui.statusBar.textContent = "Connecting... Please try again";
-                return;
-              }
-              appendPendingVisitorMessage(ui, qr.text, tempId);
-              ui.quickReplies.innerHTML = ""; // Clear after use to keep chat clean
-            };
-            ui.quickReplies.appendChild(pill);
-          });
-        }
       }
 
       // 5. Render Messages
@@ -609,11 +900,13 @@ import "./style.css";
           appendMessage(ui, msg.sender === "visitor" ? "visitor" : "agent", msg.message, msg.attachmentUrl, msg.attachmentType, msg.senderName, msg.isAi, msg._id, msg.deliveredAt, msg.readAt);
         });
       } else {
-        // Show Welcome or Away Message from Config
-        const greeting = (!config.isAgentOnline) ? (config.awayMessage || "We're currently away. Please leave a message!") :
-          (data.session?.status === 'queued') ? (config.awayMessage || "All agents are busy. We'll be with you shortly!") :
-            (config.welcomeMessage || "Hi! How can we help?");
-        appendMessage(ui, "agent", greeting, null, null, config.websiteName, false);
+        // Show Welcome or Away Message from Config ONLY if Bot is disabled
+        if (!config.botEnabled) {
+          const greeting = (!config.isAgentOnline) ? (config.awayMessage || "We're currently away.") :
+            (data.session?.status === 'queued') ? (config.awayMessage || "All agents are busy. We'll be with you shortly!") :
+              (config.welcomeMessage || "Hi! How can we help?");
+          appendMessage(ui, "agent", greeting, null, null, config.websiteName, false);
+        }
       }
 
       // 5b. Bot Flow Initialization
@@ -634,10 +927,7 @@ import "./style.css";
         }
       }
 
-      if (config.showOfflineForm) {
-        ui.form.style.display = "none";
-        return;
-      }
+
 
       // 6. Connect Socket
       if (socket) socket.disconnect();
@@ -656,12 +946,13 @@ import "./style.css";
 
       socket.on("disconnect", (reason) => {
         console.warn("ChatWidget: Socket disconnected", reason);
-        setStatusMessage(ui, "Reconnecting...", "orange");
+        setStatusMessage(ui, "Reconnecting...", "#ef4444");
       });
 
       socket.on("connect", () => {
         console.log("ChatWidget: Socket connected to", origin, "Joining room:", activeSessionId);
         ui.statusBar.textContent = config.isAgentOnline ? "Online | Support Team" : "Away | Messaging Support";
+        ui.statusBar.style.color = ""; // Reset status bar text color on success
         if (ui.chatInterface.style.display === "flex") {
           setupUpload(ui, apiKey);
         }
@@ -745,11 +1036,6 @@ import "./style.css";
         }
       });
 
-      socket.on("disconnect", (reason) => {
-        console.warn("ChatWidget: Socket disconnected:", reason);
-        ui.statusBar.textContent = "Reconnecting...";
-        ui.statusBar.style.color = "#ef4444";
-      });
 
       ui.closeBtn.onclick = (e) => {
         e.stopPropagation();
@@ -784,31 +1070,23 @@ import "./style.css";
   ui.preSubmit.onclick = () => {
     const name = ui.preName.value.trim();
     const email = ui.preEmail.value.trim();
-    if (!name || !email) return;
-
-    if (latestConfig?.showOfflineForm) {
-      fetch(`${origin}/api/widget/offline-message`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": apiKey },
-        body: JSON.stringify({
-          sessionId: activeSessionId,
-          visitorId,
-          name,
-          email,
-          message: (ui.preMessage?.value?.trim()) || (latestConfig.awayMessage || "Offline support request")
-        })
-      })
-        .then((res) => res.json())
-        .then(() => {
-          ui.statusBar.textContent = "Offline | Message sent";
-          showOfflineSubmissionSuccess(ui);
-        })
-        .catch((err) => {
-          ui.statusBar.textContent = "Offline | Submit failed";
-          console.error("Offline form error", err);
-        });
-      return;
+    
+    let isValid = true;
+    if (!name) {
+      ui.preName.style.borderColor = "red";
+      isValid = false;
+    } else {
+      ui.preName.style.borderColor = "";
     }
+
+    if (!email) {
+      ui.preEmail.style.borderColor = "red";
+      isValid = false;
+    } else {
+      ui.preEmail.style.borderColor = "";
+    }
+
+    if (!isValid) return;
 
     // If starting fresh with pre-data, we clear any previous session ID to ensure a new one is created
     // rather than resuming a potentially closed one.
@@ -836,11 +1114,27 @@ import "./style.css";
   };
 
   ui.emojiPicker.onclick = (e) => {
-    if (e.target.textContent && e.target.textContent !== ' ') {
-      ui.input.value += e.target.textContent;
-      ui.input.focus();
-      ui.emojiPicker.style.display = 'none';
-    }
+    e.preventDefault();
+    e.stopPropagation();
+    const emojiItem = e.target.closest('.csw-emoji-item');
+    if (!emojiItem) return;
+
+    const emoji = emojiItem.textContent.trim();
+    console.log("[Emoji Picker] Clicked Emoji:", emoji);
+
+    const input = ui.input;
+    const start = input.selectionStart !== null ? input.selectionStart : input.value.length;
+    const end = input.selectionEnd !== null ? input.selectionEnd : input.value.length;
+    const text = input.value;
+
+    input.value = text.substring(0, start) + emoji + text.substring(end);
+    console.log("[Emoji Picker] Inserted Emoji:", emoji);
+    console.log("[Emoji Picker] Message Sent: false");
+
+    const newPos = start + emoji.length;
+    input.setSelectionRange(newPos, newPos);
+    input.focus();
+    ui.emojiPicker.style.display = 'none';
   };
 
   // Close emoji picker when clicking outside

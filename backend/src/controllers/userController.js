@@ -261,6 +261,19 @@ export const updateProfile = asyncHandler(async (req, res) => {
   return res.json(updatedUser);
 });
 
+export const updateDashboardPreferences = asyncHandler(async (req, res) => {
+  const schema = z.object({
+    dashboardPreferences: z.object({}).passthrough()
+  });
+
+  const { dashboardPreferences } = schema.parse(req.body);
+  
+  req.user.dashboardPreferences = { ...req.user.dashboardPreferences, ...dashboardPreferences };
+  await req.user.save();
+  
+  return res.json({ dashboardPreferences: req.user.dashboardPreferences });
+});
+
 export const updateAgent = asyncHandler(async (req, res) => {
   const parentId = req.user.role === "client" ? req.user._id : req.user.managerId;
   const filter = normalizeRole(req.user.role) === "admin"

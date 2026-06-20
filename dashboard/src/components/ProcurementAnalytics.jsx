@@ -120,7 +120,7 @@ export default function ProcurementAnalytics() {
               </div>
             ))}
             {stats.topSuppliers.length === 0 && (
-              <p className="text-center py-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">No data available</p>
+              <p className="text-center py-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">You don't have any records yet. Create your first item to get started.</p>
             )}
           </div>
         </div>

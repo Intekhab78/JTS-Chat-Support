@@ -29,6 +29,8 @@ const chatSessionSchema = new mongoose.Schema(
     acceptedAt: { type: Date, default: null },
     satisfactionStatus: { type: String, enum: ["satisfied", "unsatisfied"], default: null },
     satisfactionSubmittedAt: { type: Date, default: null },
+    feedbackRating: { type: Number, min: 1, max: 5, default: null },
+    feedbackComment: { type: String, trim: true, default: "" },
     closedAt: { type: Date, default: null },
     lastMessageAt: { type: Date, default: null },
     lastMessagePreview: { type: String, default: "" },
@@ -52,11 +54,20 @@ const chatSessionSchema = new mongoose.Schema(
     resolvedByBot: { type: Boolean, default: false },
     botMetadata: {
       path: [{ type: String }],
-      selections: { type: mongoose.Schema.Types.Mixed, default: {} }
+      selections: { type: mongoose.Schema.Types.Mixed, default: {} },
+      formProgress: { type: mongoose.Schema.Types.Mixed, default: {} }, // { nodeId: 'started' | 'completed' }
+      conversions: [{ type: String }], // 'lead', 'ticket'
+      transferredToAgent: { type: Boolean, default: false },
+      dropOffNode: { type: String, default: null }
     },
     aiSummary: { type: String, default: "" },
     sentimentScore: { type: Number, default: 0 },
-    sentimentLabel: { type: String, enum: ["positive", "neutral", "negative", ""], default: "" }
+    sentimentLabel: { type: String, enum: ["positive", "satisfied", "neutral", "concerned", "frustrated", ""], default: "" },
+    sentimentHistory: [{
+      score: { type: Number },
+      label: { type: String },
+      timestamp: { type: Date, default: Date.now }
+    }]
   },
   { timestamps: true }
 );

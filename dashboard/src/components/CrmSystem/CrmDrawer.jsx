@@ -258,6 +258,11 @@ export default function CrmDrawer({
               <p className="text-xs font-black text-slate-900 truncate">{selectedCustomer?.decisionMaker || "Unknown"}</p>
             </div>
 
+            <div className="space-y-1 min-w-[160px] max-w-[240px]">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Requirement</p>
+              <p className="text-xs font-black text-indigo-600 truncate" title={selectedCustomer?.requirement}>{selectedCustomer?.requirement || "Not specified"}</p>
+            </div>
+
             {(selectedCustomer?.pipelineStage === "won" || selectedCustomer?.isLocked) && (
               <div className="space-y-1 min-w-[140px] border-l border-slate-100 pl-8 ml-auto">
                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Special Actions</p>

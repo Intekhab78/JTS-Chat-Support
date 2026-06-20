@@ -1,14 +1,26 @@
 import React from "react";
 import { Circle, Clock, CheckCircle2, Zap, TrendingUp, Brain } from "lucide-react";
 
-export const CRM_STAGE_CONFIG = {
-  new: { label: "New", color: "bg-violet-50 text-violet-600 border-violet-100", dot: "bg-violet-500", active: true },
-  contacted: { label: "Contacted", color: "bg-sky-50 text-sky-600 border-sky-100", dot: "bg-sky-500", active: true },
-  qualified: { label: "Qualified", color: "bg-indigo-50 text-indigo-600 border-indigo-100", dot: "bg-indigo-500", active: true },
-  proposal: { label: "Proposal", color: "bg-amber-50 text-amber-600 border-amber-100", dot: "bg-amber-500", active: true },
+export const DEFAULT_CRM_STAGE_CONFIG = Object.freeze({
+  new:         { label: "New",         color: "bg-violet-50 text-violet-600 border-violet-100", dot: "bg-violet-500", active: true },
+  contacted:   { label: "Contacted",   color: "bg-sky-50 text-sky-600 border-sky-100",          dot: "bg-sky-500",    active: true },
+  qualified:   { label: "Qualified",   color: "bg-indigo-50 text-indigo-600 border-indigo-100", dot: "bg-indigo-500", active: true },
+  proposal:    { label: "Proposal",    color: "bg-amber-50 text-amber-600 border-amber-100",    dot: "bg-amber-500",  active: true },
   negotiation: { label: "Negotiation", color: "bg-orange-50 text-orange-600 border-orange-100", dot: "bg-orange-500", active: true },
-  won: { label: "Won", color: "bg-emerald-50 text-emerald-600 border-emerald-100", dot: "bg-emerald-500", active: true },
-  lost: { label: "Lost", color: "bg-red-50 text-red-500 border-red-100", dot: "bg-red-400", active: true }
+  won:         { label: "Won",         color: "bg-emerald-50 text-emerald-600 border-emerald-100", dot: "bg-emerald-500", active: true },
+  lost:        { label: "Lost",        color: "bg-red-50 text-red-500 border-red-100",          dot: "bg-red-400",    active: true }
+});
+
+// Mutable runtime config — overwritten by CrmContainer when a website with custom
+// stages is selected. Falls back to DEFAULT_CRM_STAGE_CONFIG values on reset.
+export const CRM_STAGE_CONFIG = {
+  new:         { ...DEFAULT_CRM_STAGE_CONFIG.new },
+  contacted:   { ...DEFAULT_CRM_STAGE_CONFIG.contacted },
+  qualified:   { ...DEFAULT_CRM_STAGE_CONFIG.qualified },
+  proposal:    { ...DEFAULT_CRM_STAGE_CONFIG.proposal },
+  negotiation: { ...DEFAULT_CRM_STAGE_CONFIG.negotiation },
+  won:         { ...DEFAULT_CRM_STAGE_CONFIG.won },
+  lost:        { ...DEFAULT_CRM_STAGE_CONFIG.lost }
 };
 
 export const TICKET_STATUS_CONFIG = {

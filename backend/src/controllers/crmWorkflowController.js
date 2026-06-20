@@ -22,6 +22,11 @@ export const postWin = asyncHandler(async (req, res) => {
   const customer = await Customer.findById(id);
   if (!customer) throw new AppError("CRM record not found", 404);
 
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!ownedWebsiteIds.map(String).includes(String(customer.websiteId))) {
+    throw new AppError("Access denied", 403);
+  }
+
   if (customer.pipelineStage === "won") return res.json(await buildCustomerPayload(customer._id));
 
   customer.pipelineStage = "won";
@@ -56,6 +61,13 @@ export const postWin = asyncHandler(async (req, res) => {
 export const generateLeadCode = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
   const customer = await Customer.findById(req.params.id);
+  if (!customer) throw new AppError("Customer not found", 404);
+
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!ownedWebsiteIds.map(String).includes(String(customer.websiteId))) {
+    throw new AppError("Access denied", 403);
+  }
+
   if (customer.isLocked) return res.json(customer);
 
   const code = `WON-${customer.crn}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
@@ -77,6 +89,13 @@ export const generateLeadCode = asyncHandler(async (req, res) => {
 export const autoAssignCustomer = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_AUTO_ASSIGN);
   const customer = await Customer.findById(req.params.id);
+  if (!customer) throw new AppError("Customer not found", 404);
+
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!ownedWebsiteIds.map(String).includes(String(customer.websiteId))) {
+    throw new AppError("Access denied", 403);
+  }
+
   const autoOwner = await autoAssignLeadOwner(customer, { assignedBy: req.user._id, reason: "manual_auto_assign" });
   if (autoOwner) customer.ownerId = autoOwner._id;
   await customer.save();
@@ -92,6 +111,11 @@ export const updatePurchaseWorkflowStatus = asyncHandler(async (req, res) => {
 
   const customer = await Customer.findById(req.params.id);
   if (!customer) throw new AppError("CRM record not found", 404);
+
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!ownedWebsiteIds.map(String).includes(String(customer.websiteId))) {
+    throw new AppError("Access denied", 403);
+  }
 
   const updated = await advancePurchaseWorkflow({
     customerId: customer._id,

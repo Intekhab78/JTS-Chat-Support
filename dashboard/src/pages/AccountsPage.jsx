@@ -3,11 +3,11 @@ import { useSearchParams } from "react-router-dom";
 import { 
   FileText, CreditCard, BarChart3, TrendingUp, AlertCircle, Search, 
   ArrowUpRight, ArrowDownLeft, Wallet, Calendar, Users, ShieldCheck, Zap,
-  Globe
+  Globe, Download, Filter, Send, Building2
 } from "lucide-react";
 import Layout from "../components/Layout.jsx";
 import StatCard from "../components/StatCard.jsx";
-import ReportsCenter from "../components/ReportsCenter.jsx";
+import EnterpriseReportsCenter from "../components/EnterpriseReportsCenter.jsx";
 import { api } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
@@ -323,15 +323,8 @@ export default function AccountsPage() {
 
   if (tab === "reports") {
     return (
-      <Layout menuItems={menuItems} title="Financial Reports" subtitle="Analyze your business performance">
-        <WebsiteScopeSelector />
-        <ReportsCenter 
-          analytics={analytics || {}} 
-          selectedWebsiteId={selectedWebsiteId}
-          reportRange={reportRange}
-          onRangeChange={setReportRange}
-          isAdmin={false} 
-        />
+      <Layout menuItems={menuItems} title="Revenue Intelligence" subtitle="Financial analytics and reporting">
+        <EnterpriseReportsCenter />
       </Layout>
     );
   }

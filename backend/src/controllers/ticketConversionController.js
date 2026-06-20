@@ -19,7 +19,8 @@ import {
   notifyVisitorOfTicketCreation, 
   shareTicketLinkInChat, 
   notifyAssignedAgent, 
-  createManagerTicketNotification 
+  createManagerTicketNotification,
+  autoAssignTicket
 } from "../services/ticketService.js";
 import { getOrCreateCustomer } from "../services/customerService.js";
 
@@ -87,6 +88,7 @@ export const submitVisitorTicket = asyncHandler(async (req, res) => {
   }
 
   await ticket.save();
+  await autoAssignTicket(ticket);
   await notifyVisitorOfTicketCreation({ ticket, visitorEmail: email, websiteName: website.websiteName });
   await notifyAssignedAgent(ticket);
   await createManagerTicketNotification(ticket);

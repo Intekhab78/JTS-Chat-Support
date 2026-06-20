@@ -335,13 +335,14 @@ export async function processCrmAutomation() {
   }).populate("ownerId", "managerId").populate("customerId", "name").limit(50);
 
   for (const task of overdueTasks) {
-    const managerId = task.ownerId?.managerId;
+    if (!task.ownerId) continue;
+    const managerId = task.ownerId.managerId;
     if (managerId) {
       await createNotification({
         recipient: managerId,
         type: "system_alert",
         title: "Overdue Task Escalation",
-        message: `Task for ${task.customerId?.name || "Lead"} assigned to ${task.ownerId?.name || 'Agent'} is overdue.`,
+        message: `Task for ${task.customerId?.name || "Lead"} assigned to ${task.ownerId.name || 'Agent'} is overdue.`,
         link: "/client?tab=crm"
       });
     }

@@ -20,7 +20,7 @@ import CrmLeadModal from "./CrmLeadModal.jsx";
 import CrmReportsView from "./CrmReportsView.jsx";
 import CrmStageEditor from "./CrmStageEditor.jsx";
 import PaginationControls from "../PaginationControls.jsx";
-import { formatCurrency, CRM_STAGE_CONFIG } from "./CrmUIComponents.jsx";
+import { formatCurrency, CRM_STAGE_CONFIG, DEFAULT_CRM_STAGE_CONFIG } from "./CrmUIComponents.jsx";
 
 export default function CrmContainer({
   websiteId = "",
@@ -37,7 +37,10 @@ export default function CrmContainer({
   const canCreateLead = hasPermission(user, PERMISSIONS.CRM_CREATE);
   const isManager = user?.role === "manager";
 
-  // -- Master State --
+  // -- Pipeline Stage Persistence --
+  // Stores the stages fetched from the selected website document in MongoDB
+  const [websiteStages, setWebsiteStages] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState([]);
   const [summary, setSummary] = useState({});
@@ -662,14 +665,114 @@ export default function CrmContainer({
     setViewMode("list");
   };
 
+  // -- Sync CRM_STAGE_CONFIG when the active website changes --
+  // Applies the persisted custom stages (if any) to the mutable global
+  // so every downstream component (BoardView, TableView, badges) picks them up.
+  useEffect(() => {
+    const selectedWebsite = websites.find(w => w._id === websiteId);
+    const saved = selectedWebsite?.pipelineStages;
+
+    const colourPalette = [
+      { color: "bg-violet-50 text-violet-600 border-violet-100", dot: "bg-violet-500" },
+      { color: "bg-sky-50 text-sky-600 border-sky-100",          dot: "bg-sky-500" },
+      { color: "bg-indigo-50 text-indigo-600 border-indigo-100", dot: "bg-indigo-500" },
+      { color: "bg-amber-50 text-amber-600 border-amber-100",    dot: "bg-amber-500" },
+      { color: "bg-orange-50 text-orange-600 border-orange-100", dot: "bg-orange-500" },
+      { color: "bg-emerald-50 text-emerald-600 border-emerald-100", dot: "bg-emerald-500" },
+      { color: "bg-red-50 text-red-500 border-red-100",          dot: "bg-red-400" },
+      { color: "bg-pink-50 text-pink-600 border-pink-100",       dot: "bg-pink-500" },
+      { color: "bg-teal-50 text-teal-600 border-teal-100",       dot: "bg-teal-500" },
+      { color: "bg-cyan-50 text-cyan-600 border-cyan-100",       dot: "bg-cyan-500" }
+    ];
+
+    if (Array.isArray(saved) && saved.length > 0) {
+      // Replace the global mutable config with the persisted custom stages
+      Object.keys(CRM_STAGE_CONFIG).forEach(k => delete CRM_STAGE_CONFIG[k]);
+      saved.forEach((s, idx) => {
+        const palette = colourPalette[idx % colourPalette.length];
+        CRM_STAGE_CONFIG[s.key] = {
+          label:  s.label,
+          color:  s.color  || palette.color,
+          dot:    s.dot    || palette.dot,
+          active: s.active !== false
+        };
+      });
+      setWebsiteStages(saved);
+      setStageKeys(saved.filter(s => s.active !== false).map(s => s.key));
+    } else {
+      // No custom stages — reset to built-in defaults
+      Object.keys(CRM_STAGE_CONFIG).forEach(k => delete CRM_STAGE_CONFIG[k]);
+      Object.entries(DEFAULT_CRM_STAGE_CONFIG).forEach(([k, v]) => {
+        CRM_STAGE_CONFIG[k] = { ...v };
+      });
+      setWebsiteStages([]);
+      setStageKeys(Object.keys(DEFAULT_CRM_STAGE_CONFIG).filter(k => DEFAULT_CRM_STAGE_CONFIG[k]?.active !== false));
+    }
+  }, [websiteId, websites]);
+
   // -- Constants --
   const [stageKeys, setStageKeys] = React.useState(() => Object.keys(CRM_STAGE_CONFIG).filter(k => CRM_STAGE_CONFIG[k]?.active !== false));
-  const boardColumns = stageKeys.map((k, idx) => ({ key: k, label: CRM_STAGE_CONFIG[k]?.label || k, tone: "from-indigo-500 to-sky-500" }));
+  const boardColumns = stageKeys.map((k) => ({ key: k, label: CRM_STAGE_CONFIG[k]?.label || k, tone: "from-indigo-500 to-sky-500" }));
 
   const [showStageEditor, setShowStageEditor] = useState(false);
-  const handleStagesChange = (keys) => {
-    if (Array.isArray(keys)) setStageKeys(keys);
-    else if (typeof keys === "object" && keys !== null) setStageKeys(Object.keys(keys));
+  const [savingStages, setSavingStages] = useState(false);
+
+  // Receives the full stage array from CrmStageEditor, persists to the backend,
+  // and then refreshes the local runtime config and board columns.
+  const handleStagesChange = async (updatedStages) => {
+    if (!Array.isArray(updatedStages) || !websiteId) return;
+
+    const colourPalette = [
+      { color: "bg-violet-50 text-violet-600 border-violet-100", dot: "bg-violet-500" },
+      { color: "bg-sky-50 text-sky-600 border-sky-100",          dot: "bg-sky-500" },
+      { color: "bg-indigo-50 text-indigo-600 border-indigo-100", dot: "bg-indigo-500" },
+      { color: "bg-amber-50 text-amber-600 border-amber-100",    dot: "bg-amber-500" },
+      { color: "bg-orange-50 text-orange-600 border-orange-100", dot: "bg-orange-500" },
+      { color: "bg-emerald-50 text-emerald-600 border-emerald-100", dot: "bg-emerald-500" },
+      { color: "bg-red-50 text-red-500 border-red-100",          dot: "bg-red-400" },
+      { color: "bg-pink-50 text-pink-600 border-pink-100",       dot: "bg-pink-500" },
+      { color: "bg-teal-50 text-teal-600 border-teal-100",       dot: "bg-teal-500" },
+      { color: "bg-cyan-50 text-cyan-600 border-cyan-100",       dot: "bg-cyan-500" }
+    ];
+
+    // Enrich each stage with colour metadata before saving
+    const enriched = updatedStages.map((s, idx) => {
+      const existing = CRM_STAGE_CONFIG[s.key];
+      const palette  = colourPalette[idx % colourPalette.length];
+      return {
+        key:    s.key,
+        label:  s.label,
+        color:  existing?.color || palette.color,
+        dot:    existing?.dot   || palette.dot,
+        active: s.active !== false
+      };
+    });
+
+    // Optimistically update the runtime config
+    Object.keys(CRM_STAGE_CONFIG).forEach(k => delete CRM_STAGE_CONFIG[k]);
+    enriched.forEach(s => {
+      CRM_STAGE_CONFIG[s.key] = { label: s.label, color: s.color, dot: s.dot, active: s.active };
+    });
+    setWebsiteStages(enriched);
+    setStageKeys(enriched.filter(s => s.active).map(s => s.key));
+
+    // Persist to the backend
+    setSavingStages(true);
+    try {
+      await api(`/api/websites/${websiteId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ pipelineStages: enriched })
+      });
+      // Refresh cached website list so future selects pick up the new stages
+      apiCache.delete(`websites_${user?._id}`);
+      const updatedWebsites = await api("/api/websites");
+      if (Array.isArray(updatedWebsites)) setWebsites(updatedWebsites);
+      setActionMessage({ type: "success", text: "Pipeline stages saved successfully." });
+    } catch (err) {
+      setActionMessage({ type: "error", text: "Failed to save pipeline stages: " + (err.message || "Server error") });
+    } finally {
+      setSavingStages(false);
+    }
   };
 
   const workspaceCards = [
@@ -899,7 +1002,12 @@ export default function CrmContainer({
         canAssignOwners={canAssignOwners}
         teamMembers={teamMembers}
       />
-      <CrmStageEditor open={showStageEditor} onClose={() => setShowStageEditor(false)} onChangeStages={handleStagesChange} />
+      <CrmStageEditor
+        open={showStageEditor}
+        onClose={() => setShowStageEditor(false)}
+        onChangeStages={handleStagesChange}
+        currentStages={websiteStages}
+      />
     </div>
   );
 }

@@ -540,8 +540,18 @@ export async function restoreChatSession(req, res) {
 }
 
 export async function submitSessionFeedback(req, res) {
-  const { sessionId, satisfactionStatus } = req.body;
-  if (!["satisfied", "unsatisfied"].includes(satisfactionStatus)) {
+  const { sessionId, satisfactionStatus, rating, comment } = req.body;
+  
+  let status = satisfactionStatus;
+  if (rating !== undefined) {
+    const parsedRating = Number(rating);
+    if (!Number.isFinite(parsedRating) || parsedRating < 1 || parsedRating > 5) {
+      return res.status(400).json({ message: "Rating must be a number between 1 and 5" });
+    }
+    status = parsedRating >= 3 ? "satisfied" : "unsatisfied";
+  }
+
+  if (!["satisfied", "unsatisfied"].includes(status)) {
     return res.status(400).json({ message: "Invalid satisfaction status" });
   }
 
@@ -550,8 +560,20 @@ export async function submitSessionFeedback(req, res) {
     return res.status(404).json({ message: "Session not found" });
   }
 
-  session.satisfactionStatus = satisfactionStatus;
+  session.satisfactionStatus = status;
+  session.satisfactionSubmittedAt = new Date();
+  if (rating !== undefined) {
+    session.feedbackRating = Number(rating);
+  }
+  if (comment !== undefined) {
+    session.feedbackComment = String(comment).trim();
+  }
+
   await session.save();
+
+  const updated = await loadRealtimeSession(session._id);
+  emitSessionUpdate(updated);
+
   return res.json({ success: true, satisfactionStatus: session.satisfactionStatus });
 }
 

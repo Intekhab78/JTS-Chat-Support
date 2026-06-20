@@ -7,7 +7,6 @@ import { createNotification } from "./notificationService.js";
 import { sendEmail } from "./emailService.js";
 import { slaBreachTemplate } from "../utils/emailTemplates.js";
 import { processCrmAutomation, processTicketAutomation } from "./automationService.js";
-import { createTicketFromOfflineSession } from "./ticketService.js";
 import { emitSessionUpdate } from "../sockets/index.js";
 
 async function alertManager(manager, breachType, details, dashboardUrl) {
@@ -32,7 +31,6 @@ async function alertManager(manager, breachType, details, dashboardUrl) {
 export async function processSlaBreaches() {
   const queueCutoff = new Date(Date.now() - env.slaQueueAlertMinutes * 60 * 1000);
   const ticketCutoff = new Date(Date.now() - env.slaTicketAlertHours * 60 * 60 * 1000);
-  const offlineCutoff = new Date(Date.now() - 5 * 60 * 60 * 1000);
 
   const queuedSessions = await ChatSession.find({
     status: "queued",
@@ -60,26 +58,7 @@ export async function processSlaBreaches() {
     await session.save();
   }
 
-  const staleOfflineMessages = await ChatSession.find({
-    status: "queued",
-    offlineMessagePending: true,
-    assignedAgent: null,
-    offlineTicketGeneratedAt: null,
-    offlineMessageSubmittedAt: { $lte: offlineCutoff }
-  }).populate("websiteId", "websiteName managerId").populate("visitorId", "name email visitorId");
 
-  for (const session of staleOfflineMessages) {
-    const ticket = await createTicketFromOfflineSession(session, { reason: "offline_message_timeout" });
-    if (!ticket) continue;
-
-    session.offlineMessagePending = false;
-    session.offlineTicketGeneratedAt = new Date();
-    session.status = "closed";
-    session.closedAt = new Date();
-    session.missedReason = "offline_message_converted_to_ticket";
-    await session.save();
-    emitSessionUpdate(session);
-  }
 
   const staleTickets = await Ticket.find({
     status: { $nin: ["resolved", "closed", "archived"] },

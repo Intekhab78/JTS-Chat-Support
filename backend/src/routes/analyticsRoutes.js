@@ -1,6 +1,16 @@
 import { Router } from "express";
 import { getManagerAnalytics, exportAnalyticsCSV, getAgentAnalytics } from "../controllers/analyticsController.js";
 import { getSalesPerformanceStats } from "../controllers/salesAnalyticsController.js";
+import {
+  getExecutiveSummary, 
+  getLeadAnalytics, 
+  getTicketAnalytics, 
+  getRevenueAnalytics,
+  getAgentPerformanceAnalytics,
+  getWebsiteAnalytics,
+  getCustomerInsightsAnalytics,
+  getAiInsightsAnalytics
+} from "../controllers/enterpriseAnalyticsController.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { attachTenantSubscription, requirePlanFeature } from "../middleware/planAccess.js";
 
@@ -10,5 +20,15 @@ router.get("/", requireAuth, requireRole("admin", "client", "manager", "accounts
 router.get("/sales", requireAuth, requireRole("admin", "client", "manager", "sales"), getSalesPerformanceStats);
 router.get("/agent", requireAuth, requireRole("agent", "sales", "user"), getAgentAnalytics);
 router.get("/export/csv", requireAuth, requireRole("admin", "client", "manager", "accounts"), attachTenantSubscription, requirePlanFeature("reports"), exportAnalyticsCSV);
+
+// Enterprise Reporting Endpoints
+router.get("/enterprise/executive", requireAuth, requireRole("admin", "client", "manager"), getExecutiveSummary);
+router.get("/enterprise/leads", requireAuth, requireRole("admin", "client", "manager", "sales"), getLeadAnalytics);
+router.get("/enterprise/tickets", requireAuth, requireRole("admin", "client", "manager"), getTicketAnalytics);
+router.get("/enterprise/revenue", requireAuth, requireRole("admin", "client", "manager", "accounts"), getRevenueAnalytics);
+router.get("/enterprise/agents", requireAuth, requireRole("admin", "client", "manager"), getAgentPerformanceAnalytics);
+router.get("/enterprise/websites", requireAuth, requireRole("admin", "client", "manager"), getWebsiteAnalytics);
+router.get("/enterprise/customers", requireAuth, requireRole("admin", "client", "manager"), getCustomerInsightsAnalytics);
+router.get("/enterprise/ai-insights", requireAuth, requireRole("admin", "client", "manager"), getAiInsightsAnalytics);
 
 export default router;

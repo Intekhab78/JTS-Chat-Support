@@ -23,14 +23,8 @@ const websiteSchema = new mongoose.Schema(
     accentColor: { type: String, default: "#00a5cf" },
     launcherIcon: { type: String, default: "💬" },
     welcomeMessage: { type: String, default: "Hi there! How can we help you today?" },
-    awayMessage: { type: String, default: "Hello! We're currently offline, but if you leave a message, we'll get back to you shortly." },
     position: { type: String, enum: ["left", "right"], default: "right" },
-    quickReplies: [
-      {
-        text: { type: String, required: true },
-        autoResponse: { type: String }
-      }
-    ],
+
     isActive: { type: Boolean, default: true },
     businessHours: {
       enabled: { type: Boolean, default: false },
@@ -45,43 +39,26 @@ const websiteSchema = new mongoose.Schema(
     },
     webhooks: [webhookSchema],
     botEnabled: { type: Boolean, default: true },
+    enableChat: { type: Boolean, default: true },
+    enableLeadGeneration: { type: Boolean, default: true },
+    enableTicketing: { type: Boolean, default: true },
+    enableKnowledgeBase: { type: Boolean, default: true },
+    enableLiveAgent: { type: Boolean, default: true },
+    enableAutomation: { type: Boolean, default: true },
     botWelcomeMessage: { type: String, default: "Hi 👋 How can we help you today?" },
-    botFlow: {
-      type: mongoose.Schema.Types.Mixed,
-      default: {
-        nodes: {
-          root: {
-            message: "Hi 👋 How can we help you?",
-            options: [
-              { text: "Sales", next: "sales" },
-              { text: "Support", next: "support" },
-              { text: "Billing", next: "billing" },
-              { text: "Technical", next: "technical" }
-            ]
-          },
-          support: {
-            message: "Which support area do you need help with?",
-            options: [
-              { text: "Login Issue", next: "support_login" },
-              { text: "Account Issue", next: "support_account" },
-              { text: "Payment Problem", next: "support_payment" }
-            ]
-          },
-          support_login: {
-            message: "Select your specific login issue:",
-            options: [
-              { text: "Forgot Password", next: "sol_forgot_password" },
-              { text: "OTP not received", next: "sol_otp" },
-              { text: "Invalid credentials", next: "sol_invalid_creds" }
-            ]
-          },
-          sol_forgot_password: {
-            message: "🔧 Solution:\n1. Click on \"Forgot Password\"\n2. Enter your email\n3. Check spam folder for OTP",
-            isSolution: true
-          }
+    pipelineStages: {
+      type: [
+        {
+          key:    { type: String, required: true, trim: true },
+          label:  { type: String, required: true, trim: true },
+          color:  { type: String, default: "" },
+          dot:    { type: String, default: "" },
+          active: { type: Boolean, default: true }
         }
-      }
-    }
+      ],
+      default: undefined   // undefined means "not configured — use frontend defaults"
+    },
+    activeFlowId: { type: mongoose.Schema.Types.ObjectId, ref: "Flow", default: null }
   },
   { timestamps: true }
 );

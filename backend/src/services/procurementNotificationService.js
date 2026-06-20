@@ -66,9 +66,6 @@ export async function checkAndNotifyLowStock(itemId) {
           link: `/purchase?tab=procurement`,
           entityType: "inventory_item",
           entityId: item._id
-        }, {
-          subject: `Low Stock Alert: ${item.name}`,
-          message: `${message}<br><br>Please review and create a purchase order to restock.`
         });
       }
 

@@ -9,6 +9,13 @@ import { emitCustomerActivity, createAndEmitCrmNotification } from "../utils/crm
 export const createFollowUpTask = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_MANAGE_TASKS);
   const customer = await Customer.findById(req.params.id);
+  if (!customer) throw new AppError("Customer not found", 404);
+
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!ownedWebsiteIds.map(String).includes(String(customer.websiteId))) {
+    throw new AppError("Access denied", 403);
+  }
+
   const task = await FollowUpTask.create({
     customerId: customer._id, websiteId: customer.websiteId,
     ownerId: req.body.ownerId || req.user._id, createdBy: req.user._id,
@@ -33,6 +40,13 @@ export const getMyFollowUpTasks = asyncHandler(async (req, res) => {
 export const updateFollowUpTask = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_MANAGE_TASKS);
   const task = await FollowUpTask.findById(req.params.taskId);
+  if (!task) throw new AppError("Task not found", 404);
+
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!ownedWebsiteIds.map(String).includes(String(task.websiteId))) {
+    throw new AppError("Access denied", 403);
+  }
+
   if (req.body.status === "completed") {
     task.status = "completed";
     task.completedAt = new Date();
@@ -46,6 +60,12 @@ export const deleteFollowUpTask = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_MANAGE_TASKS);
   const task = await FollowUpTask.findById(req.params.taskId);
   if (!task) throw new AppError("Task not found", 404);
+
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!ownedWebsiteIds.map(String).includes(String(task.websiteId))) {
+    throw new AppError("Access denied", 403);
+  }
+
   await task.deleteOne();
   res.json({ success: true });
 });

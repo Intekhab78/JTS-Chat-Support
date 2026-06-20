@@ -9,20 +9,9 @@ import { User } from "../models/User.js";
  */
 export const generateCRN = async () => {
   const year = new Date().getFullYear();
-  const prefix = `CRN-${year}-`;
-
-  // Find the last CRN for the current year
-  const lastCustomer = await Customer.findOne({ crn: new RegExp(`^${prefix}`) })
-    .sort({ crn: -1 })
-    .select("crn");
-
-  let nextNumber = 1;
-  if (lastCustomer && lastCustomer.crn) {
-    const lastNumberStr = lastCustomer.crn.split("-").pop();
-    nextNumber = parseInt(lastNumberStr, 10) + 1;
-  }
-
-  return `${prefix}${String(nextNumber).padStart(4, "0")}`;
+  // Generate a random 6 character alphanumeric string
+  const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
+  return `CRN-${year}-${randomStr}`;
 };
 
 /**
