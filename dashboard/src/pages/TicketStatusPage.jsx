@@ -5,12 +5,12 @@ import { apiUrl } from "../api/client.js";
 const STATUS_STEPS = ["open", "in_progress", "waiting", "resolved", "closed"];
 
 const STATUS_CONFIG = {
-  open:         { label: "Open",        desc: "Your ticket has been received and is awaiting assignment.",   color: "#6366f1", bg: "bg-indigo-50 dark:bg-indigo-500/10", text: "text-indigo-600 dark:text-indigo-400" },
-  in_progress:  { label: "In Progress", desc: "An agent is reviewing your request and will update you soon.", color: "#f59e0b", bg: "bg-amber-50 dark:bg-amber-500/10", text: "text-amber-600 dark:text-amber-400" },
-  waiting:      { label: "Waiting",     desc: "We are waiting on a response or internal action before progressing this ticket.", color: "#8b5cf6", bg: "bg-violet-50 dark:bg-violet-500/10", text: "text-violet-600 dark:text-violet-400" },
-  pending:      { label: "In Progress", desc: "An agent is reviewing your request and will update you soon.", color: "#f59e0b", bg: "bg-amber-50 dark:bg-amber-500/10", text: "text-amber-600 dark:text-amber-400" },
-  resolved:     { label: "Resolved",    desc: "Your issue has been resolved. Please let us know if you need more help.", color: "#10b981", bg: "bg-emerald-50 dark:bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400" },
-  closed:       { label: "Closed",      desc: "This ticket has been closed. Thank you for reaching out!", color: "#64748b", bg: "bg-slate-100 dark:bg-white/5", text: "text-slate-500 dark:text-slate-400" }
+  open: { label: "Open", desc: "Your ticket has been received and is awaiting assignment.", color: "#6366f1", bg: "bg-indigo-50 dark:bg-indigo-500/10", text: "text-indigo-600 dark:text-indigo-400" },
+  in_progress: { label: "In Progress", desc: "An agent is reviewing your request and will update you soon.", color: "#f59e0b", bg: "bg-amber-50 dark:bg-amber-500/10", text: "text-amber-600 dark:text-amber-400" },
+  waiting: { label: "Waiting", desc: "We are waiting on a response or internal action before progressing this ticket.", color: "#8b5cf6", bg: "bg-violet-50 dark:bg-violet-500/10", text: "text-violet-600 dark:text-violet-400" },
+  pending: { label: "In Progress", desc: "An agent is reviewing your request and will update you soon.", color: "#f59e0b", bg: "bg-amber-50 dark:bg-amber-500/10", text: "text-amber-600 dark:text-amber-400" },
+  resolved: { label: "Resolved", desc: "Your issue has been resolved. Please let us know if you need more help.", color: "#10b981", bg: "bg-emerald-50 dark:bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400" },
+  closed: { label: "Closed", desc: "This ticket has been closed. Thank you for reaching out!", color: "#64748b", bg: "bg-slate-100 dark:bg-white/5", text: "text-slate-500 dark:text-slate-400" }
 };
 
 const PRIORITY_COLORS = { low: "#94a3b8", medium: "#6366f1", high: "#f97316", urgent: "#ef4444" };
@@ -35,7 +35,7 @@ export default function TicketStatusPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950/20 flex items-center justify-center p-6 transition-colors duration-500">
       <div className="w-full max-w-xl animate-in fade-in slide-in-from-bottom-4 duration-700">
-        
+
         {/* Branding Header */}
         <div className="text-center mb-10">
           <div className="w-16 h-16 rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-2xl transition-transform hover:rotate-6" style={{ backgroundColor: primaryColor }}>
@@ -64,8 +64,8 @@ export default function TicketStatusPage() {
               </svg>
             </div>
             <div className="space-y-2">
-               <p className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Signal Interrupted</p>
-               <p className="text-xs text-slate-400 dark:text-slate-500 font-bold px-8">{error}</p>
+              <p className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Signal Interrupted</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold px-8">{error}</p>
             </div>
             <p className="text-[10px] text-slate-300 dark:text-slate-600 font-black uppercase tracking-[0.2em]">Verify your tracking credentials</p>
           </div>
@@ -75,13 +75,13 @@ export default function TicketStatusPage() {
           <div className="space-y-6">
             {/* Main Card */}
             <div className="bg-white dark:bg-slate-900 rounded-[40px] border border-slate-200/60 dark:border-white/5 shadow-2xl overflow-hidden transition-colors">
-              
+
               {/* Status Banner */}
               <div className="p-10 border-b border-slate-50 dark:border-white/5">
                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
                   <div className="space-y-2">
                     <div className="inline-block px-3 py-1 bg-slate-900 dark:bg-indigo-600 rounded-lg shadow-lg">
-                       <p className="text-[10px] font-black text-white uppercase tracking-widest">{ticket.ticketId}</p>
+                      <p className="text-[10px] font-black text-white uppercase tracking-widest">{ticket.ticketId}</p>
                     </div>
                     <h2 className="text-xl font-black text-slate-900 dark:text-white mt-4 leading-tight">{ticket.subject}</h2>
                   </div>
@@ -149,11 +149,11 @@ export default function TicketStatusPage() {
                 </div>
                 <div className="space-y-1">
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Initialization</p>
-                  <span className="text-xs font-black text-slate-700 dark:text-slate-300">{new Date(ticket.createdAt).toLocaleDateString("en-GB", { day:"2-digit", month:"short", year:"numeric" })}</span>
+                  <span className="text-xs font-black text-slate-700 dark:text-slate-300">{new Date(ticket.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</span>
                 </div>
                 <div className="space-y-1">
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Last Sync</p>
-                  <span className="text-xs font-black text-slate-700 dark:text-slate-300">{new Date(ticket.updatedAt).toLocaleDateString("en-GB", { day:"2-digit", month:"short", year:"numeric" })}</span>
+                  <span className="text-xs font-black text-slate-700 dark:text-slate-300">{new Date(ticket.updatedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</span>
                 </div>
               </div>
 
@@ -165,12 +165,12 @@ export default function TicketStatusPage() {
                     {ticket.notes.map((note, i) => (
                       <div key={i} className="flex gap-6 relative">
                         <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 z-10 shadow-sm" style={{ backgroundColor: primaryColor }}>
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
                         </div>
                         <div className="flex-1 bg-white dark:bg-slate-800 rounded-[28px] px-6 py-5 border border-slate-100 dark:border-white/5 shadow-sm">
                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex justify-between">
-                             <span>Support Protocol Agent</span>
-                             <span className="opacity-60">{new Date(note.createdAt).toLocaleDateString()} • {new Date(note.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            <span>Support Protocol Agent</span>
+                            <span className="opacity-60">{new Date(note.createdAt).toLocaleDateString()} • {new Date(note.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                           </p>
                           <p className="text-sm font-bold text-slate-700 dark:text-slate-200 leading-relaxed">{note.content}</p>
                         </div>
@@ -183,9 +183,9 @@ export default function TicketStatusPage() {
 
             {/* Persistence Note */}
             <div className="bg-slate-900/5 dark:bg-white/5 p-6 rounded-[28px] border border-white/50 dark:border-white/5 text-center">
-               <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-[0.2em]">
-                 Bookmark this secure portal to monitor real-time progress.
-               </p>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-[0.2em]">
+                Bookmark this secure portal to monitor real-time progress.
+              </p>
             </div>
           </div>
         )}

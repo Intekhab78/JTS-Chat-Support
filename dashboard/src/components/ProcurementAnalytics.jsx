@@ -15,6 +15,7 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell, Tooltip 
 } from "recharts";
 import { api } from "../api/client.js";
+import { formatCurrency } from "../utils/currencyFormatter.js";
 
 const StatCard = ({ title, value, icon: Icon, color, trend, trendValue }) => (
   <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 group hover:border-indigo-200 transition-all duration-300">
@@ -213,8 +214,8 @@ export default function ProcurementAnalytics() {
               <h4 className="text-xl font-black tracking-tight">Competitive Monitoring</h4>
               <div className="space-y-4 pt-4">
                  {[
-                   { title: "Direct Sourcing (RFQ-012)", price: "₹24,500", bids: 3, status: "Active" },
-                   { title: "Raw Material Batch (RFQ-011)", price: "₹18,900", bids: 5, status: "Closing" }
+                   { title: "Direct Sourcing (RFQ-012)", price: formatCurrency(24500), bids: 3, status: "Active" },
+                   { title: "Raw Material Batch (RFQ-011)", price: formatCurrency(18900), bids: 5, status: "Closing" }
                  ].map((rfq, i) => (
                    <div key={i} className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all cursor-pointer">
                       <div className="flex justify-between items-center mb-2">

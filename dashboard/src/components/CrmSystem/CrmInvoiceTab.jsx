@@ -4,13 +4,7 @@ import { api, getApiBase } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { QuickCreateItemModal, ItemAutocomplete } from "../ItemAutocomplete.jsx";
 
-function formatCurrency(value) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0
-  }).format(Number(value || 0));
-}
+import { formatCurrency, getCurrencySymbol } from "../../utils/currencyFormatter.js";
 
 function formatDate(dateString) {
   if (!dateString) return "N/A";
@@ -94,7 +88,7 @@ function InvoiceForm({ initial, onSubmit, onCancel, submitting, websiteId, custo
                 <input type="number" min="0" value={item.price}
                   onChange={e => updateItem(idx, { price: Number(e.target.value) })}
                   className="w-full bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500/20"
-                  placeholder="Price (₹)"
+                  placeholder={`Price (${getCurrencySymbol()})`}
                 />
               </div>
               <div className="col-span-1 flex items-center justify-center pt-2">

@@ -190,9 +190,9 @@ function BoardCard({ customer, canManagePipeline, onOpenCustomer, draggedCustome
         <div className="flex items-center justify-between">
           <HeatIndicator score={customer.heatScore || 0} />
           <div className="flex -space-x-2">
-            {customer.ownerId ? (
+            {customer.ownerId && customer.ownerId.name ? (
               <div className="w-6 h-6 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[8px] font-black" title={customer.ownerId.name}>
-                {customer.ownerId.name[0]}
+                {customer.ownerId.name[0].toUpperCase()}
               </div>
             ) : (
               <div className="w-6 h-6 rounded-full border-2 border-white bg-slate-50 flex items-center justify-center text-slate-300">

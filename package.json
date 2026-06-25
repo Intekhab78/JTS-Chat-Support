@@ -15,5 +15,8 @@
     "check": "npm --workspace backend run check && node scripts/static-check.mjs && npm run build",
     "test": "npm --workspace backend run test",
     "lint": "node scripts/static-check.mjs"
+  },
+  "devDependencies": {
+    "@express-rate-limit/tsconfig": "^1.0.5"
   }
 }

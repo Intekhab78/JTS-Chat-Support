@@ -7,6 +7,7 @@ import MagicCelebration from "./MagicCelebration.jsx";
 
 import { api } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { useSocket } from "../../context/SocketContext.jsx";
 import { hasPermission } from "../../utils/permissions.js";
 import { PERMISSIONS } from "../../constants/domain.js";
 import { downloadCSV } from "../../utils/exportUtils.js";
@@ -28,6 +29,7 @@ export default function CrmContainer({
   highlightLeadId = null
 }) {
   const { user } = useAuth();
+  const socket = useSocket();
 
   // -- Permissions --
   const isSales = user?.role === "sales";
@@ -136,6 +138,21 @@ export default function CrmContainer({
       loadAndOpenLead(highlightLeadId);
     }
   }, [highlightLeadId]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleLeadCreated = (payload) => {
+      if (!payload) return;
+      if (websiteId && payload.websiteId && payload.websiteId !== websiteId) return;
+      fetchCustomers(1);
+    };
+
+    socket.on("lead:created", handleLeadCreated);
+    return () => {
+      socket.off("lead:created", handleLeadCreated);
+    };
+  }, [socket, websiteId]);
 
   useEffect(() => {
     if (!actionMessage.text) return;
@@ -627,6 +644,16 @@ export default function CrmContainer({
         tags: createLeadForm.tags ? createLeadForm.tags.split(",").map(t => t.trim()).filter(Boolean) : []
       };
 
+      if (createLeadForm.probability === "" || createLeadForm.probability === null || createLeadForm.probability === undefined) {
+        delete payload.probability;
+      } else {
+        payload.probability = Number(createLeadForm.probability);
+      }
+
+      if (payload.dealStage === "") {
+        payload.dealStage = null;
+      }
+
       if (editLeadId) {
         delete payload.email; // Core field safety
         const updated = await api(`/api/crm/${editLeadId}`, { method: "PATCH", body: JSON.stringify(payload) });
@@ -634,7 +661,7 @@ export default function CrmContainer({
         setActionMessage({ type: "success", text: "Lead updated." });
       } else {
         const created = await api("/api/crm", { method: "POST", body: JSON.stringify(payload) });
-        setCustomers(prev => [created, ...prev]);
+        await fetchCustomers(1);
         setActionMessage({ type: "success", text: "Lead created." });
         openCustomer(created);
       }
@@ -674,15 +701,15 @@ export default function CrmContainer({
 
     const colourPalette = [
       { color: "bg-violet-50 text-violet-600 border-violet-100", dot: "bg-violet-500" },
-      { color: "bg-sky-50 text-sky-600 border-sky-100",          dot: "bg-sky-500" },
+      { color: "bg-sky-50 text-sky-600 border-sky-100", dot: "bg-sky-500" },
       { color: "bg-indigo-50 text-indigo-600 border-indigo-100", dot: "bg-indigo-500" },
-      { color: "bg-amber-50 text-amber-600 border-amber-100",    dot: "bg-amber-500" },
+      { color: "bg-amber-50 text-amber-600 border-amber-100", dot: "bg-amber-500" },
       { color: "bg-orange-50 text-orange-600 border-orange-100", dot: "bg-orange-500" },
       { color: "bg-emerald-50 text-emerald-600 border-emerald-100", dot: "bg-emerald-500" },
-      { color: "bg-red-50 text-red-500 border-red-100",          dot: "bg-red-400" },
-      { color: "bg-pink-50 text-pink-600 border-pink-100",       dot: "bg-pink-500" },
-      { color: "bg-teal-50 text-teal-600 border-teal-100",       dot: "bg-teal-500" },
-      { color: "bg-cyan-50 text-cyan-600 border-cyan-100",       dot: "bg-cyan-500" }
+      { color: "bg-red-50 text-red-500 border-red-100", dot: "bg-red-400" },
+      { color: "bg-pink-50 text-pink-600 border-pink-100", dot: "bg-pink-500" },
+      { color: "bg-teal-50 text-teal-600 border-teal-100", dot: "bg-teal-500" },
+      { color: "bg-cyan-50 text-cyan-600 border-cyan-100", dot: "bg-cyan-500" }
     ];
 
     if (Array.isArray(saved) && saved.length > 0) {
@@ -691,9 +718,9 @@ export default function CrmContainer({
       saved.forEach((s, idx) => {
         const palette = colourPalette[idx % colourPalette.length];
         CRM_STAGE_CONFIG[s.key] = {
-          label:  s.label,
-          color:  s.color  || palette.color,
-          dot:    s.dot    || palette.dot,
+          label: s.label,
+          color: s.color || palette.color,
+          dot: s.dot || palette.dot,
           active: s.active !== false
         };
       });
@@ -724,26 +751,26 @@ export default function CrmContainer({
 
     const colourPalette = [
       { color: "bg-violet-50 text-violet-600 border-violet-100", dot: "bg-violet-500" },
-      { color: "bg-sky-50 text-sky-600 border-sky-100",          dot: "bg-sky-500" },
+      { color: "bg-sky-50 text-sky-600 border-sky-100", dot: "bg-sky-500" },
       { color: "bg-indigo-50 text-indigo-600 border-indigo-100", dot: "bg-indigo-500" },
-      { color: "bg-amber-50 text-amber-600 border-amber-100",    dot: "bg-amber-500" },
+      { color: "bg-amber-50 text-amber-600 border-amber-100", dot: "bg-amber-500" },
       { color: "bg-orange-50 text-orange-600 border-orange-100", dot: "bg-orange-500" },
       { color: "bg-emerald-50 text-emerald-600 border-emerald-100", dot: "bg-emerald-500" },
-      { color: "bg-red-50 text-red-500 border-red-100",          dot: "bg-red-400" },
-      { color: "bg-pink-50 text-pink-600 border-pink-100",       dot: "bg-pink-500" },
-      { color: "bg-teal-50 text-teal-600 border-teal-100",       dot: "bg-teal-500" },
-      { color: "bg-cyan-50 text-cyan-600 border-cyan-100",       dot: "bg-cyan-500" }
+      { color: "bg-red-50 text-red-500 border-red-100", dot: "bg-red-400" },
+      { color: "bg-pink-50 text-pink-600 border-pink-100", dot: "bg-pink-500" },
+      { color: "bg-teal-50 text-teal-600 border-teal-100", dot: "bg-teal-500" },
+      { color: "bg-cyan-50 text-cyan-600 border-cyan-100", dot: "bg-cyan-500" }
     ];
 
     // Enrich each stage with colour metadata before saving
     const enriched = updatedStages.map((s, idx) => {
       const existing = CRM_STAGE_CONFIG[s.key];
-      const palette  = colourPalette[idx % colourPalette.length];
+      const palette = colourPalette[idx % colourPalette.length];
       return {
-        key:    s.key,
-        label:  s.label,
-        color:  existing?.color || palette.color,
-        dot:    existing?.dot   || palette.dot,
+        key: s.key,
+        label: s.label,
+        color: existing?.color || palette.color,
+        dot: existing?.dot || palette.dot,
         active: s.active !== false
       };
     });
@@ -799,7 +826,7 @@ export default function CrmContainer({
               <h2 className="text-xl font-black tracking-tight text-slate-950">Pipeline Management</h2>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5 xl:w-[720px]">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5 xl:w-180">
               {[
                 { label: "Open Pipeline", value: summary.totalLeads || pagination.total, color: "text-slate-950" },
                 { label: "Pipeline Value", value: formatCurrency(summary.pipelineValue), color: "text-slate-950" },
@@ -1001,6 +1028,7 @@ export default function CrmContainer({
         creating={creatingLead}
         canAssignOwners={canAssignOwners}
         teamMembers={teamMembers}
+        websites={websites}
       />
       <CrmStageEditor
         open={showStageEditor}

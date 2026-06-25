@@ -14,13 +14,7 @@ import { getPaginationMeta } from "../utils/pagination.js";
 import { api } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
-function formatCurrency(value, currency = "INR") {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0
-  }).format(Number(value || 0));
-}
+import { formatCurrency } from "../utils/currencyFormatter.js";
 
 function formatDate(value) {
   if (!value) return "No activity yet";

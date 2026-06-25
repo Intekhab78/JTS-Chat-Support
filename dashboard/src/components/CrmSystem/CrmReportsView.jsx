@@ -9,13 +9,7 @@ import {
 } from "recharts";
 import CRMLeaderboard from "./CrmLeaderboard.jsx";
 
-const formatCurrency = (value) => {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0
-  }).format(Number(value || 0));
-};
+import { formatCurrency, formatCurrencyCompact } from "../../utils/currencyFormatter.js";
 
 export default function CRMReportsView({ summary, onDrillDown, activeRange, setActiveRange }) {
   
@@ -330,7 +324,7 @@ export default function CRMReportsView({ summary, onDrillDown, activeRange, setA
             <div className="flex items-center gap-6">
               <div className="text-right">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Expected Q3 Revenue</p>
-                <p className="text-2xl font-black text-indigo-600 italic">₹{(summary?.weightedRevenue * 1.4)?.toLocaleString()}</p>
+                <p className="text-2xl font-black text-indigo-600 italic">{formatCurrency((summary?.weightedRevenue || 0) * 1.4)}</p>
               </div>
               <div className="h-10 w-px bg-slate-100 hidden lg:block" />
               <div className="text-right">
@@ -371,7 +365,7 @@ export default function CRMReportsView({ summary, onDrillDown, activeRange, setA
                   axisLine={false} 
                   tickLine={false} 
                   tick={{ fontSize: 10, fontWeight: 900, fill: '#94a3b8' }}
-                  tickFormatter={(val) => `₹${(val / 1000)}k`}
+                  tickFormatter={(val) => formatCurrencyCompact(val)}
                 />
                 <Tooltip 
                   contentStyle={{ 

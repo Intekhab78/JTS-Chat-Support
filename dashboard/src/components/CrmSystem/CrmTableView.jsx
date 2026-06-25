@@ -109,7 +109,7 @@ export default function CrmTableView({
                     </td>
                     <td className="px-6 py-5" onClick={() => openCustomer(c)}>
                       <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center font-black text-sm shadow-lg shadow-indigo-200 shrink-0">
+                        <div className="w-10 h-10 rounded-xl bg-linear-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center font-black text-sm shadow-lg shadow-indigo-200 shrink-0">
                           {c.name?.[0]?.toUpperCase() || "U"}
                         </div>
                         <div className="min-w-0">
@@ -204,7 +204,7 @@ export default function CrmTableView({
 
       {/* Floating Bulk Action Bar */}
       {selectedIds.length > 0 && (
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[50] bg-slate-900 text-white rounded-3xl p-3 shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex items-center gap-6 border border-white/10 animate-in slide-in-from-bottom-5">
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white rounded-3xl p-3 shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex items-center gap-6 border border-white/10 animate-in slide-in-from-bottom-5">
           <div className="flex items-center gap-3 px-4 border-r border-white/10">
             <div className="w-8 h-8 rounded-xl bg-indigo-500 flex items-center justify-center font-black text-xs">
               {selectedIds.length}
@@ -237,9 +237,9 @@ export default function CrmTableView({
 
           {/* Bulk Action Popovers */}
           {bulkActionType === 'owner' && (
-            <div className="absolute bottom-full mb-4 left-1/2 -translate-x-1/2 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 min-w-[200px] text-slate-900 overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+            <div className="absolute bottom-full mb-4 left-1/2 -translate-x-1/2 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 min-w-50 text-slate-900 overflow-hidden animate-in fade-in slide-in-from-bottom-2">
               <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-3">Reassign to Agent</p>
-              <div className="space-y-1 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
+              <div className="space-y-1 max-h-50 overflow-y-auto custom-scrollbar pr-2">
                 {teamMembers.filter(m => ["sales", "manager"].includes(m.role)).map(m => (
                   <button
                     key={m._id}
@@ -262,7 +262,7 @@ export default function CrmTableView({
           )}
 
           {bulkActionType === 'stage' && (
-            <div className="absolute bottom-full mb-4 right-0 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 min-w-[200px] text-slate-900 animate-in fade-in slide-in-from-bottom-2">
+            <div className="absolute bottom-full mb-4 right-0 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 min-w-50 text-slate-900 animate-in fade-in slide-in-from-bottom-2">
               <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-3">Update Pipeline Stage</p>
               <div className="grid grid-cols-1 gap-1">
                 {['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won', 'lost'].map(stage => (

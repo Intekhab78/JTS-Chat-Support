@@ -9,13 +9,22 @@ export const getTicketByPublicId = asyncHandler(async (req, res) => {
 
   if (!ticket) throw new AppError("Ticket not found", 404);
 
+  // Only expose public notes (isPublic: true) to visitors
+  const publicNotes = (ticket.notes || [])
+    .filter(n => n.isPublic)
+    .map(n => ({ content: n.content, createdAt: n.createdAt }));
+
   res.json({
     ticketId: ticket.ticketId,
     subject: ticket.subject,
     status: ticket.status,
     priority: ticket.priority,
+    department: ticket.department,
+    channel: ticket.channel,
     createdAt: ticket.createdAt,
+    updatedAt: ticket.updatedAt,
     website: ticket.websiteId,
-    agent: ticket.assignedAgent ? { name: ticket.assignedAgent.name } : null
+    agent: ticket.assignedAgent ? { name: ticket.assignedAgent.name } : null,
+    notes: publicNotes
   });
 });

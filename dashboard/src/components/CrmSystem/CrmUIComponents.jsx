@@ -1,5 +1,6 @@
 import React from "react";
 import { Circle, Clock, CheckCircle2, Zap, TrendingUp, Brain } from "lucide-react";
+import { formatCurrency } from "../../utils/currencyFormatter.js";
 
 export const DEFAULT_CRM_STAGE_CONFIG = Object.freeze({
   new:         { label: "New",         color: "bg-violet-50 text-violet-600 border-violet-100", dot: "bg-violet-500", active: true },
@@ -73,13 +74,9 @@ export const LEAD_STATUS_STYLES = {
   inactive: "bg-slate-100 text-slate-500 border-slate-200"
 };
 
-export function formatCurrency(value) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0
-  }).format(Number(value || 0));
-}
+// formatCurrency is imported from "../../utils/currencyFormatter.js"
+// and re-exported below for backward compatibility with all consumers.
+export { formatCurrency };
 
 export function LeadStatusBadge({ status }) {
   const normalized = status || "new";

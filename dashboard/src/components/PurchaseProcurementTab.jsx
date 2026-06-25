@@ -3,6 +3,7 @@ import { Plus, CheckCircle, Package, Search, Download, FileText, Clock3 } from "
 import { api, apiUrl } from "../api/client.js";
 import { ItemAutocomplete, QuickCreateItemModal } from "./ItemAutocomplete.jsx";
 import ProcurementAnalytics from "./ProcurementAnalytics.jsx";
+import { formatCurrency } from "../utils/currencyFormatter.js";
 
 export default function PurchaseProcurementTab({ websiteId }) {
   const [suppliers, setSuppliers] = useState([]);
@@ -148,7 +149,7 @@ export default function PurchaseProcurementTab({ websiteId }) {
                     <p className="text-sm font-black text-slate-800">{draft.supplierId?.companyName || "Unknown Supplier"}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-black text-slate-900 italic">₹{draft.total?.toLocaleString()}</p>
+                    <p className="text-sm font-black text-slate-900 italic">{formatCurrency(draft.total)}</p>
                     <p className="text-[9px] font-black uppercase text-amber-600">{draft.items.length} Items</p>
                   </div>
                 </div>

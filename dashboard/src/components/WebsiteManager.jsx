@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
-import { Globe, Plus, Trash2, Copy, Check, Settings, Code, Palette, X, Network } from "lucide-react";
+import { Globe, Plus, Trash2, Copy, Check, Settings, Code, Palette, X, Network, DollarSign } from "lucide-react";
 import { api, getApiBase } from "../api/client.js";
 import WidgetCustomizer from "./WidgetCustomizer.jsx";
 import FlowBuilder from "./FlowBuilder.jsx";
 import PaginationControls from "./PaginationControls.jsx";
 import { getPaginationMeta } from "../utils/pagination.js";
+import { CURRENCY_MASTER, DEFAULT_CURRENCY_SETTINGS } from "../constants/currencies.js";
+import { useCurrency } from "../context/CurrencyContext.jsx";
 
 const COLOR_PRESETS = [
   { primary: "#6366f1", accent: "#4f46e5", name: "Indigo" },
@@ -59,8 +61,10 @@ export default function WebsiteManager() {
   });
   const [customizingWebsite, setCustomizingWebsite] = useState(null);
   const [buildingFlowWebsite, setBuildingFlowWebsite] = useState(null);
+  const [localizingWebsite, setLocalizingWebsite] = useState(null);
   const [page, setPage] = useState(1);
   const [widgetBaseUrl, setWidgetBaseUrl] = useState("");
+  const { refreshCurrency } = useCurrency();
 
   const fetchWebsites = async () => {
     try {
@@ -274,6 +278,20 @@ export default function WebsiteManager() {
           }}
         />
       </div>
+    );
+  }
+
+  if (localizingWebsite) {
+    return (
+      <LocalizationModal
+        website={localizingWebsite}
+        onClose={() => setLocalizingWebsite(null)}
+        onSaved={(updatedWebsite) => {
+          setWebsites(prev => prev.map(w => w._id === updatedWebsite._id ? updatedWebsite : w));
+          setLocalizingWebsite(null);
+          refreshCurrency();
+        }}
+      />
     );
   }
 
@@ -586,6 +604,12 @@ export default function WebsiteManager() {
                   <Network size={16} /> Flow Builder
                 </button>
                 <button
+                  onClick={() => setLocalizingWebsite(website)}
+                  className="px-8 py-4.5 rounded-2xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black text-[11px] uppercase tracking-[0.2em] hover:bg-emerald-600 hover:text-white transition-all shadow-sm border border-slate-200 dark:border-white/5 flex items-center gap-3 hover:scale-105 active:scale-95 hover:border-emerald-600"
+                >
+                  <DollarSign size={16} /> Currency
+                </button>
+                <button
                   onClick={() => setCustomizingWebsite(website)}
                   className="px-8 py-4.5 rounded-2xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black text-[11px] uppercase tracking-[0.2em] hover:bg-slate-950 dark:hover:bg-black hover:text-white transition-all shadow-sm border border-slate-200 dark:border-white/5 flex items-center gap-3 hover:scale-105 active:scale-95"
                 >
@@ -683,6 +707,309 @@ export default function WebsiteManager() {
         itemLabel="websites"
         onPageChange={setPage}
       />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Localization Modal
+// ─────────────────────────────────────────────────────────────────────────────
+function formatPreview(settings, amount = 123456.78) {
+  const s = { ...DEFAULT_CURRENCY_SETTINGS, ...settings };
+  const dp = Number(s.decimalPlaces ?? 2);
+  const fixed = amount.toFixed(dp);
+  const [intPart, decPart] = fixed.split(".");
+  const sep = s.thousandSeparator ?? ",";
+  let intFormatted = intPart;
+  if (sep) {
+    const isIndian = s.currencyCode === "INR" && sep === ",";
+    if (isIndian) {
+      if (intPart.length > 3) {
+        const last3 = intPart.slice(-3);
+        const rest = intPart.slice(0, -3);
+        intFormatted = rest.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + "," + last3;
+      }
+    } else {
+      intFormatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, sep);
+    }
+  }
+  const ds = s.decimalSeparator ?? ".";
+  const numStr = dp > 0 ? `${intFormatted}${ds}${decPart}` : intFormatted;
+  const sym = s.currencySymbol ?? "₹";
+  return s.symbolPosition === "after" ? `${numStr} ${sym}` : `${sym} ${numStr}`;
+}
+
+function LocalizationModal({ website, onClose, onSaved }) {
+  const [settings, setSettings] = useState({
+    ...DEFAULT_CURRENCY_SETTINGS,
+    ...(website.currencySettings || {})
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  const handleCurrencySelect = (e) => {
+    const selected = CURRENCY_MASTER.find(c => c.code === e.target.value);
+    if (!selected) return;
+    setSettings(prev => ({
+      ...prev,
+      currency:          selected.name,
+      currencyCode:      selected.code,
+      currencySymbol:    selected.symbol,
+      symbolPosition:    selected.position || "before",
+      decimalPlaces:     selected.decimalPlaces,
+      thousandSeparator: selected.thousandSep,
+      decimalSeparator:  selected.decimalSep,
+    }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError("");
+    setSuccess(false);
+    try {
+      const updated = await api(`/api/websites/${website._id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ currencySettings: settings })
+      });
+      setSuccess(true);
+      setTimeout(() => onSaved(updated), 800);
+    } catch (err) {
+      setError(err.message || "Failed to save settings");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inp = "w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-2xl px-4 py-3 text-xs font-bold outline-none focus:border-emerald-500/50 dark:text-white transition-all";
+  const preview = formatPreview(settings);
+
+  return (
+    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-200">
+              <DollarSign size={20} />
+            </div>
+            <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Currency &amp; Localization</h2>
+          </div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-[52px]">
+            Configuring <span className="text-emerald-500">{website.websiteName}</span>
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className="w-14 h-14 rounded-[24px] bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-white/5 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all hover:rotate-90 hover:scale-110 shadow-sm"
+        >
+          <X size={24} />
+        </button>
+      </div>
+
+      {/* Live Preview Banner */}
+      <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-[32px] p-8 text-white shadow-xl shadow-emerald-200/40 flex items-center justify-between gap-6">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-70 mb-1">Live Preview</p>
+          <p className="text-4xl font-black tracking-tight">{preview}</p>
+          <p className="text-[10px] font-bold opacity-60 mt-2 uppercase tracking-widest">{settings.currencyCode} · {settings.currency}</p>
+        </div>
+        <div className="text-right hidden sm:block">
+          <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Symbol</p>
+          <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-xl flex items-center justify-center text-3xl font-black border border-white/20">
+            {settings.currencySymbol}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Left Column */}
+        <div className="space-y-6 bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-white/5 p-8 shadow-sm">
+          <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.4em]">Currency Master</p>
+
+          {/* Currency Picker */}
+          <div className="space-y-2">
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Select Currency</label>
+            <select
+              className={inp}
+              value={settings.currencyCode}
+              onChange={handleCurrencySelect}
+            >
+              {CURRENCY_MASTER.map(c => (
+                <option key={c.code} value={c.code}>
+                  {c.symbol} {c.name} ({c.code})
+                </option>
+              ))}
+              <option value="">— Custom —</option>
+            </select>
+          </div>
+
+          {/* Currency Name */}
+          <div className="space-y-2">
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Currency Name</label>
+            <input
+              className={inp}
+              value={settings.currency}
+              onChange={e => setSettings(s => ({ ...s, currency: e.target.value }))}
+              placeholder="e.g. Indian Rupee"
+            />
+          </div>
+
+          {/* Symbol + Code row */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Symbol</label>
+              <input
+                className={inp}
+                value={settings.currencySymbol}
+                onChange={e => setSettings(s => ({ ...s, currencySymbol: e.target.value }))}
+                placeholder="₹"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Currency Code</label>
+              <input
+                className={inp}
+                value={settings.currencyCode}
+                onChange={e => setSettings(s => ({ ...s, currencyCode: e.target.value.toUpperCase() }))}
+                placeholder="INR"
+                maxLength={5}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column */}
+        <div className="space-y-6 bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-white/5 p-8 shadow-sm">
+          <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.4em]">Formatting Rules</p>
+
+          {/* Symbol Position */}
+          <div className="space-y-2">
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Symbol Position</label>
+            <div className="flex gap-3">
+              {[
+                { v: "before", label: "Before Amount", example: "₹100" },
+                { v: "after",  label: "After Amount",  example: "100₹" }
+              ].map(opt => (
+                <button
+                  key={opt.v}
+                  type="button"
+                  onClick={() => setSettings(s => ({ ...s, symbolPosition: opt.v }))}
+                  className={`flex-1 py-3 rounded-2xl border-2 text-[10px] font-black uppercase tracking-widest transition-all ${settings.symbolPosition === opt.v ? "bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-100" : "bg-slate-50 text-slate-400 border-slate-100 hover:border-emerald-300"}`}
+                >
+                  {opt.label}
+                  <span className="block text-[8px] mt-1 opacity-70">{opt.example}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Decimal Places */}
+          <div className="space-y-2">
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Decimal Places</label>
+            <div className="flex gap-3">
+              {[0, 2, 3].map(dp => (
+                <button
+                  key={dp}
+                  type="button"
+                  onClick={() => setSettings(s => ({ ...s, decimalPlaces: dp }))}
+                  className={`flex-1 py-3 rounded-2xl border-2 text-[10px] font-black uppercase tracking-widest transition-all ${settings.decimalPlaces === dp ? "bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-100" : "bg-slate-50 text-slate-400 border-slate-100 hover:border-emerald-300"}`}
+                >
+                  {dp}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Separators */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Thousand Sep.</label>
+              <select
+                className={inp}
+                value={settings.thousandSeparator}
+                onChange={e => setSettings(s => ({ ...s, thousandSeparator: e.target.value }))}
+              >
+                <option value=",">, (comma)</option>
+                <option value=".">. (period)</option>
+                <option value=" ">  (space)</option>
+                <option value="">(none)</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Decimal Sep.</label>
+              <select
+                className={inp}
+                value={settings.decimalSeparator}
+                onChange={e => setSettings(s => ({ ...s, decimalSeparator: e.target.value }))}
+              >
+                <option value=".">. (period)</option>
+                <option value=",">, (comma)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Presets */}
+      <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-white/5 p-8 shadow-sm">
+        <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.4em] mb-5">Quick Currency Presets</p>
+        <div className="flex flex-wrap gap-3">
+          {CURRENCY_MASTER.map(c => (
+            <button
+              key={c.code}
+              type="button"
+              onClick={() => setSettings({
+                currency:          c.name,
+                currencyCode:      c.code,
+                currencySymbol:    c.symbol,
+                symbolPosition:    c.position || "before",
+                decimalPlaces:     c.decimalPlaces,
+                thousandSeparator: c.thousandSep,
+                decimalSeparator:  c.decimalSep,
+              })}
+              className={`px-4 py-2.5 rounded-2xl border-2 text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${settings.currencyCode === c.code ? "bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-100" : "bg-slate-50 dark:bg-black/20 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-white/5 hover:border-emerald-300"}`}
+            >
+              <span className="text-sm">{c.symbol}</span> {c.code}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Errors / Success */}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/20 text-red-600 dark:text-red-400 px-6 py-4 rounded-[20px] text-[11px] font-black uppercase tracking-widest">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-6 py-4 rounded-[20px] text-[11px] font-black uppercase tracking-widest flex items-center gap-3">
+          <Check size={16} /> Currency settings saved! Updating across CRM...
+        </div>
+      )}
+
+      {/* Save Button */}
+      <div className="flex gap-4">
+        <button
+          onClick={onClose}
+          className="flex-1 py-5 rounded-[24px] border-2 border-slate-100 dark:border-white/5 text-slate-500 dark:text-slate-400 font-black text-[11px] uppercase tracking-[0.3em] hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={saving || success}
+          className="flex-[2] bg-emerald-600 hover:bg-emerald-700 text-white py-5 rounded-[24px] font-black text-[11px] uppercase tracking-[0.3em] transition-all shadow-2xl shadow-emerald-500/20 flex items-center justify-center gap-3 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60"
+        >
+          {saving ? (
+            <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Saving...</>
+          ) : success ? (
+            <><Check size={16} /> Saved Successfully</>
+          ) : (
+            <><DollarSign size={16} /> Save Currency Settings</>
+          )}
+        </button>
+      </div>
     </div>
   );
 }

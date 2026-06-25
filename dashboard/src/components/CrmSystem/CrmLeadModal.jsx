@@ -1,6 +1,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { getCurrencySymbol } from "../../utils/currencyFormatter.js";
 
 export default function CrmLeadModal({
   show,
@@ -11,17 +12,18 @@ export default function CrmLeadModal({
   onSubmit,
   creating,
   canAssignOwners,
-  teamMembers
+  teamMembers,
+  websites = []
 }) {
   if (!show) return null;
 
   return createPortal(
     <>
       <div
-        className="fixed inset-0 bg-slate-950/20 backdrop-blur-sm z-[99] animate-in fade-in duration-300"
+        className="fixed inset-0 bg-slate-950/20 backdrop-blur-sm z-99 animate-in fade-in duration-300"
         onClick={onClose}
       />
-      <div className="fixed inset-y-0 right-0 w-full max-w-full md:w-[680px] bg-white border-l border-slate-200 z-[100] shadow-[0_0_60px_rgba(0,0,0,0.2)] flex flex-col animate-in slide-in-from-right duration-500">
+      <div className="fixed inset-y-0 right-0 w-full max-w-full md:w-170 bg-white border-l border-slate-200 z-100 shadow-[0_0_60px_rgba(0,0,0,0.2)] flex flex-col animate-in slide-in-from-right duration-500">
         <div className="px-6 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div>
             <h3 className="text-sm font-black uppercase tracking-[0.25em] text-slate-900">{editLeadId ? "Refine Lead" : "Inject Lead"}</h3>
@@ -42,35 +44,32 @@ export default function CrmLeadModal({
             <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.4em] flex items-center gap-2">Identity & Reach</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Full Name ⭐</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Full Name</label>
                 <input
                   value={form.name}
                   onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="e.g. Siddharth Malhotra"
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
-                  required
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Email Address ⭐</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Email Address</label>
                 <input
                   type="email"
                   value={form.email}
                   onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
                   placeholder="siddharth@company.com"
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 disabled:opacity-50"
-                  required
                   disabled={!!editLeadId}
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Phone Number ⭐</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Phone Number</label>
                 <input
                   value={form.phone}
                   onChange={(e) => setForm(prev => ({ ...prev, phone: e.target.value }))}
                   placeholder="+91 91234 56789"
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
-                  required
                 />
               </div>
               <div className="space-y-1.5">
@@ -82,6 +81,20 @@ export default function CrmLeadModal({
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
                 />
               </div>
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Website</label>
+                <select
+                  value={form.websiteId}
+                  onChange={(e) => setForm(prev => ({ ...prev, websiteId: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
+                  disabled={!!editLeadId}
+                >
+                  <option value="">Select website...</option>
+                  {websites.map(w => (
+                    <option key={w._id} value={w._id}>{w.websiteName}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
@@ -90,12 +103,11 @@ export default function CrmLeadModal({
             <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.4em] flex items-center gap-2">Qualification</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Source ⭐</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Source</label>
                 <select
                   value={form.leadSource}
                   onChange={(e) => setForm(prev => ({ ...prev, leadSource: e.target.value }))}
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
-                  required
                 >
                   <option value="">Select source...</option>
                   <option value="website">Website</option>
@@ -107,12 +119,11 @@ export default function CrmLeadModal({
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Timeline ⭐</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Timeline</label>
                 <select
                   value={form.timeline}
                   onChange={(e) => setForm(prev => ({ ...prev, timeline: e.target.value }))}
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
-                  required
                 >
                   <option value="">Select timeline...</option>
                   <option value="immediate">Immediate</option>
@@ -123,12 +134,11 @@ export default function CrmLeadModal({
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Requirement ⭐</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Requirement</label>
                 <select
                   value={form.requirement}
                   onChange={(e) => setForm(prev => ({ ...prev, requirement: e.target.value }))}
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
-                  required
                 >
                   <option value="">Select requirement level...</option>
                   <option value="identified">Identified</option>
@@ -137,12 +147,11 @@ export default function CrmLeadModal({
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Priority ⭐</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Priority</label>
                 <select
                   value={form.priority}
                   onChange={(e) => setForm(prev => ({ ...prev, priority: e.target.value }))}
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
-                  required
                 >
                   <option value="low">Low Priority</option>
                   <option value="medium">Medium Priority</option>
@@ -179,12 +188,11 @@ export default function CrmLeadModal({
               </div>
               {form.pipelineStage === "lost" && (
                 <div className="space-y-1.5 md:col-span-2">
-                  <label className="text-[9px] font-black text-rose-400 uppercase tracking-widest">Lost Reason ⭐</label>
+                  <label className="text-[9px] font-black text-rose-400 uppercase tracking-widest">Lost Reason</label>
                   <select
                     value={form.lostReason}
                     onChange={(e) => setForm(prev => ({ ...prev, lostReason: e.target.value }))}
                     className="w-full bg-rose-50 border border-rose-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-rose-500/5 text-rose-700"
-                    required
                   >
                     <option value="">Select reason...</option>
                     <option value="price">Price too high</option>
@@ -222,7 +230,7 @@ export default function CrmLeadModal({
             <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.4em] flex items-center gap-2">Financial Weight & Ownership</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Est. Value (₹)</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Est. Value ({getCurrencySymbol()})</label>
                 <input
                   type="number"
                   value={form.leadValue}
@@ -232,14 +240,13 @@ export default function CrmLeadModal({
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Budget (₹) ⭐</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Budget ({getCurrencySymbol()})</label>
                 <input
                   type="number"
                   value={form.budget}
                   onChange={(e) => setForm(prev => ({ ...prev, budget: e.target.value }))}
                   placeholder="0.00"
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
-                  required
                 />
               </div>
               <div className="space-y-1.5">
@@ -294,7 +301,7 @@ export default function CrmLeadModal({
             <button
               type="submit"
               disabled={creating}
-              className="flex-[2] py-4 rounded-2xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-800 transition-all shadow-2xl disabled:opacity-50 flex items-center justify-center gap-3"
+              className="flex-2 py-4 rounded-2xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-800 transition-all shadow-2xl disabled:opacity-50 flex items-center justify-center gap-3"
             >
               {creating ? (
                 <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />

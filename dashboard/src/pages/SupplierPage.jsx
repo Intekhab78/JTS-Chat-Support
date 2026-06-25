@@ -13,9 +13,7 @@ import {
 import { useAuth } from "../context/AuthContext.jsx";
 import { api, apiUrl } from "../api/client.js";
 
-function formatCurrency(amount) {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
-}
+import { formatCurrency } from "../utils/currencyFormatter.js";
 
 export default function SupplierPage() {
   const { user } = useAuth();

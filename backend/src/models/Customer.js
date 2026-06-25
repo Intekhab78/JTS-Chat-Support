@@ -46,7 +46,7 @@ const customerSchema = new mongoose.Schema(
   {
     crn: { type: String, required: true, unique: true, index: true },
     name: { type: String, required: true },
-    email: { type: String, required: true, index: true },
+    email: { type: String, trim: true, lowercase: true, index: true, default: "" },
     phone: { type: String, index: true },
     companyName: { type: String, trim: true, default: "" },
     recordType: {

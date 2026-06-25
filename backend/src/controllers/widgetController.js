@@ -2,6 +2,12 @@ import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { env } from "../config/env.js";
 import { Customer } from "../models/Customer.js";
+
+// Build the public ticket status URL for visitors
+function buildTicketStatusUrl(ticketId) {
+  const base = (env.clientUrl || "http://localhost:5173").replace(/\/+$/, "");
+  return `${base}/ticket-status/${ticketId}`;
+}
 import { Ticket } from "../models/Ticket.js";
 import { generateCRN } from "../services/customerService.js";
 import { autoAssignLeadOwner, inferTicketPriority, buildTicketSlaFields } from "../services/automationService.js";
@@ -62,37 +68,49 @@ export const submitWidgetTicket = asyncHandler(async (req, res) => {
   const { subject, department, category, priority, description, sessionId } = req.body;
   const websiteId = req.website._id;
 
-  const priorityLevel = priority || inferTicketPriority({ subject, category, note: description });
+  const VALID_PRIORITIES = ["low", "medium", "high", "urgent"];
+
+  const safeSubject = String(subject || "Support Request").trim() || "Support Request";
+  const safeDept = String(department || "general").trim().toLowerCase() || "general";
+  const safeDescription = String(description || "").trim() || "Support request submitted via widget.";
+
+  const rawPriority = priority || inferTicketPriority({ subject: safeSubject, category, note: safeDescription });
+  const priorityLevel = VALID_PRIORITIES.includes(rawPriority) ? rawPriority : "medium";
+
   const slas = buildTicketSlaFields(priorityLevel);
 
   let customerId = null;
   let visitorId = null;
   if (sessionId) {
-     const session = await ChatSession.findOne({ sessionId });
-     customerId = session?.customerId;
-     visitorId = session?.visitorId;
+    const session = await ChatSession.findOne({ sessionId });
+    customerId = session?.customerId;
+    visitorId = session?.visitorId;
   }
 
   const ticket = await Ticket.create({
-    ticketId: await buildTicketId(),
+    ticketId: buildTicketId(),
     websiteId,
     customerId,
     visitorId,
-    subject,
-    department: department || "general",
-    category,
+    subject: safeSubject,
+    department: safeDept,
+    category: category ? String(category).trim() : undefined,
     priority: priorityLevel,
     firstResponseDueAt: slas.firstResponseDueAt,
     resolutionDueAt: slas.resolutionDueAt,
     channel: "chat",
-    notes: [{ content: description, isPublic: true }]
+    notes: [{ content: safeDescription, isPublic: true }]
   });
 
   await autoAssignTicket(ticket);
 
   getSocketServer().to(`manager_${req.website.managerId}`).emit("ticketUpdated", ticket);
 
-  res.status(201).json({ success: true, ticketId: ticket.ticketId });
+  res.status(201).json({
+    success: true,
+    ticketId: ticket.ticketId,
+    ticketStatusUrl: buildTicketStatusUrl(ticket.ticketId)
+  });
 });
 
 export const executeWidgetAction = asyncHandler(async (req, res) => {
@@ -116,62 +134,84 @@ export const executeWidgetAction = asyncHandler(async (req, res) => {
       customFields: context
     });
     await autoAssignLeadOwner(customer, { reason: "widget_dynamic_lead" });
-    
+
     if (sessionId) {
       await ChatSession.updateOne({ sessionId }, { customerId: customer._id });
     }
-    
+
     try {
       getSocketServer().emit("lead:created", {
         message: `New Lead registered via chat widget`,
-        user: customer.name || "Visitor"
+        user: customer.name || "Visitor",
+        customerId: customer._id,
+        websiteId,
+        recordType: customer.recordType
       });
     } catch (err) {
       console.error(err);
     }
 
     return res.status(201).json({ success: true, leadId: customer._id });
-  } 
+  }
 
   if (actionType === "create_ticket_form" || actionType === "create_ticket") {
-    const priorityLevel = context.priority || nodeData.priority || inferTicketPriority({ subject: context.subject, category: context.category, note: context.description });
+    const VALID_PRIORITIES = ["low", "medium", "high", "urgent"];
+
+    // Sanitize department — must be lowercase, fall back to "general"
+    const rawDept = String(context.department || nodeData.department || "general").trim().toLowerCase();
+    const department = rawDept || "general";
+
+    // Ensure subject is always a non-empty string
+    const subject = String(context.subject || nodeData.subject || nodeData.message || "Support Request").trim() || "Support Request";
+
+    // Ensure description is always a non-empty string
+    const description = String(context.description || context.issue || context.details || "Ticket created via chat bot action.").trim() || "Ticket created via chat bot action.";
+
+    // Safely infer priority and validate it's an allowed enum value
+    const rawPriority = context.priority || nodeData.priority || inferTicketPriority({ subject, category: context.category, note: description });
+    const priorityLevel = VALID_PRIORITIES.includes(rawPriority) ? rawPriority : "medium";
+
     const slas = buildTicketSlaFields(priorityLevel);
 
     let customerId = null;
     let visitorId = null;
     if (sessionId) {
-       const session = await ChatSession.findOne({ sessionId });
-       customerId = session?.customerId;
-       visitorId = session?.visitorId;
+      const session = await ChatSession.findOne({ sessionId });
+      customerId = session?.customerId;
+      visitorId = session?.visitorId;
     }
 
     const ticket = await Ticket.create({
-      ticketId: await buildTicketId(),
+      ticketId: buildTicketId(),
       websiteId,
       customerId,
       visitorId,
-      subject: context.subject || nodeData.message || "Support Request",
-      department: context.department || nodeData.department || "general",
-      category: context.category,
+      subject,
+      department,
+      category: context.category ? String(context.category).trim() : undefined,
       priority: priorityLevel,
       firstResponseDueAt: slas.firstResponseDueAt,
       resolutionDueAt: slas.resolutionDueAt,
       channel: "chat",
-      notes: [{ content: context.description || "Ticket created via chat bot action.", isPublic: true }]
+      notes: [{ content: description, isPublic: true }]
     });
 
     await autoAssignTicket(ticket);
 
     getSocketServer().to(`manager_${req.website.managerId}`).emit("ticketUpdated", ticket);
-    
+
     try {
       getSocketServer().emit("ticket:created", {
         message: `New ticket created from widget: ${ticket.subject}`,
         user: context.name || "Visitor"
       });
-    } catch(err) {}
+    } catch (err) { }
 
-    return res.status(201).json({ success: true, ticketId: ticket.ticketId });
+    return res.status(201).json({
+      success: true,
+      ticketId: ticket.ticketId,
+      ticketStatusUrl: buildTicketStatusUrl(ticket.ticketId)
+    });
   }
 
   if (actionType === "create_callback_request") {
@@ -186,13 +226,16 @@ export const executeWidgetAction = asyncHandler(async (req, res) => {
       requirement: "Callback Requested during offline hours",
       stageEnteredAt: new Date()
     });
-    
+
     try {
       getSocketServer().emit("lead:created", {
         message: `Callback requested by visitor`,
-        user: customer.name
+        user: customer.name,
+        customerId: customer._id,
+        websiteId,
+        recordType: customer.recordType
       });
-    } catch(err) {}
+    } catch (err) { }
 
     return res.status(201).json({ success: true, leadId: customer._id });
   }

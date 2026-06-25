@@ -18,12 +18,12 @@ export default function RealTimeActivityCenter() {
 
   useEffect(() => {
     if (!socket) return;
-    
+
     setConnected(socket.connected);
-    
+
     const onConnect = () => setConnected(true);
     const onDisconnect = () => setConnected(false);
-    
+
     const handleEvent = (type, payload) => {
       setEvents(prev => {
         const newEvent = {
@@ -39,7 +39,7 @@ export default function RealTimeActivityCenter() {
 
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
-    
+
     // Register all event listeners
     Object.keys(EVENT_CONFIG).forEach(eventType => {
       socket.on(eventType, (payload) => handleEvent(eventType, payload));
@@ -71,8 +71,8 @@ export default function RealTimeActivityCenter() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex items-center justify-between bg-white/40 backdrop-blur-xl p-6 rounded-3xl border border-slate-200/50 shadow-sm">
         <div>
-           <h3 className="text-xl font-black text-slate-900 tracking-tight">Live Operations Feed</h3>
-           <p className="text-xs font-bold text-slate-500 mt-1">Real-time system event stream</p>
+          <h3 className="text-xl font-black text-slate-900 tracking-tight">Live Operations Feed</h3>
+          <p className="text-xs font-bold text-slate-500 mt-1">Real-time system event stream</p>
         </div>
         <div className="flex items-center gap-3 px-4 py-2 bg-white rounded-2xl border border-slate-100 shadow-sm">
           <div className="relative flex h-3 w-3">
@@ -85,7 +85,7 @@ export default function RealTimeActivityCenter() {
         </div>
       </div>
 
-      <div className="bg-white rounded-[32px] border border-slate-200/60 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-4xl border border-slate-200/60 shadow-sm overflow-hidden">
         <div className="p-8">
           {events.length === 0 ? (
             <div className="py-20 flex flex-col items-center justify-center text-slate-400">
@@ -93,36 +93,36 @@ export default function RealTimeActivityCenter() {
               <p className="text-sm font-black uppercase tracking-widest">Waiting for live events...</p>
             </div>
           ) : (
-            <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
+            <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-linear-to-b before:from-transparent before:via-slate-200 before:to-transparent">
               {events.map((event, index) => {
                 const config = EVENT_CONFIG[event.type] || EVENT_CONFIG["chat:started"];
                 const Icon = config.icon;
-                
+
                 return (
                   <div key={event.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active animate-in slide-in-from-bottom-4 duration-500">
                     {/* Icon */}
                     <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-white ${config.bg} ${config.color} shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-sm z-10`}>
                       <Icon size={16} />
                     </div>
-                    
+
                     {/* Card */}
                     <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-2xl border border-slate-100 bg-white shadow-sm hover:shadow-md transition-all">
                       <div className="flex items-center justify-between mb-1">
-                         <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ${config.bg} ${config.color}`}>
-                           {config.label}
-                         </span>
-                         <div className="flex items-center gap-1 text-slate-400">
-                           <Clock size={10} />
-                           <span className="text-[10px] font-bold">
-                             {event.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                           </span>
-                         </div>
+                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ${config.bg} ${config.color}`}>
+                          {config.label}
+                        </span>
+                        <div className="flex items-center gap-1 text-slate-400">
+                          <Clock size={10} />
+                          <span className="text-[10px] font-bold">
+                            {event.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          </span>
+                        </div>
                       </div>
-                      
+
                       <p className="text-sm font-bold text-slate-700 mt-2">
                         {event.payload?.message || "System event recorded"}
                       </p>
-                      
+
                       {event.payload?.user && (
                         <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-50">
                           <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-black text-slate-500">

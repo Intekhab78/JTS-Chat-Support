@@ -3,6 +3,7 @@ import { Boxes, Eye, Edit2, Trash2, Plus, X, Save, ArrowDownToLine, ArrowUpFromL
 import { api } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import MasterManager from "./MasterManager.jsx";
+import { formatCurrency } from "../utils/currencyFormatter.js";
 
 const initialItemForm = {
   name: "",
@@ -55,12 +56,7 @@ function formatDate(value) {
   });
 }
 
-function formatCurrency(value) {
-  return Number(value || 0).toLocaleString("en-IN", {
-    style: "currency",
-    currency: "INR"
-  });
-}
+// formatCurrency imported from "../utils/currencyFormatter.js"
 
 function EmptyInventoryState() {
   return (

@@ -617,6 +617,19 @@ export async function getWidgetConfig(req, res) {
   // Feature 7: Business hours check
   const businessOpen = isBusinessOpen(website.businessHours);
 
+  // Build botFlow from the populated activeFlowId (Flow document)
+  // website.botFlow does not exist as a schema field — the flow is stored
+  // in the separate Flow collection and referenced via activeFlowId.
+  let botFlow = null;
+  if (website.activeFlowId && website.activeFlowId.nodes) {
+    botFlow = {
+      flowId: website.activeFlowId._id,
+      flowName: website.activeFlowId.name,
+      isPublished: website.activeFlowId.isPublished,
+      nodes: website.activeFlowId.nodes
+    };
+  }
+
   return res.json({
     websiteName: website.websiteName,
     primaryColor: website.primaryColor,
@@ -633,7 +646,7 @@ export async function getWidgetConfig(req, res) {
     businessHours: website.businessHours || null,
     botEnabled: website.botEnabled,
     botWelcomeMessage: website.botWelcomeMessage,
-    botFlow: website.botFlow
+    botFlow
   });
 }
 

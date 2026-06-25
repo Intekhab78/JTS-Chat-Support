@@ -362,6 +362,96 @@ import "./style.css";
     if (status) status.textContent = "Sending";
   }
 
+  function appendTicketCard(ui, ticketId, ticketStatusUrl, agentName) {
+    const item = document.createElement("div");
+    item.className = "csw-message csw-agent";
+
+    const nameTag = document.createElement("div");
+    nameTag.className = "csw-agent-name";
+    nameTag.textContent = agentName || latestConfig?.websiteName || "Support";
+
+    // Ticket card container
+    const card = document.createElement("div");
+    card.style.cssText = `
+      background: linear-gradient(135deg, #f0f4ff 0%, #e8f0fe 100%);
+      border: 1.5px solid var(--csw-primary, #004e64);
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-top: 4px;
+      min-width: 180px;
+    `;
+
+    // Icon + title row
+    const header = document.createElement("div");
+    header.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:10px;";
+    header.innerHTML = `
+      <div style="width:30px;height:30px;border-radius:8px;background:var(--csw-primary,#004e64);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+          <polyline points="10 9 9 9 8 9"/>
+        </svg>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Ticket Created</div>
+        <div style="font-size:13px;font-weight:800;color:var(--csw-primary,#004e64);">${ticketId}</div>
+      </div>
+    `;
+
+    // Description
+    const desc = document.createElement("div");
+    desc.style.cssText = "font-size:11px;color:#475569;margin-bottom:12px;line-height:1.5;";
+    desc.textContent = "Your support ticket has been submitted. Click below to track its status in real time.";
+
+    // Track button
+    const btn = document.createElement("a");
+    btn.href = ticketStatusUrl;
+    btn.target = "_blank";
+    btn.rel = "noopener noreferrer";
+    btn.style.cssText = `
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: var(--csw-primary, #004e64);
+      color: white;
+      border-radius: 10px;
+      padding: 9px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: opacity 0.2s;
+      cursor: pointer;
+    `;
+    btn.onmouseover = () => btn.style.opacity = "0.85";
+    btn.onmouseout = () => btn.style.opacity = "1";
+    btn.innerHTML = `
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+      </svg>
+      Track Ticket Status
+    `;
+
+    card.appendChild(header);
+    card.appendChild(desc);
+    card.appendChild(btn);
+
+    item.appendChild(nameTag);
+    item.appendChild(card);
+
+    const meta = document.createElement("div");
+    meta.className = "csw-meta";
+    const time = document.createElement("span");
+    time.className = "csw-time";
+    time.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    meta.appendChild(time);
+    item.appendChild(meta);
+
+    ui.messages.appendChild(item);
+    ui.messages.scrollTo({ top: ui.messages.scrollHeight, behavior: 'smooth' });
+  }
 
 
   function submitFeedback(ui, rating, comment = "") {
@@ -516,7 +606,28 @@ import "./style.css";
           context: contextVariables
         })
       });
+
+      if (!res.ok) {
+        // Action failed on the server — show error and allow retry via agent
+        const errData = await res.json().catch(() => ({}));
+        console.error("Action failed:", res.status, errData.message || "Unknown error");
+        ui.statusBar.textContent = "Connected";
+        appendMessage(ui, "agent",
+          "Sorry, we couldn't complete that action. A support agent will assist you shortly.",
+          null, null, latestConfig.websiteName || "Support Bot", true
+        );
+        // Escalate to live agent so the visitor isn't stuck
+        handleBotEscalation(ui, node.department || "general");
+        return;
+      }
+
       ui.statusBar.textContent = "Connected";
+
+      // If the action created a ticket, show the ticket status link card
+      const resData = await res.json().catch(() => ({}));
+      if (resData.ticketStatusUrl && resData.ticketId) {
+        appendTicketCard(ui, resData.ticketId, resData.ticketStatusUrl, latestConfig.websiteName || "Support Bot");
+      }
 
       if (node.next) {
         renderBotNode(ui, node.next);
@@ -526,6 +637,10 @@ import "./style.css";
     } catch (err) {
       console.error("Action execution failed", err);
       ui.statusBar.textContent = "Action Failed";
+      appendMessage(ui, "agent",
+        "Sorry, there was a connection issue. Please try again or contact support.",
+        null, null, latestConfig.websiteName || "Support Bot", true
+      );
     }
   }
 
@@ -771,12 +886,21 @@ import "./style.css";
           });
           const data = await res.json();
 
-          formContainer.innerHTML = `<div style="color:#10b981;font-weight:bold;text-align:center;font-size:12px;">✅ Ticket ${data.ticketId} created! You will be notified via email on updates.</div>`;
+          if (!res.ok) throw new Error(data.message || "Failed to create ticket");
+
+          // Replace the form with a compact success message
+          formContainer.innerHTML = `<div style="color:#10b981;font-weight:bold;text-align:center;font-size:12px;padding:4px 0;">✅ Ticket submitted successfully!</div>`;
+
+          // Show the rich ticket card with status link
+          if (data.ticketStatusUrl && data.ticketId) {
+            appendTicketCard(ui, data.ticketId, data.ticketStatusUrl, latestConfig.websiteName || "Support Bot");
+          }
+
           handleBotResolution(ui);
         } catch (err) {
           btn.disabled = false;
           btn.textContent = "Create Ticket";
-          alert("Failed to create ticket.");
+          alert("Failed to create ticket. Please try again.");
         }
       };
     }
@@ -899,22 +1023,24 @@ import "./style.css";
         data.messages.forEach(msg => {
           appendMessage(ui, msg.sender === "visitor" ? "visitor" : "agent", msg.message, msg.attachmentUrl, msg.attachmentType, msg.senderName, msg.isAi, msg._id, msg.deliveredAt, msg.readAt);
         });
-      } else {
-        // Show Welcome or Away Message from Config ONLY if Bot is disabled
-        if (!config.botEnabled) {
-          const greeting = (!config.isAgentOnline) ? (config.awayMessage || "We're currently away.") :
-            (data.session?.status === 'queued') ? (config.awayMessage || "All agents are busy. We'll be with you shortly!") :
-              (config.welcomeMessage || "Hi! How can we help?");
-          appendMessage(ui, "agent", greeting, null, null, config.websiteName, false);
-        }
       }
 
       // 5b. Bot Flow Initialization
-      if (config.botEnabled && (!data.messages || data.messages.length === 0) && data.botStatus !== "escalated" && data.session?.status !== "closed") {
+      // Only run the bot if botEnabled AND there is a valid flow with nodes configured
+      const hasBotFlow = config.botEnabled && config.botFlow && config.botFlow.nodes && Object.keys(config.botFlow.nodes).length > 0;
+      if (hasBotFlow && (!data.messages || data.messages.length === 0) && data.botStatus !== "escalated" && data.session?.status !== "closed") {
         ui.form.style.display = "none";
         renderBotNode(ui, "root");
-      } else if (data.botStatus === "escalated" || data.messages?.length > 0) {
+      } else {
+        // No valid bot flow or existing messages — show normal chat input
         ui.form.style.display = "flex";
+        if (!data.messages || data.messages.length === 0) {
+          // Show a greeting message if no history and bot isn't handling it
+          const greeting = (!config.isAgentOnline)
+            ? (config.awayMessage || "We're currently away. Leave a message and we'll reply soon.")
+            : (config.welcomeMessage || "Hi! How can we help?");
+          appendMessage(ui, "agent", greeting, null, null, config.websiteName || "Support", false);
+        }
       }
 
       if (shouldShowFeedback(config) && data.session?.status === "closed" && !feedbackSent) {

@@ -87,7 +87,7 @@ export const updateCustomerSchema = z.object({
   pipelineStage: z.enum(CRM_PIPELINE_STAGES).optional(),
   recordType: z.enum(CRM_RECORD_TYPES).optional(),
   leadStatus: z.enum(CRM_LEAD_STATUSES).optional(),
-  dealStage: z.enum(CRM_DEAL_STAGES).nullable().optional(),
+  dealStage: z.enum(CRM_DEAL_STAGES).nullable().optional().or(z.literal("")),
   tags: z.array(z.string().trim().min(1)).max(20).optional(),
   name: z.string().min(1).max(120).optional(),
   phone: z.string().max(40).optional(),
@@ -111,37 +111,37 @@ export const updateCustomerSchema = z.object({
   lastFollowUpAt: z.union([z.string().max(40), z.null()]).optional(),
   archiveReason: z.string().max(200).optional(),
 }).refine(data => Object.keys(data).length > 0, { message: "At least one field is required" })
-.superRefine((data, ctx) => {
-  const isLost = data.pipelineStage === "lost" || data.status === "lost" || data.dealStage === "lost";
-  if (isLost && !data.lostReason) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "Lost reason is mandatory when deal is lost",
-      path: ["lostReason"],
-    });
-  }
-});
+  .superRefine((data, ctx) => {
+    const isLost = data.pipelineStage === "lost" || data.status === "lost" || data.dealStage === "lost";
+    if (isLost && !data.lostReason) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Lost reason is mandatory when deal is lost",
+        path: ["lostReason"],
+      });
+    }
+  });
 
 export const createCustomerSchema = z.object({
   name: z.string().trim().min(1).max(120),
-  email: z.string().trim().email(),
+  email: z.string().trim().email().optional().or(z.literal("")),
   phone: z.string().trim().max(40).optional().or(z.literal("")),
   companyName: z.string().trim().max(120).optional().or(z.literal("")),
   recordType: z.enum(CRM_RECORD_TYPES).optional().default("lead"),
   leadStatus: z.enum(CRM_LEAD_STATUSES).optional().default("new"),
-  dealStage: z.enum(CRM_DEAL_STAGES).nullable().optional(),
-  leadSource: z.string().trim().min(1, "Source is required").max(120),
+  dealStage: z.enum(CRM_DEAL_STAGES).nullable().optional().or(z.literal("")),
+  leadSource: z.string().trim().max(120).optional().or(z.literal("")),
   leadValue: z.number().min(0).optional().default(0),
-  budget: z.number().min(0, "Budget is required"),
-  requirement: z.string().trim().min(1, "Requirement is required").max(500),
-  timeline: z.string().trim().min(1, "Timeline is required").max(120),
+  budget: z.number().min(0).optional().default(0),
+  requirement: z.string().trim().max(500).optional().or(z.literal("")),
+  timeline: z.string().trim().max(120).optional().or(z.literal("")),
   interestLevel: z.enum(["cold", "warm", "hot"]).optional().default("warm"),
   leadCategory: z.enum(["cold", "warm", "hot"]).optional(),
   probability: z.number().min(0).max(100).optional(),
   priority: z.enum(["low", "medium", "high"]).optional().default("medium"),
   expectedCloseDate: z.string().max(40).optional().or(z.literal("")),
   decisionMaker: z.string().trim().max(120).optional().or(z.literal("")),
-  websiteId: z.string().min(1, "Website is required"),
+  websiteId: z.string().min(1, "Website is required").optional().or(z.literal("")),
   status: z.enum(CRM_STATUSES).default("new"),
   pipelineStage: z.enum(CRM_PIPELINE_STAGES).default("new"),
   ownerId: z.string().optional().or(z.literal("")).or(z.null()),

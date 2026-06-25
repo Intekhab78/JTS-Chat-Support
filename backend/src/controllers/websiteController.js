@@ -42,7 +42,8 @@ export async function createWebsite(req, res) {
     enableAutomation: req.body.enableAutomation !== undefined ? req.body.enableAutomation : true,
     businessHours: req.body.businessHours,
     webhooks: req.body.webhooks,
-    ...(Array.isArray(req.body.pipelineStages) ? { pipelineStages: req.body.pipelineStages } : {})
+    ...(Array.isArray(req.body.pipelineStages) ? { pipelineStages: req.body.pipelineStages } : {}),
+    ...(req.body.currencySettings ? { currencySettings: req.body.currencySettings } : {})
   });
 
   await ensureAnalytics(website._id);
@@ -93,7 +94,8 @@ export async function updateWebsite(req, res) {
       ...(req.body.enableKnowledgeBase !== undefined ? { enableKnowledgeBase: req.body.enableKnowledgeBase } : {}),
       ...(req.body.enableLiveAgent !== undefined ? { enableLiveAgent: req.body.enableLiveAgent } : {}),
       ...(req.body.enableAutomation !== undefined ? { enableAutomation: req.body.enableAutomation } : {}),
-      ...(Array.isArray(req.body.pipelineStages) ? { pipelineStages: req.body.pipelineStages } : {})
+      ...(Array.isArray(req.body.pipelineStages) ? { pipelineStages: req.body.pipelineStages } : {}),
+      ...(req.body.currencySettings ? { currencySettings: req.body.currencySettings } : {})
     },
     { new: true }
   );

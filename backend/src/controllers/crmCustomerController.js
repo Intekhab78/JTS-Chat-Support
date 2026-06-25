@@ -157,15 +157,18 @@ export const createCustomer = asyncHandler(async (req, res) => {
 
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
   let resolvedWebsiteId = websiteId;
-  if (!resolvedWebsiteId && ownedWebsiteIds.length === 1) resolvedWebsiteId = ownedWebsiteIds[0];
+  if (!resolvedWebsiteId && ownedWebsiteIds.length > 0) resolvedWebsiteId = ownedWebsiteIds[0];
   if (!resolvedWebsiteId || !ownedWebsiteIds.map(id => id.toString()).includes(String(resolvedWebsiteId))) {
     throw new AppError("Unauthorized access to this website's CRM data", 403);
   }
 
-  const existing = await Customer.findOne({ websiteId: resolvedWebsiteId, email: String(email).trim().toLowerCase() });
-  if (existing) throw new AppError("A lead with this email already exists", 409);
+  const normalizedEmail = email ? String(email).trim().toLowerCase() : "";
+  if (normalizedEmail) {
+    const existing = await Customer.findOne({ websiteId: resolvedWebsiteId, email: normalizedEmail });
+    if (existing) throw new AppError("A lead with this email already exists", 409);
+  }
 
-  const duplicateCandidates = await findDuplicateCandidates({ email, phone, companyName, websiteId: resolvedWebsiteId });
+  const duplicateCandidates = await findDuplicateCandidates({ email: normalizedEmail, phone, companyName, websiteId: resolvedWebsiteId });
   const sourceDetails = await buildChatContextFromSession(sessionId);
   const lifecycle = deriveLifecycleFields({
     pipelineStage: pipelineStage || status || leadStatus || dealStage || "new",
@@ -178,7 +181,9 @@ export const createCustomer = asyncHandler(async (req, res) => {
 
   const customer = await Customer.create({
     crn: await generateCRN(),
-    name, email: String(email).trim().toLowerCase(), phone: phone || null,
+    name,
+    email: normalizedEmail,
+    phone: phone || null,
     companyName: normalizeCompanyName(companyName), recordType: lifecycle.recordType,
     leadStatus: lifecycle.leadStatus, dealStage: lifecycle.dealStage, leadSource: leadSource || "",
     leadValue: Number(leadValue || 0), budget: Number(budget || 0), requirement: String(requirement || "").trim(),
@@ -207,7 +212,10 @@ export const createCustomer = asyncHandler(async (req, res) => {
   try {
     getSocketServer().emit("lead:created", {
       message: `New CRM record created for ${customer.companyName || customer.name}`,
-      user: customer.name
+      user: customer.name,
+      customerId: customer._id,
+      websiteId: resolvedWebsiteId,
+      recordType: customer.recordType
     });
   } catch (err) {
     console.error("Socket emit failed", err);
@@ -321,7 +329,7 @@ export const mergeCustomers = asyncHandler(async (req, res) => {
     Customer.findById(secondaryCustomerId)
   ]);
   if (!primary || !secondary) throw new AppError("Both records must exist", 404);
-  
+
   primary.internalNotes = [...(primary.internalNotes || []), ...(secondary.internalNotes || [])];
   await primary.save();
   secondary.archivedAt = new Date();

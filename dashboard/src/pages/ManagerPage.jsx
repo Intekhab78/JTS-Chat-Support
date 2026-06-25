@@ -22,9 +22,9 @@ import { PERMISSIONS } from "../constants/domain.js";
 export default function ManagerPage() {
   const { user } = useAuth();
   const [analytics, setAnalytics] = useState(null);
-  const [websites, setWebsites]   = useState([]);
-  const [agents, setAgents]       = useState([]);
-  const [sessions, setSessions]   = useState([]);
+  const [websites, setWebsites] = useState([]);
+  const [agents, setAgents] = useState([]);
+  const [sessions, setSessions] = useState([]);
   const [streamsPage, setStreamsPage] = useState(1);
   const [websitesPage, setWebsitesPage] = useState(1);
   const [agentsPage, setAgentsPage] = useState(1);
@@ -32,7 +32,7 @@ export default function ManagerPage() {
   const [selectedWebsiteId, setSelectedWebsiteId] = useState("");
   const [reportRange, setReportRange] = useState({ preset: "7d" });
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab                       = searchParams.get("tab") || "overview";
+  const tab = searchParams.get("tab") || "overview";
   const canUseTickets = hasModule(user, "tickets");
   const canUseCRM = hasModule(user, "crm");
   const canUseReports = hasModule(user, "reports");
@@ -59,16 +59,16 @@ export default function ManagerPage() {
     }
   }
 
-  useEffect(() => { 
+  useEffect(() => {
     load({
       websiteId: selectedWebsiteId,
       startDate: reportRange.startDate,
       endDate: reportRange.endDate
-    }); 
+    });
   }, [selectedWebsiteId, reportRange.startDate, reportRange.endDate]);
 
   const WebsiteScopeSelector = () => (
-    <div className="mb-8 flex items-center justify-between gap-4 rounded-[32px] border border-slate-200/60 bg-white p-4 shadow-sm">
+    <div className="mb-8 flex items-center justify-between gap-4 rounded-4xl border border-slate-200/60 bg-white p-4 shadow-sm">
       <div className="flex items-center gap-4 px-4">
         <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
           <Globe size={18} />
@@ -96,9 +96,9 @@ export default function ManagerPage() {
   );
 
   const menuItems = [
-    { label: "Overview",  href: "/manager" },
+    { label: "Overview", href: "/manager" },
   ];
-  
+
   if (hasPermission(user, PERMISSIONS.CRM_VIEW) && canUseCRM) {
     menuItems.push({ label: "CRM", href: "/manager?tab=crm" });
   }
@@ -242,11 +242,10 @@ export default function ManagerPage() {
                       {session.visitorId?.visitorId}
                     </td>
                     <td className="px-10 py-5">
-                      <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${
-                        session.status === "active" ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
-                        session.status === "queued" ? "bg-amber-50 text-amber-600 border-amber-100" :
-                        "bg-slate-100 text-slate-400 border-slate-200"
-                      }`}>
+                      <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${session.status === "active" ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
+                          session.status === "queued" ? "bg-amber-50 text-amber-600 border-amber-100" :
+                            "bg-slate-100 text-slate-400 border-slate-200"
+                        }`}>
                         {session.status}
                       </span>
                     </td>
@@ -311,7 +310,7 @@ export default function ManagerPage() {
               ) : paginatedAgents.pageItems.map((agent) => (
                 <div key={agent._id} className="flex items-center justify-between px-8 py-5 hover:bg-slate-50/50 transition-colors">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center font-black text-sm shadow-lg shadow-indigo-200">
+                    <div className="w-10 h-10 rounded-xl bg-linear-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center font-black text-sm shadow-lg shadow-indigo-200">
                       {agent.name?.[0]?.toUpperCase()}
                     </div>
                     <div>
@@ -319,7 +318,7 @@ export default function ManagerPage() {
                       <p className="text-[10px] text-slate-400 font-bold">{agent.email}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 min-w-[120px] justify-end">
+                  <div className="flex items-center gap-3 min-w-30 justify-end">
                     <span className="text-[9px] font-black text-slate-400 bg-slate-100 px-3 py-1 rounded-lg uppercase tracking-widest hidden sm:inline-block">{agent.role}</span>
                     <div className={`w-2 h-2 shrink-0 rounded-full ${agent.isOnline ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]" : "bg-slate-300"}`} title={agent.isOnline ? "Online" : "Offline"} />
                     <button
@@ -348,13 +347,13 @@ export default function ManagerPage() {
         {selectedAgent && createPortal(
           <>
             <div
-              className="fixed inset-0 bg-slate-950/20 z-[99]"
+              className="fixed inset-0 bg-slate-950/20 z-99"
               onClick={() => setSelectedAgent(null)}
             />
-            <div className="fixed inset-y-0 right-0 w-full max-w-full md:w-[480px] bg-white border-l border-slate-200 z-[100] shadow-[0_0_40px_rgba(0,0,0,0.1)] overflow-hidden animate-in slide-in-from-right-full duration-400 flex flex-col">
-              <div className="px-6 py-5 border-b border-slate-100 flex items-start justify-between bg-gradient-to-r from-slate-50/90 to-white shrink-0">
+            <div className="fixed inset-y-0 right-0 w-full max-w-full md:w-120 bg-white border-l border-slate-200 z-100 shadow-[0_0_40px_rgba(0,0,0,0.1)] overflow-hidden animate-in slide-in-from-right-full duration-400 flex flex-col">
+              <div className="px-6 py-5 border-b border-slate-100 flex items-start justify-between bg-linear-to-r from-slate-50/90 to-white shrink-0">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-indigo-200 shrink-0">
+                  <div className="w-12 h-12 rounded-2xl bg-linear-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-indigo-200 shrink-0">
                     {selectedAgent.name?.[0]?.toUpperCase() || "?"}
                   </div>
                   <div className="min-w-0">
@@ -468,59 +467,59 @@ export default function ManagerPage() {
       subtitle="Monitoring and analytical oversight dashboard"
     >
       <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-700">
-      {(() => {
-        const paginatedWebsites = getPaginationMeta(websites, websitesPage);
-        return (
-          <>
-            <section className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-              <StatCard label="Linked Websites"     value={analytics?.totals?.websites    ?? websites.length} />
-              <StatCard label="Active Personnel"    value={analytics?.totals?.agents      ?? agents.length} />
-              <StatCard label="Concurrent Sessions" value={analytics?.totals?.liveSessions ?? sessions.length} color="indigo" />
-            </section>
+        {(() => {
+          const paginatedWebsites = getPaginationMeta(websites, websitesPage);
+          return (
+            <>
+              <section className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+                <StatCard label="Linked Websites" value={analytics?.totals?.websites ?? websites.length} />
+                <StatCard label="Active Personnel" value={analytics?.totals?.agents ?? agents.length} />
+                <StatCard label="Concurrent Sessions" value={analytics?.totals?.liveSessions ?? sessions.length} color="indigo" />
+              </section>
 
-            {/* Websites registry */}
-            <section className="premium-card p-0 overflow-hidden">
-              <div className="p-8 border-b border-slate-50 bg-slate-50/30">
-                <h3 className="heading-md">System Registry</h3>
-                <p className="small-label opacity-60 mt-1">Authorized domain connections and embed scripts</p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-8">
-                {websites.length === 0 ? (
-                  <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest col-span-2 py-8 text-center">
-                    No websites registered yet.
-                  </p>
-                ) : paginatedWebsites.pageItems.map((website) => (
-                  <article key={website._id} className="p-8 bg-slate-50/50 rounded-3xl border border-slate-100 group hover:border-indigo-100 transition-all">
-                    <div className="flex items-center justify-between mb-6">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-lg shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all">🌐</div>
-                        <div>
-                          <strong className="text-xs font-black text-slate-950 uppercase tracking-tight block">{website.websiteName}</strong>
-                          <span className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">{website.domain}</span>
+              {/* Websites registry */}
+              <section className="premium-card p-0 overflow-hidden">
+                <div className="p-8 border-b border-slate-50 bg-slate-50/30">
+                  <h3 className="heading-md">System Registry</h3>
+                  <p className="small-label opacity-60 mt-1">Authorized domain connections and embed scripts</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-8">
+                  {websites.length === 0 ? (
+                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest col-span-2 py-8 text-center">
+                      No websites registered yet.
+                    </p>
+                  ) : paginatedWebsites.pageItems.map((website) => (
+                    <article key={website._id} className="p-8 bg-slate-50/50 rounded-3xl border border-slate-100 group hover:border-indigo-100 transition-all">
+                      <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-lg shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all">🌐</div>
+                          <div>
+                            <strong className="text-xs font-black text-slate-950 uppercase tracking-tight block">{website.websiteName}</strong>
+                            <span className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">{website.domain}</span>
+                          </div>
                         </div>
+                        <code className="text-[9px] font-black text-slate-400 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200">{website.apiKey}</code>
                       </div>
-                      <code className="text-[9px] font-black text-slate-400 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200">{website.apiKey}</code>
-                    </div>
-                    <div className="relative">
-                      <textarea readOnly value={website.embedScript} rows={3} className="w-full bg-slate-950 text-indigo-300 font-mono text-[9px] p-5 rounded-2xl border border-slate-800 outline-none resize-none shadow-inner leading-relaxed" />
-                      <div className="absolute top-2 right-2 px-2 py-1 bg-white/5 backdrop-blur-sm rounded text-[8px] font-black text-slate-500 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Copy</div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-              <div className="px-8 pb-8">
-                <PaginationControls
-                  currentPage={paginatedWebsites.currentPage}
-                  totalPages={paginatedWebsites.totalPages}
-                  totalItems={paginatedWebsites.totalItems}
-                  itemLabel="websites"
-                  onPageChange={setWebsitesPage}
-                />
-              </div>
-            </section>
-          </>
-        );
-      })()}
+                      <div className="relative">
+                        <textarea readOnly value={website.embedScript} rows={3} className="w-full bg-slate-950 text-indigo-300 font-mono text-[9px] p-5 rounded-2xl border border-slate-800 outline-none resize-none shadow-inner leading-relaxed" />
+                        <div className="absolute top-2 right-2 px-2 py-1 bg-white/5 backdrop-blur-sm rounded text-[8px] font-black text-slate-500 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Copy</div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+                <div className="px-8 pb-8">
+                  <PaginationControls
+                    currentPage={paginatedWebsites.currentPage}
+                    totalPages={paginatedWebsites.totalPages}
+                    totalItems={paginatedWebsites.totalItems}
+                    itemLabel="websites"
+                    onPageChange={setWebsitesPage}
+                  />
+                </div>
+              </section>
+            </>
+          );
+        })()}
       </div>
     </Layout>
   );

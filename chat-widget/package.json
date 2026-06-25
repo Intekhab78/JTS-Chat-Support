@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && npm run deploy",
+    "deploy": "node -e \"const fs=require('fs');fs.copyFileSync('dist/chat-widget.iife.js','../backend/src/public/chat-widget.js');console.log('✅ Widget deployed to backend/public');\"",
     "preview": "vite preview",
     "check": "vite build"
   },

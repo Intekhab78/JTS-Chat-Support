@@ -58,7 +58,18 @@ const websiteSchema = new mongoose.Schema(
       ],
       default: undefined   // undefined means "not configured — use frontend defaults"
     },
-    activeFlowId: { type: mongoose.Schema.Types.ObjectId, ref: "Flow", default: null }
+    activeFlowId: { type: mongoose.Schema.Types.ObjectId, ref: "Flow", default: null },
+
+    // ── Currency / Localisation ─────────────────────────────────────────────
+    currencySettings: {
+      currency:          { type: String, default: "Indian Rupee" },
+      currencyCode:      { type: String, default: "INR" },
+      currencySymbol:    { type: String, default: "₹" },
+      symbolPosition:    { type: String, enum: ["before", "after"], default: "before" },
+      decimalPlaces:     { type: Number, default: 2 },
+      thousandSeparator: { type: String, default: "," },
+      decimalSeparator:  { type: String, default: "." }
+    }
   },
   { timestamps: true }
 );

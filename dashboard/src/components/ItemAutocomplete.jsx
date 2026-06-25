@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Plus, CheckCircle, Package, Search, AlertCircle, X } from "lucide-react";
 import { api } from "../api/client.js";
+import { getCurrencySymbol, formatCurrency } from "../utils/currencyFormatter.js";
 
 export function QuickCreateItemModal({ initialName, websiteId, onCreated, onClose }) {
   const [form, setForm] = useState({ name: initialName || "", sku: "", unitCost: "", unit: "pcs", category: "", quantity: 0 });
@@ -63,7 +64,7 @@ export function QuickCreateItemModal({ initialName, websiteId, onCreated, onClos
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Unit Cost (₹)</label>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Unit Cost ({getCurrencySymbol()})</label>
               <input className={inp} type="number" min="0" value={form.unitCost} onChange={e => setForm(f => ({ ...f, unitCost: e.target.value }))} placeholder="0" />
             </div>
             <div className="space-y-1">
@@ -195,7 +196,7 @@ export function ItemAutocomplete({ value, onChange, onSelect, websiteId, placeho
                     {item.sku && <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-0.5">{item.sku}</p>}
                   </div>
                   <div className="text-right">
-                    <p className="text-[11px] font-bold text-slate-700">₹{item.unitCost || 0}</p>
+                    <p className="text-[11px] font-bold text-slate-700">{formatCurrency(item.unitCost || 0)}</p>
                     <p className="text-[9px] font-bold text-slate-400 mt-0.5">Stock: {item.quantity || 0} {item.unit || "pcs"}</p>
                   </div>
                 </div>
