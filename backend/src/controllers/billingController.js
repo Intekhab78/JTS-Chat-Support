@@ -5,6 +5,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { buildSubscription } from "../utils/planUtils.js";
 import { normalizeRole } from "../utils/roleUtils.js";
+import { canUseMockBilling, logBlockedMockBillingRequest } from "../utils/mockBillingAccess.js";
 
 const getStripe = () => {
   if (!env.stripeSecretKey || env.stripeSecretKey === "") {
@@ -85,6 +86,16 @@ export const getSubscriptionStatus = asyncHandler(async (req, res) => {
 });
 
 export const executeMockCheckout = asyncHandler(async (req, res, next) => {
+  if (!canUseMockBilling({ nodeEnv: env.nodeEnv, enableMockBilling: env.enableMockBilling })) {
+    logBlockedMockBillingRequest({
+      user: req.user,
+      ipAddress: req.ip,
+      nodeEnv: env.nodeEnv,
+      reason: "Mock billing is disabled in this environment."
+    });
+    return res.status(403).json({ status: "error", message: "Mock billing is disabled." });
+  }
+
   const { plan } = req.body;
   const validPlans = ["basic", "standard", "pro"];
 

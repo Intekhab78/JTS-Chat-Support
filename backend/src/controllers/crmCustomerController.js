@@ -9,6 +9,11 @@ import { Visitor } from "../models/Visitor.js";
 import { incrementCustomers } from "../services/analyticsService.js";
 import { generateCRN } from "../services/customerService.js";
 import { logAuditEvent } from "../services/auditService.js";
+import {
+  buildTenantScopedCustomerFilter,
+  normalizeBulkCustomerIds,
+  sendUnauthorizedTenant
+} from "../utils/crmBulkAccess.js";
 import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
 import {
   autoAssignLeadOwner,
@@ -341,13 +346,106 @@ export const mergeCustomers = asyncHandler(async (req, res) => {
 export const bulkUpdateCustomers = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
   const { ids, updates } = req.body;
-  const result = await Customer.updateMany({ _id: { $in: ids } }, { $set: updates });
+
+  const normalized = normalizeBulkCustomerIds(ids);
+  if (normalized.error) {
+    throw new AppError(normalized.error, 400);
+  }
+
+  if (!updates || typeof updates !== "object" || Array.isArray(updates) || Object.keys(updates).length === 0) {
+    throw new AppError("At least one update field is required", 400);
+  }
+
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (ownedWebsiteIds.length === 0) {
+    return sendUnauthorizedTenant(res);
+  }
+
+  const scopedFilter = buildTenantScopedCustomerFilter(normalized.ids, ownedWebsiteIds);
+  const customers = await Customer.find(scopedFilter).select("_id websiteId archivedAt");
+  if (customers.length !== normalized.ids.length) {
+    return sendUnauthorizedTenant(res);
+  }
+
+  if (customers.some((customer) => customer.archivedAt)) {
+    throw new AppError("Archived CRM records cannot be modified in bulk.", 400);
+  }
+
+  const activeFilter = buildTenantScopedCustomerFilter(normalized.ids, ownedWebsiteIds, { archivedAt: null });
+  const result = await Customer.updateMany(activeFilter, { $set: updates });
+
+  const affectedByWebsite = customers.reduce((acc, customer) => {
+    const websiteId = String(customer.websiteId);
+    acc.set(websiteId, (acc.get(websiteId) || 0) + 1);
+    return acc;
+  }, new Map());
+
+  await Promise.all([...affectedByWebsite.entries()].map(([websiteId, affectedCount]) => logAuditEvent({
+    actor: req.user,
+    action: "crm.bulk_update",
+    entityType: "customer",
+    entityId: `bulk:${normalized.ids.join(",")}`,
+    websiteId,
+    metadata: {
+      userId: String(req.user._id),
+      websiteId,
+      affectedCount,
+      timestamp: new Date().toISOString(),
+      updates: Object.keys(updates)
+    },
+    ipAddress: req.ip
+  })));
+
   res.json({ success: true, count: result.modifiedCount });
 });
 
 export const bulkDeleteCustomers = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_DELETE);
   const { ids } = req.body;
-  const result = await Customer.deleteMany({ _id: { $in: ids } });
+
+  const normalized = normalizeBulkCustomerIds(ids);
+  if (normalized.error) {
+    throw new AppError(normalized.error, 400);
+  }
+
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (ownedWebsiteIds.length === 0) {
+    return sendUnauthorizedTenant(res);
+  }
+
+  const scopedFilter = buildTenantScopedCustomerFilter(normalized.ids, ownedWebsiteIds);
+  const customers = await Customer.find(scopedFilter).select("_id websiteId archivedAt");
+  if (customers.length !== normalized.ids.length) {
+    return sendUnauthorizedTenant(res);
+  }
+
+  if (customers.some((customer) => customer.archivedAt)) {
+    throw new AppError("Archived CRM records cannot be deleted in bulk.", 400);
+  }
+
+  const activeFilter = buildTenantScopedCustomerFilter(normalized.ids, ownedWebsiteIds, { archivedAt: null });
+  const result = await Customer.deleteMany(activeFilter);
+
+  const affectedByWebsite = customers.reduce((acc, customer) => {
+    const websiteId = String(customer.websiteId);
+    acc.set(websiteId, (acc.get(websiteId) || 0) + 1);
+    return acc;
+  }, new Map());
+
+  await Promise.all([...affectedByWebsite.entries()].map(([websiteId, affectedCount]) => logAuditEvent({
+    actor: req.user,
+    action: "crm.bulk_delete",
+    entityType: "customer",
+    entityId: `bulk:${normalized.ids.join(",")}`,
+    websiteId,
+    metadata: {
+      userId: String(req.user._id),
+      websiteId,
+      affectedCount,
+      timestamp: new Date().toISOString()
+    },
+    ipAddress: req.ip
+  })));
+
   res.json({ success: true, count: result.deletedCount });
 });

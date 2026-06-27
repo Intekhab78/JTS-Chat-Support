@@ -226,3 +226,27 @@ export const webhookConfigSchema = z.object({
   events: z.array(z.string()).min(1),
   isActive: z.boolean().optional()
 });
+
+export const createKnowledgeBaseArticleSchema = z.object({
+  title: z.string().trim().min(1, "Title is required").max(180),
+  content: z.string().trim().min(1, "Content is required").max(50000),
+  categoryId: z.string().trim().min(1, "Category is required"),
+  websiteId: z.string().trim().min(1, "Website is required"),
+  tags: z.union([
+    z.array(z.string().trim().max(60)),
+    z.string().max(1000)
+  ]).optional().default([]),
+  isPublished: z.boolean().optional()
+});
+
+export const updateKnowledgeBaseArticleSchema = z.object({
+  title: z.string().trim().min(1).max(180).optional(),
+  content: z.string().trim().min(1).max(50000).optional(),
+  categoryId: z.string().trim().min(1).optional(),
+  websiteId: z.string().trim().min(1).optional(),
+  tags: z.union([
+    z.array(z.string().trim().max(60)),
+    z.string().max(1000)
+  ]).optional(),
+  isPublished: z.boolean().optional()
+}).refine((data) => Object.keys(data).length > 0, { message: "At least one field is required" });

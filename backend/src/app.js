@@ -29,6 +29,7 @@ import roleRoutes from "./routes/roleRoutes.js";
 import inventoryRoutes from "./routes/inventoryRoutes.js";
 import supplierRoutes from "./routes/supplierRoutes.js";
 import procurementRoutes from "./routes/procurementRoutes.js";
+import knowledgeBaseRoutes from "./routes/knowledgeBaseRoutes.js";
 import { env } from "./config/env.js";
 
 import errorMiddleware from "./middleware/errorMiddleware.js";
@@ -155,6 +156,7 @@ export function createApp() {
   app.use("/api/inventory", inventoryRoutes);
   app.use("/api/supplier", supplierRoutes);
   app.use("/api/procurement", procurementRoutes);
+  app.use("/api/knowledge-base", knowledgeBaseRoutes);
 
   app.all("*", (req, res, next) => {
     next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));

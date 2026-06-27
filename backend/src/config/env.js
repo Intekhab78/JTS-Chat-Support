@@ -58,6 +58,7 @@ if (nodeEnv !== "test") {
 
 export const env = {
   port: Number(process.env.PORT || 5000),
+  nodeEnv,
   mongoUri,
   jwtSecret,
   clientUrl: process.env.CLIENT_URL || "http://localhost:5173",
@@ -78,6 +79,7 @@ export const env = {
   slaQueueAlertMinutes: Number(process.env.SLA_QUEUE_ALERT_MINUTES || 5),
   slaTicketAlertHours: Number(process.env.SLA_TICKET_ALERT_HOURS || 24),
   crmLeadReassignMinutes: Number(process.env.CRM_LEAD_REASSIGN_MINUTES || 10),
+  enableMockBilling: process.env.ENABLE_MOCK_BILLING === "true",
   stripeSecretKey: process.env.STRIPE_SECRET_KEY || "",
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
   stripePriceIds

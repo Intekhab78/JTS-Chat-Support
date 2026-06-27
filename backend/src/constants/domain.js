@@ -83,6 +83,7 @@ export const ACTIVITY_ENTITY_TYPES = Object.freeze([
   "ticket",
   "chat_session",
   "website",
+  "article",
   "follow_up_task",
   "notification",
   "settings"

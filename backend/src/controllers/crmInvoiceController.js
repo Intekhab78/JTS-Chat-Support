@@ -5,36 +5,100 @@ import AppError from "../utils/AppError.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import { createActivityEvent } from "../services/activityService.js";
 import { advancePurchaseWorkflow } from "../services/purchaseWorkflowService.js";
+import { assertSameWebsite, buildInvoiceTenantFilter, toWebsiteIdStrings } from "../utils/invoiceAccess.js";
+
+async function resolveOwnedWebsiteIds(req) {
+  return req.ownedWebsiteIds || await getOwnedWebsiteIds(req.user);
+}
+
+async function findAuthorizedCustomer(customerId, websiteId, ownedWebsiteIds) {
+  const customer = await Customer.findOne({
+    _id: customerId,
+    websiteId: { $in: ownedWebsiteIds }
+  }).select("websiteId");
+
+  if (!customer) {
+    throw new AppError("Access denied", 403);
+  }
+
+  assertSameWebsite(customer.websiteId, websiteId, "Customer does not belong to this invoice website.");
+  return customer;
+}
+
+async function findAuthorizedInvoice(req, invoiceId) {
+  const ownedWebsiteIds = await resolveOwnedWebsiteIds(req);
+  const invoice = await Invoice.findOne(buildInvoiceTenantFilter(invoiceId, ownedWebsiteIds));
+
+  if (!invoice) {
+    throw new AppError("Access denied", 403);
+  }
+
+  await findAuthorizedCustomer(invoice.customerId, invoice.websiteId, ownedWebsiteIds);
+  return { invoice, ownedWebsiteIds };
+}
 
 export const listAllInvoices = asyncHandler(async (req, res) => {
-  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const ownedWebsiteIds = await resolveOwnedWebsiteIds(req);
   const invoices = await Invoice.find({ websiteId: { $in: ownedWebsiteIds } })
-    .populate("customerId", "name")
+    .populate("customerId", "name websiteId")
     .sort({ issuedAt: -1 });
-  res.json(invoices);
+
+  const authorizedInvoices = invoices.filter((invoice) => {
+    const customerWebsiteId = invoice.customerId?.websiteId;
+    return customerWebsiteId && String(customerWebsiteId) === String(invoice.websiteId);
+  });
+
+  res.json(authorizedInvoices);
 });
 
 export const getCustomerInvoices = asyncHandler(async (req, res) => {
-  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const ownedWebsiteIds = await resolveOwnedWebsiteIds(req);
   const customerId = req.params.customerId || req.params.id;
-  const customer = await Customer.findById(customerId).select("websiteId");
-  if (!customer || !ownedWebsiteIds.map(String).includes(String(customer.websiteId))) {
+  const customer = await Customer.findOne({
+    _id: customerId,
+    websiteId: { $in: ownedWebsiteIds }
+  }).select("websiteId");
+
+  if (!customer) {
     throw new AppError("Access denied", 403);
   }
-  const invoices = await Invoice.find({ customerId }).sort({ issuedAt: -1 });
+
+  const invoices = await Invoice.find({
+    customerId,
+    websiteId: customer.websiteId
+  }).sort({ issuedAt: -1 });
+
   res.json(invoices);
 });
 
 export const createInvoice = asyncHandler(async (req, res) => {
   const { customerId, websiteId, items, total, currency, notes, quotationId, status } = req.body;
+  const ownedWebsiteIds = await resolveOwnedWebsiteIds(req);
+  const customer = await Customer.findOne({
+    _id: customerId,
+    websiteId: { $in: ownedWebsiteIds }
+  }).select("websiteId");
+
+  if (!customer) {
+    throw new AppError("Access denied", 403);
+  }
+
+  const resolvedWebsiteId = websiteId || customer.websiteId;
+
+  if (!resolvedWebsiteId || !toWebsiteIdStrings(ownedWebsiteIds).includes(String(resolvedWebsiteId))) {
+    throw new AppError("Access denied", 403);
+  }
+
+  assertSameWebsite(customer.websiteId, resolvedWebsiteId, "Customer does not belong to this invoice website.");
+
   const invoiceId = `INV-${Date.now().toString().slice(-6)}`;
   const invoice = await Invoice.create({
-    invoiceId, quotationId, customerId, websiteId, ownerId: req.user._id,
+    invoiceId, quotationId, customerId, websiteId: resolvedWebsiteId, ownerId: req.user._id,
     items: items || [], total: total || 0, currency: currency || "INR", status: status || "pending", issuedAt: new Date(), notes
   });
 
   await createActivityEvent({
-    actor: req.user, websiteId, entityType: "customer", entityId: customerId,
+    actor: req.user, websiteId: resolvedWebsiteId, entityType: "customer", entityId: customerId,
     type: "invoice_created", summary: `Invoice ${invoiceId} created`, metadata: { total }
   });
 
@@ -49,7 +113,7 @@ export const createInvoice = asyncHandler(async (req, res) => {
 });
 
 export const generateInvoicePdf = asyncHandler(async (req, res) => {
-  const invoice = await Invoice.findById(req.params.id);
+  const { invoice } = await findAuthorizedInvoice(req, req.params.id);
   const { generateInvoicePDF } = await import("../services/pdfService.js");
   const pdfResult = await generateInvoicePDF(invoice);
   if (pdfResult) {
@@ -60,18 +124,32 @@ export const generateInvoicePdf = asyncHandler(async (req, res) => {
 });
 
 export const updateInvoice = asyncHandler(async (req, res) => {
-  const invoice = await Invoice.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  if (!invoice) throw new AppError("Invoice not found", 404);
+  const { invoice, ownedWebsiteIds } = await findAuthorizedInvoice(req, req.params.id);
+  const nextCustomerId = req.body.customerId || invoice.customerId;
+  const nextWebsiteId = req.body.websiteId || invoice.websiteId;
+
+  await findAuthorizedCustomer(nextCustomerId, nextWebsiteId, ownedWebsiteIds);
+
+  const updatedInvoice = await Invoice.findOneAndUpdate(
+    buildInvoiceTenantFilter(req.params.id, ownedWebsiteIds),
+    req.body,
+    { new: true }
+  );
+
+  if (!updatedInvoice) throw new AppError("Access denied", 403);
+
   await advancePurchaseWorkflow({
-    customerId: invoice.customerId,
-    status: invoice.status === "paid" ? "completed" : "invoice_ready",
+    customerId: updatedInvoice.customerId,
+    status: updatedInvoice.status === "paid" ? "completed" : "invoice_ready",
     actor: req.user,
-    reason: invoice.status === "paid" ? "invoice_marked_paid" : "invoice_updated"
+    reason: updatedInvoice.status === "paid" ? "invoice_marked_paid" : "invoice_updated"
   });
-  res.json(invoice);
+
+  res.json(updatedInvoice);
 });
 
 export const deleteInvoice = asyncHandler(async (req, res) => {
-  await Invoice.findByIdAndDelete(req.params.id);
+  const { ownedWebsiteIds } = await findAuthorizedInvoice(req, req.params.id);
+  await Invoice.findOneAndDelete(buildInvoiceTenantFilter(req.params.id, ownedWebsiteIds));
   res.json({ success: true });
 });
