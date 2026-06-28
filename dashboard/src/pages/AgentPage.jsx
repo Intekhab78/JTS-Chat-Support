@@ -77,9 +77,6 @@ export default function AgentPage() {
     try {
       const data = await api("/api/chat/agent/sessions");
       setSessions(data);
-      if (!selectedSessionId && data[0]) {
-        setSelectedSessionId(data[0].sessionId);
-      }
     } catch (err) {
       setToast({ show: true, message: err.message, type: "error" });
     } finally {
@@ -484,6 +481,17 @@ export default function AgentPage() {
   useEffect(() => {
     setDashboardPage(1);
   }, [sessions.length]);
+
+  useEffect(() => {
+    if (visibleSessions.length > 0) {
+      const exists = visibleSessions.some(s => s.sessionId === selectedSessionId);
+      if (!exists) {
+        setSelectedSessionId(visibleSessions[0].sessionId);
+      }
+    } else {
+      setSelectedSessionId("");
+    }
+  }, [visibleSessions, selectedSessionId]);
 
   const SESSION_TABS = [
     { key: "active", label: "Active", count: activeSessions.length, dot: "bg-emerald-500" },

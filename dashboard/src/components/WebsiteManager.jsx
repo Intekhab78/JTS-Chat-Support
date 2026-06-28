@@ -189,39 +189,39 @@ export default function WebsiteManager() {
         </div>
 
         {/* Live Chat Widget */}
-        <div className="absolute bottom-6 right-6 flex flex-col items-end gap-5 z-10 w-[280px] pointer-events-none transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)]" style={{ filter: data.isActive ? 'none' : 'grayscale(1) opacity(0.6)' }}>
-          <div className="w-full bg-white dark:bg-slate-950 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] rounded-[32px] overflow-hidden border border-slate-100 dark:border-white/5 flex flex-col transform transition-all hover:-translate-y-2 origin-bottom-right">
+        <div className="absolute bottom-4 right-4 flex flex-col items-end gap-3.5 z-10 w-[220px] pointer-events-none transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)]" style={{ filter: data.isActive ? 'none' : 'grayscale(1) opacity(0.6)' }}>
+          <div className="w-full bg-white dark:bg-slate-950 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.3)] rounded-[24px] overflow-hidden border border-slate-100 dark:border-white/5 flex flex-col transform transition-all hover:-translate-y-1 origin-bottom-right">
             {/* Widget Header */}
-            <div className="p-6 transition-colors relative h-20 flex flex-col justify-center" style={{ backgroundColor: data.primaryColor }}>
+            <div className="p-4 transition-colors relative h-16 flex flex-col justify-center" style={{ backgroundColor: data.primaryColor }}>
               <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/10 to-transparent pointer-events-none"></div>
-              <h5 className="text-white text-[13px] font-black drop-shadow-md uppercase tracking-tight">{data.websiteName || 'New Brand'}</h5>
-              <div className="flex items-center gap-1.5 mt-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                <p className="text-white/80 text-[10px] font-bold">Agents Active</p>
+              <h5 className="text-white text-[11px] font-black drop-shadow-md uppercase tracking-tight truncate">{data.websiteName || 'New Brand'}</h5>
+              <div className="flex items-center gap-1 mt-0.5">
+                <div className="w-1 h-1 rounded-full bg-white animate-pulse" />
+                <p className="text-white/80 text-[8px] font-bold">Agents Active</p>
               </div>
             </div>
             {/* Widget Messages */}
-            <div className="p-5 bg-[#f8fafc] dark:bg-black/30 space-y-4 min-h-[160px] border-b border-indigo-50/10 transition-colors">
-              <div className="flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2 duration-700">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[12px] text-white shadow-xl transition-all shrink-0 border border-white/10" style={{ backgroundColor: data.primaryColor }}>
+            <div className="p-4 bg-[#f8fafc] dark:bg-black/30 space-y-3 min-h-[110px] border-b border-indigo-50/10 transition-colors">
+              <div className="flex items-start gap-2 animate-in fade-in slide-in-from-bottom-2 duration-700">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] text-white shadow-lg transition-all shrink-0 border border-white/10" style={{ backgroundColor: data.primaryColor }}>
                   {data.launcherIcon}
                 </div>
-                <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/5 p-3.5 rounded-2xl rounded-tl-sm text-[11px] text-slate-700 dark:text-slate-200 shadow-sm leading-relaxed font-bold">
+                <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/5 p-2.5 rounded-xl rounded-tl-sm text-[10px] text-slate-700 dark:text-slate-200 shadow-sm leading-relaxed font-bold">
                   Initiating support protocol...
                 </div>
               </div>
             </div>
             {/* Widget Input Mock */}
-            <div className="p-5 bg-white dark:bg-slate-950 flex gap-3 items-center transition-colors">
-              <div className="flex-1 bg-slate-50 dark:bg-black/20 rounded-xl p-3 text-[10px] text-slate-400 dark:text-slate-600 border border-slate-100 dark:border-white/5 font-bold">Type a message...</div>
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-xl transition-all" style={{ backgroundColor: data.primaryColor }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            <div className="p-3 bg-white dark:bg-slate-950 flex gap-2 items-center transition-colors">
+              <div className="flex-1 bg-slate-50 dark:bg-black/20 rounded-lg p-2 text-[9px] text-slate-400 dark:text-slate-600 border border-slate-100 dark:border-white/5 font-bold">Type a message...</div>
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white shadow-lg transition-all" style={{ backgroundColor: data.primaryColor }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
               </div>
             </div>
           </div>
 
           {/* Launcher Button */}
-          <div className="w-14 h-14 rounded-[22px] shadow-2xl flex items-center justify-center text-2xl text-white transition-all hover:scale-110 hover:shadow-indigo-500/20 duration-500 border-2 border-white dark:border-slate-800" style={{ backgroundColor: data.primaryColor }}>
+          <div className="w-12 h-12 rounded-[16px] shadow-xl flex items-center justify-center text-xl text-white transition-all hover:scale-110 duration-500 border-2 border-white dark:border-slate-800 shrink-0 animate-in zoom-in duration-500" style={{ backgroundColor: data.primaryColor }}>
             <span className="drop-shadow-lg">{data.launcherIcon}</span>
           </div>
         </div>
@@ -587,7 +587,7 @@ export default function WebsiteManager() {
                   </div>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-4 relative z-10 shrink-0">
+              <div className="flex flex-wrap gap-2.5 relative z-10 shrink-0">
                 <button
                   onClick={async () => {
                     try {
@@ -599,35 +599,35 @@ export default function WebsiteManager() {
                       setBuildingFlowWebsite(website);
                     }
                   }}
-                  className="px-8 py-4.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[11px] uppercase tracking-[0.2em] transition-all shadow-xl shadow-indigo-500/10 flex items-center gap-3 hover:scale-105 active:scale-95"
+                  className="px-4 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[11px] uppercase tracking-[0.2em] transition-all shadow-xl shadow-indigo-500/10 flex items-center gap-2 hover:scale-105 active:scale-95"
                 >
-                  <Network size={16} /> Flow Builder
+                  <Network size={15} /> Flow Builder
                 </button>
                 <button
                   onClick={() => setLocalizingWebsite(website)}
-                  className="px-8 py-4.5 rounded-2xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black text-[11px] uppercase tracking-[0.2em] hover:bg-emerald-600 hover:text-white transition-all shadow-sm border border-slate-200 dark:border-white/5 flex items-center gap-3 hover:scale-105 active:scale-95 hover:border-emerald-600"
+                  className="px-4 py-3 rounded-2xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black text-[11px] uppercase tracking-[0.2em] hover:bg-emerald-600 hover:text-white transition-all shadow-sm border border-slate-200 dark:border-white/5 flex items-center gap-2 hover:scale-105 active:scale-95 hover:border-emerald-600"
                 >
-                  <DollarSign size={16} /> Currency
+                  <DollarSign size={15} /> Currency
                 </button>
                 <button
                   onClick={() => setCustomizingWebsite(website)}
-                  className="px-8 py-4.5 rounded-2xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black text-[11px] uppercase tracking-[0.2em] hover:bg-slate-950 dark:hover:bg-black hover:text-white transition-all shadow-sm border border-slate-200 dark:border-white/5 flex items-center gap-3 hover:scale-105 active:scale-95"
+                  className="px-4 py-3 rounded-2xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black text-[11px] uppercase tracking-[0.2em] hover:bg-slate-950 dark:hover:bg-black hover:text-white transition-all shadow-sm border border-slate-200 dark:border-white/5 flex items-center gap-2 hover:scale-105 active:scale-95"
                 >
-                  <Palette size={16} /> Design
+                  <Palette size={15} /> Design
                 </button>
                 <button
                   onClick={() => handleEdit(website)}
-                  className="px-8 py-4.5 rounded-2xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black text-[11px] uppercase tracking-[0.2em] hover:bg-slate-950 dark:hover:bg-black hover:text-white transition-all shadow-sm border border-slate-200 dark:border-white/5 flex items-center gap-3 hover:scale-105 active:scale-95"
+                  className="px-4 py-3 rounded-2xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black text-[11px] uppercase tracking-[0.2em] hover:bg-slate-950 dark:hover:bg-black hover:text-white transition-all shadow-sm border border-slate-200 dark:border-white/5 flex items-center gap-2 hover:scale-105 active:scale-95"
                 >
-                  <Settings size={16} /> Configure
+                  <Settings size={15} /> Configure
                 </button>
                 <button
                   type="button"
                   disabled
                   title="Website deletion is not available from this screen yet."
-                  className="p-4.5 bg-red-50 dark:bg-red-500/5 text-red-400 rounded-2xl transition-all shadow-sm border border-red-100 dark:border-red-500/10 cursor-not-allowed opacity-60"
+                  className="p-3 bg-red-50 dark:bg-red-500/5 text-red-400 rounded-2xl transition-all shadow-sm border border-red-100 dark:border-red-500/10 cursor-not-allowed opacity-60"
                 >
-                  <Trash2 size={18} />
+                  <Trash2 size={16} />
                 </button>
               </div>
             </div>

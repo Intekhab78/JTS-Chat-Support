@@ -6,6 +6,7 @@ import { User } from "../models/User.js";
 import { ChatSession } from "../models/ChatSession.js";
 import { Ticket } from "../models/Ticket.js";
 import { Visitor } from "../models/Visitor.js";
+import { FollowUpTask } from "../models/FollowUpTask.js";
 import { incrementCustomers } from "../services/analyticsService.js";
 import { generateCRN } from "../services/customerService.js";
 import { logAuditEvent } from "../services/auditService.js";
@@ -141,8 +142,87 @@ export const listCustomers = asyncHandler(async (req, res) => {
     return doc;
   }));
 
+  // Compute summary stats dynamically based on website scope
+  const scopeQuery = { websiteId: query.websiteId };
+  if (includeArchived !== "true") scopeQuery.archivedAt = null;
+  if (req.user.role === "sales") scopeQuery.ownerId = req.user._id;
+
+  const allScopedCustomers = await Customer.find(scopeQuery).select('_id leadValue probability pipelineStage ownerId archivedAt');
+
+  let totalLeads = 0;
+  let pipelineValue = 0;
+  let weightedRevenue = 0;
+  let wonRevenue = 0;
+  let wonCount = 0;
+  let myLeads = 0;
+
+  for (const c of allScopedCustomers) {
+    const doc = c.toObject();
+    const prob = calculateWinProbability(doc);
+    
+    totalLeads++;
+    
+    if (c.ownerId && c.ownerId.toString() === req.user._id.toString()) {
+      myLeads++;
+    }
+    
+    if (c.pipelineStage === "won") {
+      wonRevenue += Number(c.leadValue || 0);
+      wonCount++;
+    } else {
+      pipelineValue += Number(c.leadValue || 0);
+      weightedRevenue += Math.round((Number(c.leadValue || 0) * Number(prob || 0)) / 100);
+    }
+  }
+
+  const archivedCount = await Customer.countDocuments({
+    websiteId: query.websiteId,
+    archivedAt: { $ne: null }
+  });
+
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
+
+  const taskQuery = {
+    websiteId: query.websiteId,
+    status: "open",
+    dueAt: { $gte: startOfToday, $lte: endOfToday }
+  };
+  if (req.user.role === "sales") {
+    taskQuery.ownerId = req.user._id;
+  }
+  const dueTodayCount = await FollowUpTask.countDocuments(taskQuery);
+
+  const customersWithOpenTasks = await FollowUpTask.distinct("customerId", {
+    websiteId: query.websiteId,
+    status: "open"
+  });
+  const customersWithOpenTasksSet = new Set(customersWithOpenTasks.map(id => id.toString()));
+
+  let noFollowUp = 0;
+  for (const c of allScopedCustomers) {
+    if (!customersWithOpenTasksSet.has(c._id.toString())) {
+      noFollowUp++;
+    }
+  }
+
+  const summary = {
+    totalLeads,
+    pipelineValue,
+    weightedRevenue,
+    conversionRate: totalLeads > 0 ? Math.round((wonCount / totalLeads) * 100) : 0,
+    revenue: wonRevenue,
+    myLeads,
+    dueToday: dueTodayCount,
+    noFollowUp,
+    archived: archivedCount
+  };
+
   res.json({
     customers: finalCustomers,
+    summary,
     pagination: {
       total,
       page: parseInt(page),

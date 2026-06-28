@@ -413,7 +413,7 @@ export default function ChatPanel({
             )}
 
             {/* Takeover/Release/Request control buttons */}
-            {!isChatDisabled && (
+            {!isChatDisabled && session?.status !== "closed" && !session?.archivedAt && (
               <div className="flex items-center gap-1.5">
                 {isAssignedToMe ? (
                   <button

@@ -913,7 +913,7 @@ export default function CrmContainer({
                 <Plus size={14} /> New Lead
               </button>
             )}
-            {isManager && (
+            {canManagePipeline && (
               <button onClick={() => setShowStageEditor(true)} className="inline-flex items-center gap-2 rounded-2xl bg-white border border-slate-200 px-4 py-3 text-[10px] font-black uppercase text-slate-700 hover:bg-slate-50 transition-all">
                 <UserCheck size={14} /> Edit Stages
               </button>

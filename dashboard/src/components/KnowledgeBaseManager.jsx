@@ -30,6 +30,17 @@ export default function HelpCenterManager({ websiteId }) {
     }
   };
 
+  const handleEdit = (article) => {
+    setFormData({
+      title: article.title || "",
+      content: article.content || "",
+      tags: article.tags || [],
+      categoryId: article.categoryId?._id || article.categoryId || ""
+    });
+    setEditingId(article._id);
+    setIsEditing(true);
+  };
+
   const handleSave = async () => {
     try {
       const method = editingId ? "PUT" : "POST";
@@ -107,6 +118,39 @@ export default function HelpCenterManager({ websiteId }) {
                 {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
               </select>
             </div>
+            <div className="pt-2 border-t border-slate-100 dark:border-white/5 space-y-2">
+              <label className="small-label dark:text-slate-400">Create New Category</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Category Name"
+                  id="new-category-input"
+                  className="flex-1 bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-white outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const el = document.getElementById("new-category-input");
+                    const name = el?.value?.trim();
+                    if (!name) return alert("Please enter a category name");
+                    try {
+                      const newCat = await api("/api/categories", {
+                        method: "POST",
+                        body: JSON.stringify({ name, websiteId, department: "general" })
+                      });
+                      setCategories([...categories, newCat]);
+                      setFormData(prev => ({ ...prev, categoryId: newCat._id }));
+                      el.value = "";
+                    } catch (err) {
+                      alert("Failed to create category: " + err.message);
+                    }
+                  }}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-widest px-3 py-2 rounded-xl transition-all"
+                >
+                  Create
+                </button>
+              </div>
+            </div>
             <div>
               <label className="small-label dark:text-slate-400">Tags</label>
               <input
@@ -157,11 +201,7 @@ export default function HelpCenterManager({ websiteId }) {
             </div>
             
             <button
-              onClick={() => {
-                setFormData(article);
-                setEditingId(article._id);
-                setIsEditing(true);
-              }}
+              onClick={() => handleEdit(article)}
               className="absolute top-6 right-6 text-slate-400 opacity-0 group-hover:opacity-100 hover:text-indigo-500 transition-all"
             >
               <Edit2 size={16} />

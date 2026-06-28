@@ -22,6 +22,7 @@ import { useToast } from "../context/ToastContext.jsx";
 import DepartmentManager from "../components/DepartmentManager.jsx";
 import CRMManager from "../components/CRMManager.jsx";
 import SecurityCenter from "../components/SecurityCenter.jsx";
+import HelpCenterManager from "../components/KnowledgeBaseManager.jsx";
 import EnterpriseReportsCenter from "../components/EnterpriseReportsCenter.jsx";
 import RoleManager from "../components/RoleManager.jsx";
 import AdminSubscriptionManager from "../components/AdminSubscriptionManager.jsx";
@@ -513,6 +514,7 @@ export default function ClientPage() {
 
     if (hasPermission(user, PERMISSIONS.SETTINGS_MANAGE) && canUseSecurity) {
       menuItems.push({ label: "Security", href: "/client?tab=security" });
+      menuItems.push({ label: "Help Center", href: "/client?tab=help-center" });
     }
 
     menuItems.push({ label: "Role Master", href: "/client?tab=roles" });
@@ -636,6 +638,12 @@ export default function ClientPage() {
     subtitle = "Two-factor authentication, audit logs, and webhook delivery visibility";
     content = <SecurityCenter />;
   }
+  
+  if (tab === "help-center") {
+    title = "Help Center & Knowledge Base";
+    subtitle = "Manage help articles, categories, and self-help guides";
+    content = <HelpCenterManager websiteId={selectedWebsiteId} />;
+  }
 
   if (tab === "subscriptions") {
     title = "Ecosystem Revenue";
@@ -702,7 +710,7 @@ export default function ClientPage() {
   }
 
   // Handle other tabs generically for now
-  if (!["overview", "chats", "websites", "agents", "clients", "reports", "tickets", "shortcuts", "history", "categories", "departments", "crm", "security", "billing", "subscriptions", "roles", "inventory-customer", "flow-analytics"].includes(tab)) {
+  if (!["overview", "chats", "websites", "agents", "clients", "reports", "tickets", "shortcuts", "history", "categories", "departments", "crm", "security", "billing", "subscriptions", "roles", "inventory-customer", "flow-analytics", "help-center", "inventory", "inventory-master", "inventory-stock-in", "inventory-stock-out", "inventory-adjustment", "inventory-history"].includes(tab)) {
     content = (
       <div className="bg-white p-24 rounded-[40px] border border-slate-200/60 shadow-sm text-center">
         <div className="max-w-xs mx-auto space-y-4">
