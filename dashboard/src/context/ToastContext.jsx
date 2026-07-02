@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useRef, useState, useEffect } from "react";
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from "lucide-react";
 
 const ToastContext = createContext(null);
@@ -50,6 +50,32 @@ export function ToastProvider({ children }) {
   toast.error   = (msg, dur) => toast(msg, "error",   dur ?? 6000);
   toast.warning = (msg, dur) => toast(msg, "warning", dur);
   toast.info    = (msg, dur) => toast(msg, "info",    dur);
+
+  useEffect(() => {
+    window.__globalToast = {
+      success: (msg, dur) => toast(msg, "success", dur),
+      error: (msg, dur) => toast(msg, "error", dur ?? 6000),
+      warning: (msg, dur) => toast(msg, "warning", dur),
+      info: (msg, dur) => toast(msg, "info", dur),
+    };
+
+    const originalAlert = window.alert;
+
+    window.alert = (message) => {
+      const msgStr = typeof message === "object" ? JSON.stringify(message) : String(message);
+      const isError = /failed|error|invalid|denied|unauthorized|missing|wrong|cannot|except/i.test(msgStr);
+      if (isError) {
+        toast(msgStr, "error", 6000);
+      } else {
+        toast(msgStr, "success", 4000);
+      }
+    };
+
+    return () => {
+      window.__globalToast = null;
+      window.alert = originalAlert;
+    };
+  }, [toast]);
 
   return (
     <ToastContext.Provider value={toast}>

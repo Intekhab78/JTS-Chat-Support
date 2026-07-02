@@ -8,6 +8,13 @@ const messageSchema = new mongoose.Schema(
     attachmentUrl: { type: String, default: null },
     attachmentType: { type: String, enum: ["image", "pdf", "file", null], default: null },
     agentId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    channel: { type: String, default: "chat" },
+    deliveryStatus: {
+      type: String,
+      enum: ["sent", "delivered", "read", "failed"],
+      default: "sent",
+      index: true
+    },
     deliveredAt: { type: Date, default: null },
     readAt: { type: Date, default: null }
   },

@@ -7,9 +7,11 @@ import { ChatSession } from "../models/ChatSession.js";
 import { Ticket } from "../models/Ticket.js";
 import { Visitor } from "../models/Visitor.js";
 import { FollowUpTask } from "../models/FollowUpTask.js";
+import { logCrmActivity } from "../services/activityLoggerService.js";
 import { incrementCustomers } from "../services/analyticsService.js";
 import { generateCRN } from "../services/customerService.js";
 import { logAuditEvent } from "../services/auditService.js";
+import { publishEvent } from "../services/eventBus.js";
 import {
   buildTenantScopedCustomerFilter,
   normalizeBulkCustomerIds,
@@ -283,7 +285,23 @@ export const createCustomer = asyncHandler(async (req, res) => {
     internalNotes: notes ? [{ text: String(notes).trim(), authorName: req.user.name, createdAt: new Date() }] : []
   });
 
+  await logCrmActivity({
+    websiteId: resolvedWebsiteId,
+    type: "lead_created",
+    title: "Lead Created",
+    description: `New lead profile generated for ${customer.name}.`,
+    customerId: customer._id,
+    ownerId: resolvedOwnerId
+  });
+
   await incrementCustomers(resolvedWebsiteId);
+  await publishEvent(resolvedWebsiteId, "lead_created", {
+    customerId: customer._id,
+    name: customer.name,
+    email: customer.email,
+    phone: customer.phone,
+    pipelineStage: customer.pipelineStage
+  });
   if (resolvedOwnerId) await ensureFirstTouchTask(customer, resolvedOwnerId);
   await sendCrmLifecycleEmail(customer, "welcome");
 
@@ -343,9 +361,38 @@ export const updateCustomer = asyncHandler(async (req, res) => {
   }
 
   await customer.save();
+
+  if (previousState.pipelineStage !== customer.pipelineStage) {
+    await logCrmActivity({
+      websiteId: customer.websiteId,
+      type: "stage_changed",
+      title: "Stage Changed",
+      description: `Lead stage progressed from "${previousState.pipelineStage}" to "${customer.pipelineStage}".`,
+      customerId: customer._id,
+      ownerId: req.user._id
+    });
+  } else {
+    await logCrmActivity({
+      websiteId: customer.websiteId,
+      type: "lead_updated",
+      title: "Lead Updated",
+      description: `Lead profile details for ${customer.name} updated.`,
+      customerId: customer._id,
+      ownerId: req.user._id
+    });
+  }
+
   await emitCustomerActivity({
     actor: req.user, websiteId: customer.websiteId, customerId: customer._id,
     type: "updated", summary: `${customer.name} updated`, metadata: { before: previousState, after: customer }
+  });
+
+  await publishEvent(customer.websiteId, "lead_updated", {
+    customerId: customer._id,
+    name: customer.name,
+    email: customer.email,
+    phone: customer.phone,
+    pipelineStage: customer.pipelineStage
   });
 
   res.json(customer);

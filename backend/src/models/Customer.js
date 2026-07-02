@@ -127,6 +127,25 @@ const customerSchema = new mongoose.Schema(
       device: { type: String, trim: true, default: "" },
       location: { type: String, trim: true, default: "" }
     },
+    leadScore: { type: Number, default: 0 },
+    leadTemperature: { type: String, enum: ["cold", "warm", "hot"], default: "warm" },
+    expectedRevenue: { type: Number, default: 0 },
+    interestedProducts: [{ type: String }],
+    campaign: { type: String, trim: true, default: "" },
+    assignedTeam: { type: String, trim: true, default: "" },
+    nextFollowUp: { type: Date, default: null },
+    qualificationStatus: { type: String, enum: ["unqualified", "qualified", "disqualified"], default: "unqualified" },
+    competitor: { type: String, trim: true, default: "" },
+    duplicateCandidates: [{ type: mongoose.Schema.Types.ObjectId, ref: "Customer" }],
+    aiScore: { type: Number, default: 0 },
+    websiteTracking: {
+      pagesVisited: [{
+        url: { type: String, trim: true },
+        visitedAt: { type: Date, default: Date.now }
+      }],
+      lastPage: { type: String, default: "" }
+    },
+    campaignRef: { type: String, default: "" },
     metadata: { type: Map, of: String },
     // Advanced CRM Tier-2 Intelligence
     winProbability: { type: Number, min: 0, max: 100, default: 10 },

@@ -2,16 +2,14 @@ import mongoose from "mongoose";
 
 const categorySchema = new mongoose.Schema(
   {
-    department: { type: String, required: true, trim: true, lowercase: true, default: "general" },
+    websiteId: { type: mongoose.Schema.Types.ObjectId, ref: "Website", required: true, index: true },
     name: { type: String, required: true, trim: true },
-    subcategories: [{ type: String, trim: true }],
-    websiteId: { type: mongoose.Schema.Types.ObjectId, ref: "Website", required: true },
-    managerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }
+    parentId: { type: mongoose.Schema.Types.ObjectId, ref: "Category", default: null, index: true },
+    path: { type: String, default: "", index: true } // e.g. "/Electronics/Laptop"
   },
   { timestamps: true }
 );
 
-// Each website can only have one category of a specific name
-categorySchema.index({ name: 1, websiteId: 1 }, { unique: true });
+categorySchema.index({ websiteId: 1, name: 1, parentId: 1 }, { unique: true });
 
 export const Category = mongoose.model("Category", categorySchema);

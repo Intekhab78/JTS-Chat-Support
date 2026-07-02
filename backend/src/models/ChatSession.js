@@ -22,6 +22,22 @@ const chatSessionSchema = new mongoose.Schema(
     visitorId: { type: mongoose.Schema.Types.ObjectId, ref: "Visitor", required: true },
     customerId: { type: mongoose.Schema.Types.ObjectId, ref: "Customer" },
     crn: { type: String, index: true },
+    channel: {
+      type: String,
+      enum: ["chat", "ai_chat", "email", "whatsapp", "sms", "facebook", "instagram", "telegram", "voice"],
+      default: "chat",
+      index: true
+    },
+    priority: {
+      type: String,
+      enum: ["low", "medium", "high", "urgent"],
+      default: "medium",
+      index: true
+    },
+    department: { type: String, default: "general", index: true },
+    tags: [{ type: String }],
+    isPinned: { type: Boolean, default: false },
+    slaDueAt: { type: Date, default: null },
     status: { type: String, enum: ["active", "closed", "queued"], default: "active" },
     assignedAgent: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     transferredFrom: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },

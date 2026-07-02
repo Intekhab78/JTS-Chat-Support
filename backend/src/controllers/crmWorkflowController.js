@@ -1,12 +1,15 @@
 import { Customer } from "../models/Customer.js";
 import { Quotation } from "../models/Quotation.js";
 import { FollowUpTask } from "../models/FollowUpTask.js";
+import { Workflow } from "../models/Workflow.js";
+import { WorkflowExecution } from "../models/WorkflowExecution.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
 import { incrementCustomers, addWonRevenue, recordConversionTime } from "../services/analyticsService.js";
 import { sendCrmLifecycleEmail, autoAssignLeadOwner } from "../services/automationService.js";
+import { executeWorkflowBackground } from "../services/workflowExecutor.js";
 import {
   createAndEmitCrmNotification,
   emitCustomerActivity,
@@ -124,4 +127,116 @@ export const updatePurchaseWorkflowStatus = asyncHandler(async (req, res) => {
     reason: "manual_update"
   });
   res.json(updated);
+});
+
+// Automation Workflows List CRUD APIs
+export const listWorkflows = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_VIEW);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const { websiteId } = req.query;
+
+  if (ownedWebsiteIds.length === 0) {
+    return res.json([]);
+  }
+
+  const query = {};
+  if (websiteId) {
+    if (!ownedWebsiteIds.map(id => id.toString()).includes(websiteId)) {
+      throw new AppError("Unauthorized access", 403);
+    }
+    query.websiteId = websiteId;
+  } else {
+    query.websiteId = { $in: ownedWebsiteIds };
+  }
+
+  const workflows = await Workflow.find(query).sort({ createdAt: -1 });
+  res.json(workflows);
+});
+
+export const createWorkflow = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_CREATE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const { websiteId } = req.body;
+
+  let resolvedWebsiteId = websiteId;
+  if (!resolvedWebsiteId && ownedWebsiteIds.length > 0) resolvedWebsiteId = ownedWebsiteIds[0];
+  if (!resolvedWebsiteId || !ownedWebsiteIds.map(id => id.toString()).includes(String(resolvedWebsiteId))) {
+    throw new AppError("Unauthorized website scope", 403);
+  }
+
+  const workflow = await Workflow.create({
+    ...req.body,
+    websiteId: resolvedWebsiteId
+  });
+
+  res.status(201).json(workflow);
+});
+
+export const updateWorkflow = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const workflow = await Workflow.findById(req.params.id);
+
+  if (!workflow) throw new AppError("Workflow not found", 404);
+  if (!ownedWebsiteIds.map(id => id.toString()).includes(workflow.websiteId.toString())) {
+    throw new AppError("Unauthorized access", 403);
+  }
+
+  const updated = await Workflow.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  res.json(updated);
+});
+
+export const deleteWorkflow = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_DELETE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const workflow = await Workflow.findById(req.params.id);
+
+  if (!workflow) throw new AppError("Workflow not found", 404);
+  if (!ownedWebsiteIds.map(id => id.toString()).includes(workflow.websiteId.toString())) {
+    throw new AppError("Unauthorized access", 403);
+  }
+
+  await Workflow.findByIdAndDelete(req.params.id);
+  res.json({ message: "Workflow deleted successfully" });
+});
+
+export const listExecutions = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_VIEW);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const { websiteId, workflowId } = req.query;
+
+  const query = {};
+  if (websiteId) {
+    if (!ownedWebsiteIds.map(id => id.toString()).includes(websiteId)) {
+      throw new AppError("Unauthorized access", 403);
+    }
+    query.websiteId = websiteId;
+  } else {
+    query.websiteId = { $in: ownedWebsiteIds };
+  }
+
+  if (workflowId) query.workflowId = workflowId;
+
+  const executions = await WorkflowExecution.find(query)
+    .populate("workflowId", "name trigger")
+    .sort({ createdAt: -1 })
+    .limit(50);
+
+  res.json(executions);
+});
+
+export const triggerWorkflowManually = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const workflow = await Workflow.findById(req.params.id);
+
+  if (!workflow) throw new AppError("Workflow not found", 404);
+  if (!ownedWebsiteIds.map(id => id.toString()).includes(workflow.websiteId.toString())) {
+    throw new AppError("Unauthorized access", 403);
+  }
+
+  // Launch execution thread in the background
+  executeWorkflowBackground(workflow, req.body.payload || {}).catch(console.error);
+
+  res.json({ success: true, message: "Manual workflow trigger initialized." });
 });

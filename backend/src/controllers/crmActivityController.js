@@ -1,0 +1,86 @@
+import { Activity } from "../models/Activity.js";
+import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
+import asyncHandler from "../utils/asyncHandler.js";
+import AppError from "../utils/AppError.js";
+import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
+
+export const listActivities = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_VIEW);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const { search, websiteId, customerId, type, page = 1, limit = 50 } = req.query;
+
+  if (ownedWebsiteIds.length === 0) {
+    return res.json({ activities: [], pagination: { total: 0, page: 1, pages: 0 } });
+  }
+
+  const query = {};
+  if (websiteId) {
+    if (!ownedWebsiteIds.map(id => id.toString()).includes(websiteId)) {
+      throw new AppError("Unauthorized access to this website's data", 403);
+    }
+    query.websiteId = websiteId;
+  } else {
+    query.websiteId = { $in: ownedWebsiteIds };
+  }
+
+  if (customerId) query.customerId = customerId;
+  if (type) query.type = type;
+
+  if (search) {
+    query.$or = [
+      { title: new RegExp(search, "i") },
+      { description: new RegExp(search, "i") }
+    ];
+  }
+
+  const activities = await Activity.find(query)
+    .populate("ownerId", "name email role")
+    .sort({ activityAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(Number(limit));
+
+  const total = await Activity.countDocuments(query);
+
+  res.json({
+    activities,
+    pagination: {
+      total,
+      page: parseInt(page),
+      pages: Math.ceil(total / limit)
+    }
+  });
+});
+
+export const createActivity = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_CREATE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const { websiteId } = req.body;
+
+  let resolvedWebsiteId = websiteId;
+  if (!resolvedWebsiteId && ownedWebsiteIds.length > 0) resolvedWebsiteId = ownedWebsiteIds[0];
+  if (!resolvedWebsiteId || !ownedWebsiteIds.map(id => id.toString()).includes(String(resolvedWebsiteId))) {
+    throw new AppError("Unauthorized access to this website's data", 403);
+  }
+
+  const activity = await Activity.create({
+    ...req.body,
+    websiteId: resolvedWebsiteId,
+    ownerId: req.user._id
+  });
+
+  res.status(201).json(activity);
+});
+
+export const deleteActivity = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_DELETE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const activity = await Activity.findById(req.params.id);
+
+  if (!activity) throw new AppError("Activity not found", 404);
+  if (!ownedWebsiteIds.map(id => id.toString()).includes(activity.websiteId.toString())) {
+    throw new AppError("Unauthorized access", 403);
+  }
+
+  await Activity.findByIdAndDelete(req.params.id);
+  res.json({ message: "Activity log deleted successfully" });
+});

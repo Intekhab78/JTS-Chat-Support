@@ -4,6 +4,7 @@ import { useAuth } from "./context/AuthContext.jsx";
 import SessionWarningModal from "./components/SessionWarningModal.jsx";
 import { normalizeRole } from "./utils/roles.js";
 
+const LandingPage = lazy(() => import("./pages/LandingPage.jsx"));
 const LoginPage = lazy(() => import("./pages/LoginPage.jsx"));
 const ClientPage = lazy(() => import("./pages/ClientPage.jsx"));
 const AgentPage = lazy(() => import("./pages/AgentPage.jsx"));
@@ -59,6 +60,7 @@ export default function App() {
     <>
       <Suspense fallback={<div className="screen-center">Loading...</div>}>
         <Routes>
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/ticket-status/:ticketId" element={<TicketStatusPage />} />
           <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><ClientPage /></ProtectedRoute>} />
@@ -69,7 +71,7 @@ export default function App() {
           <Route path="/sales" element={<ProtectedRoute allowedRoles={["sales"]}><SalesPage /></ProtectedRoute>} />
           <Route path="/accounts" element={<ProtectedRoute allowedRoles={["accounts"]}><AccountsPage /></ProtectedRoute>} />
           <Route path="/agent" element={<ProtectedRoute allowedRoles={["agent", "user"]}><AgentPage /></ProtectedRoute>} />
-          <Route path="*" element={<Navigate to={user ? destinationForRole(user.role) : "/login"} replace />} />
+          <Route path="*" element={<Navigate to={user ? destinationForRole(user.role) : "/"} replace />} />
         </Routes>
       </Suspense>
 

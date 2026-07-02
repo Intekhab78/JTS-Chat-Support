@@ -55,7 +55,8 @@ const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email format"),
   password: z.string().min(6, "Password must be at least 6 characters"),
-  role: z.enum(["admin", "client", "agent"]).optional()
+  role: z.enum(["admin", "client", "agent"]).optional(),
+  plan: z.enum(["basic", "standard", "pro"]).optional()
 });
 
 export const register = asyncHandler(async (req, res, next) => {
@@ -64,7 +65,7 @@ export const register = asyncHandler(async (req, res, next) => {
     return next(new AppError(result.error.issues?.[0]?.message || "Invalid input", 400));
   }
 
-  const { name, email, password } = result.data;
+  const { name, email, password, plan } = result.data;
   const requestedRole = result.data.role || "client";
   const role = normalizeRole(requestedRole);
 
@@ -93,7 +94,7 @@ export const register = asyncHandler(async (req, res, next) => {
     role,
     managerId,
     isAvailable: role === "agent",
-    ...(role === "client" ? { subscription: buildSubscription("basic", { status: "expired" }) } : {})
+    ...(role === "client" ? { subscription: buildSubscription(plan || "basic", { status: "active" }) } : {})
   });
 
   await logAuditEvent({

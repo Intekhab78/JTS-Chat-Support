@@ -60,7 +60,8 @@ export default function CrmDrawer({
   setEmailDraft,
   sendingEmail,
   onGenerateCode,
-  teamMembers
+  teamMembers,
+  onOpenFullProfile
 }) {
   const socket = useSocket();
   const [othersViewing, setOthersViewing] = useState([]);
@@ -164,6 +165,19 @@ export default function CrmDrawer({
               </div>
             )}
             <div className="flex items-center gap-2">
+            {onOpenFullProfile && (
+              <button
+                onClick={() => {
+                  onOpenFullProfile(selectedCustomer._id);
+                  setShowDrawer(false);
+                }}
+                title="Open Customer 360 Full Profile"
+                className="p-2 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-100 rounded-xl transition-all flex items-center gap-1.5"
+              >
+                <PlusCircle size={15} />
+                <span className="text-[9px] font-black uppercase tracking-wider">Full Profile</span>
+              </button>
+            )}
             {canAssignOwners && onAutoAssign && (
               <button
                 onClick={() => onAutoAssign(selectedCustomer)}

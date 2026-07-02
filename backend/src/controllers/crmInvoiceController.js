@@ -6,6 +6,7 @@ import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import { createActivityEvent } from "../services/activityService.js";
 import { advancePurchaseWorkflow } from "../services/purchaseWorkflowService.js";
 import { assertSameWebsite, buildInvoiceTenantFilter, toWebsiteIdStrings } from "../utils/invoiceAccess.js";
+import { logCrmActivity } from "../services/activityLoggerService.js";
 
 async function resolveOwnedWebsiteIds(req) {
   return req.ownedWebsiteIds || await getOwnedWebsiteIds(req.user);
@@ -97,6 +98,15 @@ export const createInvoice = asyncHandler(async (req, res) => {
     items: items || [], total: total || 0, currency: currency || "INR", status: status || "pending", issuedAt: new Date(), notes
   });
 
+  await logCrmActivity({
+    websiteId: resolvedWebsiteId,
+    type: "invoice_created",
+    title: `Invoice Created: ${invoiceId}`,
+    description: `Invoice issued with total value $${invoice.total}.`,
+    customerId,
+    ownerId: req.user._id
+  });
+
   await createActivityEvent({
     actor: req.user, websiteId: resolvedWebsiteId, entityType: "customer", entityId: customerId,
     type: "invoice_created", summary: `Invoice ${invoiceId} created`, metadata: { total }
@@ -137,6 +147,17 @@ export const updateInvoice = asyncHandler(async (req, res) => {
   );
 
   if (!updatedInvoice) throw new AppError("Access denied", 403);
+
+  if (invoice.status !== updatedInvoice.status) {
+    await logCrmActivity({
+      websiteId: updatedInvoice.websiteId,
+      type: "status_changed",
+      title: `Invoice Status Shifted: ${updatedInvoice.invoiceId}`,
+      description: `Invoice status progressed from "${invoice.status}" to "${updatedInvoice.status}".`,
+      customerId: updatedInvoice.customerId,
+      ownerId: req.user._id
+    });
+  }
 
   await advancePurchaseWorkflow({
     customerId: updatedInvoice.customerId,

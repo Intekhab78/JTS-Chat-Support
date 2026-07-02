@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import { normalizeRole } from "../utils/roles.js";
 
@@ -17,7 +17,16 @@ function destinationForRole(role) {
 export default function LoginPage() {
   const navigate = useNavigate();
   const { login, register } = useAuth();
-  const [mode, setMode] = useState("login");
+  const [searchParams] = useSearchParams();
+  const urlPlan = searchParams.get("plan");
+  const urlMode = searchParams.get("mode");
+
+  const validPlans = ["basic", "standard", "pro"];
+  const initialPlan = validPlans.includes(urlPlan) ? urlPlan : "";
+  const initialMode = urlMode === "register" ? "register" : "login";
+
+  const [mode, setMode] = useState(initialMode);
+  const [selectedPlan, setSelectedPlan] = useState(initialPlan || "basic");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,7 +42,7 @@ export default function LoginPage() {
     try {
       const user = mode === "login"
         ? await login(email, password, twoFactorCode)
-        : await register({ name, email, password, role: "client" });
+        : await register({ name, email, password, role: "client", plan: selectedPlan });
 
       if (user?.twoFactorRequired) {
         setNeedsTwoFactor(true);
@@ -91,6 +100,27 @@ export default function LoginPage() {
           ))}
         </div>
 
+        {/* Selected Plan Banner for URL select */}
+        {mode === "register" && urlPlan && validPlans.includes(urlPlan) && (
+          <div className={`p-3.5 rounded-2xl flex items-center justify-between border text-[11px] font-bold
+            ${urlPlan === "pro" 
+              ? "bg-indigo-50 border-indigo-150 text-indigo-700" 
+              : urlPlan === "standard" 
+                ? "bg-amber-50 border-amber-150 text-amber-700" 
+                : "bg-sky-50 border-sky-150 text-sky-700"}`}
+          >
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
+              <span>
+                Registering for {urlPlan === "pro" ? "Enterprise Pro" : urlPlan === "standard" ? "Standard Support" : "Basic Chat"}
+              </span>
+            </div>
+            <span className="text-[10px] font-black uppercase bg-white/60 px-2 py-0.5 rounded-md border border-black/5">
+              {urlPlan === "pro" ? "$199/mo" : urlPlan === "standard" ? "$79/mo" : "$29/mo"}
+            </span>
+          </div>
+        )}
+
         {/* Fields */}
         <div className="space-y-4">
           {mode === "register" && (
@@ -107,6 +137,23 @@ export default function LoginPage() {
             <label className="small-label">Password</label>
             <input value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" type="password" className={inputClass} required />
           </div>
+
+          {/* Dynamic plan selector if no plan specified in url */}
+          {mode === "register" && !urlPlan && (
+            <div className="space-y-1.5">
+              <label className="small-label">Subscription Plan</label>
+              <select 
+                value={selectedPlan} 
+                onChange={e => setSelectedPlan(e.target.value)} 
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
+              >
+                <option value="basic">Basic Chat - $29/mo</option>
+                <option value="standard">Standard Support - $79/mo</option>
+                <option value="pro">Enterprise Pro - $199/mo</option>
+              </select>
+            </div>
+          )}
+
           {mode === "login" && needsTwoFactor && (
             <div className="space-y-1.5">
               <label className="small-label">Authenticator Code</label>

@@ -13,42 +13,96 @@ import {
 import { formatCurrency } from "../utils/formatters.js";
 import { advancePurchaseWorkflow } from "../services/purchaseWorkflowService.js";
 import { assertWebsiteAccess } from "../utils/websiteScope.js";
+import { calculateTotals, determineApprovalRole } from "../utils/salesEngine.js";
+import { logCrmActivity } from "../services/activityLoggerService.js";
 
 export const createQuotation = asyncHandler(async (req, res) => {
-  const { customerId, websiteId, items, subtotal, tax, total, currency, notes, terms, validUntil } = req.body;
-  if (!customerId || !websiteId || !items || !total) throw new AppError("Missing required fields.", 400);
+  const {
+    customerId, websiteId, items = [], discountAmount = 0, shippingCharges = 0,
+    currency = "INR", notes, terms, validUntil, quotationNumber, priceBookId, isInterState = false
+  } = req.body;
+
+  if (!customerId || !websiteId || !items.length) throw new AppError("Missing required fields.", 400);
 
   const customer = await Customer.findById(customerId);
   if (!customer) throw new AppError("Customer not found.", 404);
-  assertWebsiteAccess(req.user, req.ownedWebsiteIds, websiteId);
-  assertWebsiteAccess(req.user, req.ownedWebsiteIds, customer.websiteId);
-  if (String(customer.websiteId) !== String(websiteId)) {
-    throw new AppError("Customer does not belong to this website.", 400);
+
+  // Compute itemized totals using Tax & Pricing Engine
+  const totals = calculateTotals({
+    items,
+    discountAmount,
+    shippingCharges,
+    isInterState
+  });
+
+  // Revision/Version assignment
+  let resolvedQuoteNumber = quotationNumber;
+  let nextVersion = 1;
+  
+  if (resolvedQuoteNumber) {
+    const highestVerQuote = await Quotation.findOne({ websiteId, quotationNumber: resolvedQuoteNumber }).sort({ version: -1 });
+    if (highestVerQuote) {
+      nextVersion = highestVerQuote.version + 1;
+    }
+  } else {
+    resolvedQuoteNumber = `QT-${Date.now().toString().slice(-6)}`;
   }
 
-  const isManager = ["admin", "client", "manager"].includes(req.user.role);
-  const requiresApproval = total > 50000 && !isManager;
-  const status = requiresApproval ? "pending_approval" : "sent";
-  const quotationId = `QT-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
+  const quotationId = `${resolvedQuoteNumber}-V${nextVersion}`;
+
+  // Multi-tier discount approval checking
+  const totalDiscountPct = (totals.discountAmount / (totals.subtotal || 1)) * 100;
+  const approvalCheck = determineApprovalRole(totalDiscountPct);
+
+  let initialStatus = "sent";
+  let initialApprovalStatus = "none";
+
+  if (approvalCheck.approvalStatus !== "none") {
+    initialStatus = "pending_approval";
+    initialApprovalStatus = approvalCheck.approvalStatus;
+  }
 
   const quotation = await Quotation.create({
-    quotationId, customerId, websiteId, ownerId: req.user._id, items, subtotal, tax, total,
-    currency: currency || "INR", notes, terms, status,
+    quotationId,
+    quotationNumber: resolvedQuoteNumber,
+    version: nextVersion,
+    customerId,
+    websiteId,
+    ownerId: req.user._id,
+    priceBookId: priceBookId || null,
+    items: totals.items,
+    subtotal: totals.subtotal,
+    discountAmount: totals.discountAmount,
+    shippingCharges: totals.shippingCharges,
+    tax: totals.tax,
+    total: totals.total,
+    currency,
+    notes,
+    terms,
+    status: initialStatus,
+    approvalStatus: initialApprovalStatus,
     validUntil: validUntil || new Date(Date.now() + 15 * 24 * 60 * 60 * 1000)
   });
 
-  if (requiresApproval && req.user.managerId) {
+  // Trigger Notifications
+  if (initialStatus === "pending_approval" && req.user.managerId) {
     await createAndEmitCrmNotification({
-      recipient: req.user.managerId, type: "crm_approval_required",
-      title: "Deal Approval Required", message: `Quotation ${formatCurrency(total)} requires authorization.`, link: `/client?tab=crm&leadId=${customerId}`
+      recipient: req.user.managerId,
+      type: "crm_approval_required",
+      title: "Quotation Approval Escalation",
+      message: `Quote ${quotationId} requires approval due to discount.`,
+      link: `/client?tab=crm`
     });
   }
 
-  await advancePurchaseWorkflow({
+  // Log Activity Timeline
+  await logCrmActivity({
+    websiteId,
+    type: "quotation_sent",
+    title: `Quotation Registered: ${quotationId}`,
+    description: `Registered version revision ${nextVersion} with total value $${totals.total}. Approval state: ${initialApprovalStatus}.`,
     customerId,
-    status: "quotation_ready",
-    actor: req.user,
-    reason: "quotation_created"
+    ownerId: req.user._id
   });
 
   res.status(201).json(quotation);
@@ -60,7 +114,7 @@ export const getCustomerQuotations = asyncHandler(async (req, res) => {
   if (!customer) throw new AppError("Customer not found.", 404);
   assertWebsiteAccess(req.user, req.ownedWebsiteIds, customer.websiteId);
 
-  const quotes = await Quotation.find({ customerId }).sort({ createdAt: -1 });
+  const quotes = await Quotation.find({ customerId }).sort({ quotationNumber: 1, version: -1 });
   res.json(quotes);
 });
 
@@ -105,12 +159,6 @@ export const sendQuotation = asyncHandler(async (req, res) => {
   } catch (err) { console.error(err); }
   
   await quotation.save();
-  await advancePurchaseWorkflow({
-    customerId: quotation.customerId,
-    status: "quotation_ready",
-    actor: req.user,
-    reason: "quotation_sent"
-  });
   res.json(quotation);
 });
 
@@ -156,14 +204,41 @@ export const approveQuotation = asyncHandler(async (req, res) => {
   if (!quotation) throw new AppError("Quotation not found.", 404);
   assertWebsiteAccess(req.user, req.ownedWebsiteIds, quotation.websiteId);
 
-  quotation.status = "sent";
-  await quotation.save();
-  await advancePurchaseWorkflow({
-    customerId: quotation.customerId,
-    status: "quotation_ready",
-    actor: req.user,
-    reason: "quotation_approved"
+  const totalDiscountPct = (quotation.discountAmount / (quotation.subtotal || 1)) * 100;
+  
+  // Resolve role checks
+  let nextStatus = "approved";
+  let nextApprovalStatus = "approved";
+
+  if (quotation.approvalStatus === "pending_manager" && totalDiscountPct > 20) {
+    nextStatus = "pending_approval";
+    nextApprovalStatus = "pending_regional_manager";
+  } else if (quotation.approvalStatus === "pending_regional_manager" && totalDiscountPct > 30) {
+    nextStatus = "pending_approval";
+    nextApprovalStatus = "pending_director";
+  }
+
+  quotation.status = nextStatus === "approved" ? "sent" : "pending_approval";
+  quotation.approvalStatus = nextApprovalStatus;
+  
+  quotation.approvalHistory.push({
+    approverId: req.user._id,
+    action: "approved",
+    comments: req.body.comments || "Approved."
   });
+
+  await quotation.save();
+
+  // Log activity
+  await logCrmActivity({
+    websiteId: quotation.websiteId,
+    type: "quotation_approved",
+    title: `Quotation Approved: ${quotation.quotationId}`,
+    description: `Escalation stage updated to "${nextApprovalStatus}".`,
+    customerId: quotation.customerId,
+    ownerId: req.user._id
+  });
+
   res.json(quotation);
 });
 
@@ -172,7 +247,16 @@ export const denyQuotation = asyncHandler(async (req, res) => {
   if (!quotation) throw new AppError("Quotation not found.", 404);
   assertWebsiteAccess(req.user, req.ownedWebsiteIds, quotation.websiteId);
 
-  quotation.status = "denied";
+  quotation.status = "rejected";
+  quotation.approvalStatus = "rejected";
+  
+  quotation.approvalHistory.push({
+    approverId: req.user._id,
+    action: "rejected",
+    comments: req.body.comments || "Rejected."
+  });
+
   await quotation.save();
+
   res.json(quotation);
 });

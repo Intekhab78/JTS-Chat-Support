@@ -30,6 +30,7 @@ import inventoryRoutes from "./routes/inventoryRoutes.js";
 import supplierRoutes from "./routes/supplierRoutes.js";
 import procurementRoutes from "./routes/procurementRoutes.js";
 import knowledgeBaseRoutes from "./routes/knowledgeBaseRoutes.js";
+import healthRoutes from "./routes/health.js";
 import { env } from "./config/env.js";
 
 import errorMiddleware from "./middleware/errorMiddleware.js";
@@ -134,6 +135,7 @@ export function createApp() {
 
   app.get("/", (_, res) => res.json({ status: "success", message: "JTS Chat Backend is Live", version: "1.0.0" }));
   app.get("/health", (_, res) => res.json({ ok: true, timestamp: new Date() }));
+  app.use("/api/health-check", healthRoutes);
 
   app.use(widgetRoutes);
   app.use("/api/auth", authRoutes);

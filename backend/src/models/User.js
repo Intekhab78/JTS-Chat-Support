@@ -35,6 +35,13 @@ const userSchema = new mongoose.Schema(
     role: { type: String, required: true }, // Managed dynamically via Role collection
     isOnline: { type: Boolean, default: false },
     isAvailable: { type: Boolean, default: true },
+    agentStatus: {
+      type: String,
+      enum: ["online", "offline", "busy", "break", "away"],
+      default: "online"
+    },
+    skills: [{ type: String }],
+    languages: [{ type: String, default: "english" }],
     currentWorkload: { type: Number, default: 0 },
     maxWorkload: { type: Number, default: 5 },
     department: { type: String, trim: true, lowercase: true, default: "general" },

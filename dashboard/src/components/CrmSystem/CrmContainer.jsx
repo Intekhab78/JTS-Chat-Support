@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   TrendingUp, LayoutGrid, List, UserCheck, Clock, AlertCircle,
-  Shield, UserPlus, Zap, CheckCircle2, Search, Plus, Download
+  Shield, UserPlus, Zap, CheckCircle2, Search, Plus, Download,
+  LayoutDashboard, Users, Building2, Briefcase, GitBranch,
+  Package, FileText, ShoppingCart, BarChart3, Repeat, Receipt,
+  Inbox, MessageSquare, LifeBuoy, Award, GitFork, History,
+  Cpu, BarChart2, ShieldAlert, Terminal, Sparkles, CreditCard
 } from "lucide-react";
 import MagicCelebration from "./MagicCelebration.jsx";
 
@@ -22,6 +26,95 @@ import CrmReportsView from "./CrmReportsView.jsx";
 import CrmStageEditor from "./CrmStageEditor.jsx";
 import PaginationControls from "../PaginationControls.jsx";
 import { formatCurrency, CRM_STAGE_CONFIG, DEFAULT_CRM_STAGE_CONFIG } from "./CrmUIComponents.jsx";
+import CrmContactsView from "./CrmContactsView.jsx";
+import CrmCompaniesView from "./CrmCompaniesView.jsx";
+import CrmDealsView from "./CrmDealsView.jsx";
+import CrmPipelinesConfig from "./CrmPipelinesConfig.jsx";
+import CrmDashboardWidgets from "./CrmDashboardWidgets.jsx";
+import Customer360View from "./Customer360View.jsx";
+import CrmProductsView from "./CrmProductsView.jsx";
+import CrmQuotationsView from "./CrmQuotationsView.jsx";
+import CrmSalesOrdersView from "./CrmSalesOrdersView.jsx";
+import CrmFinanceDashboard from "./CrmFinanceDashboard.jsx";
+import CrmSubscriptionsView from "./CrmSubscriptionsView.jsx";
+import CrmInvoicesView from "./CrmInvoicesView.jsx";
+import CrmOmnichannelInbox from "./CrmOmnichannelInbox.jsx";
+import CannedResponsesManager from "./CannedResponsesManager.jsx";
+import CrmHelpdeskView from "./CrmHelpdeskView.jsx";
+import CrmCustomerSuccessView from "./CrmCustomerSuccessView.jsx";
+import CrmWorkflowBuilder from "./CrmWorkflowBuilder.jsx";
+import CrmWorkflowHistory from "./CrmWorkflowHistory.jsx";
+import CrmAiConsole from "./CrmAiConsole.jsx";
+import CrmBiDashboard from "./CrmBiDashboard.jsx";
+import CrmAdminConsole from "./CrmAdminConsole.jsx";
+import CrmDeveloperConsole from "./CrmDeveloperConsole.jsx";
+
+const crmGroups = [
+  {
+    id: "crm",
+    label: "CRM & Sales",
+    icon: Users,
+    items: [
+      { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { id: "leads", label: "Leads", icon: UserPlus },
+      { id: "contacts", label: "Contacts", icon: Users },
+      { id: "companies", label: "Companies", icon: Building2 },
+      { id: "deals", label: "Deals", icon: Briefcase },
+      { id: "pipelines", label: "Pipelines", icon: GitBranch },
+    ]
+  },
+  {
+    id: "operations",
+    label: "Operations",
+    icon: Package,
+    items: [
+      { id: "products", label: "Products", icon: Package },
+      { id: "quotations", label: "Quotations", icon: FileText },
+      { id: "salesorders", label: "Sales Orders", icon: ShoppingCart },
+    ]
+  },
+  {
+    id: "finance",
+    label: "Finance",
+    icon: CreditCard,
+    items: [
+      { id: "finance", label: "Finance", icon: BarChart3 },
+      { id: "subscriptions", label: "Subscriptions", icon: Repeat },
+      { id: "invoices", label: "Invoices", icon: Receipt },
+    ]
+  },
+  {
+    id: "service",
+    label: "Service & Care",
+    icon: MessageSquare,
+    items: [
+      { id: "inbox", label: "Unified Inbox", icon: Inbox },
+      { id: "canned", label: "Canned Replies", icon: MessageSquare },
+      { id: "helpdesk", label: "Helpdesk", icon: LifeBuoy },
+      { id: "success", label: "Customer Success", icon: Award },
+    ]
+  },
+  {
+    id: "automation",
+    label: "Workflows & AI",
+    icon: Cpu,
+    items: [
+      { id: "workflows", label: "Workflows", icon: GitFork },
+      { id: "workflow-history", label: "Workflow Logs", icon: History },
+      { id: "ai", label: "AI Platform", icon: Sparkles },
+      { id: "bi", label: "BI Analytics", icon: BarChart2 },
+    ]
+  },
+  {
+    id: "system",
+    label: "System & Dev",
+    icon: ShieldAlert,
+    items: [
+      { id: "admin", label: "SaaS Admin Center", icon: ShieldAlert },
+      { id: "developer", label: "Developer Platform", icon: Terminal },
+    ]
+  }
+];
 
 export default function CrmContainer({
   websiteId = "",
@@ -56,6 +149,12 @@ export default function CrmContainer({
   const [statusFilter, setStatusFilter] = useState("");
   const [leadView, setLeadView] = useState(isSales ? "my_leads" : "all");
   const [recordCategoryTab, setRecordCategoryTab] = useState("all");
+  const [workspaceTab, setWorkspaceTab] = useState("dashboard");
+  const activeGroup = crmGroups.find(group => group.items.some(item => item.id === workspaceTab)) || crmGroups[0];
+  const handleGroupClick = (group) => {
+    setWorkspaceTab(group.items[0].id);
+  };
+  const [activeCustomer360Id, setActiveCustomer360Id] = useState(null);
   const [activeRange, setActiveRange] = useState("month");
   const [sourceFilter, setSourceFilter] = useState("");
   const [healthFilter, setHealthFilter] = useState("");
@@ -814,168 +913,367 @@ export default function CrmContainer({
     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-700 relative">
       {showCelebration && <MagicCelebration />}
 
-      {/* ── Header Support Section ── */}
-      <section className="overflow-hidden rounded-[30px] border border-slate-200/80 bg-white shadow-sm">
-        <div className="border-b border-slate-200 bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_100%)] px-5 py-5 md:px-6">
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-            <div className="space-y-3">
-              <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">
-                <TrendingUp size={12} className="text-indigo-500" />
-                Sales Workspace
-              </div>
-              <h2 className="text-xl font-black tracking-tight text-slate-950">Pipeline Management</h2>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5 xl:w-180">
-              {[
-                { label: "Open Pipeline", value: summary.totalLeads || pagination.total, color: "text-slate-950" },
-                { label: "Pipeline Value", value: formatCurrency(summary.pipelineValue), color: "text-slate-950" },
-                { label: "Forecasting", value: formatCurrency(summary.weightedRevenue), color: "text-indigo-700", bg: "bg-indigo-50/50 border-indigo-100" },
-                { label: "Conv. Rate", value: `${summary.conversionRate || 0}%`, color: "text-emerald-600" },
-                { label: "Won Revenue", value: formatCurrency(summary.revenue), color: "text-amber-600" }
-              ].map(card => (
-                <div key={card.label} className={`rounded-2xl border border-slate-200 px-4 py-3 ${card.bg || "bg-slate-50"}`}>
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">{card.label}</p>
-                  <p className={`mt-2 text-lg font-black ${card.color}`}>{card.value}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="px-5 py-5 md:px-6">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-            {workspaceCards.map(card => {
-              const Icon = card.icon;
-              const active = leadView === card.key;
-              return (
-                <button
-                  key={card.key}
-                  onClick={() => setLeadView(card.key)}
-                  className={`rounded-2xl border px-4 py-4 text-left transition-all ${active ? "border-slate-900 bg-slate-900 text-white shadow-md" : "border-slate-200 bg-slate-50 hover:bg-white"}`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${active ? "text-slate-300" : "text-slate-400"}`}>{card.label}</p>
-                      <p className={`mt-2 text-2xl font-black ${active ? "text-white" : "text-slate-950"}`}>{card.value}</p>
-                    </div>
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${active ? "bg-white/10 text-white" : "bg-white text-slate-600 border border-slate-200"}`}>
-                      <Icon size={16} />
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="mt-8 mb-2 flex items-center border-b border-slate-200">
-            {[
-              { id: "all", label: "All Records", icon: LayoutGrid },
-              { id: "lead", label: "Leads", icon: UserPlus },
-              { id: "deal", label: "Deals", icon: Zap },
-              { id: "customer", label: "Customers", icon: CheckCircle2 },
-              { id: "reports", label: "Insights", icon: TrendingUp }
-            ].map(tab => (
+      {/* ── Two-Tier Top Navigation (Premium No-Scroll) ── */}
+      <div className="bg-white border border-slate-200/80 rounded-[30px] p-5 shadow-sm space-y-4">
+        {/* Tier 1: Main Category Groups */}
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 pb-4 justify-start">
+          {crmGroups.map(group => {
+            const GroupIcon = group.icon;
+            const isGroupActive = activeGroup.id === group.id;
+            return (
               <button
-                key={tab.id}
-                onClick={() => setRecordCategoryTab(tab.id)}
-                className={`flex items-center gap-2 px-6 py-3 text-[10px] font-black uppercase tracking-[0.18em] border-b-2 transition-all ${recordCategoryTab === tab.id ? "border-indigo-600 text-indigo-600 bg-indigo-50/30" : "border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50"}`}
+                key={group.id}
+                onClick={() => handleGroupClick(group)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-[0.12em] transition-all duration-200 select-none ${
+                  isGroupActive 
+                    ? "bg-slate-900 text-white shadow-md shadow-slate-900/10 scale-[1.02]" 
+                    : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                }`}
               >
-                <tab.icon size={14} /> {tab.label}
+                <GroupIcon size={14} className={isGroupActive ? "text-indigo-400" : "text-slate-400 group-hover:text-slate-600"} />
+                <span>{group.label}</span>
               </button>
-            ))}
-          </div>
-
-          <div className="mt-5 flex flex-col items-center justify-between gap-4 md:flex-row">
-            <div className="relative flex-1 w-full">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
-              <input
-                value={search}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Search pipeline…"
-                className="w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 py-3 text-xs font-bold text-slate-700 outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-500/5 placeholder:text-slate-300"
-              />
-            </div>
-            <div className="flex items-center rounded-2xl border border-slate-200 bg-slate-50 p-1.5">
-              <button onClick={() => setViewMode("board")} className={`rounded-xl px-4 py-2 text-[10px] font-black uppercase ${viewMode === "board" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500"}`}>Board</button>
-              <button onClick={() => setViewMode("list")} className={`rounded-xl px-4 py-2 text-[10px] font-black uppercase ${viewMode === "list" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500"}`}>List</button>
-            </div>
-
-            <button
-              onClick={() => downloadCSV(customers, `crm_export_${leadView}.csv`)}
-              className="inline-flex items-center gap-2 rounded-2xl bg-white border border-slate-200 px-5 py-3 text-[10px] font-black uppercase text-slate-700 hover:bg-slate-50 transition-all"
-            >
-              <Download size={14} /> Export
-            </button>
-
-            {canCreateLead && (
-              <button onClick={() => openCreateModal()} className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-5 py-3 text-[10px] font-black uppercase text-white shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">
-                <Plus size={14} /> New Lead
-              </button>
-            )}
-            {canManagePipeline && (
-              <button onClick={() => setShowStageEditor(true)} className="inline-flex items-center gap-2 rounded-2xl bg-white border border-slate-200 px-4 py-3 text-[10px] font-black uppercase text-slate-700 hover:bg-slate-50 transition-all">
-                <UserCheck size={14} /> Edit Stages
-              </button>
-            )}
-          </div>
+            );
+          })}
         </div>
-      </section>
 
-      {/* ── Content View ── */}
-      {!loading && customers.length > 0 && <CrmPipelineBar customers={customers} />}
-
-      {actionMessage.text && (
-        <div className={`rounded-2xl border px-5 py-4 text-[11px] font-bold ${actionMessage.type === "error" ? "border-red-200 bg-red-50 text-red-600" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
-          {actionMessage.text}
+        {/* Tier 2: Sub-modules of Active Category */}
+        <div className="flex flex-wrap items-center gap-2 justify-start animate-in fade-in duration-300">
+          {activeGroup.items.map(item => {
+            const ItemIcon = item.icon;
+            const isItemActive = workspaceTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setWorkspaceTab(item.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] border transition-all duration-150 select-none ${
+                  isItemActive
+                    ? "bg-indigo-50/80 text-indigo-600 border-indigo-200/60 shadow-sm font-bold"
+                    : "bg-white text-slate-400 border-slate-200/60 hover:text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                <ItemIcon size={13} className={isItemActive ? "text-indigo-500" : "text-slate-400"} />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
         </div>
+      </div>
+
+      {workspaceTab === "dashboard" && (
+        <>
+          <section className="overflow-hidden rounded-[30px] border border-slate-200/80 bg-white shadow-sm">
+            <div className="border-b border-slate-200 bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_100%)] px-5 py-5 md:px-6">
+              <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+                <div className="space-y-3">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">
+                    <TrendingUp size={12} className="text-indigo-500" />
+                    Sales Workspace
+                  </div>
+                  <h2 className="text-xl font-black tracking-tight text-slate-950">Ecosystem Analytics</h2>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5 xl:w-180">
+                  {[
+                    { label: "Open Pipeline", value: summary.totalLeads || pagination.total, color: "text-slate-950" },
+                    { label: "Pipeline Value", value: formatCurrency(summary.pipelineValue), color: "text-slate-950" },
+                    { label: "Forecasting", value: formatCurrency(summary.weightedRevenue), color: "text-indigo-700", bg: "bg-indigo-50/50 border-indigo-100" },
+                    { label: "Conv. Rate", value: `${summary.conversionRate || 0}%`, color: "text-emerald-600" },
+                    { label: "Won Revenue", value: formatCurrency(summary.revenue), color: "text-amber-600" }
+                  ].map(card => (
+                    <div key={card.label} className={`rounded-2xl border border-slate-200 px-4 py-3 ${card.bg || "bg-slate-50"}`}>
+                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">{card.label}</p>
+                      <p className={`mt-2 text-lg font-black ${card.color}`}>{card.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-5 md:px-6">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+                {workspaceCards.map(card => {
+                  const Icon = card.icon;
+                  return (
+                    <div
+                      key={card.key}
+                      className="rounded-2xl border px-4 py-4 text-left border-slate-200 bg-slate-50"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">{card.label}</p>
+                          <p className="mt-2 text-2xl font-black text-slate-950">{card.value}</p>
+                        </div>
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-slate-600 border border-slate-200">
+                          <Icon size={16} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+
+          <CrmDashboardWidgets
+            websiteId={websiteId}
+            onOpenCustomer={(cId) => setActiveCustomer360Id(cId)}
+          />
+
+          <CrmReportsView
+            summary={summary}
+            onDrillDown={onDrillDown}
+            activeRange={activeRange}
+            setActiveRange={setActiveRange}
+          />
+        </>
       )}
 
-      {recordCategoryTab === "reports" ? (
-        <CrmReportsView
-          summary={summary}
-          onDrillDown={onDrillDown}
-          activeRange={activeRange}
-          setActiveRange={setActiveRange}
-        />
-      ) : viewMode === "board" ? (
-        <CrmBoardView
-          customers={customers}
-          boardColumns={boardColumns}
-          canManagePipeline={canManagePipeline}
-          onOpenCustomer={openCustomer}
-          onBoardDrop={handleBoardDrop}
-          onGenerateCode={onGenerateCode}
-          draggedCustomerId={draggedCustomerId}
-          setDraggedCustomerId={setDraggedCustomerId}
-          dropTargetStatus={dropTargetStatus}
-          setDropTargetStatus={setDropTargetStatus}
-        />
-      ) : (
-        <CrmTableView
-          customers={customers}
-          loading={loading}
-          pagination={pagination}
-          leadView={leadView}
-          openCustomer={openCustomer}
-          selectedIds={selectedIds}
-          toggleSelection={toggleSelection}
-          clearSelection={() => setSelectedIds([])}
-          onBulkUpdate={onBulkUpdate}
-          onBulkDelete={onBulkDelete}
-          canBulkDelete={["admin", "client", "manager"].includes(user?.role)}
-          teamMembers={teamMembers}
-        />
+      {workspaceTab === "leads" && (
+        <>
+          <section className="overflow-hidden rounded-[30px] border border-slate-200/80 bg-white shadow-sm">
+            <div className="border-b border-slate-200 bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_100%)] px-5 py-5 md:px-6">
+              <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+                <div className="space-y-3">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">
+                    <TrendingUp size={12} className="text-indigo-500" />
+                    Sales Workspace
+                  </div>
+                  <h2 className="text-xl font-black tracking-tight text-slate-950">Pipeline Management</h2>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5 xl:w-180">
+                  {[
+                    { label: "Open Pipeline", value: summary.totalLeads || pagination.total, color: "text-slate-950" },
+                    { label: "Pipeline Value", value: formatCurrency(summary.pipelineValue), color: "text-slate-950" },
+                    { label: "Forecasting", value: formatCurrency(summary.weightedRevenue), color: "text-indigo-700", bg: "bg-indigo-50/50 border-indigo-100" },
+                    { label: "Conv. Rate", value: `${summary.conversionRate || 0}%`, color: "text-emerald-600" },
+                    { label: "Won Revenue", value: formatCurrency(summary.revenue), color: "text-amber-600" }
+                  ].map(card => (
+                    <div key={card.label} className={`rounded-2xl border border-slate-200 px-4 py-3 ${card.bg || "bg-slate-50"}`}>
+                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">{card.label}</p>
+                      <p className={`mt-2 text-lg font-black ${card.color}`}>{card.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-5 md:px-6">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+                {workspaceCards.map(card => {
+                  const Icon = card.icon;
+                  const active = leadView === card.key;
+                  return (
+                    <button
+                      key={card.key}
+                      onClick={() => setLeadView(card.key)}
+                      className={`rounded-2xl border px-4 py-4 text-left transition-all ${active ? "border-slate-900 bg-slate-900 text-white shadow-md" : "border-slate-200 bg-slate-50 hover:bg-white"}`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${active ? "text-slate-300" : "text-slate-400"}`}>{card.label}</p>
+                          <p className={`mt-2 text-2xl font-black ${active ? "text-white" : "text-slate-950"}`}>{card.value}</p>
+                        </div>
+                        <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${active ? "bg-white/10 text-white" : "bg-white text-slate-600 border border-slate-200"}`}>
+                          <Icon size={16} />
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-8 mb-2 flex items-center border-b border-slate-200">
+                {[
+                  { id: "all", label: "All Records", icon: LayoutGrid },
+                  { id: "lead", label: "Leads", icon: UserPlus },
+                  { id: "deal", label: "Deals", icon: Zap },
+                  { id: "customer", label: "Customers", icon: CheckCircle2 },
+                  { id: "reports", label: "Insights", icon: TrendingUp }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setRecordCategoryTab(tab.id)}
+                    className={`flex items-center gap-2 px-6 py-3 text-[10px] font-black uppercase tracking-[0.18em] border-b-2 transition-all ${recordCategoryTab === tab.id ? "border-indigo-600 text-indigo-600 bg-indigo-50/30" : "border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50"}`}
+                  >
+                    <tab.icon size={14} /> {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-5 flex flex-col items-center justify-between gap-4 md:flex-row">
+                <div className="relative flex-1 w-full">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                  <input
+                    value={search}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    placeholder="Search pipeline…"
+                    className="w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 py-3 text-xs font-bold text-slate-700 outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-500/5 placeholder:text-slate-300"
+                  />
+                </div>
+                <div className="flex items-center rounded-2xl border border-slate-200 bg-slate-50 p-1.5">
+                  <button onClick={() => setViewMode("board")} className={`rounded-xl px-4 py-2 text-[10px] font-black uppercase ${viewMode === "board" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500"}`}>Board</button>
+                  <button onClick={() => setViewMode("list")} className={`rounded-xl px-4 py-2 text-[10px] font-black uppercase ${viewMode === "list" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500"}`}>List</button>
+                </div>
+
+                <button
+                  onClick={() => downloadCSV(customers, `crm_export_${leadView}.csv`)}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-white border border-slate-200 px-5 py-3 text-[10px] font-black uppercase text-slate-700 hover:bg-slate-50 transition-all"
+                >
+                  <Download size={14} /> Export
+                </button>
+
+                {canCreateLead && (
+                  <button onClick={() => openCreateModal()} className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-5 py-3 text-[10px] font-black uppercase text-white shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">
+                    <Plus size={14} /> New Lead
+                  </button>
+                )}
+                {canManagePipeline && (
+                  <button onClick={() => setShowStageEditor(true)} className="inline-flex items-center gap-2 rounded-2xl bg-white border border-slate-200 px-4 py-3 text-[10px] font-black uppercase text-slate-700 hover:bg-slate-50 transition-all">
+                    <UserCheck size={14} /> Edit Stages
+                  </button>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* ── Content View ── */}
+          {!loading && customers.length > 0 && <CrmPipelineBar customers={customers} />}
+
+          {actionMessage.text && (
+            <div className={`rounded-2xl border px-5 py-4 text-[11px] font-bold ${actionMessage.type === "error" ? "border-red-200 bg-red-50 text-red-600" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
+              {actionMessage.text}
+            </div>
+          )}
+
+          {recordCategoryTab === "reports" ? (
+            <CrmReportsView
+              summary={summary}
+              onDrillDown={onDrillDown}
+              activeRange={activeRange}
+              setActiveRange={setActiveRange}
+            />
+          ) : viewMode === "board" ? (
+            <CrmBoardView
+              customers={customers}
+              boardColumns={boardColumns}
+              canManagePipeline={canManagePipeline}
+              onOpenCustomer={openCustomer}
+              onBoardDrop={handleBoardDrop}
+              onGenerateCode={onGenerateCode}
+              draggedCustomerId={draggedCustomerId}
+              setDraggedCustomerId={setDraggedCustomerId}
+              dropTargetStatus={dropTargetStatus}
+              setDropTargetStatus={setDropTargetStatus}
+            />
+          ) : (
+            <CrmTableView
+              customers={customers}
+              loading={loading}
+              pagination={pagination}
+              leadView={leadView}
+              openCustomer={openCustomer}
+              selectedIds={selectedIds}
+              toggleSelection={toggleSelection}
+              clearSelection={() => setSelectedIds([])}
+              onBulkUpdate={onBulkUpdate}
+              onBulkDelete={onBulkDelete}
+              canBulkDelete={["admin", "client", "manager"].includes(user?.role)}
+              teamMembers={teamMembers}
+            />
+          )}
+
+          {recordCategoryTab !== "reports" && (
+            <PaginationControls
+              currentPage={pagination.page || 1}
+              totalPages={pagination.pages || 1}
+              totalItems={pagination.total || customers.length}
+              itemLabel="customers"
+              onPageChange={fetchCustomers}
+            />
+          )}
+        </>
       )}
 
-      {recordCategoryTab !== "reports" && (
-        <PaginationControls
-          currentPage={pagination.page || 1}
-          totalPages={pagination.pages || 1}
-          totalItems={pagination.total || customers.length}
-          itemLabel="customers"
-          onPageChange={fetchCustomers}
-        />
+      {workspaceTab === "contacts" && (
+        <CrmContactsView websiteId={websiteId} />
+      )}
+
+      {workspaceTab === "companies" && (
+        <CrmCompaniesView websiteId={websiteId} />
+      )}
+
+      {workspaceTab === "deals" && (
+        <CrmDealsView websiteId={websiteId} />
+      )}
+
+      {workspaceTab === "pipelines" && (
+        <CrmPipelinesConfig websiteId={websiteId} />
+      )}
+
+      {workspaceTab === "products" && (
+        <CrmProductsView websiteId={websiteId} />
+      )}
+
+      {workspaceTab === "quotations" && (
+        <CrmQuotationsView websiteId={websiteId} />
+      )}
+
+      {workspaceTab === "salesorders" && (
+        <CrmSalesOrdersView websiteId={websiteId} />
+      )}
+
+      {workspaceTab === "finance" && (
+        <CrmFinanceDashboard websiteId={websiteId} />
+      )}
+
+      {workspaceTab === "subscriptions" && (
+        <CrmSubscriptionsView websiteId={websiteId} />
+      )}
+
+      {workspaceTab === "invoices" && (
+        <CrmInvoicesView websiteId={websiteId} />
+      )}
+
+      {workspaceTab === "inbox" && (
+        <CrmOmnichannelInbox websiteId={websiteId} />
+      )}
+
+      {workspaceTab === "canned" && (
+        <CannedResponsesManager websiteId={websiteId} />
+      )}
+
+      {workspaceTab === "helpdesk" && (
+        <CrmHelpdeskView websiteId={websiteId} />
+      )}
+
+      {workspaceTab === "success" && (
+        <CrmCustomerSuccessView websiteId={websiteId} />
+      )}
+
+      {workspaceTab === "workflows" && (
+        <CrmWorkflowBuilder websiteId={websiteId} />
+      )}
+
+      {workspaceTab === "workflow-history" && (
+        <CrmWorkflowHistory websiteId={websiteId} />
+      )}
+
+      {workspaceTab === "ai" && (
+        <CrmAiConsole websiteId={websiteId} />
+      )}
+
+      {workspaceTab === "bi" && (
+        <CrmBiDashboard websiteId={websiteId} />
+      )}
+
+      {workspaceTab === "admin" && (
+        <CrmAdminConsole websiteId={websiteId} />
+      )}
+
+      {workspaceTab === "developer" && (
+        <CrmDeveloperConsole websiteId={websiteId} />
       )}
 
       {/* ── Overlays ── */}
@@ -1016,6 +1314,7 @@ export default function CrmContainer({
         sendingEmail={sendingEmail}
         onGenerateCode={onGenerateCode}
         teamMembers={teamMembers}
+        onOpenFullProfile={(cId) => setActiveCustomer360Id(cId)}
       />
 
       <CrmLeadModal
@@ -1036,6 +1335,14 @@ export default function CrmContainer({
         onChangeStages={handleStagesChange}
         currentStages={websiteStages}
       />
+
+      {activeCustomer360Id && (
+        <Customer360View
+          customerId={activeCustomer360Id}
+          websiteId={websiteId}
+          onClose={() => setActiveCustomer360Id(null)}
+        />
+      )}
     </div>
   );
 }

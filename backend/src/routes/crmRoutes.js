@@ -20,6 +20,35 @@ import {
   mergeCustomersSchema
 } from "../utils/validators.js";
 import { upload } from "../utils/multerConfig.js";
+import companyRoutes from "./crmCompanyRoutes.js";
+import contactRoutes from "./crmContactRoutes.js";
+import dealRoutes from "./crmDealRoutes.js";
+import pipelineRoutes from "./crmPipelineRoutes.js";
+import activityRoutes from "./crmActivityRoutes.js";
+import meetingRoutes from "./crmMeetingRoutes.js";
+import callRoutes from "./crmCallRoutes.js";
+import emailRoutes from "./crmEmailRoutes.js";
+import documentRoutes from "./crmDocumentRoutes.js";
+import reminderRoutes from "./crmReminderRoutes.js";
+import productRoutes from "./crmProductRoutes.js";
+import priceBookRoutes from "./crmPriceBookRoutes.js";
+import salesOrderRoutes from "./crmSalesOrderRoutes.js";
+import paymentRoutes from "./crmPaymentRoutes.js";
+import subscriptionRoutes from "./crmSubscriptionRoutes.js";
+import planRoutes from "./crmPlanRoutes.js";
+import creditNoteRoutes from "./crmCreditNoteRoutes.js";
+import debitNoteRoutes from "./crmDebitNoteRoutes.js";
+import omnichannelRoutes from "./crmOmnichannelRoutes.js";
+import cannedResponseRoutes from "./crmCannedResponseRoutes.js";
+import customerSuccessRoutes from "./crmCustomerSuccessRoutes.js";
+import assetRoutes from "./crmAssetRoutes.js";
+import feedbackRoutes from "./crmFeedbackRoutes.js";
+import helpdeskRoutes from "./crmHelpdeskRoutes.js";
+import workflowRoutes from "./crmWorkflowRoutes.js";
+import aiRoutes from "./crmAiRoutes.js";
+import biRoutes from "./crmBiRoutes.js";
+import adminRoutes from "./crmAdminRoutes.js";
+import integrationRoutes from "./crmIntegrationRoutes.js";
 
 const router = Router();
 
@@ -28,6 +57,36 @@ router.use(requireAuth, requireRole("admin", "client", "manager", "agent", "sale
 router.use(attachOwnedWebsiteIds);
 router.use(attachTenantSubscription);
 router.use(requirePlanFeature("crm"));
+
+router.use("/companies", companyRoutes);
+router.use("/contacts", contactRoutes);
+router.use("/deals", dealRoutes);
+router.use("/pipelines", pipelineRoutes);
+router.use("/products", productRoutes);
+router.use("/pricebooks", priceBookRoutes);
+router.use("/salesorders", salesOrderRoutes);
+router.use("/payments", paymentRoutes);
+router.use("/subscriptions", subscriptionRoutes);
+router.use("/plans", planRoutes);
+router.use("/creditnotes", creditNoteRoutes);
+router.use("/debitnotes", debitNoteRoutes);
+router.use("/omnichannel", omnichannelRoutes);
+router.use("/canned-responses", cannedResponseRoutes);
+router.use("/customersuccess", customerSuccessRoutes);
+router.use("/assets", assetRoutes);
+router.use("/feedback", feedbackRoutes);
+router.use("/helpdesk", helpdeskRoutes);
+router.use("/workflows", workflowRoutes);
+router.use("/ai", aiRoutes);
+router.use("/bi", biRoutes);
+router.use("/admin", adminRoutes);
+router.use("/integration", integrationRoutes);
+router.use("/activities", activityRoutes);
+router.use("/meetings", meetingRoutes);
+router.use("/calls", callRoutes);
+router.use("/emails", emailRoutes);
+router.use("/documents", documentRoutes);
+router.use("/reminders", reminderRoutes);
 
 // Analytics & Reports (Move above /:id to avoid shadowing)
 router.get("/reports", requireRole("admin", "client", "manager"), analyticsController.getCrmReports);
