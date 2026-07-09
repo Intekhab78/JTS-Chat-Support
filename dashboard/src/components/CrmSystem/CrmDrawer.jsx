@@ -60,6 +60,8 @@ export default function CrmDrawer({
   setEmailDraft,
   sendingEmail,
   onGenerateCode,
+  onUnlock,
+  onPostWin,
   teamMembers,
   onOpenFullProfile
 }) {
@@ -232,7 +234,7 @@ export default function CrmDrawer({
               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Pipeline Stage</p>
               <div className="flex items-center gap-2">
                 <CRMStageBadge stage={selectedCustomer?.pipelineStage} />
-                {selectedCustomer?.isLocked && (
+                {selectedCustomer?.isLocked && selectedCustomer?.pipelineStage === "won" && (
                   <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-100 text-[8px] font-black uppercase tracking-widest">
                     <Shield size={10} className="fill-amber-600/20" /> Locked
                   </div>
@@ -277,21 +279,36 @@ export default function CrmDrawer({
               <p className="text-xs font-black text-indigo-600 truncate" title={selectedCustomer?.requirement}>{selectedCustomer?.requirement || "Not specified"}</p>
             </div>
 
-            {(selectedCustomer?.pipelineStage === "won" || selectedCustomer?.isLocked) && (
+            {selectedCustomer?.pipelineStage === "won" && (
               <div className="space-y-1 min-w-[140px] border-l border-slate-100 pl-8 ml-auto">
                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Special Actions</p>
-                {selectedCustomer?.pipelineStage === "won" && !selectedCustomer?.isLocked ? (
-                  <button
-                    onClick={() => onGenerateCode(selectedCustomer._id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
-                  >
-                    <Zap size={10} className="fill-white" /> Generate Code
-                  </button>
-                ) : (
-                  <div className="text-[9px] font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 inline-block">
-                    Code: <span className="font-black text-indigo-600 ml-1">{selectedCustomer.generatedCode}</span>
-                  </div>
-                )}
+                <div className="flex flex-col gap-1.5">
+                  {selectedCustomer?.pipelineStage === "won" && !selectedCustomer?.isLocked ? (
+                    <button
+                      onClick={() => onGenerateCode(selectedCustomer._id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
+                    >
+                      <Zap size={10} className="fill-white" /> Generate Code
+                    </button>
+                  ) : selectedCustomer?.isLocked ? (
+                    <div className="text-[9px] font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 inline-block">
+                      Code: <span className="font-black text-indigo-600 ml-1">{selectedCustomer.generatedCode}</span>
+                    </div>
+                  ) : null}
+                  {/* Unlock button – always show for Won/Locked leads */}
+                  {onUnlock && (
+                    <button
+                      onClick={() => {
+                        if (window.confirm("Unlock this lead and move it back to Negotiation stage?")) {
+                          onUnlock(selectedCustomer._id);
+                        }
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 text-[9px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all"
+                    >
+                      <Shield size={10} /> Unlock Lead
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -374,6 +391,7 @@ export default function CrmDrawer({
                   <CRMQuotationTab
                     customer={selectedCustomer}
                     websiteId={selectedCustomer?.websiteId?._id || selectedCustomer?.websiteId}
+                    onPostWin={onPostWin}
                   />
                 )}
                 {drawerTab === "journey" && (

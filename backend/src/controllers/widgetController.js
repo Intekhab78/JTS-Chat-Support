@@ -61,6 +61,49 @@ export const submitWidgetLead = asyncHandler(async (req, res) => {
 
   await autoAssignLeadOwner(customer, { reason: "widget_lead_submission" });
 
+  if (sessionId) {
+    const session = await ChatSession.findOne({ sessionId });
+    if (session) {
+      session.customerId = customer._id;
+      if (session.visitorId) {
+        try {
+          const mongoose = (await import("mongoose")).default;
+          const VisitorModel = mongoose.models.Visitor || mongoose.model("Visitor");
+          if (VisitorModel) {
+            await VisitorModel.findByIdAndUpdate(session.visitorId, {
+              name: customer.name,
+              email: customer.email,
+              phone: customer.phone
+            });
+          }
+          const UserModel = mongoose.models.User || mongoose.model("User");
+          if (UserModel) {
+            await UserModel.findByIdAndUpdate(session.visitorId, {
+              name: customer.name,
+              email: customer.email,
+              phone: customer.phone
+            });
+          }
+        } catch (err) {
+          console.error("Failed to update anonymous visitor profile details:", err);
+        }
+      }
+      await session.save();
+
+      try {
+        const { emitSessionUpdate } = await import("../sockets/index.js");
+        const populatedSession = await ChatSession.findById(session._id)
+          .populate("websiteId")
+          .populate("visitorId")
+          .populate("customerId")
+          .populate("assignedAgent");
+        emitSessionUpdate(populatedSession);
+      } catch (err) {
+        console.error("Failed to emit session update socket:", err);
+      }
+    }
+  }
+
   res.status(201).json({ success: true, message: "Lead submitted successfully." });
 });
 

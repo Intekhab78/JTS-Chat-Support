@@ -247,11 +247,10 @@ export async function listAgentSessions(req, res) {
       {
         websiteId: { $in: websiteIds },
         status: "queued",
-        offlineMessagePending: true,
         assignedAgent: null
       }
     ]
-  }).limit(100));
+  }).sort({ lastMessageAt: -1, createdAt: -1 }).limit(100));
   return res.json(sessions);
 }
 
@@ -264,11 +263,10 @@ export async function listSalesSessions(req, res) {
       {
         websiteId: { $in: websiteIds },
         status: "queued",
-        offlineMessagePending: true,
         assignedAgent: null
       }
     ]
-  }).limit(100));
+  }).sort({ lastMessageAt: -1, createdAt: -1 }).limit(100));
   return res.json(sessions);
 }
 
@@ -299,8 +297,13 @@ export async function getSessionMessages(req, res) {
     return res.status(403).json({ message: "Access denied" });
   }
 
-  if (role === "agent" && session.assignedAgent && session.assignedAgent.toString() !== req.user._id.toString()) {
-    return res.status(403).json({ message: "Access denied" });
+  // Agent can read: sessions assigned to them, OR unassigned/queued sessions on their website
+  if (role === "agent") {
+    const isAssignedToMe = session.assignedAgent && session.assignedAgent.toString() === req.user._id.toString();
+    const isUnassigned = !session.assignedAgent;
+    if (!isAssignedToMe && !isUnassigned) {
+      return res.status(403).json({ message: "Access denied" });
+    }
   }
 
   const messages = await Message.find({ sessionId: session._id }).sort({ createdAt: 1 });
@@ -579,20 +582,26 @@ export async function submitSessionFeedback(req, res) {
 
 export async function submitBotStatus(req, res) {
   const { sessionId, botStatus, path, selections } = req.body;
-  const session = await ChatSession.findOne({ sessionId, websiteId: req.website._id });
-  if (!session) return res.status(404).json({ message: "Session not found" });
 
-  session.botStatus = botStatus;
+  const updateFields = { botStatus };
+
   if (botStatus === "resolved") {
-    session.resolvedByBot = true;
-    session.status = "closed";
-    session.closedAt = new Date();
+    updateFields.resolvedByBot = true;
+    updateFields.status = "closed";
+    updateFields.closedAt = new Date();
   }
 
-  if (path) session.botMetadata.path = path;
-  if (selections) session.botMetadata.selections = selections;
+  if (path) updateFields["botMetadata.path"] = path;
+  if (selections) updateFields["botMetadata.selections"] = selections;
 
-  await session.save();
+  const session = await ChatSession.findOneAndUpdate(
+    { sessionId, websiteId: req.website._id },
+    { $set: updateFields },
+    { new: true }
+  );
+
+  if (!session) return res.status(404).json({ message: "Session not found" });
+
   emitSessionUpdate(await loadRealtimeSession(session._id));
 
   return res.json({ success: true });

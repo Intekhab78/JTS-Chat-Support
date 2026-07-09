@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Check, X, FileText, ChevronRight, Eye, RefreshCw, Send, HelpCircle } from "lucide-react";
-import { api } from "../../api/client.js";
+import { Plus, Check, X, FileText, ChevronRight, Eye, RefreshCw, Send, HelpCircle, Download } from "lucide-react";
+import { api, API_BASE } from "../../api/client.js";
+
+const getCurrencySymbol = (code) => {
+  const symbols = {
+    USD: "$",
+    EUR: "€",
+    INR: "Rs. ",
+    AED: "AED ",
+    GBP: "£",
+  };
+  return symbols[String(code || "INR").toUpperCase()] || `${code} `;
+};
 
 export default function CrmQuotationsView({ websiteId }) {
   const [quotations, setQuotations] = useState([]);
@@ -134,7 +145,7 @@ export default function CrmQuotationsView({ websiteId }) {
                         <span className="text-xs font-black text-slate-800">{q.quotationId}</span>
                         <span className="text-[8px] font-black uppercase tracking-wider text-slate-400 bg-slate-100 px-2 py-0.5 rounded">V{q.version}</span>
                       </div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Val: ${q.total} • Status: <span className="text-indigo-600 font-extrabold">{q.status}</span></p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Val: {getCurrencySymbol(q.currency)}{q.total.toLocaleString()} • Status: <span className="text-indigo-600 font-extrabold">{q.status}</span></p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wide ${q.approvalStatus === "approved" ? "bg-emerald-50 text-emerald-600" : q.approvalStatus === "rejected" ? "bg-rose-50 text-rose-600" : "bg-amber-50 text-amber-600"}`}>{q.approvalStatus}</span>
@@ -156,21 +167,39 @@ export default function CrmQuotationsView({ websiteId }) {
                 </div>
 
                 <div className="space-y-2 text-xs font-bold text-slate-600 border-t border-slate-100 pt-4">
-                  <div className="flex justify-between"><span>Subtotal:</span> <span>${selectedQuote.subtotal}</span></div>
-                  <div className="flex justify-between"><span>Discount:</span> <span className="text-rose-500">-${selectedQuote.discountAmount}</span></div>
-                  <div className="flex justify-between"><span>Tax (GST):</span> <span>+${selectedQuote.tax}</span></div>
-                  <div className="flex justify-between border-t pt-2 font-black text-slate-900"><span>Grand Total:</span> <span className="text-indigo-600">${selectedQuote.total}</span></div>
+                  <div className="flex justify-between"><span>Subtotal:</span> <span>{getCurrencySymbol(selectedQuote.currency)}{selectedQuote.subtotal.toLocaleString()}</span></div>
+                  <div className="flex justify-between"><span>Discount:</span> <span className="text-rose-500">-{getCurrencySymbol(selectedQuote.currency)}{selectedQuote.discountAmount.toLocaleString()}</span></div>
+                  <div className="flex justify-between"><span>Tax (GST):</span> <span>+{getCurrencySymbol(selectedQuote.currency)}{selectedQuote.tax.toLocaleString()}</span></div>
+                  <div className="flex justify-between border-t pt-2 font-black text-slate-900"><span>Grand Total:</span> <span className="text-indigo-600">{getCurrencySymbol(selectedQuote.currency)}{selectedQuote.total.toLocaleString()}</span></div>
                 </div>
 
-                {/* Convert to Sales Order */}
-                {selectedQuote.status !== "converted" && (
+                <div className="space-y-2.5 pt-2">
+                  {/* Download PDF */}
                   <button
-                    onClick={() => handleConvertToOrder(selectedQuote._id)}
-                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-[10px] font-black uppercase transition-all"
+                    onClick={async () => {
+                      try {
+                        const result = await api(`/api/crm/quotations/${selectedQuote._id}/pdf`, { method: "POST" });
+                        const cleanUrl = `${API_BASE}${result.pdfUrl}`;
+                        window.open(cleanUrl, "_blank");
+                      } catch (err) {
+                        alert(err.message || "Failed to generate PDF");
+                      }
+                    }}
+                    className="w-full py-3 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all shadow-sm"
                   >
-                    Convert to Sales Order
+                    <Download size={12} /> Download PDF
                   </button>
-                )}
+
+                  {/* Convert to Sales Order */}
+                  {selectedQuote.status !== "converted" && (
+                    <button
+                      onClick={() => handleConvertToOrder(selectedQuote._id)}
+                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-[10px] font-black uppercase transition-all shadow-sm"
+                    >
+                      Convert to Sales Order
+                    </button>
+                  )}
+                </div>
 
                 {/* Manager/Director Approvals Segment */}
                 {selectedQuote.status === "pending_approval" && (

@@ -216,6 +216,10 @@ export function createSocketServer(httpServer) {
     if (socket.data.type === "visitor") {
       const { website, sessionId, visitorId } = socket.data;
       socket.join(`ws_${website._id}`);
+      // Join personal visitor room for direct delivery
+      if (visitorId) {
+        socket.join(`visitor_${visitorId}`);
+      }
       if (sessionId) {
         socket.join(sessionId);
         io.to(sessionId).emit("visitor:status", {
@@ -520,13 +524,37 @@ export function createSocketServer(httpServer) {
           session.closedAt = null;
         }
 
+        const senderRole = normalizeRole(user.role);
+        const isActualAgent = senderRole === "agent";
+
         if (!session.assignedAgent) {
-          if (await hasReachedActiveChatLimit(user._id)) {
-            socket.emit("chat:error", { message: "You can only handle up to 5 active visitors at a time." });
-            return;
+          if (isActualAgent) {
+            // Agent sending a message — self-assign (no limit block: agent should always be able to reply)
+            session.assignedAgent = user._id;
+            session.status = "active";
+            session.acceptedAt = new Date();
+          } else {
+            // Admin/Client/Manager sending — find a real available agent first
+            const realAgent = await findAvailableAgent({
+              managerId: session.websiteId.managerId,
+              websiteId: session.websiteId._id
+            });
+            if (realAgent) {
+              session.assignedAgent = realAgent._id;
+              session.status = "active";
+              session.acceptedAt = new Date();
+              io.to(`us_${realAgent._id}`).emit("chat:assigned", { sessionId: session.sessionId });
+              io.to(session.sessionId).emit("chat:assigned", { sessionId: session.sessionId, agentName: realAgent.name });
+              await createAndEmitNotification(io, {
+                recipient: realAgent._id,
+                type: "new_chat",
+                title: "New chat assigned",
+                message: `A visitor has been assigned to you.`,
+                link: `/agent?tab=chats&sessionId=${session.sessionId}`
+              });
+            }
+            // If no agent available, do NOT self-assign admin/client — leave unassigned (queued)
           }
-          session.assignedAgent = user._id;
-          session.acceptedAt = new Date();
         }
         await session.save();
         emitSessionUpdate(await ChatSession.findById(session._id).populate("websiteId", "websiteName domain managerId").populate("visitorId", "visitorId name email").populate("assignedAgent", "name email role isOnline"));
@@ -554,7 +582,12 @@ export function createSocketServer(httpServer) {
         };
 
         socket.emit("chat:message", payload);
-        socket.broadcast.to(session.sessionId).emit("chat:message", payload);
+        // Use io.to() (not socket.broadcast) so visitor socket also receives the message
+        io.to(session.sessionId).emit("chat:message", payload);
+        // Also emit directly to the visitorId room for extra reliability
+        if (session.visitorId) {
+          io.to(`visitor_${session.visitorId._id || session.visitorId}`).emit("chat:message", payload);
+        }
         io.to(`ws_${session.websiteId._id}`).emit("chat:new-message", payload);
         broadcastStatsUpdate(io, session.websiteId._id, session.websiteId.managerId);
 

@@ -15,9 +15,10 @@ export const NotificationService = {
     // Don't notify if tab is focused (optional, but professional)
     if (document.visibilityState === "visible" && !options.force) return;
 
-    const notification = new Notification(title, {
-      body,
-      icon: "/favicon.ico", // Ensure this exists or use a generic icon
+    const notification = new Notification("JTS Chat Dashboard", {
+      body: `${title}\n${body}`,
+      icon: "/favicon.ico",
+      tag: options.tag || "jts-chat-notification",
       ...options
     });
 

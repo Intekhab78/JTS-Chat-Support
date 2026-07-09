@@ -665,6 +665,17 @@ export default function CrmContainer({
     }
   };
 
+  const onUnlock = async (customerId) => {
+    if (!customerId) return;
+    try {
+      const updated = await api(`/api/crm/${customerId}/unlock`, { method: "POST" });
+      syncCustomerState(updated);
+      setActionMessage({ type: "success", text: "Lead unlocked and moved back to Negotiation." });
+    } catch (err) {
+      setActionMessage({ type: "error", text: err.message || "Failed to unlock lead." });
+    }
+  };
+
   // -- Modal Handlers --
   const openCreateModal = (initData = {}) => {
     setEditLeadId(null);
@@ -1328,6 +1339,11 @@ export default function CrmContainer({
         onSendEmail={onSendEmail}
         sendingEmail={sendingEmail}
         onGenerateCode={onGenerateCode}
+        onUnlock={onUnlock}
+        onPostWin={(updatedCustomer) => {
+          syncCustomerState(updatedCustomer);
+          setActionMessage({ type: "success", text: "Lead automatically moved to Won stage! 🏆" });
+        }}
         teamMembers={teamMembers}
         onOpenFullProfile={(cId) => setActiveCustomer360Id(cId)}
       />

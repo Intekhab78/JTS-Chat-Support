@@ -19,10 +19,14 @@ import { logCrmActivity } from "../services/activityLoggerService.js";
 export const createQuotation = asyncHandler(async (req, res) => {
   const {
     customerId, websiteId, items = [], discountAmount = 0, shippingCharges = 0,
-    currency = "INR", notes, terms, validUntil, quotationNumber, priceBookId, isInterState = false
+    notes, terms, validUntil, quotationNumber, priceBookId, isInterState = false
   } = req.body;
 
   if (!customerId || !websiteId || !items.length) throw new AppError("Missing required fields.", 400);
+
+  const { Website } = await import("../models/Website.js");
+  const website = await Website.findById(websiteId);
+  const currency = req.body.currency || website?.currencySettings?.currencyCode || "INR";
 
   const customer = await Customer.findById(customerId);
   if (!customer) throw new AppError("Customer not found.", 404);
@@ -372,5 +376,19 @@ export const denyQuotation = asyncHandler(async (req, res) => {
 
   await quotation.save();
 
+  res.json(quotation);
+});
+
+export const generateQuotationPdf = asyncHandler(async (req, res) => {
+  const quotation = await Quotation.findById(req.params.id);
+  if (!quotation) throw new AppError("Quotation not found.", 404);
+  assertWebsiteAccess(req.user, req.ownedWebsiteIds, quotation.websiteId);
+
+  const { generateQuotationPDF } = await import("../services/pdfService.js");
+  const pdfResult = await generateQuotationPDF(quotation);
+  if (pdfResult) {
+    quotation.pdfUrl = pdfResult.path;
+    await quotation.save();
+  }
   res.json(quotation);
 });

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Plus, FileText, CheckCircle, Shield, X, Save, Trash2, Pencil, Send, AlertCircle, ShoppingCart } from "lucide-react";
-import { api } from "../../api/client.js";
+import { Plus, FileText, CheckCircle, Shield, X, Save, Trash2, Pencil, Send, AlertCircle, ShoppingCart, Download } from "lucide-react";
+import { api, API_BASE } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { QuickCreateItemModal, ItemAutocomplete } from "../ItemAutocomplete.jsx";
 
@@ -312,7 +312,7 @@ function QuoteForm({ initial, onSubmit, onCancel, submitting, websiteId, custome
   );
 }
 
-export default function CRMQuotationTab({ customer, websiteId }) {
+export default function CRMQuotationTab({ customer, websiteId, onPostWin }) {
   const { user } = useAuth();
   const isManager = ["admin", "client", "manager"].includes(user?.role);
 
@@ -324,6 +324,7 @@ export default function CRMQuotationTab({ customer, websiteId }) {
   const [deletingId, setDeletingId] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState("");
   const [error, setError] = useState("");
+  const [expandedQuoteId, setExpandedQuoteId] = useState(null);
 
   useEffect(() => { fetchQuotes(); }, [customer?._id]);
 
@@ -420,6 +421,15 @@ export default function CRMQuotationTab({ customer, websiteId }) {
           code: result.autoCode || null,
           total: result.autoInvoice?.total || result.quotation?.total || 0
         });
+        // Auto-move lead to Won stage
+        if (customer?._id && customer?.pipelineStage !== "won") {
+          try {
+            const updatedCustomer = await api(`/api/crm/${customer._id}/post-win`, { method: "POST" });
+            if (onPostWin) onPostWin(updatedCustomer);
+          } catch (winErr) {
+            console.warn("Could not auto-move lead to Won:", winErr.message);
+          }
+        }
       }
       fetchQuotes();
     } catch (err) {
@@ -592,8 +602,15 @@ export default function CRMQuotationTab({ customer, websiteId }) {
           </div>
         ) : (
           quotes.map(quote => (
-            <div key={quote._id} className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:border-indigo-200 transition-all group">
-              <div className="p-5 flex items-center justify-between gap-4">
+            <div
+              key={quote._id}
+              className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:border-indigo-200 transition-all group"
+            >
+              {/* Clickable header row */}
+              <div
+                className="p-5 flex items-center justify-between gap-4 cursor-pointer select-none"
+                onClick={() => setExpandedQuoteId(expandedQuoteId === quote._id ? null : quote._id)}
+              >
                 {/* Left: Icon + Info */}
                 <div className="flex items-center gap-4 min-w-0">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
@@ -610,6 +627,7 @@ export default function CRMQuotationTab({ customer, websiteId }) {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight">{quote.quotationId}</p>
                       <StatusBadge status={quote.status} />
+                      <span className="text-[8px] text-slate-300 font-bold">{expandedQuoteId === quote._id ? "▲ hide" : "▼ details"}</span>
                     </div>
                     <div className="flex items-center gap-3 mt-1 flex-wrap">
                       <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{new Date(quote.createdAt).toLocaleDateString()}</span>
@@ -624,9 +642,25 @@ export default function CRMQuotationTab({ customer, websiteId }) {
                 </div>
 
                 {/* Right: Amount + Actions */}
-                <div className="flex flex-col items-end gap-2 shrink-0">
+                <div className="flex flex-col items-end gap-2 shrink-0" onClick={e => e.stopPropagation()}>
                   <p className="text-sm font-black text-slate-900">{formatCurrency(quote.total)}</p>
                   <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                    {/* PDF Download */}
+                    <button
+                      onClick={async () => {
+                        try {
+                          const result = await api(`/api/crm/quotations/${quote._id}/pdf`, { method: "POST" });
+                          const cleanUrl = `${API_BASE}${result.pdfUrl}`;
+                          window.open(cleanUrl, "_blank");
+                        } catch (err) {
+                          alert(err.message || "Failed to generate PDF");
+                        }
+                      }}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 text-[8px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all"
+                    >
+                      <Download size={10} /> PDF
+                    </button>
+
                     {/* Edit */}
                     {canEdit(quote) && !editingQuote && !showCreate && (
                       <button onClick={() => { setEditingQuote(quote); setShowCreate(false); }}
@@ -690,8 +724,67 @@ export default function CRMQuotationTab({ customer, websiteId }) {
                 </div>
               </div>
 
+              {/* ── Expandable Detail Panel ── */}
+              {expandedQuoteId === quote._id && (
+                <div className="border-t border-slate-100 px-5 pb-5 pt-4 space-y-4 bg-slate-50/60 rounded-b-2xl">
+                  {/* Line items table */}
+                  {quote.items?.length > 0 && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[10px] font-bold text-slate-600">
+                        <thead>
+                          <tr className="border-b border-slate-200">
+                            <th className="text-left pb-2 text-[8px] font-black uppercase tracking-widest text-slate-400">Item</th>
+                            <th className="text-right pb-2 text-[8px] font-black uppercase tracking-widest text-slate-400">Qty</th>
+                            <th className="text-right pb-2 text-[8px] font-black uppercase tracking-widest text-slate-400">Price</th>
+                            <th className="text-right pb-2 text-[8px] font-black uppercase tracking-widest text-slate-400">Disc%</th>
+                            <th className="text-right pb-2 text-[8px] font-black uppercase tracking-widest text-slate-400">Tax%</th>
+                            <th className="text-right pb-2 text-[8px] font-black uppercase tracking-widest text-slate-400">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {quote.items.map((item, idx) => (
+                            <tr key={idx} className="py-1">
+                              <td className="py-2 pr-4 max-w-[160px] truncate font-bold text-slate-700" title={item.description}>{item.description || "—"}</td>
+                              <td className="py-2 text-right">{item.quantity}</td>
+                              <td className="py-2 text-right">{formatCurrency(item.price)}</td>
+                              <td className="py-2 text-right text-rose-500">{item.discount || 0}%</td>
+                              <td className="py-2 text-right text-indigo-500">{item.taxRate || 0}%</td>
+                              <td className="py-2 text-right font-black text-slate-900">{formatCurrency(item.total ?? (item.price * item.quantity))}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Totals summary */}
+                  <div className="border-t border-slate-200 pt-3 space-y-1.5 text-[10px] font-bold text-slate-600">
+                    <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(quote.subtotal)}</span></div>
+                    {Number(quote.discountAmount) > 0 && (
+                      <div className="flex justify-between text-rose-500"><span>Discount</span><span>-{formatCurrency(quote.discountAmount)}</span></div>
+                    )}
+                    {Number(quote.shippingCharges) > 0 && (
+                      <div className="flex justify-between"><span>Shipping</span><span>{formatCurrency(quote.shippingCharges)}</span></div>
+                    )}
+                    <div className="flex justify-between"><span>Tax (GST)</span><span>+{formatCurrency(quote.tax)}</span></div>
+                    <div className="flex justify-between border-t border-slate-200 pt-2 font-black text-slate-900 text-[11px]">
+                      <span>Grand Total</span>
+                      <span className="text-indigo-600">{formatCurrency(quote.total)}</span>
+                    </div>
+                  </div>
+
+                  {/* Notes */}
+                  {quote.notes && (
+                    <div className="bg-white rounded-xl border border-slate-100 px-4 py-3">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">Notes</p>
+                      <p className="text-[10px] font-bold text-slate-600">{quote.notes}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Accepted label */}
-              {quote.status === "accepted" && (
+              {quote.status === "accepted" && expandedQuoteId !== quote._id && (
                 <div className="px-5 pb-4">
                   <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500 italic">✓ Confirmed Won Deal</span>
                 </div>

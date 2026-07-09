@@ -1,5 +1,4 @@
 import { Customer } from "../models/Customer.js";
-import { Quotation } from "../models/Quotation.js";
 import { FollowUpTask } from "../models/FollowUpTask.js";
 import { Workflow } from "../models/Workflow.js";
 import { WorkflowExecution } from "../models/WorkflowExecution.js";
@@ -40,24 +39,56 @@ export const postWin = asyncHandler(async (req, res) => {
   customer.stageEnteredAt = new Date();
   await customer.save();
 
-  // Create draft quotation
-  await Quotation.create({
-    customerId: customer._id, websiteId: customer.websiteId, createdBy: req.user._id,
-    status: "draft", amount: Number(customer.leadValue || 0), currency: "INR"
-  });
-
-  // Create onboarding tasks
-  const onboardingTitles = ["Welcome email", "Schedule onboarding call", "Create account"];
+  // Create onboarding follow-up tasks
+  const onboardingTitles = ["Send welcome email", "Schedule onboarding call", "Create customer account"];
   for (const title of onboardingTitles) {
     await FollowUpTask.create({
       websiteId: customer.websiteId, customerId: customer._id, ownerId: customer.ownerId || req.user._id,
-      title, priority: "high", dueAt: new Date(), type: "onboarding"
+      title, priority: "high", dueAt: new Date(Date.now() + 24 * 60 * 60 * 1000), type: "follow_up"
     });
   }
 
   await incrementCustomers(customer.websiteId);
   await addWonRevenue(customer.websiteId, customer.leadValue || 0);
   
+  res.json(await buildCustomerPayload(customer._id));
+});
+
+export const unlockLead = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
+  const customer = await Customer.findById(req.params.id);
+  if (!customer) throw new AppError("Customer not found", 404);
+
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!ownedWebsiteIds.map(String).includes(String(customer.websiteId))) {
+    throw new AppError("Access denied", 403);
+  }
+
+  // Reset lock and purchase workflow
+  customer.isLocked = false;
+  customer.generatedCode = null;
+  customer.purchaseWorkflowStatus = null;
+  customer.purchaseRequestedAt = null;
+
+  // Move back to negotiation so they can choose next step
+  customer.pipelineStage = "negotiation";
+  customer.status = "negotiation";
+  customer.dealStage = "negotiation";
+  customer.recordType = "lead";
+  customer.probability = 75;
+  customer.stageEnteredAt = new Date();
+
+  await customer.save();
+
+  await logAuditEvent({
+    websiteId: customer.websiteId,
+    actor: req.user._id,
+    action: "lead_unlocked",
+    resource: "Customer",
+    resourceId: customer._id,
+    details: { message: "Lead unlocked and moved back to Negotiation stage." }
+  });
+
   res.json(await buildCustomerPayload(customer._id));
 });
 

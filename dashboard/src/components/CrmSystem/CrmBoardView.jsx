@@ -16,6 +16,15 @@ const formatCompactDate = (value) => {
   return date.toLocaleDateString([], { day: "2-digit", month: "short", year: "numeric" });
 };
 
+const formatFullDateTime = (value) => {
+  if (!value) return "TBD";
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return "TBD";
+  const dateStr = date.toLocaleDateString([], { day: "2-digit", month: "short", year: "numeric" });
+  const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+  return `${dateStr}, ${timeStr}`.toUpperCase();
+};
+
 export default function CrmBoardView({
   customers,
   boardColumns,
@@ -110,9 +119,9 @@ function BoardCard({ customer, canManagePipeline, onOpenCustomer, draggedCustome
 
   return (
     <article
-      draggable={canManagePipeline && !customer.isLocked}
+      draggable={canManagePipeline && !(customer.isLocked && customer.pipelineStage === "won")}
       onDragStart={(e) => {
-        if (customer.isLocked) return;
+        if (customer.isLocked && customer.pipelineStage === "won") return;
         setDraggedCustomerId(customer._id);
         e.dataTransfer.setData("customerId", customer._id);
         e.dataTransfer.effectAllowed = "move";
@@ -140,7 +149,7 @@ function BoardCard({ customer, canManagePipeline, onOpenCustomer, draggedCustome
           <span className="relative z-10 flex items-center gap-2">🏆 DEAL WON ✨</span>
         </div>
       )}
-      {customer.isLocked && (
+      {customer.isLocked && customer.pipelineStage === "won" && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[9px] font-black uppercase tracking-[0.2em] px-4 py-1.5 rounded-full shadow-lg z-20 flex items-center gap-2 border border-slate-700 overflow-hidden">
           <Shield size={10} className="fill-amber-400 text-amber-400" /> LOCKED
         </div>
@@ -236,6 +245,10 @@ function BoardCard({ customer, canManagePipeline, onOpenCustomer, draggedCustome
             <span className="text-slate-400">Last touch</span>
             <span className="text-slate-700 truncate text-right">{formatCompactDate(customer.lastInteraction)}</span>
           </div>
+          <div className="flex items-center justify-between gap-3 text-[9px] font-black uppercase tracking-[0.16em]">
+            <span className="text-slate-400">Created At</span>
+            <span className="text-slate-700 truncate text-right">{formatFullDateTime(customer.createdAt)}</span>
+          </div>
         </div>
         <div className="flex flex-wrap gap-1.5">
           {customer.tags?.length > 0 ? customer.tags.slice(0, 3).map((tag) => (
@@ -255,6 +268,16 @@ function BoardCard({ customer, canManagePipeline, onOpenCustomer, draggedCustome
             <Clock size={16} />
           </button>
         </div>
+
+        {/* Next-step prompt for Won but not yet locked */}
+        {customer.pipelineStage === "won" && !customer.isLocked && (
+          <div className="mt-3 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 animate-pulse-subtle">
+            <span className="text-amber-500 text-[10px]">⚡</span>
+            <p className="text-[8px] font-black text-amber-700 uppercase tracking-widest leading-tight">
+              Open lead → Generate Code to start purchase workflow
+            </p>
+          </div>
+        )}
       </div>
     </article>
   );

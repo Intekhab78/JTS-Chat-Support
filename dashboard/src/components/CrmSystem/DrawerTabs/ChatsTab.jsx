@@ -7,7 +7,11 @@ export default function ChatsTab({ sessions }) {
       {sessions?.length > 0 ? sessions.map(session => (
         <button 
           key={session._id} 
-          onClick={() => window.open(`/agent?tab=chats&sessionId=${session.sessionId}`, "_blank")}
+          onClick={() => {
+            const basePath = window.location.pathname;
+            const targetPath = (basePath === "/" || basePath === "") ? "/agent" : basePath;
+            window.open(`${targetPath}?tab=chats&sessionId=${session.sessionId}`, "_self");
+          }}
           className="w-full bg-white rounded-2xl border border-slate-100 p-5 flex items-center justify-between shadow-sm hover:border-indigo-200 hover:shadow-md transition-all group"
         >
           <div className="flex items-center gap-4 text-left">

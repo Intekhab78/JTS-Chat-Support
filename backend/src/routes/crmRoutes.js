@@ -131,6 +131,7 @@ router.post("/quotations/:id/send", requireRole("admin", "client", "manager", "s
 router.post("/quotations/:id/pay", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), quotationController.createQuotationPayment);
 router.post("/quotations/:id/approve", requireRole("admin", "client", "manager"), quotationController.approveQuotation);
 router.post("/quotations/:id/deny", requireRole("admin", "client", "manager"), quotationController.denyQuotation);
+router.post("/quotations/:id/pdf", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), quotationController.generateQuotationPdf);
 
 // Interactions & Activity
 router.get("/:id/activity", interactionController.getCustomerActivity);
@@ -145,6 +146,7 @@ router.delete("/:id/tasks/:taskId", requireRole("admin", "client", "manager", "s
 
 // Workflow & Automation
 router.post("/:id/post-win", requireRole("admin", "client", "manager", "sales"), workflowController.postWin);
+router.post("/:id/unlock", requireRole("admin", "client", "manager", "sales"), workflowController.unlockLead);
 router.post("/:id/generate-code", requireRole("admin", "client", "manager", "sales"), workflowController.generateLeadCode);
 router.patch("/:id/purchase-workflow", requireRole("admin", "client", "manager", "purchase"), workflowController.updatePurchaseWorkflowStatus);
 router.post("/:id/auto-assign", requireRole("admin", "client", "manager"), workflowController.autoAssignCustomer);
