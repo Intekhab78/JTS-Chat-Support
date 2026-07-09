@@ -35,7 +35,8 @@ export default function HelpCenterManager({ websiteId }) {
       title: article.title || "",
       content: article.content || "",
       tags: article.tags || [],
-      categoryId: article.categoryId?._id || article.categoryId || ""
+      categoryId: article.categoryId?._id || article.categoryId || "",
+      websiteId: article.websiteId || ""
     });
     setEditingId(article._id);
     setIsEditing(true);
@@ -48,7 +49,7 @@ export default function HelpCenterManager({ websiteId }) {
         ? `/api/knowledge-base/articles/${editingId}`
         : `/api/knowledge-base/articles`;
       
-      const payload = { ...formData, websiteId };
+      const payload = { ...formData, websiteId: websiteId || formData.websiteId };
       const saved = await api(endpoint, { method, body: JSON.stringify(payload) });
       
       if (editingId) {

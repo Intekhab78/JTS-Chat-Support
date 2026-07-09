@@ -83,7 +83,10 @@ const chatSessionSchema = new mongoose.Schema(
       score: { type: Number },
       label: { type: String },
       timestamp: { type: Date, default: Date.now }
-    }]
+    }],
+    labels: [{ type: String, trim: true }],
+    isMerged: { type: Boolean, default: false, index: true },
+    mergedIntoId: { type: mongoose.Schema.Types.ObjectId, ref: "ChatSession", default: null, index: true }
   },
   { timestamps: true }
 );

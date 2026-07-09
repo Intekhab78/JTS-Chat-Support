@@ -4,13 +4,20 @@ import { Size } from "../models/Size.js";
 import { Color } from "../models/Color.js";
 import { InventoryCategory } from "../models/InventoryCategory.js";
 import { InventorySubcategory } from "../models/InventorySubcategory.js";
+import { Brand } from "../models/Brand.js";
+import { Unit } from "../models/Unit.js";
+import { Supplier } from "../models/Supplier.js";
+import { User } from "../models/User.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 
 const models = {
   size: Size,
   color: Color,
   category: InventoryCategory,
-  subcategory: InventorySubcategory
+  subcategory: InventorySubcategory,
+  brand: Brand,
+  unit: Unit,
+  supplier: Supplier
 };
 
 async function getAccessibleWebsiteIds(user) {
@@ -36,13 +43,44 @@ export const listMasters = asyncHandler(async (req, res) => {
   if (!Model) throw new AppError("Invalid master type", 400);
 
   const accessibleWebsiteIds = await getAccessibleWebsiteIds(req.user);
-  const query = { websiteId: { $in: accessibleWebsiteIds } };
-
-  if (req.query.websiteId) {
-    query.websiteId = await assertWebsiteAccess(req.user, req.query.websiteId);
+  
+  let query = {};
+  if (type === "supplier") {
+    query = req.user.role === "admin" ? {} : {
+      $or: [
+        { websiteIds: { $in: accessibleWebsiteIds } },
+        { websiteIds: { $size: 0 } }
+      ]
+    };
+    if (req.query.websiteId) {
+      const targetWebsiteId = await assertWebsiteAccess(req.user, req.query.websiteId);
+      query = { websiteIds: targetWebsiteId };
+    }
+  } else {
+    query = { websiteId: { $in: accessibleWebsiteIds } };
+    if (req.query.websiteId) {
+      query.websiteId = await assertWebsiteAccess(req.user, req.query.websiteId);
+    }
   }
 
   const items = await Model.find(query).sort({ createdAt: -1 });
+
+  if (type === "supplier") {
+    const mapped = items.map(item => ({
+      _id: item._id,
+      name: item.companyName,
+      companyName: item.companyName,
+      contactPerson: item.contactPerson,
+      email: item.email,
+      phone: item.phone,
+      isActive: item.status === "active",
+      status: item.status,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt
+    }));
+    return res.json(mapped);
+  }
+
   res.json(items);
 });
 
@@ -52,12 +90,65 @@ export const createMaster = asyncHandler(async (req, res) => {
   if (!Model) throw new AppError("Invalid master type", 400);
 
   const websiteId = await assertWebsiteAccess(req.user, req.body.websiteId);
+
+  if (type === "supplier") {
+    const companyName = String(req.body.name || req.body.companyName || "").trim();
+    if (!companyName) throw new AppError("Company name is required", 400);
+    const email = String(req.body.email || `${companyName.toLowerCase().replace(/\s+/g, "")}@example.com`).trim();
+
+    const duplicate = await Supplier.findOne({
+      $or: [
+        { companyName },
+        { email }
+      ]
+    });
+    if (duplicate) throw new AppError("Supplier with this name or email already exists", 400);
+
+    const supplier = await Supplier.create({
+      companyName,
+      email,
+      contactPerson: req.body.contactPerson || "",
+      phone: req.body.phone || "",
+      websiteIds: [websiteId],
+      status: req.body.isActive === false ? "inactive" : "active",
+      createdBy: req.user._id
+    });
+
+    const bcrypt = await import("bcryptjs");
+    const hashedPassword = await bcrypt.default.hash("DefaultPassword123!", 12);
+    await User.create({
+      name: companyName,
+      email,
+      password: hashedPassword,
+      role: "supplier",
+      supplierId: supplier._id
+    });
+
+    return res.status(201).json({
+      _id: supplier._id,
+      name: supplier.companyName,
+      companyName: supplier.companyName,
+      isActive: supplier.status === "active",
+      createdAt: supplier.createdAt
+    });
+  }
+
   const name = String(req.body.name || "").trim();
   if (!name) throw new AppError("Name is required", 400);
 
-  const payload = { websiteId, name, isActive: req.body.isActive !== false };
+  // Duplicate Check
+  const duplicateQuery = { websiteId, name };
   if (type === "subcategory") {
     if (!req.body.categoryId) throw new AppError("Category is required for subcategory", 400);
+    duplicateQuery.categoryId = req.body.categoryId;
+  }
+  const duplicate = await Model.findOne(duplicateQuery);
+  if (duplicate) {
+    throw new AppError("Master item with this name already exists", 400);
+  }
+
+  const payload = { websiteId, name, isActive: req.body.isActive !== false };
+  if (type === "subcategory") {
     payload.categoryId = req.body.categoryId;
   }
 
@@ -72,11 +163,40 @@ export const updateMaster = asyncHandler(async (req, res) => {
 
   const item = await Model.findById(id);
   if (!item) throw new AppError("Master item not found", 404);
+
+  if (type === "supplier") {
+    const name = String(req.body.name || req.body.companyName || "").trim();
+    if (name) {
+      const duplicate = await Supplier.findOne({ _id: { $ne: id }, companyName: name });
+      if (duplicate) throw new AppError("Supplier with this name already exists", 400);
+      item.companyName = name;
+    }
+    if (req.body.isActive !== undefined) {
+      item.status = req.body.isActive ? "active" : "inactive";
+    }
+    await item.save();
+    return res.json({
+      _id: item._id,
+      name: item.companyName,
+      companyName: item.companyName,
+      isActive: item.status === "active",
+      createdAt: item.createdAt
+    });
+  }
+
   await assertWebsiteAccess(req.user, item.websiteId);
 
   const name = String(req.body.name || "").trim();
-  if (name) item.name = name;
-  
+  if (name && name !== item.name) {
+    const duplicateQuery = { websiteId: item.websiteId, name };
+    if (type === "subcategory") {
+      duplicateQuery.categoryId = req.body.categoryId || item.categoryId;
+    }
+    const duplicate = await Model.findOne(duplicateQuery);
+    if (duplicate) throw new AppError("Master item with this name already exists", 400);
+    item.name = name;
+  }
+
   if (req.body.isActive !== undefined) {
     item.isActive = Boolean(req.body.isActive);
   }
@@ -96,8 +216,14 @@ export const deleteMaster = asyncHandler(async (req, res) => {
 
   const item = await Model.findById(id);
   if (!item) throw new AppError("Master item not found", 404);
-  await assertWebsiteAccess(req.user, item.websiteId);
 
+  if (type === "supplier") {
+    await User.deleteMany({ supplierId: item._id });
+    await item.deleteOne();
+    return res.status(204).send();
+  }
+
+  await assertWebsiteAccess(req.user, item.websiteId);
   await item.deleteOne();
   res.status(204).send();
 });

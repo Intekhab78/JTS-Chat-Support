@@ -33,6 +33,16 @@ const inventoryItemSchema = new mongoose.Schema(
       ref: "InventorySubcategory",
       index: true
     },
+    brand: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    brandId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Brand",
+      index: true
+    },
     sizeId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Size",
@@ -43,15 +53,15 @@ const inventoryItemSchema = new mongoose.Schema(
       ref: "Color",
       index: true
     },
-    brand: {
-      type: String,
-      trim: true,
-      default: ""
-    },
     unit: {
       type: String,
       trim: true,
       default: "pcs"
+    },
+    unitId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Unit",
+      index: true
     },
     unitCost: {
       type: Number,
@@ -79,6 +89,11 @@ const inventoryItemSchema = new mongoose.Schema(
       type: Boolean,
       default: true
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -88,6 +103,48 @@ const inventoryItemSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Supplier",
       default: null
+    },
+    supplierId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Supplier",
+      default: null
+    },
+
+    // Snake_case foreign keys as requested
+    category_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "InventoryCategory",
+      index: true
+    },
+    subcategory_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "InventorySubcategory",
+      index: true
+    },
+    brand_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Brand",
+      index: true
+    },
+    size_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Size",
+      index: true
+    },
+    color_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Color",
+      index: true
+    },
+    unit_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Unit",
+      index: true
+    },
+    supplier_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Supplier",
+      index: true
     }
   },
   { timestamps: true }
@@ -95,5 +152,32 @@ const inventoryItemSchema = new mongoose.Schema(
 
 inventoryItemSchema.index({ websiteId: 1, sku: 1 }, { unique: true });
 inventoryItemSchema.index({ websiteId: 1, name: 1 });
+
+inventoryItemSchema.pre("save", function(next) {
+  if (this.category_id && !this.categoryId) this.categoryId = this.category_id;
+  if (this.categoryId && !this.category_id) this.category_id = this.categoryId;
+  
+  if (this.subcategory_id && !this.subcategoryId) this.subcategoryId = this.subcategory_id;
+  if (this.subcategoryId && !this.subcategory_id) this.subcategory_id = this.subcategoryId;
+  
+  if (this.brand_id && !this.brandId) this.brandId = this.brand_id;
+  if (this.brandId && !this.brand_id) this.brand_id = this.brandId;
+  
+  if (this.size_id && !this.sizeId) this.sizeId = this.size_id;
+  if (this.sizeId && !this.size_id) this.size_id = this.sizeId;
+  
+  if (this.color_id && !this.colorId) this.colorId = this.color_id;
+  if (this.colorId && !this.color_id) this.color_id = this.colorId;
+  
+  if (this.unit_id && !this.unitId) this.unitId = this.unit_id;
+  if (this.unitId && !this.unit_id) this.unit_id = this.unitId;
+
+  if (this.supplier_id && !this.supplierId) this.supplierId = this.supplier_id;
+  if (this.supplierId && !this.supplier_id) this.supplier_id = this.supplierId;
+  if (this.supplier_id && !this.preferredSupplierId) this.preferredSupplierId = this.supplier_id;
+  if (this.preferredSupplierId && !this.supplier_id) this.supplier_id = this.preferredSupplierId;
+
+  next();
+});
 
 export const InventoryItem = mongoose.model("InventoryItem", inventoryItemSchema);

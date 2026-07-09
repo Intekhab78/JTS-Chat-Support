@@ -4,6 +4,11 @@ import { Website } from "../models/Website.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import { Notification } from "../models/Notification.js";
 import { User } from "../models/User.js";
+import { InventoryCategory } from "../models/InventoryCategory.js";
+import { InventorySubcategory } from "../models/InventorySubcategory.js";
+import { Brand } from "../models/Brand.js";
+import { Unit } from "../models/Unit.js";
+import { Supplier } from "../models/Supplier.js";
 import { getSocketServer } from "../sockets/index.js";
 import { createDraftFromLowStock } from "../services/purchaseOrderService.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -33,7 +38,7 @@ async function assertWebsiteAccess(user, websiteId) {
 }
 
 async function assertItemAccess(user, itemId) {
-  const item = await InventoryItem.findById(itemId);
+  const item = await InventoryItem.findOne({ _id: itemId, isDeleted: { $ne: true } });
   if (!item) throw new AppError("Inventory item not found", 404);
   await assertWebsiteAccess(user, item.websiteId);
   return item;
@@ -52,14 +57,59 @@ export const getInventoryMeta = asyncHandler(async (req, res) => {
 
 export const listInventoryItems = asyncHandler(async (req, res) => {
   const accessibleWebsiteIds = await getAccessibleWebsiteIds(req.user);
-  const query = { websiteId: { $in: accessibleWebsiteIds } };
+  const query = { websiteId: { $in: accessibleWebsiteIds }, isDeleted: { $ne: true } };
 
   if (req.query.websiteId) {
     query.websiteId = await assertWebsiteAccess(req.user, req.query.websiteId);
   }
 
+  const search = normalizeText(req.query.search);
+  if (search) {
+    const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    query.$or = [
+      { name: regex },
+      { sku: regex },
+      { description: regex }
+    ];
+  }
+
+  // Pagination support with backward compatibility check
+  if (req.query.paginate === "true") {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.max(1, parseInt(req.query.limit) || 50);
+    const skip = (page - 1) * limit;
+
+    const total = await InventoryItem.countDocuments(query);
+    const items = await InventoryItem.find(query)
+      .populate("websiteId", "websiteName domain")
+      .populate("categoryId", "name")
+      .populate("subcategoryId", "name")
+      .populate("brandId", "name")
+      .populate("sizeId", "name")
+      .populate("colorId", "name")
+      .populate("unitId", "name")
+      .populate("supplierId", "companyName")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    return res.json({
+      items,
+      page,
+      total,
+      pages: Math.ceil(total / limit)
+    });
+  }
+
   const items = await InventoryItem.find(query)
     .populate("websiteId", "websiteName domain")
+    .populate("categoryId", "name")
+    .populate("subcategoryId", "name")
+    .populate("brandId", "name")
+    .populate("sizeId", "name")
+    .populate("colorId", "name")
+    .populate("unitId", "name")
+    .populate("supplierId", "companyName")
     .sort({ createdAt: -1 });
 
   res.json(items);
@@ -70,7 +120,7 @@ export const searchInventoryItems = asyncHandler(async (req, res) => {
   const q = normalizeText(req.query.q);
   const websiteId = req.query.websiteId;
 
-  const filter = { websiteId: { $in: accessibleWebsiteIds }, isActive: true };
+  const filter = { websiteId: { $in: accessibleWebsiteIds }, isActive: true, isDeleted: { $ne: true } };
 
   if (websiteId) {
     const checkedId = await assertWebsiteAccess(req.user, websiteId);
@@ -89,7 +139,13 @@ export const searchInventoryItems = asyncHandler(async (req, res) => {
   }
 
   const items = await InventoryItem.find(filter)
-    .select("name sku unitCost unit quantity category brand description")
+    .populate("categoryId", "name")
+    .populate("subcategoryId", "name")
+    .populate("brandId", "name")
+    .populate("sizeId", "name")
+    .populate("colorId", "name")
+    .populate("unitId", "name")
+    .populate("supplierId", "companyName")
     .sort({ name: 1 })
     .limit(15);
 
@@ -102,8 +158,11 @@ export const getInventoryItem = asyncHandler(async (req, res) => {
     .populate("websiteId", "websiteName domain")
     .populate("categoryId", "name")
     .populate("subcategoryId", "name")
+    .populate("brandId", "name")
     .populate("sizeId", "name")
-    .populate("colorId", "name");
+    .populate("colorId", "name")
+    .populate("unitId", "name")
+    .populate("supplierId", "companyName");
 
   const recentMovements = await InventoryMovement.find({ itemId: item._id })
     .sort({ createdAt: -1 })
@@ -124,15 +183,24 @@ export const createInventoryItem = asyncHandler(async (req, res) => {
   
   if (!name) throw new AppError("Item name is required", 400);
 
-  // Auto-generate SKU if not provided
   if (!sku) {
     const prefix = name.substring(0, 3).toUpperCase();
     const timestamp = Date.now().toString().slice(-4);
     sku = `${prefix}-${timestamp}`;
   }
 
-  const existing = await InventoryItem.findOne({ websiteId, sku });
+  const existing = await InventoryItem.findOne({ websiteId, sku, isDeleted: { $ne: true } });
   if (existing) throw new AppError("SKU already exists for this website", 400);
+
+  // Validate reference items exist on masters
+  if (req.body.categoryId) {
+    const cat = await InventoryCategory.findById(req.body.categoryId);
+    if (!cat) throw new AppError("Category not found", 400);
+  }
+  if (req.body.subcategoryId) {
+    const sub = await InventorySubcategory.findById(req.body.subcategoryId);
+    if (!sub) throw new AppError("Subcategory not found", 400);
+  }
 
   const item = await InventoryItem.create({
     websiteId,
@@ -143,6 +211,9 @@ export const createInventoryItem = asyncHandler(async (req, res) => {
     subcategoryId: req.body.subcategoryId || null,
     sizeId: req.body.sizeId || null,
     colorId: req.body.colorId || null,
+    brandId: req.body.brandId || null,
+    unitId: req.body.unitId || null,
+    supplierId: req.body.supplierId || req.body.preferredSupplierId || null,
     brand: normalizeText(req.body.brand),
     unit: normalizeText(req.body.unit) || "pcs",
     unitCost: Number(req.body.unitCost || 0),
@@ -158,8 +229,11 @@ export const createInventoryItem = asyncHandler(async (req, res) => {
     .populate("websiteId", "websiteName domain")
     .populate("categoryId", "name")
     .populate("subcategoryId", "name")
+    .populate("brandId", "name")
     .populate("sizeId", "name")
-    .populate("colorId", "name");
+    .populate("colorId", "name")
+    .populate("unitId", "name")
+    .populate("supplierId", "companyName");
 
   res.status(201).json(populatedItem);
 });
@@ -175,17 +249,24 @@ export const updateInventoryItem = asyncHandler(async (req, res) => {
   const duplicate = await InventoryItem.findOne({
     _id: { $ne: item._id },
     websiteId: item.websiteId,
-    sku: nextSku
+    sku: nextSku,
+    isDeleted: { $ne: true }
   });
   if (duplicate) throw new AppError("SKU already exists for this website", 400);
 
   item.name = nextName;
   item.sku = nextSku;
   item.category = normalizeText(req.body.category ?? item.category);
+  
   if (req.body.categoryId !== undefined) item.categoryId = req.body.categoryId || null;
   if (req.body.subcategoryId !== undefined) item.subcategoryId = req.body.subcategoryId || null;
   if (req.body.sizeId !== undefined) item.sizeId = req.body.sizeId || null;
   if (req.body.colorId !== undefined) item.colorId = req.body.colorId || null;
+  if (req.body.brandId !== undefined) item.brandId = req.body.brandId || null;
+  if (req.body.unitId !== undefined) item.unitId = req.body.unitId || null;
+  if (req.body.supplierId !== undefined) item.supplierId = req.body.supplierId || null;
+  if (req.body.preferredSupplierId !== undefined) item.preferredSupplierId = req.body.preferredSupplierId || null;
+
   item.brand = normalizeText(req.body.brand ?? item.brand);
   item.unit = normalizeText(req.body.unit ?? item.unit) || "pcs";
   if (req.body.unitCost !== undefined) item.unitCost = Number(req.body.unitCost || 0);
@@ -200,16 +281,20 @@ export const updateInventoryItem = asyncHandler(async (req, res) => {
     .populate("websiteId", "websiteName domain")
     .populate("categoryId", "name")
     .populate("subcategoryId", "name")
+    .populate("brandId", "name")
     .populate("sizeId", "name")
-    .populate("colorId", "name");
+    .populate("colorId", "name")
+    .populate("unitId", "name")
+    .populate("supplierId", "companyName");
 
   res.json(populatedItem);
 });
 
 export const deleteInventoryItem = asyncHandler(async (req, res) => {
   const item = await assertItemAccess(req.user, req.params.id);
-  await InventoryMovement.deleteMany({ itemId: item._id });
-  await item.deleteOne();
+  // Soft Delete implementation
+  item.isDeleted = true;
+  await item.save();
   res.status(204).send();
 });
 
@@ -290,15 +375,11 @@ export const createInventoryMovement = asyncHandler(async (req, res) => {
     .populate("itemId", "name sku unit quantity")
     .populate("createdBy", "name email");
 
-  // Low Stock Automation Trigger
   if (item.reorderLevel > 0 && nextQuantity <= item.reorderLevel) {
     try {
       const website = await Website.findById(item.websiteId);
-      const notifications = [];
-
       const io = getSocketServer();
 
-      // 1. Notify the User who performed the action (YOU)
       const note1 = await Notification.create({
         recipient: req.user._id,
         type: "inventory_low_stock",
@@ -309,7 +390,6 @@ export const createInventoryMovement = asyncHandler(async (req, res) => {
       });
       if (io) io.to(`us_${req.user._id}`).emit("notification:new", note1);
 
-      // 2. Notify Website Owner (Client) and Sales Team
       if (website && website.managerId) {
         const recipients = await User.find({
           $or: [
@@ -320,7 +400,7 @@ export const createInventoryMovement = asyncHandler(async (req, res) => {
         }).select("_id");
 
         for (const r of recipients) {
-          if (r._id.toString() === req.user._id.toString()) continue; // already handled
+          if (r._id.toString() === req.user._id.toString()) continue;
           
           const note = await Notification.create({
             recipient: r._id,
@@ -334,7 +414,6 @@ export const createInventoryMovement = asyncHandler(async (req, res) => {
         }
       }
 
-      // 3. Notify Preferred Supplier
       if (item.preferredSupplierId) {
         const supplierUser = await User.findOne({ supplierId: item.preferredSupplierId });
         if (supplierUser) {
@@ -350,7 +429,6 @@ export const createInventoryMovement = asyncHandler(async (req, res) => {
         }
       }
 
-      // 4. Create Draft Purchase Order for Replenishment
       await createDraftFromLowStock(item._id);
     } catch (notifyErr) {
       console.error("Failed to trigger low stock notifications:", notifyErr);

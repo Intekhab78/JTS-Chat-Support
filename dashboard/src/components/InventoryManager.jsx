@@ -3,6 +3,7 @@ import { Boxes, Eye, Edit2, Trash2, Plus, X, Save, ArrowDownToLine, ArrowUpFromL
 import { api } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import MasterManager from "./MasterManager.jsx";
+import MasterModal from "./MasterModal.jsx";
 import { formatCurrency } from "../utils/currencyFormatter.js";
 
 const initialItemForm = {
@@ -14,13 +15,16 @@ const initialItemForm = {
   sizeId: "",
   colorId: "",
   brand: "",
+  brandId: "",
   description: "",
   unitCost: 0,
   quantity: 0,
   reorderLevel: 0,
   unit: "pcs",
+  unitId: "",
   notes: "",
   preferredSupplierId: "",
+  supplierId: "",
   isActive: true
 };
 
@@ -55,8 +59,6 @@ function formatDate(value) {
     minute: "2-digit"
   });
 }
-
-// formatCurrency imported from "../utils/currencyFormatter.js"
 
 function EmptyInventoryState() {
   return (
@@ -94,11 +96,14 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
   const [masters, setMasters] = useState({
     categories: [],
     subcategories: [],
+    brands: [],
     sizes: [],
     colors: [],
+    units: [],
     suppliers: []
   });
   const [autoGenSku, setAutoGenSku] = useState(false);
+  const [skuSuffix, setSkuSuffix] = useState(() => Math.floor(1000 + Math.random() * 9000));
   const [showViewDrawer, setShowViewDrawer] = useState(false);
 
   const selectedItem = useMemo(() => items.find((item) => item._id === selectedItemId) || null, [items, selectedItemId]);
@@ -116,13 +121,15 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
 
     setLoading(true);
     try {
-      const [itemData, movementData, catData, subCatData, sizeData, colorData, supplierData] = await Promise.all([
+      const [itemData, movementData, catData, subCatData, brandData, sizeData, colorData, unitData, supplierData] = await Promise.all([
         api(`/api/inventory/items?websiteId=${websiteId}`),
         api(`/api/inventory/movements?websiteId=${websiteId}`),
         api(`/api/inventory/masters/category?websiteId=${websiteId}`),
         api(`/api/inventory/masters/subcategory?websiteId=${websiteId}`),
+        api(`/api/inventory/masters/brand?websiteId=${websiteId}`),
         api(`/api/inventory/masters/size?websiteId=${websiteId}`),
         api(`/api/inventory/masters/color?websiteId=${websiteId}`),
+        api(`/api/inventory/masters/unit?websiteId=${websiteId}`),
         api("/api/procurement/suppliers")
       ]);
       const nextItems = Array.isArray(itemData) ? itemData : [];
@@ -131,8 +138,10 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
       setMasters({
         categories: Array.isArray(catData) ? catData : [],
         subcategories: Array.isArray(subCatData) ? subCatData : [],
+        brands: Array.isArray(brandData) ? brandData : [],
         sizes: Array.isArray(sizeData) ? sizeData : [],
         colors: Array.isArray(colorData) ? colorData : [],
+        units: Array.isArray(unitData) ? unitData : [],
         suppliers: Array.isArray(supplierData) ? supplierData : []
       });
       setSelectedItemId((current) => {
@@ -148,15 +157,64 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
   }
 
   useEffect(() => {
-    if (!autoGenSku || editingId) return;
-    const cat = masters.categories.find(c => c._id === itemForm.categoryId)?.name || "GEN";
-    const size = masters.sizes.find(s => s._id === itemForm.sizeId)?.name || "NA";
-    const color = masters.colors.find(c => c._id === itemForm.colorId)?.name || "NA";
-    const namePrefix = itemForm.name.substring(0, 3).toUpperCase() || "ITEM";
+    if (!autoGenSku) return;
     
-    const generated = `${cat.substring(0,3).toUpperCase()}-${namePrefix}-${color.substring(0,2).toUpperCase()}-${size.toUpperCase()}`;
+    const cleanPart = (str, len = 3) => {
+      if (!str) return "";
+      const cleaned = str.replace(/[^a-zA-Z0-9]/g, "").trim().toUpperCase();
+      if (["NA", "NONE", "GEN", "GENERIC", "DEFAULT", "ALL"].includes(cleaned)) return "";
+      return cleaned.substring(0, len);
+    };
+
+    const parts = [];
+    
+    // Category (first 3 chars)
+    const selectedCat = masters.categories.find(c => c._id === itemForm.categoryId);
+    if (selectedCat) {
+      const p = cleanPart(selectedCat.name, 3);
+      if (p) parts.push(p);
+    }
+
+    // Brand (first 3 chars)
+    const selectedBrand = masters.brands.find(b => b._id === itemForm.brandId);
+    if (selectedBrand) {
+      const p = cleanPart(selectedBrand.name, 3);
+      if (p) parts.push(p);
+    }
+
+    // Item name (first 3 chars)
+    const pName = cleanPart(itemForm.name, 3);
+    if (pName) parts.push(pName);
+
+    // Color (first 2 chars)
+    const selectedColor = masters.colors.find(c => c._id === itemForm.colorId);
+    if (selectedColor) {
+      const p = cleanPart(selectedColor.name, 2);
+      if (p) parts.push(p);
+    }
+
+    // Size (first 3 chars)
+    const selectedSize = masters.sizes.find(s => s._id === itemForm.sizeId);
+    if (selectedSize) {
+      const p = cleanPart(selectedSize.name, 3);
+      if (p) parts.push(p);
+    }
+
+    // Append stable suffix
+    parts.push(skuSuffix);
+    
+    const generated = parts.filter(Boolean).join("-");
     setItemForm(prev => ({ ...prev, sku: generated }));
-  }, [itemForm.name, itemForm.categoryId, itemForm.sizeId, itemForm.colorId, autoGenSku, editingId]);
+  }, [
+    itemForm.name,
+    itemForm.categoryId,
+    itemForm.brandId,
+    itemForm.sizeId,
+    itemForm.colorId,
+    autoGenSku,
+    skuSuffix,
+    masters
+  ]);
 
   useEffect(() => {
     loadData();
@@ -202,11 +260,14 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
   function resetItemForm() {
     setItemForm(initialItemForm);
     setEditingId("");
+    setAutoGenSku(false);
+    setSkuSuffix(Math.floor(1000 + Math.random() * 9000));
     setShowItemForm(false);
   }
 
   function startEdit(item) {
     setEditingId(item._id);
+    setAutoGenSku(false);
     setItemForm({
       name: item.name || "",
       sku: item.sku || "",
@@ -216,13 +277,16 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
       sizeId: item.sizeId?._id || item.sizeId || "",
       colorId: item.colorId?._id || item.colorId || "",
       brand: item.brand || "",
+      brandId: item.brandId?._id || item.brandId || "",
       description: item.description || "",
       unitCost: item.unitCost || 0,
       quantity: item.quantity || 0,
       reorderLevel: item.reorderLevel || 0,
       unit: item.unit || "pcs",
+      unitId: item.unitId?._id || item.unitId || "",
       notes: item.notes || "",
-      preferredSupplierId: item.preferredSupplierId?._id || item.preferredSupplierId || "",
+      preferredSupplierId: item.preferredSupplierId?._id || item.preferredSupplierId || item.supplierId?._id || item.supplierId || "",
+      supplierId: item.supplierId?._id || item.supplierId || item.preferredSupplierId?._id || item.preferredSupplierId || "",
       isActive: item.isActive !== false
     });
     setShowItemForm(true);
@@ -243,7 +307,10 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
         subcategoryId: itemForm.subcategoryId || null,
         sizeId: itemForm.sizeId || null,
         colorId: itemForm.colorId || null,
-        preferredSupplierId: itemForm.preferredSupplierId || null
+        brandId: itemForm.brandId || null,
+        unitId: itemForm.unitId || null,
+        supplierId: itemForm.supplierId || itemForm.preferredSupplierId || null,
+        preferredSupplierId: itemForm.preferredSupplierId || itemForm.supplierId || null
       };
       if (editingId) {
         await api(`/api/inventory/items/${editingId}`, { method: "PATCH", body: JSON.stringify(payload) });
@@ -378,108 +445,108 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                   )}
               </div>
 
-              {showItemForm ? (
-                <form onSubmit={handleItemSubmit} className="overflow-hidden rounded-[34px] border border-slate-200/70 bg-white shadow-[0_32px_90px_-48px_rgba(15,23,42,0.45)]">
-                  <div className="border-b border-indigo-100/70 bg-[linear-gradient(135deg,#eef2ff_0%,#ffffff_55%,#f8fafc_100%)] px-6 py-5">
-                    <p className="text-[10px] font-black uppercase tracking-[0.28em] text-indigo-500">{editingId ? "Edit Inventory Item" : "New Inventory Item"}</p>
-                    <h4 className="mt-2 text-xl font-black tracking-tight text-slate-900">Capture item details with proper structure</h4>
-                    <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Keep master data clean so stock movement and reporting stay reliable.</p>
-                  </div>
-                  <div className="space-y-5 p-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                    <label className="space-y-2">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Item Name</span>
-                      <input value={itemForm.name} onChange={(event) => setItemForm((current) => ({ ...current, name: event.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500" placeholder="Dell Monitor 24 inch" required />
-                    </label>
-                    <label className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">SKU</span>
-                        <div className="flex items-center gap-2">
-                          <input type="checkbox" id="auto-sku" checked={autoGenSku} onChange={(e) => setAutoGenSku(e.target.checked)} />
-                          <label htmlFor="auto-sku" className="text-[8px] font-black uppercase tracking-widest text-indigo-500 cursor-pointer">Auto-gen</label>
-                        </div>
+              <MasterModal
+                isOpen={showItemForm}
+                onClose={resetItemForm}
+                title={editingId ? "Edit Inventory Item" : "Add New Inventory Item"}
+                onSubmit={handleItemSubmit}
+                submitLabel={editingId ? "Update Item" : "Save Item"}
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <label className="space-y-2 block">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Item Name</span>
+                    <input value={itemForm.name} onChange={(event) => setItemForm((current) => ({ ...current, name: event.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500" placeholder="Dell Monitor 24 inch" required />
+                  </label>
+                  <label className="space-y-2 block">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">SKU</span>
+                      <div className="flex items-center gap-2">
+                        <input type="checkbox" id="auto-sku" checked={autoGenSku} onChange={(e) => setAutoGenSku(e.target.checked)} />
+                        <label htmlFor="auto-sku" className="text-[8px] font-black uppercase tracking-widest text-indigo-500 cursor-pointer">Auto-gen</label>
                       </div>
-                      <input value={itemForm.sku} onChange={(event) => setItemForm((current) => ({ ...current, sku: event.target.value.toUpperCase() }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500" placeholder="MON-24-DELL-001" required disabled={autoGenSku && !editingId} />
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Category</span>
-                      <select value={itemForm.categoryId} onChange={(event) => setItemForm((current) => ({ ...current, categoryId: event.target.value, subcategoryId: "" }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500">
-                        <option value="">Select Category</option>
-                        {masters.categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                      </select>
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Subcategory</span>
-                      <select value={itemForm.subcategoryId} onChange={(event) => setItemForm((current) => ({ ...current, subcategoryId: event.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500" disabled={!itemForm.categoryId}>
-                        <option value="">Select Subcategory</option>
-                        {masters.subcategories.filter(s => s.categoryId === itemForm.categoryId).map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-                      </select>
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Size</span>
-                      <select value={itemForm.sizeId} onChange={(event) => setItemForm((current) => ({ ...current, sizeId: event.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500">
-                        <option value="">Select Size</option>
-                        {masters.sizes.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-                      </select>
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Color</span>
-                      <select value={itemForm.colorId} onChange={(event) => setItemForm((current) => ({ ...current, colorId: event.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500">
-                        <option value="">Select Color</option>
-                        {masters.colors.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                      </select>
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Brand</span>
-                      <input value={itemForm.brand} onChange={(event) => setItemForm((current) => ({ ...current, brand: event.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500" placeholder="Dell" />
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Unit Cost</span>
-                      <input type="number" min="0" step="0.01" value={itemForm.unitCost} onChange={(event) => setItemForm((current) => ({ ...current, unitCost: event.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500" placeholder="0.00" />
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Opening Quantity</span>
-                      <input type="number" min="0" value={itemForm.quantity} onChange={(event) => setItemForm((current) => ({ ...current, quantity: event.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500" />
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Reorder Level</span>
-                      <input type="number" min="0" value={itemForm.reorderLevel} onChange={(event) => setItemForm((current) => ({ ...current, reorderLevel: event.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500" />
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Unit</span>
-                      <input value={itemForm.unit} onChange={(event) => setItemForm((current) => ({ ...current, unit: event.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500" placeholder="pcs / box / kg / meter" />
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Preferred Supplier</span>
-                      <select value={itemForm.preferredSupplierId} onChange={(event) => setItemForm((current) => ({ ...current, preferredSupplierId: event.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500">
-                        <option value="">No Automatic PO</option>
-                        {masters.suppliers.map(s => <option key={s._id} value={s._id}>{s.companyName}</option>)}
-                      </select>
-                    </label>
-                  </div>
-
-                  <label className="space-y-2 block">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Description</span>
-                    <textarea value={itemForm.description} onChange={(event) => setItemForm((current) => ({ ...current, description: event.target.value }))} rows={3} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 resize-none" placeholder="Short item description, specification, model details, or size information" />
+                    </div>
+                    <input value={itemForm.sku} onChange={(event) => setItemForm((current) => ({ ...current, sku: event.target.value.toUpperCase() }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500" placeholder="MON-24-DELL-001" required disabled={autoGenSku && !editingId} />
                   </label>
-
                   <label className="space-y-2 block">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Notes</span>
-                    <textarea value={itemForm.notes} onChange={(event) => setItemForm((current) => ({ ...current, notes: event.target.value }))} rows={3} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 resize-none" placeholder="Supplier note, internal remark, warranty note, or rack info" />
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Category</span>
+                    <select value={itemForm.categoryId} onChange={(event) => setItemForm((current) => ({ ...current, categoryId: event.target.value, subcategoryId: "" }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500" required>
+                      <option value="">Select Category</option>
+                      {masters.categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                    </select>
                   </label>
+                  <label className="space-y-2 block">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Subcategory</span>
+                    <select value={itemForm.subcategoryId} onChange={(event) => setItemForm((current) => ({ ...current, subcategoryId: event.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500" disabled={!itemForm.categoryId}>
+                      <option value="">Select Subcategory</option>
+                      {masters.subcategories.filter(s => s.categoryId === itemForm.categoryId).map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                    </select>
+                  </label>
+                  <label className="space-y-2 block">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Brand</span>
+                    <select value={itemForm.brandId} onChange={(event) => setItemForm((current) => ({ ...current, brandId: event.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500" required>
+                      <option value="">Select Brand</option>
+                      {masters.brands.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+                    </select>
+                  </label>
+                  <label className="space-y-2 block">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Size</span>
+                    <select value={itemForm.sizeId} onChange={(event) => setItemForm((current) => ({ ...current, sizeId: event.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500">
+                      <option value="">Select Size</option>
+                      {masters.sizes.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                    </select>
+                  </label>
+                  <label className="space-y-2 block">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Color</span>
+                    <select value={itemForm.colorId} onChange={(event) => setItemForm((current) => ({ ...current, colorId: event.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500">
+                      <option value="">Select Color</option>
+                      {masters.colors.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                    </select>
+                  </label>
+                  <label className="space-y-2 block">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Unit</span>
+                    <select value={itemForm.unitId} onChange={(event) => setItemForm((current) => ({ ...current, unitId: event.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500" required>
+                      <option value="">Select Unit</option>
+                      {masters.units.map(u => <option key={u._id} value={u._id}>{u.name}</option>)}
+                    </select>
+                  </label>
+                  <label className="space-y-2 block">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Unit Cost</span>
+                    <input type="number" min="0" step="0.01" value={itemForm.unitCost} onChange={(event) => setItemForm((current) => ({ ...current, unitCost: event.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500" placeholder="0.00" />
+                  </label>
+                  <label className="space-y-2 block">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Opening Quantity</span>
+                    <input type="number" min="0" value={itemForm.quantity} onChange={(event) => setItemForm((current) => ({ ...current, quantity: event.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500" />
+                  </label>
+                  <label className="space-y-2 block">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Reorder Level</span>
+                    <input type="number" min="0" value={itemForm.reorderLevel} onChange={(event) => setItemForm((current) => ({ ...current, reorderLevel: event.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500" />
+                  </label>
+                  <label className="space-y-2 block">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Preferred Supplier</span>
+                    <select value={itemForm.preferredSupplierId} onChange={(event) => setItemForm((current) => ({ ...current, preferredSupplierId: event.target.value, supplierId: event.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500">
+                      <option value="">No Automatic PO</option>
+                      {masters.suppliers.map(s => <option key={s._id} value={s._id}>{s.companyName}</option>)}
+                    </select>
+                  </label>
+                </div>
 
-                  <label className="inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <label className="space-y-2 block mt-4">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Description</span>
+                  <textarea value={itemForm.description} onChange={(event) => setItemForm((current) => ({ ...current, description: event.target.value }))} rows={3} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 resize-none" placeholder="Short item description, specification, model details, or size information" />
+                </label>
+
+                <label className="space-y-2 block mt-4">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Notes</span>
+                  <textarea value={itemForm.notes} onChange={(event) => setItemForm((current) => ({ ...current, notes: event.target.value }))} rows={3} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 resize-none" placeholder="Supplier note, internal remark, warranty note, or rack info" />
+                </label>
+
+                <div className="pt-4">
+                  <label className="inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 cursor-pointer">
                     <input type="checkbox" checked={itemForm.isActive} onChange={(event) => setItemForm((current) => ({ ...current, isActive: event.target.checked }))} />
                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Active item</span>
                   </label>
-
-                  <button type="submit" className="w-full bg-slate-900 text-white font-black text-[10px] uppercase tracking-[0.2em] py-4 rounded-2xl hover:bg-black transition-all shadow-xl flex items-center justify-center gap-3">
-                    <Save size={16} />
-                    {editingId ? "Update Item" : "Save Item"}
-                  </button>
-                  </div>
-                </form>
-              ) : null}
+                </div>
+              </MasterModal>
 
 
               <div className="grid max-w-full grid-cols-1 gap-6">
@@ -537,7 +604,7 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                                         <div className="min-w-0 overflow-hidden">
                                           <p className="truncate text-sm font-black uppercase tracking-tight text-slate-900">{item.name}</p>
                                           <p className="truncate text-[10px] font-black uppercase tracking-widest text-slate-400">{item.sku}</p>
-                                          <p className="truncate text-[11px] font-bold text-slate-500">{item.brand || "No brand"}</p>
+                                          <p className="truncate text-[11px] font-bold text-slate-500">{item.brandId?.name || item.brand || "No brand"}</p>
                                         </div>
                                       </div>
                                     </td>
@@ -546,7 +613,7 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                                       {item.subcategoryId?.name && <span className="block truncate text-[9px] text-slate-400">{item.subcategoryId.name}</span>}
                                     </td>
                                     <td className="px-4 py-4">
-                                      <div className="truncate text-sm font-black text-slate-900">{item.quantity} <span className="text-[10px] uppercase tracking-widest text-slate-400">{item.unit}</span></div>
+                                      <div className="truncate text-sm font-black text-slate-900">{item.quantity} <span className="text-[10px] uppercase tracking-widest text-slate-400">{item.unitId?.name || item.unit}</span></div>
                                     </td>
                                     <td className="px-4 py-4 text-[11px] font-bold text-slate-600">{item.reorderLevel}</td>
                                     <td className="px-4 py-4 text-[11px] font-bold text-slate-600">
@@ -631,7 +698,7 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                           </div>
                           <div className="flex items-center gap-3">
                             <button 
-                              onClick={() => loadItemView(selectedItemId)}
+                               onClick={() => loadItemView(selectedItemId)}
                               className="p-3 rounded-2xl bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-all"
                             >
                               <RefreshCw size={16} />
@@ -658,13 +725,14 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                                     <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{viewData.item.sku}</p>
                                     <div className="flex flex-wrap gap-2 mt-3">
                                       {(viewData.item.categoryId?.name || viewData.item.category) && <span className="px-3 py-1.5 bg-white/80 text-slate-600 text-[10px] font-black rounded-xl border border-white uppercase tracking-widest">{viewData.item.categoryId?.name || viewData.item.category}</span>}
-                                      {viewData.item.brand && <span className="px-3 py-1.5 bg-white/80 text-slate-600 text-[10px] font-black rounded-xl border border-white uppercase tracking-widest">{viewData.item.brand}</span>}
+                                      {(viewData.item.brandId?.name || viewData.item.brand) && <span className="px-3 py-1.5 bg-white/80 text-slate-600 text-[10px] font-black rounded-xl border border-white uppercase tracking-widest">{viewData.item.brandId?.name || viewData.item.brand}</span>}
+                                      {(viewData.item.unitId?.name || viewData.item.unit) && <span className="px-3 py-1.5 bg-white/80 text-slate-600 text-[10px] font-black rounded-xl border border-white uppercase tracking-widest">{viewData.item.unitId?.name || viewData.item.unit}</span>}
                                     </div>
                                   </div>
                                   <div className="grid grid-cols-1 gap-3 sm:min-w-[200px]">
                                     <div className="rounded-2xl border border-white bg-white/50 px-4 py-3 shadow-sm">
                                       <p className="text-[9px] font-black uppercase tracking-[0.24em] text-slate-400">Available Stock</p>
-                                      <p className="mt-1 text-2xl font-black text-slate-900">{viewData.item.quantity} <span className="text-xs text-slate-400">{viewData.item.unit}</span></p>
+                                      <p className="mt-1 text-2xl font-black text-slate-900">{viewData.item.quantity} <span className="text-xs text-slate-400">{viewData.item.unitId?.name || viewData.item.unit}</span></p>
                                     </div>
                                     <div className="rounded-2xl border border-white bg-white/50 px-4 py-3 shadow-sm">
                                       <p className="text-[9px] font-black uppercase tracking-[0.24em] text-slate-400">Asset Value</p>
@@ -677,13 +745,20 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                               <div className="grid grid-cols-2 gap-4">
                                 <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
                                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Reorder Level</p>
-                                  <p className="mt-2 text-sm font-black text-slate-900">{viewData.item.reorderLevel} {viewData.item.unit}</p>
+                                  <p className="mt-2 text-sm font-black text-slate-900">{viewData.item.reorderLevel} {viewData.item.unitId?.name || viewData.item.unit}</p>
                                 </div>
                                 <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
                                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Unit Cost</p>
                                   <p className="mt-2 text-sm font-black text-slate-900">{formatCurrency(viewData.item.unitCost)}</p>
                                 </div>
                               </div>
+
+                              {viewData.item.supplierId?.companyName && (
+                                <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Preferred Supplier</p>
+                                  <p className="mt-2 text-sm font-black text-slate-900">{viewData.item.supplierId.companyName}</p>
+                                </div>
+                              )}
 
                               <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 space-y-4">
                                 <div>
@@ -831,12 +906,24 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
             <MasterManager type="subcategory" websiteId={websiteId} title="Inventory Master" label="Subcategory" />
           ) : null}
 
+          {forcedTab === "inventory-brand" ? (
+            <MasterManager type="brand" websiteId={websiteId} title="Inventory Master" label="Brand" />
+          ) : null}
+
           {forcedTab === "inventory-size" ? (
             <MasterManager type="size" websiteId={websiteId} title="Inventory Master" label="Size" />
           ) : null}
 
           {forcedTab === "inventory-color" ? (
             <MasterManager type="color" websiteId={websiteId} title="Inventory Master" label="Color" />
+          ) : null}
+
+          {forcedTab === "inventory-unit" ? (
+            <MasterManager type="unit" websiteId={websiteId} title="Inventory Master" label="Unit" />
+          ) : null}
+
+          {forcedTab === "inventory-supplier" ? (
+            <MasterManager type="supplier" websiteId={websiteId} title="Inventory Master" label="Supplier" />
           ) : null}
         </div>
       </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Plus, FileText, CheckCircle, Shield, X, Save, Trash2, Pencil, Send, AlertCircle } from "lucide-react";
+import { Plus, FileText, CheckCircle, Shield, X, Save, Trash2, Pencil, Send, AlertCircle, ShoppingCart } from "lucide-react";
 import { api } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { QuickCreateItemModal, ItemAutocomplete } from "../ItemAutocomplete.jsx";
@@ -22,39 +22,100 @@ function StatusBadge({ status }) {
   );
 }
 
-const BLANK_ITEM = { description: "", quantity: 1, price: 0, total: 0 };
+const BLANK_ITEM = { description: "", quantity: 1, price: 0, discount: 0, taxRate: 18 };
 const DEFAULT_VALID_DAYS = 15;
 
 function QuoteForm({ initial, onSubmit, onCancel, submitting, websiteId, customer, title }) {
   const [form, setForm] = useState(initial || {
     items: [{ ...BLANK_ITEM }],
     notes: "",
+    discountAmount: 0,
+    shippingCharges: 0,
+    isInterState: false,
     validUntil: new Date(Date.now() + DEFAULT_VALID_DAYS * 86400000).toISOString().split("T")[0]
   });
   const [quickCreate, setQuickCreate] = useState(null);
 
+  const calculateTotals = (items, discountAmount = 0, shippingCharges = 0, isInterState = false) => {
+    let subtotal = 0;
+    let totalTax = 0;
+    let totalItemDiscounts = 0;
+
+    const processedItems = items.map(item => {
+      const qty = Number(item.quantity || 1);
+      const unitPrice = Number(item.price || 0);
+      const itemSub = qty * unitPrice;
+      
+      const discountPct = Number(item.discount || 0);
+      const itemDiscountVal = (discountPct / 100) * itemSub;
+      const taxableValue = itemSub - itemDiscountVal;
+      
+      const taxRate = Number(item.taxRate || 18);
+      const itemTax = (taxRate / 100) * taxableValue;
+      const itemTotal = taxableValue + itemTax;
+      
+      subtotal += itemSub;
+      totalTax += itemTax;
+      totalItemDiscounts += itemDiscountVal;
+      
+      return {
+        ...item,
+        quantity: qty,
+        price: unitPrice,
+        discount: discountPct,
+        taxRate,
+        taxAmount: Math.round(itemTax * 100) / 100,
+        subtotal: Math.round(taxableValue * 100) / 100,
+        total: Math.round(itemTotal * 100) / 100
+      };
+    });
+
+    const aggregateSubtotal = Math.round(subtotal * 100) / 100;
+    const preTaxTotal = aggregateSubtotal - Number(discountAmount);
+    const grandTotal = preTaxTotal + totalTax + Number(shippingCharges);
+
+    return {
+      items: processedItems,
+      subtotal: aggregateSubtotal,
+      itemDiscounts: Math.round(totalItemDiscounts * 100) / 100,
+      discountAmount: Number(discountAmount),
+      shippingCharges: Number(shippingCharges),
+      tax: Math.round(totalTax * 100) / 100,
+      total: Math.round(grandTotal * 100) / 100
+    };
+  };
+
   const updateItem = (idx, patch) => {
     const items = [...form.items];
     items[idx] = { ...items[idx], ...patch };
-    items[idx].total = items[idx].quantity * items[idx].price;
     setForm({ ...form, items });
   };
 
-  const totalAmount = form.items.reduce((acc, i) => acc + Number(i.total || 0), 0);
+  const totals = calculateTotals(form.items, form.discountAmount, form.shippingCharges, form.isInterState);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit({ ...form, total: totalAmount, subtotal: totalAmount });
+    onSubmit({
+      items: totals.items,
+      subtotal: totals.subtotal,
+      discountAmount: totals.discountAmount,
+      shippingCharges: totals.shippingCharges,
+      tax: totals.tax,
+      total: totals.total,
+      isInterState: form.isInterState,
+      notes: form.notes,
+      validUntil: form.validUntil
+    });
   };
 
   return (
-    <div className="bg-white rounded-2xl border-2 border-indigo-100 p-5 shadow-xl animate-in fade-in slide-in-from-top-4 space-y-4">
+    <div className="bg-white rounded-[32px] border-2 border-indigo-100 p-8 shadow-2xl animate-in fade-in slide-in-from-top-4 space-y-6">
       <div className="flex items-center justify-between">
         <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">{title}</p>
         <div className="flex gap-2">
           {[
-            { label: "SaaS", items: [{ description: "Monthly SaaS Subscription", quantity: 1, price: 4999, total: 4999 }, { description: "One-time Setup Fee", quantity: 1, price: 1999, total: 1999 }] },
-            { label: "Consulting", items: [{ description: "Hourly Consulting", quantity: 10, price: 1500, total: 15000 }] }
+            { label: "SaaS", items: [{ description: "Monthly SaaS Subscription", quantity: 1, price: 4999, discount: 0, taxRate: 18 }, { description: "One-time Setup Fee", quantity: 1, price: 1999, discount: 0, taxRate: 18 }] },
+            { label: "Consulting", items: [{ description: "Hourly Consulting", quantity: 10, price: 1500, discount: 0, taxRate: 18 }] }
           ].map(t => (
             <button key={t.label} type="button"
               onClick={() => setForm({ ...form, items: t.items })}
@@ -64,37 +125,62 @@ function QuoteForm({ initial, onSubmit, onCancel, submitting, websiteId, custome
         </div>
       </div>
 
-      <form id="quoteForm" onSubmit={handleSubmit} className="space-y-3">
+      <form id="quoteForm" onSubmit={handleSubmit} className="space-y-4">
         {/* Line Items */}
-        <div className="space-y-2">
+        <div className="space-y-3">
           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Line Items</p>
           {form.items.map((item, idx) => (
-            <div key={idx} className="grid grid-cols-12 gap-2 items-start">
-              <div className="col-span-6">
+            <div key={idx} className="grid grid-cols-12 gap-3 items-end bg-slate-50/50 p-4 rounded-2xl border border-slate-100/50">
+              <div className="col-span-4">
+                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Item Description</label>
                 <ItemAutocomplete
                   value={item.description}
                   websiteId={websiteId || customer?.websiteId}
                   onChange={(val) => updateItem(idx, { description: val })}
-                  onSelect={(inv) => updateItem(idx, { description: inv.name, price: inv.unitCost || 0, total: item.quantity * (inv.unitCost || 0) })}
+                  onSelect={(inv) => updateItem(idx, { description: inv.name, price: inv.unitCost || 0 })}
                   onCreateNew={(name) => setQuickCreate({ name, targetIdx: idx })}
                   placeholder="Item description"
                 />
               </div>
               <div className="col-span-2">
+                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Qty</label>
                 <input type="number" min="1" value={item.quantity}
                   onChange={e => updateItem(idx, { quantity: Number(e.target.value) })}
-                  className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-2 text-[10px] font-bold outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full bg-white border border-slate-100 rounded-lg px-2 py-2 text-[10px] font-bold outline-none focus:ring-2 focus:ring-indigo-500/20"
                   placeholder="Qty"
                 />
               </div>
-              <div className="col-span-3">
+              <div className="col-span-2">
+                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Price ({getCurrencySymbol()})</label>
                 <input type="number" min="0" value={item.price}
                   onChange={e => updateItem(idx, { price: Number(e.target.value) })}
-                  className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-2 text-[10px] font-bold outline-none focus:ring-2 focus:ring-indigo-500/20"
-                  placeholder={`Price (${getCurrencySymbol()})`}
+                  className="w-full bg-white border border-slate-100 rounded-lg px-2 py-2 text-[10px] font-bold outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  placeholder="Price"
                 />
               </div>
-              <div className="col-span-1 flex items-center justify-center pt-1.5">
+              <div className="col-span-2">
+                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Disc (%)</label>
+                <input type="number" min="0" max="100" value={item.discount || 0}
+                  onChange={e => updateItem(idx, { discount: Number(e.target.value) })}
+                  className="w-full bg-white border border-slate-100 rounded-lg px-2 py-2 text-[10px] font-bold outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  placeholder="Disc %"
+                />
+              </div>
+              <div className="col-span-1">
+                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Tax</label>
+                <select
+                  value={item.taxRate || 18}
+                  onChange={e => updateItem(idx, { taxRate: Number(e.target.value) })}
+                  className="w-full bg-white border border-slate-100 rounded-lg px-1 py-2 text-[10px] font-bold outline-none focus:ring-2 focus:ring-indigo-500/20"
+                >
+                  <option value="0">0%</option>
+                  <option value="5">5%</option>
+                  <option value="12">12%</option>
+                  <option value="18">18%</option>
+                  <option value="28">28%</option>
+                </select>
+              </div>
+              <div className="col-span-1 flex items-center justify-center pb-2">
                 {form.items.length > 1 && (
                   <button type="button"
                     onClick={() => setForm({ ...form, items: form.items.filter((_, i) => i !== idx) })}
@@ -110,6 +196,70 @@ function QuoteForm({ initial, onSubmit, onCancel, submitting, websiteId, custome
           onClick={() => setForm({ ...form, items: [...form.items, { ...BLANK_ITEM }] })}
           className="text-[10px] font-black text-indigo-500 hover:text-indigo-700 uppercase tracking-widest flex items-center gap-1 transition-colors"
         >+ Add Line Item</button>
+
+        {/* Order Level Settings */}
+        <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 grid grid-cols-3 gap-3">
+          <label className="space-y-1">
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Order Discount ({getCurrencySymbol()})</span>
+            <input type="number" min="0" value={form.discountAmount || 0}
+              onChange={e => setForm({ ...form, discountAmount: Number(e.target.value) })}
+              className="w-full bg-white border border-slate-100 rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:ring-2 focus:ring-indigo-500/20"
+              placeholder="Order discount"
+            />
+          </label>
+          <label className="space-y-1">
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Shipping Charges ({getCurrencySymbol()})</span>
+            <input type="number" min="0" value={form.shippingCharges || 0}
+              onChange={e => setForm({ ...form, shippingCharges: Number(e.target.value) })}
+              className="w-full bg-white border border-slate-100 rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:ring-2 focus:ring-indigo-500/20"
+              placeholder="Shipping charges"
+            />
+          </label>
+          <div className="flex flex-col justify-center pl-2 pt-1">
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tax Location</span>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={form.isInterState || false}
+                onChange={e => setForm({ ...form, isInterState: e.target.checked })}
+                className="rounded border-slate-200 text-indigo-600 focus:ring-indigo-500/20 w-4 h-4"
+              />
+              <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Inter-State (IGST)</span>
+            </label>
+          </div>
+        </div>
+
+        {/* Totals Summary Panel */}
+        <div className="bg-gradient-to-br from-indigo-50/50 via-white to-slate-50 p-5 rounded-2xl border border-slate-100 space-y-2">
+          <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
+            <span>SUBTOTAL:</span>
+            <span>{formatCurrency(totals.subtotal)}</span>
+          </div>
+          {totals.itemDiscounts > 0 && (
+            <div className="flex justify-between items-center text-[10px] font-bold text-rose-500">
+              <span>ITEM DISCOUNTS:</span>
+              <span>-{formatCurrency(totals.itemDiscounts)}</span>
+            </div>
+          )}
+          {totals.discountAmount > 0 && (
+            <div className="flex justify-between items-center text-[10px] font-bold text-rose-500">
+              <span>ORDER DISCOUNT:</span>
+              <span>-{formatCurrency(totals.discountAmount)}</span>
+            </div>
+          )}
+          <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
+            <span>TAX (GST/VAT):</span>
+            <span>{formatCurrency(totals.tax)}</span>
+          </div>
+          {totals.shippingCharges > 0 && (
+            <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
+              <span>SHIPPING CHARGES:</span>
+              <span>{formatCurrency(totals.shippingCharges)}</span>
+            </div>
+          )}
+          <div className="flex justify-between items-center text-sm font-black text-slate-900 border-t border-dashed border-slate-200 pt-2 mt-1">
+            <span>GRAND TOTAL:</span>
+            <span>{formatCurrency(totals.total)}</span>
+          </div>
+        </div>
 
         {/* Notes & Validity */}
         <div className="grid grid-cols-2 gap-3 pt-1">
@@ -130,8 +280,7 @@ function QuoteForm({ initial, onSubmit, onCancel, submitting, websiteId, custome
 
         {/* Footer */}
         <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-          <span className="text-[12px] font-black text-slate-900">Total: {formatCurrency(totalAmount)}</span>
-          <div className="flex gap-2">
+          <div className="flex gap-2 ml-auto">
             <button type="button" onClick={onCancel}
               className="px-4 py-2 text-[10px] font-black text-slate-400 hover:text-slate-700 uppercase tracking-widest transition-colors"
             >Cancel</button>
@@ -153,8 +302,7 @@ function QuoteForm({ initial, onSubmit, onCancel, submitting, websiteId, custome
           onCreated={(newItem) => {
             updateItem(quickCreate.targetIdx, {
               description: newItem.name,
-              price: newItem.unitCost || 0,
-              total: (form.items[quickCreate.targetIdx]?.quantity || 1) * (newItem.unitCost || 0)
+              price: newItem.unitCost || 0
             });
             setQuickCreate(null);
           }}
@@ -276,6 +424,16 @@ export default function CRMQuotationTab({ customer, websiteId }) {
       fetchQuotes();
     } catch (err) {
       setError(err.message || "Failed to update status");
+    }
+  };
+
+  const convertToSalesOrder = async (id) => {
+    setError("");
+    try {
+      await api(`/api/crm/salesorders/convert/${id}`, { method: "POST" });
+      fetchQuotes();
+    } catch (err) {
+      setError(err.message || "Failed to convert to Sales Order");
     }
   };
 
@@ -410,6 +568,9 @@ export default function CRMQuotationTab({ customer, websiteId }) {
           initial={{
             items: editingQuote.items || [{ ...BLANK_ITEM }],
             notes: editingQuote.notes || "",
+            discountAmount: editingQuote.discountAmount || 0,
+            shippingCharges: editingQuote.shippingCharges || 0,
+            isInterState: editingQuote.isInterState || false,
             validUntil: editingQuote.validUntil
               ? new Date(editingQuote.validUntil).toISOString().split("T")[0]
               : new Date(Date.now() + DEFAULT_VALID_DAYS * 86400000).toISOString().split("T")[0]
@@ -483,6 +644,11 @@ export default function CRMQuotationTab({ customer, websiteId }) {
                       <button onClick={() => markStatus(quote._id, "accepted")}
                         className="flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-100 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest hover:bg-emerald-100 transition-all"
                       ><CheckCircle size={10} /> Mark Won</button>
+                    )}
+                    {quote.status === "accepted" && (
+                      <button onClick={() => convertToSalesOrder(quote._id)}
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-100 bg-emerald-600 text-white text-[8px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-sm"
+                      ><ShoppingCart size={10} /> Convert to Order</button>
                     )}
                     {quote.status === "pending_approval" && isManager && (
                       <>

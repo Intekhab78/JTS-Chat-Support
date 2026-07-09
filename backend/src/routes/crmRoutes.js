@@ -1,6 +1,10 @@
 import { Router } from "express";
 import * as customerController from "../controllers/crmCustomerController.js";
 import * as quotationController from "../controllers/crmQuotationController.js";
+import * as timelineController from "../controllers/crmTimelineController.js";
+import communicationRoutes from "./crmCommunicationRoutes.js";
+import customerPortalRoutes from "./crmCustomerPortalRoutes.js";
+import * as searchController from "../controllers/crmSearchController.js";
 import * as invoiceController from "../controllers/crmInvoiceController.js";
 import * as interactionController from "../controllers/crmInteractionController.js";
 import * as taskController from "../controllers/crmTaskController.js";
@@ -71,6 +75,8 @@ router.use("/plans", planRoutes);
 router.use("/creditnotes", creditNoteRoutes);
 router.use("/debitnotes", debitNoteRoutes);
 router.use("/omnichannel", omnichannelRoutes);
+router.use("/communication", communicationRoutes);
+router.use("/customer-portal", customerPortalRoutes);
 router.use("/canned-responses", cannedResponseRoutes);
 router.use("/customersuccess", customerSuccessRoutes);
 router.use("/assets", assetRoutes);
@@ -93,7 +99,8 @@ router.get("/reports", requireRole("admin", "client", "manager"), analyticsContr
 router.get("/reports/won-timeseries", requireRole("admin", "client", "manager"), analyticsController.getWonRevenueTimeseries);
 
 // Static Activity & Search
-router.get("/search", customerController.searchCustomers);
+router.get("/search", searchController.globalSearch);
+router.get("/timeline/:id", timelineController.getTimeline);
 router.post("/promote", requireRole("admin", "client", "manager", "agent", "sales"), interactionController.promoteVisitor);
 router.get("/notes/my", interactionController.getMyCustomerNotes);
 router.get("/tasks/my", taskController.getMyFollowUpTasks);
@@ -113,6 +120,8 @@ router.patch("/bulk-update", requireRole("admin", "client", "manager"), customer
 router.delete("/bulk-delete", requireRole("admin", "client", "manager"), customerController.bulkDeleteCustomers);
 
 // Quotations
+router.get("/quotations/reports", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), quotationController.getQuotationsReports);
+router.get("/quotations", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), quotationController.listAllQuotations);
 router.get("/:customerId/quotations", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), quotationController.getCustomerQuotations);
 router.post("/quotations", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), quotationController.createQuotation);
 router.patch("/quotations/:id/status", quotationController.updateQuotationStatus);
@@ -139,6 +148,12 @@ router.post("/:id/post-win", requireRole("admin", "client", "manager", "sales"),
 router.post("/:id/generate-code", requireRole("admin", "client", "manager", "sales"), workflowController.generateLeadCode);
 router.patch("/:id/purchase-workflow", requireRole("admin", "client", "manager", "purchase"), workflowController.updatePurchaseWorkflowStatus);
 router.post("/:id/auto-assign", requireRole("admin", "client", "manager"), workflowController.autoAssignCustomer);
+
+// Portal access settings for customers
+router.get("/employees", customerController.getEmployees);
+router.get("/:id/portal-access", requireRole("admin", "client", "manager", "agent", "sales"), customerController.getPortalAccessStatus);
+router.post("/:id/portal-access", requireRole("admin", "client", "manager", "agent", "sales"), customerController.grantPortalAccess);
+router.delete("/:id/portal-access", requireRole("admin", "client", "manager", "agent", "sales"), customerController.revokePortalAccess);
 
 // Parameterized Routes (Keep at bottom to avoid shadowing)
 router.get("/:id", customerController.getCustomerProfile);

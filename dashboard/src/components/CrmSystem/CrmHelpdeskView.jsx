@@ -18,12 +18,12 @@ export default function CrmHelpdeskView({ websiteId }) {
     try {
       // Query tickets via the existing tickets endpoints (scoped by websiteId)
       const ticketRes = await api(`/api/tickets?websiteId=${websiteId}`);
-      setTickets(ticketRes || []);
+      setTickets((ticketRes && ticketRes.tickets) || []);
 
-      const feedbackRes = await api(`/api/feedback?websiteId=${websiteId}`);
+      const feedbackRes = await api(`/api/crm/feedback?websiteId=${websiteId}`);
       setFeedback(feedbackRes || []);
 
-      const assetRes = await api(`/api/assets?websiteId=${websiteId}`);
+      const assetRes = await api(`/api/crm/assets?websiteId=${websiteId}`);
       setAssets(assetRes || []);
     } catch (err) {
       console.error(err);

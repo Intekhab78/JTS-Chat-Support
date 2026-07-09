@@ -48,6 +48,9 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
   const [showDocForm, setShowDocForm] = useState(false);
   const [docForm, setDocForm] = useState({ name: "", category: "nda", fileUrl: "" });
 
+  const [portalAccess, setPortalAccess] = useState({ active: false, email: "" });
+  const [portalLoading, setPortalLoading] = useState(true);
+
   const fetchProfile = async () => {
     setLoading(true);
     try {
@@ -57,6 +60,40 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPortalAccessStatus = async () => {
+    setPortalLoading(true);
+    try {
+      const res = await api(`/api/crm/${customerId}/portal-access`);
+      setPortalAccess(res || { active: false, email: "" });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setPortalLoading(false);
+    }
+  };
+
+  const handleGrantPortalAccess = async () => {
+    if (!window.confirm("Are you sure you want to grant Client Portal access for this customer?")) return;
+    try {
+      const res = await api(`/api/crm/${customerId}/portal-access`, { method: "POST" });
+      alert(res.message || "Portal access granted.");
+      fetchPortalAccessStatus();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleRevokePortalAccess = async () => {
+    if (!window.confirm("Are you sure you want to revoke Client Portal access? This will delete their login credentials.")) return;
+    try {
+      const res = await api(`/api/crm/${customerId}/portal-access`, { method: "DELETE" });
+      alert(res.message || "Portal access revoked.");
+      fetchPortalAccessStatus();
+    } catch (err) {
+      alert(err.message);
     }
   };
 
@@ -102,7 +139,10 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
   };
 
   useEffect(() => {
-    if (customerId) fetchProfile();
+    if (customerId) {
+      fetchProfile();
+      fetchPortalAccessStatus();
+    }
   }, [customerId]);
 
   useEffect(() => {
@@ -233,13 +273,49 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                 <div><span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Competitor Mentioned</span> {customer?.competitor || "None"}</div>
               </div>
             </div>
-            
-            <div className="bg-white p-8 border border-slate-200 rounded-[30px] shadow-sm space-y-4">
-              <h4 className="text-sm font-black text-slate-900 uppercase tracking-wide border-b pb-3 border-slate-100">Lead Health</h4>
-              <div className="space-y-4 text-xs font-bold text-slate-600">
-                <div><span className="text-[9px] font-black uppercase text-slate-400 block">Lead Score</span> {customer?.leadScore || 0} points</div>
-                <div><span className="text-[9px] font-black uppercase text-slate-400 block">AI Win Rating</span> {customer?.winProbability || 10}%</div>
-                <div><span className="text-[9px] font-black uppercase text-slate-400 block">Churn Risk</span> {customer?.churnRisk || 0}%</div>
+            <div className="space-y-6">
+              <div className="bg-white p-8 border border-slate-200 rounded-[30px] shadow-sm space-y-4">
+                <h4 className="text-sm font-black text-slate-900 uppercase tracking-wide border-b pb-3 border-slate-100">Lead Health</h4>
+                <div className="space-y-4 text-xs font-bold text-slate-600">
+                  <div><span className="text-[9px] font-black uppercase text-slate-400 block">Lead Score</span> {customer?.leadScore || 0} points</div>
+                  <div><span className="text-[9px] font-black uppercase text-slate-400 block">AI Win Rating</span> {customer?.winProbability || 10}%</div>
+                  <div><span className="text-[9px] font-black uppercase text-slate-400 block">Churn Risk</span> {customer?.churnRisk || 0}%</div>
+                </div>
+              </div>
+
+              {/* Portal Access Control */}
+              <div className="bg-white p-8 border border-slate-200 rounded-[30px] shadow-sm space-y-4">
+                <h4 className="text-sm font-black text-slate-900 uppercase tracking-wide border-b pb-3 border-slate-100">Client Portal Access</h4>
+                {portalLoading ? (
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">Loading portal details...</p>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span className="text-[9px] font-black uppercase text-slate-400">Portal Status</span>
+                      <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${portalAccess.active ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>
+                        {portalAccess.active ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+                    {portalAccess.active ? (
+                      <div className="space-y-3">
+                        <p className="text-[10px] font-bold text-slate-500">Linked User: <strong className="text-slate-800 block mt-0.5 truncate">{portalAccess.email}</strong></p>
+                        <button
+                          onClick={handleRevokePortalAccess}
+                          className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-[9px] font-black uppercase rounded-xl transition-all"
+                        >
+                          Revoke Portal Access
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleGrantPortalAccess}
+                        className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[9px] font-black uppercase rounded-xl transition-all shadow-md"
+                      >
+                        Grant Portal Access
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

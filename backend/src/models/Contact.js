@@ -37,7 +37,10 @@ const contactSchema = new mongoose.Schema(
     ownerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
     source: { type: String, default: "manual" },
     status: { type: String, default: "active" },
-    customFields: { type: Map, of: String }
+    customFields: { type: Map, of: String },
+    emails: [{ type: String, lowercase: true, trim: true }],
+    isPrimary: { type: Boolean, default: false },
+    isDeleted: { type: Boolean, default: false, index: true }
   },
   { timestamps: true }
 );

@@ -19,7 +19,7 @@ export function validate(schema) {
   return (req, res, next) => {
     const result = schema.safeParse(req.body);
     if (!result.success) {
-      const msg = result.error.issues?.[0]?.message || "Invalid input";
+      const msg = result.error.issues?.map(i => `${i.path.join(".")}: ${i.message}`).join(", ") || "Invalid input";
       return next(new AppError(msg, 400));
     }
     req.body = result.data; // replace with parsed/sanitized data
@@ -96,6 +96,8 @@ export const updateCustomerSchema = z.object({
   leadValue: z.number().min(0).optional(),
   budget: z.number().min(0).optional(),
   requirement: z.string().max(500).optional(),
+  territory: z.string().max(120).optional().or(z.literal("")),
+  industry: z.string().max(120).optional().or(z.literal("")),
   timeline: z.string().max(120).optional(),
   interestLevel: z.enum(["cold", "warm", "hot"]).optional(),
   leadCategory: z.enum(["cold", "warm", "hot"]).optional(),
@@ -134,6 +136,8 @@ export const createCustomerSchema = z.object({
   leadValue: z.number().min(0).optional().default(0),
   budget: z.number().min(0).optional().default(0),
   requirement: z.string().trim().max(500).optional().or(z.literal("")),
+  territory: z.string().trim().max(120).optional().or(z.literal("")),
+  industry: z.string().trim().max(120).optional().or(z.literal("")),
   timeline: z.string().trim().max(120).optional().or(z.literal("")),
   interestLevel: z.enum(["cold", "warm", "hot"]).optional().default("warm"),
   leadCategory: z.enum(["cold", "warm", "hot"]).optional(),

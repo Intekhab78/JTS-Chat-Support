@@ -19,7 +19,22 @@ const companySchema = new mongoose.Schema(
     parentCompany: { type: mongoose.Schema.Types.ObjectId, ref: "Company", default: null },
     description: { type: String, trim: true, default: "" },
     tags: [{ type: String, trim: true }],
-    status: { type: String, default: "active" }
+    status: { type: String, default: "active" },
+    pan: { type: String, trim: true, default: "" },
+    branches: [{ type: String, trim: true }],
+    notes: { type: String, default: "" },
+    addresses: [
+      {
+        label: { type: String, default: "Office" },
+        street: { type: String, default: "" },
+        city: { type: String, default: "" },
+        state: { type: String, default: "" },
+        zip: { type: String, default: "" },
+        country: { type: String, default: "India" },
+        type: { type: String, enum: ["billing", "shipping", "branch", "other"], default: "branch" }
+      }
+    ],
+    isDeleted: { type: Boolean, default: false, index: true }
   },
   { timestamps: true }
 );

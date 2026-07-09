@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Edit2, Trash2, Plus, X, Save, RefreshCw } from "lucide-react";
 import { api } from "../api/client.js";
 import EmptyState from "./EmptyState.jsx";
+import MasterModal from "./MasterModal.jsx";
 
 export default function MasterManager({ type, websiteId, title, label }) {
   const [items, setItems] = useState([]);
@@ -102,37 +103,45 @@ export default function MasterManager({ type, websiteId, title, label }) {
         </button>
       </div>
 
-      {showForm ? (
-        <form onSubmit={handleSubmit} className="premium-card p-6 bg-white border border-slate-200 rounded-[32px] space-y-5 shadow-sm">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <label className="space-y-2">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label} Name</span>
-              <input
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
+      <MasterModal
+        isOpen={showForm}
+        onClose={() => {
+          setShowForm(false);
+          setEditingId("");
+          setForm({ name: "", categoryId: "", isActive: true });
+        }}
+        title={editingId ? `Edit ${label}` : `Add New ${label}`}
+        onSubmit={handleSubmit}
+        submitLabel={editingId ? "Update Master" : "Save Master"}
+      >
+        <div className="grid grid-cols-1 gap-5">
+          <label className="space-y-2 block">
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label} Name</span>
+            <input
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:border-indigo-500"
+              placeholder={`e.g. ${type === "size" ? "XL" : type === "color" ? "Red" : "Electronics"}`}
+              required
+            />
+          </label>
+          {type === "subcategory" && (
+            <label className="space-y-2 block">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Main Category</span>
+              <select
+                value={form.categoryId}
+                onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:border-indigo-500"
-                placeholder={`e.g. ${type === "size" ? "XL" : type === "color" ? "Red" : "Electronics"}`}
                 required
-              />
+              >
+                <option value="">Select Category</option>
+                {categories.map((cat) => (
+                  <option key={cat._id} value={cat._id}>{cat.name}</option>
+                ))}
+              </select>
             </label>
-            {type === "subcategory" && (
-              <label className="space-y-2">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Main Category</span>
-                <select
-                  value={form.categoryId}
-                  onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:border-indigo-500"
-                  required
-                >
-                  <option value="">Select Category</option>
-                  {categories.map((cat) => (
-                    <option key={cat._id} value={cat._id}>{cat.name}</option>
-                  ))}
-                </select>
-              </label>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
+          )}
+          <div className="flex items-center gap-3 pt-2">
             <label className="inline-flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 cursor-pointer">
               <input 
                 type="checkbox" 
@@ -142,12 +151,8 @@ export default function MasterManager({ type, websiteId, title, label }) {
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Active Status</span>
             </label>
           </div>
-          <button type="submit" className="w-full bg-indigo-600 text-white font-black text-[10px] uppercase tracking-[0.2em] py-4 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg flex items-center justify-center gap-3">
-            <Save size={16} />
-            {editingId ? "Update Master" : "Save Master"}
-          </button>
-        </form>
-      ) : null}
+        </div>
+      </MasterModal>
 
       <div className="premium-card overflow-hidden rounded-[34px] border border-slate-200 bg-white shadow-sm">
         <div className="min-h-0 overflow-x-auto">

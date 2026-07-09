@@ -11,6 +11,17 @@ export default function CrmStageEditor({ open, onClose, onChangeStages, currentS
         }
         return Object.entries(DEFAULT_CRM_STAGE_CONFIG).map(([key, cfg]) => ({ key, label: cfg.label, active: cfg.active !== false }));
     });
+
+    React.useEffect(() => {
+        if (open) {
+            if (Array.isArray(currentStages) && currentStages.length > 0) {
+                setStages(currentStages.map(s => ({ key: s.key, label: s.label, active: s.active !== false })));
+            } else {
+                setStages(Object.entries(DEFAULT_CRM_STAGE_CONFIG).map(([key, cfg]) => ({ key, label: cfg.label, active: cfg.active !== false })));
+            }
+        }
+    }, [open, currentStages]);
+
     const [newKey, setNewKey] = useState("");
     const [newLabel, setNewLabel] = useState("");
     const [dragIndex, setDragIndex] = useState(null);
@@ -66,7 +77,7 @@ export default function CrmStageEditor({ open, onClose, onChangeStages, currentS
     return createPortal(
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose} />
-            
+
             <div className="relative w-full max-w-xl bg-white rounded-[32px] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)] flex flex-col max-h-[85vh] overflow-hidden animate-in zoom-in-95 duration-200">
                 {/* Header */}
                 <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
@@ -101,8 +112,8 @@ export default function CrmStageEditor({ open, onClose, onChangeStages, currentS
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
-                                <button 
-                                    onClick={() => handleToggleActive(s.key)} 
+                                <button
+                                    onClick={() => handleToggleActive(s.key)}
                                     className={`p-2.5 rounded-xl transition-all ${s.active ? 'text-slate-300 hover:text-rose-500 hover:bg-rose-50' : 'text-emerald-500 bg-emerald-50 hover:bg-emerald-100'}`}
                                 >
                                     {s.active ? <Trash2 size={18} /> : <Plus size={18} />}
@@ -117,33 +128,33 @@ export default function CrmStageEditor({ open, onClose, onChangeStages, currentS
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Stage Name</label>
-                            <input 
-                                value={newLabel} 
-                                onChange={e => setNewLabel(e.target.value)} 
-                                placeholder="e.g. 'Proposal'" 
-                                className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-4 text-xs font-bold outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all" 
+                            <input
+                                value={newLabel}
+                                onChange={e => setNewLabel(e.target.value)}
+                                placeholder="e.g. 'Proposal'"
+                                className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-4 text-xs font-bold outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all"
                             />
                         </div>
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">System Key</label>
-                            <input 
-                                value={newKey} 
-                                onChange={e => setNewKey(e.target.value)} 
-                                placeholder="proposal" 
-                                className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-4 text-xs font-bold outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all" 
+                            <input
+                                value={newKey}
+                                onChange={e => setNewKey(e.target.value)}
+                                placeholder="proposal"
+                                className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-4 text-xs font-bold outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all"
                             />
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
-                        <button 
-                            onClick={handleAdd} 
+                        <button
+                            onClick={handleAdd}
                             disabled={!newLabel}
                             className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-4 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
-                        > 
+                        >
                             <Plus size={16} /> Add Stage
                         </button>
-                        <button 
-                            onClick={handleSave} 
+                        <button
+                            onClick={handleSave}
                             className="flex-1 px-6 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-800 transition-all shadow-2xl shadow-slate-900/20"
                         >
                             Save Changes

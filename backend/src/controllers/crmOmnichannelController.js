@@ -7,6 +7,7 @@ import AppError from "../utils/AppError.js";
 import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
 import { routeSessionToAgent } from "../services/routingEngine.js";
 import { logCrmActivity } from "../services/activityLoggerService.js";
+import * as communicationHubService from "../services/communicationHubService.js";
 
 export const listOmnichannelSessions = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_VIEW);
@@ -17,7 +18,7 @@ export const listOmnichannelSessions = asyncHandler(async (req, res) => {
     return res.json([]);
   }
 
-  const query = {};
+  const query = { isMerged: { $ne: true } }; // Hide merged conversations
   if (websiteId) {
     if (!ownedWebsiteIds.map(id => id.toString()).includes(websiteId)) {
       throw new AppError("Unauthorized access", 403);
@@ -30,9 +31,26 @@ export const listOmnichannelSessions = asyncHandler(async (req, res) => {
   if (channel) query.channel = channel;
   if (status) query.status = status;
   if (priority) query.priority = priority;
-  
-  if (unassigned === "true") {
-    query.assignedAgent = null;
+
+  // -- Enforce RBAC Rules --
+  if (req.user.role === "sales") {
+    // Sales can only view their own conversations
+    query.assignedAgent = req.user._id;
+  } else if (req.user.role === "agent" || req.user.role === "support") {
+    // Support/Agent can only view their own or unassigned conversations
+    if (unassigned === "true") {
+      query.assignedAgent = null;
+    } else {
+      query.$or = [
+        { assignedAgent: req.user._id },
+        { assignedAgent: null }
+      ];
+    }
+  } else {
+    // Manager/Admin can view everything
+    if (unassigned === "true") {
+      query.assignedAgent = null;
+    }
   }
 
   if (search) {
@@ -43,8 +61,8 @@ export const listOmnichannelSessions = asyncHandler(async (req, res) => {
   }
 
   const sessions = await ChatSession.find(query)
-    .populate("customerId", "name email")
-    .populate("assignedAgent", "name email")
+    .populate("customerId", "name email phone facebookId instagramId customFields")
+    .populate("assignedAgent", "name email role isOnline")
     .sort({ lastMessageAt: -1, isPinned: -1 });
 
   res.json(sessions);
@@ -62,15 +80,13 @@ export const createOmnichannelSession = asyncHandler(async (req, res) => {
   }
 
   const sessionId = `${channel ? channel.toUpperCase() : "CHAT"}-${Date.now().toString().slice(-6)}`;
-  
-  // Calculate SLA due in 4 hours
   const slaDueAt = new Date();
   slaDueAt.setHours(slaDueAt.getHours() + 4);
 
   const session = await ChatSession.create({
     sessionId,
     websiteId: resolvedWebsiteId,
-    visitorId: req.user._id, // mock default
+    visitorId: req.user._id,
     customerId,
     channel: channel || "chat",
     department: department || "general",
@@ -90,9 +106,7 @@ export const createOmnichannelSession = asyncHandler(async (req, res) => {
     });
   }
 
-  // Attempt routing allocation
   await routeSessionToAgent(session);
-
   res.status(201).json(session);
 });
 
@@ -100,37 +114,13 @@ export const postMessage = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_CREATE);
   const { sessionId, message, attachmentUrl, attachmentType } = req.body;
 
-  const session = await ChatSession.findById(sessionId);
-  if (!session) throw new AppError("ChatSession not found", 404);
-
-  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
-  if (!ownedWebsiteIds.map(id => id.toString()).includes(session.websiteId.toString())) {
-    throw new AppError("Unauthorized scope", 403);
-  }
-
-  const msg = await Message.create({
+  // Delegate reply to communicationHubService to route and send it externally
+  const msg = await communicationHubService.sendMessage({
     sessionId,
-    sender: "agent",
     message,
-    agentId: req.user._id,
-    channel: session.channel,
     attachmentUrl,
     attachmentType,
-    deliveryStatus: "sent"
-  });
-
-  session.lastMessageAt = new Date();
-  session.lastMessagePreview = message ? message.slice(0, 60) : "Attachment";
-  await session.save();
-
-  // Log timeline update
-  await logCrmActivity({
-    websiteId: session.websiteId,
-    type: "visit", // mock message activity
-    title: `Reply Sent: ${session.sessionId}`,
-    description: `Agent ${req.user.name} sent message via ${session.channel}.`,
-    customerId: session.customerId,
-    ownerId: req.user._id
+    actorId: req.user._id
   });
 
   res.status(201).json(msg);
@@ -150,6 +140,82 @@ export const getSessionMessages = asyncHandler(async (req, res) => {
   res.json(messages);
 });
 
+export const assignSession = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
+  const { agentId } = req.body;
+  const session = await ChatSession.findById(req.params.id);
+  if (!session) throw new AppError("Conversation not found", 404);
+
+  const previousAgent = session.assignedAgent;
+  session.assignedAgent = agentId || null;
+  session.status = agentId ? "active" : "queued";
+  
+  if (previousAgent !== session.assignedAgent) {
+    session.transferHistory.push({
+      fromAgentId: previousAgent,
+      toAgentId: session.assignedAgent,
+      reason: "Manual Assignment",
+      note: "Assigned via Unified Inbox UI",
+      transferredAt: new Date()
+    });
+  }
+  await session.save();
+
+  // Log timeline activity
+  const agentUser = agentId ? await User.findById(agentId) : null;
+  await logCrmActivity({
+    websiteId: session.websiteId,
+    type: "note",
+    title: "Conversation Reassigned",
+    description: agentUser ? `Conversation assigned to ${agentUser.name}.` : "Conversation unassigned.",
+    customerId: session.customerId,
+    ownerId: req.user._id
+  });
+
+  res.json(session);
+});
+
+export const updateSessionPriority = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
+  const { priority } = req.body;
+  if (!["low", "medium", "high", "urgent"].includes(priority)) {
+    throw new AppError("Invalid priority value", 400);
+  }
+
+  const session = await ChatSession.findByIdAndUpdate(
+    req.params.id,
+    { priority },
+    { new: true }
+  );
+  res.json(session);
+});
+
+export const updateSessionLabels = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
+  const { labels } = req.body;
+  if (!Array.isArray(labels)) {
+    throw new AppError("Labels must be an array of strings", 400);
+  }
+
+  const session = await ChatSession.findByIdAndUpdate(
+    req.params.id,
+    { labels },
+    { new: true }
+  );
+  res.json(session);
+});
+
+export const mergeSessions = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
+  const { targetSessionId } = req.body;
+  const updatedTarget = await communicationHubService.mergeConversations(
+    req.params.id,
+    targetSessionId,
+    req.user._id
+  );
+  res.json(updatedTarget);
+});
+
 export const updateAgentStatus = asyncHandler(async (req, res) => {
   const { agentStatus } = req.body;
   if (!["online", "offline", "busy", "break", "away"].includes(agentStatus)) {
@@ -164,7 +230,6 @@ export const updateAgentStatus = asyncHandler(async (req, res) => {
 });
 
 export const trackOpen = asyncHandler(async (req, res) => {
-  // Simple transparent tracking pixel return
   const img = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64");
   res.writeHead(200, {
     "Content-Type": "image/gif",

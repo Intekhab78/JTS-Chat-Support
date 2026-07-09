@@ -5,7 +5,8 @@ import {
   LayoutDashboard, Users, Building2, Briefcase, GitBranch,
   Package, FileText, ShoppingCart, BarChart3, Repeat, Receipt,
   Inbox, MessageSquare, LifeBuoy, Award, GitFork, History,
-  Cpu, BarChart2, ShieldAlert, Terminal, Sparkles, CreditCard
+  Cpu, BarChart2, ShieldAlert, Terminal, Sparkles, CreditCard,
+  Calendar
 } from "lucide-react";
 import MagicCelebration from "./MagicCelebration.jsx";
 
@@ -48,6 +49,7 @@ import CrmAiConsole from "./CrmAiConsole.jsx";
 import CrmBiDashboard from "./CrmBiDashboard.jsx";
 import CrmAdminConsole from "./CrmAdminConsole.jsx";
 import CrmDeveloperConsole from "./CrmDeveloperConsole.jsx";
+import CrmCalendarView from "./CrmCalendarView.jsx";
 
 const crmGroups = [
   {
@@ -61,6 +63,7 @@ const crmGroups = [
       { id: "companies", label: "Companies", icon: Building2 },
       { id: "deals", label: "Deals", icon: Briefcase },
       { id: "pipelines", label: "Pipelines", icon: GitBranch },
+      { id: "calendar", label: "Calendar", icon: Calendar },
     ]
   },
   {
@@ -223,8 +226,8 @@ export default function CrmContainer({
   }, [canAssignOwners]);
 
   useEffect(() => {
-    if (canCreateLead) fetchWebsites();
-  }, [canCreateLead]);
+    fetchWebsites();
+  }, []);
 
   useEffect(() => {
     if (initialLeadData) {
@@ -697,7 +700,8 @@ export default function CrmContainer({
   };
 
   const onOpenEditLead = (overrideCustomer = null, forceOverrides = {}) => {
-    const target = overrideCustomer || selectedCustomer;
+    const isEvent = overrideCustomer && (typeof overrideCustomer.preventDefault === "function" || overrideCustomer.nativeEvent);
+    const target = (isEvent ? null : overrideCustomer) || selectedCustomer;
     if (!target) return;
     setCreateLeadForm({
       name: target.name || "",
@@ -823,8 +827,11 @@ export default function CrmContainer({
           active: s.active !== false
         };
       });
+      console.log("[CRM Stages] saved stages from DB:", JSON.stringify(saved));
+      const filteredKeys = saved.filter(s => s.active !== false).map(s => s.key);
+      console.log("[CRM Stages] filtered active keys:", filteredKeys);
       setWebsiteStages(saved);
-      setStageKeys(saved.filter(s => s.active !== false).map(s => s.key));
+      setStageKeys(filteredKeys);
     } else {
       // No custom stages — reset to built-in defaults
       Object.keys(CRM_STAGE_CONFIG).forEach(k => delete CRM_STAGE_CONFIG[k]);
@@ -1018,6 +1025,10 @@ export default function CrmContainer({
           <CrmDashboardWidgets
             websiteId={websiteId}
             onOpenCustomer={(cId) => setActiveCustomer360Id(cId)}
+            onOpenCalendar={() => setWorkspaceTab("calendar")}
+            onViewCallAnalytics={() => setWorkspaceTab("bi")}
+            onViewAllOpenTasks={() => setWorkspaceTab("calendar")}
+            onExploreCompleteTimeline={() => setWorkspaceTab("workflow-history")}
           />
 
           <CrmReportsView
@@ -1210,6 +1221,10 @@ export default function CrmContainer({
 
       {workspaceTab === "pipelines" && (
         <CrmPipelinesConfig websiteId={websiteId} />
+      )}
+
+      {workspaceTab === "calendar" && (
+        <CrmCalendarView websiteId={websiteId} />
       )}
 
       {workspaceTab === "products" && (

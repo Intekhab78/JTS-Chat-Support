@@ -1,4 +1,4 @@
-import { Contact } from "../models/Contact.js";
+import * as contactService from "../services/contactService.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
@@ -36,33 +36,19 @@ export const listContacts = asyncHandler(async (req, res) => {
     ];
   }
 
-  const contacts = await Contact.find(query)
-    .populate("companyId", "companyName")
-    .populate("ownerId", "name email role")
-    .sort({ createdAt: -1 })
-    .skip((page - 1) * limit)
-    .limit(Number(limit));
-
-  const total = await Contact.countDocuments(query);
-
-  res.json({
-    contacts,
-    pagination: {
-      total,
-      page: parseInt(page),
-      pages: Math.ceil(total / limit)
-    }
+  const result = await contactService.getContactsList(query, {
+    page: parseInt(page),
+    limit: parseInt(limit)
   });
+
+  res.json(result);
 });
 
 export const getContactDetails = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_VIEW);
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
-  const contact = await Contact.findById(req.params.id)
-    .populate("companyId", "companyName")
-    .populate("ownerId", "name email role");
+  const contact = await contactService.getContact(req.params.id);
 
-  if (!contact) throw new AppError("Contact not found", 404);
   if (!ownedWebsiteIds.map(id => id.toString()).includes(contact.websiteId.toString())) {
     throw new AppError("Unauthorized access to this contact's data", 403);
   }
@@ -73,7 +59,7 @@ export const getContactDetails = asyncHandler(async (req, res) => {
 export const createContact = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_CREATE);
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
-  const { websiteId, firstName, lastName } = req.body;
+  const { websiteId } = req.body;
 
   let resolvedWebsiteId = websiteId;
   if (!resolvedWebsiteId && ownedWebsiteIds.length > 0) resolvedWebsiteId = ownedWebsiteIds[0];
@@ -81,11 +67,10 @@ export const createContact = asyncHandler(async (req, res) => {
     throw new AppError("Unauthorized access to this website's data", 403);
   }
 
-  const contact = await Contact.create({
-    ...req.body,
-    websiteId: resolvedWebsiteId,
-    ownerId: req.body.ownerId || req.user._id
-  });
+  const contact = await contactService.createContact(
+    { ...req.body, websiteId: resolvedWebsiteId },
+    req.user._id
+  );
 
   res.status(201).json(contact);
 });
@@ -93,27 +78,25 @@ export const createContact = asyncHandler(async (req, res) => {
 export const updateContact = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
-  const contact = await Contact.findById(req.params.id);
+  const contact = await contactService.getContact(req.params.id);
 
-  if (!contact) throw new AppError("Contact not found", 404);
   if (!ownedWebsiteIds.map(id => id.toString()).includes(contact.websiteId.toString())) {
     throw new AppError("Unauthorized access to this contact's data", 403);
   }
 
-  const updated = await Contact.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  const updated = await contactService.updateContact(req.params.id, req.body, req.user._id);
   res.json(updated);
 });
 
 export const deleteContact = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_DELETE);
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
-  const contact = await Contact.findById(req.params.id);
+  const contact = await contactService.getContact(req.params.id);
 
-  if (!contact) throw new AppError("Contact not found", 404);
   if (!ownedWebsiteIds.map(id => id.toString()).includes(contact.websiteId.toString())) {
     throw new AppError("Unauthorized access to this contact's data", 403);
   }
 
-  await Contact.findByIdAndDelete(req.params.id);
-  res.json({ message: "Contact deleted successfully" });
+  const response = await contactService.deleteContact(req.params.id, req.user._id);
+  res.json(response);
 });

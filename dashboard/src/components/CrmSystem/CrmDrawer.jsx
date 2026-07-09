@@ -3,7 +3,7 @@ import { useSocket } from "../../context/SocketContext.jsx";
 import { createPortal } from "react-dom";
 import {
   X, PlusCircle, Mail, Ticket as TicketIcon, MessageCircle,
-  Tag, Clock, FileText, Zap, Calendar, Shield, Archive, Trash2, UserCheck
+  Tag, Clock, FileText, Zap, Calendar, Shield, Archive, Trash2, UserCheck, Edit2
 } from "lucide-react";
 
 import ActivityTimeline from "../ActivityTimeline.jsx";
@@ -70,7 +70,7 @@ export default function CrmDrawer({
     if (!socket || !showDrawer || !selectedCustomer?._id) return;
 
     const leadId = selectedCustomer._id;
-    
+
     // Emit viewing status
     socket.emit("crm:viewing-lead", { leadId, isViewing: true });
 
@@ -151,7 +151,7 @@ export default function CrmDrawer({
             {othersViewing.length > 0 && (
               <div className="flex items-center -space-x-2 mr-2">
                 {othersViewing.map((u) => (
-                  <div 
+                  <div
                     key={u._id}
                     title={`${u.name} is also viewing`}
                     className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm animate-in zoom-in-50 duration-300"
@@ -165,64 +165,64 @@ export default function CrmDrawer({
               </div>
             )}
             <div className="flex items-center gap-2">
-            {onOpenFullProfile && (
+              {onOpenFullProfile && (
+                <button
+                  onClick={() => {
+                    onOpenFullProfile(selectedCustomer._id);
+                    setShowDrawer(false);
+                  }}
+                  title="Open Customer 360 Full Profile"
+                  className="p-2 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-100 rounded-xl transition-all flex items-center gap-1.5"
+                >
+                  <PlusCircle size={15} />
+                  <span className="text-[9px] font-black uppercase tracking-wider">Full Profile</span>
+                </button>
+              )}
+              {canAssignOwners && onAutoAssign && (
+                <button
+                  onClick={() => onAutoAssign(selectedCustomer)}
+                  title="Auto-Assign Lead"
+                  className="p-2.5 rounded-xl text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-all border border-transparent hover:border-teal-100"
+                >
+                  <UserCheck size={18} />
+                </button>
+              )}
+              {canEditCRM && (
+                <button
+                  onClick={() => onOpenEditLead()}
+                  title="Edit Lead"
+                  className="p-2.5 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all border border-transparent hover:border-indigo-100"
+                >
+                  <Edit2 size={18} />
+                </button>
+              )}
+              {canAssignOwners && onArchive && (
+                <button
+                  onClick={() => onArchive(selectedCustomer)}
+                  title="Archive Lead"
+                  className="p-2.5 rounded-xl text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all border border-transparent hover:border-amber-100"
+                >
+                  <Archive size={18} />
+                </button>
+              )}
+              {canAssignOwners && onDelete && (
+                <button
+                  onClick={() => onDelete(selectedCustomer)}
+                  title="Delete Lead Permanently"
+                  className="p-2.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all border border-transparent hover:border-rose-100"
+                >
+                  <Trash2 size={18} />
+                </button>
+              )}
               <button
-                onClick={() => {
-                  onOpenFullProfile(selectedCustomer._id);
-                  setShowDrawer(false);
-                }}
-                title="Open Customer 360 Full Profile"
-                className="p-2 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-100 rounded-xl transition-all flex items-center gap-1.5"
+                onClick={() => setShowDrawer(false)}
+                className="p-2.5 rounded-xl text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-all"
               >
-                <PlusCircle size={15} />
-                <span className="text-[9px] font-black uppercase tracking-wider">Full Profile</span>
+                <X size={20} />
               </button>
-            )}
-            {canAssignOwners && onAutoAssign && (
-              <button
-                onClick={() => onAutoAssign(selectedCustomer)}
-                title="Auto-Assign Lead"
-                className="p-2.5 rounded-xl text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-all border border-transparent hover:border-teal-100"
-              >
-                <UserCheck size={18} />
-              </button>
-            )}
-            {canEditCRM && (
-              <button
-                onClick={onOpenEditLead}
-                title="Edit Lead"
-                className="p-2.5 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all border border-transparent hover:border-indigo-100"
-              >
-                <PlusCircle size={18} />
-              </button>
-            )}
-            {canAssignOwners && onArchive && (
-              <button
-                onClick={() => onArchive(selectedCustomer)}
-                title="Archive Lead"
-                className="p-2.5 rounded-xl text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all border border-transparent hover:border-amber-100"
-              >
-                <Archive size={18} />
-              </button>
-            )}
-            {canAssignOwners && onDelete && (
-              <button
-                onClick={() => onDelete(selectedCustomer)}
-                title="Delete Lead Permanently"
-                className="p-2.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all border border-transparent hover:border-rose-100"
-              >
-                <Trash2 size={18} />
-              </button>
-            )}
-            <button
-              onClick={() => setShowDrawer(false)}
-              className="p-2.5 rounded-xl text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-all"
-            >
-              <X size={20} />
-            </button>
+            </div>
           </div>
         </div>
-      </div>
 
         {/* Scrollable Context Wrapper */}
         <div className="flex-1 overflow-y-auto bg-slate-50/40 custom-scrollbar">

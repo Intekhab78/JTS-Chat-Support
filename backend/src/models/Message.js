@@ -16,7 +16,8 @@ const messageSchema = new mongoose.Schema(
       index: true
     },
     deliveredAt: { type: Date, default: null },
-    readAt: { type: Date, default: null }
+    readAt: { type: Date, default: null },
+    providerMessageId: { type: String, index: true, default: null }
   },
   { timestamps: true }
 );

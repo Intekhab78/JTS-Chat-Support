@@ -35,7 +35,8 @@ const dealSchema = new mongoose.Schema(
       default: "medium"
     },
     description: { type: String, trim: true, default: "" },
-    tags: [{ type: String, trim: true }]
+    tags: [{ type: String, trim: true }],
+    isDeleted: { type: Boolean, default: false, index: true }
   },
   { timestamps: true }
 );

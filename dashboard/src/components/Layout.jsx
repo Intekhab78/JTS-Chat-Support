@@ -64,12 +64,16 @@ const iconMap = {
 
 /* ── nav link ─────────────────────────────────────── */
 function SideNavLink({ item, collapsed, onNavigate, isChild = false }) {
+  const location = useLocation();
+  const currentPath = `${location.pathname}${location.search}`;
+  const isActive = currentPath === item.href;
   const Icon = iconMap[item.label] || LayoutDashboard;
+
   return (
     <NavLink
       to={item.href}
       onClick={onNavigate}
-      className={({ isActive }) =>
+      className={
         `relative flex items-center gap-3 rounded-2xl transition-all duration-200 group
          ${collapsed ? "justify-center px-0 py-3" : isChild ? "px-8 py-2.5" : "px-4 py-2.5"}
          ${isActive
@@ -78,22 +82,18 @@ function SideNavLink({ item, collapsed, onNavigate, isChild = false }) {
         }`
       }
     >
-      {({ isActive }) => (
-        <>
-          {isActive && (
-            <div className="absolute left-0 w-1 h-6 bg-indigo-500 rounded-r-full shadow-[0_0_12px_rgba(99,102,241,0.7)]" />
-          )}
-          <Icon
-            size={collapsed ? 22 : 17}
-            className={`shrink-0 transition-transform duration-200 group-hover:scale-110
-              ${isActive ? "text-indigo-300" : "text-slate-400 group-hover:text-white"}`}
-          />
-          {!collapsed && (
-            <span className="text-[11px] font-black uppercase tracking-[0.12em] truncate">
-              {item.label}
-            </span>
-          )}
-        </>
+      {isActive && (
+        <div className="absolute left-0 w-1 h-6 bg-indigo-500 rounded-r-full shadow-[0_0_12px_rgba(99,102,241,0.7)]" />
+      )}
+      <Icon
+        size={collapsed ? 22 : 17}
+        className={`shrink-0 transition-transform duration-200 group-hover:scale-110
+          ${isActive ? "text-indigo-300" : "text-slate-400 group-hover:text-white"}`}
+      />
+      {!collapsed && (
+        <span className="text-[11px] font-black uppercase tracking-[0.12em] truncate">
+          {item.label}
+        </span>
       )}
     </NavLink>
   );
@@ -141,7 +141,7 @@ function SidebarNavItem({ item, collapsed, onNavigate, currentPath, expandedMenu
       </button>
 
       {!collapsed && isExpanded && (
-        <div className="space-y-1">
+        <div className="space-y-1 pl-2.5 py-1 bg-white/[0.02] border-l border-white/5 rounded-r-2xl mt-1">
           {children.map((child) => (
             <SidebarNavItem
               key={child.label}

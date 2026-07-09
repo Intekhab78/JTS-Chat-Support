@@ -1,4 +1,4 @@
-import { Company } from "../models/Company.js";
+import * as companyService from "../services/companyService.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
@@ -27,30 +27,19 @@ export const listCompanies = asyncHandler(async (req, res) => {
     query.companyName = new RegExp(search, "i");
   }
 
-  const companies = await Company.find(query)
-    .populate("ownerId", "name email role")
-    .sort({ createdAt: -1 })
-    .skip((page - 1) * limit)
-    .limit(Number(limit));
-
-  const total = await Company.countDocuments(query);
-
-  res.json({
-    companies,
-    pagination: {
-      total,
-      page: parseInt(page),
-      pages: Math.ceil(total / limit)
-    }
+  const result = await companyService.getCompaniesList(query, {
+    page: parseInt(page),
+    limit: parseInt(limit)
   });
+
+  res.json(result);
 });
 
 export const getCompanyDetails = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_VIEW);
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
-  const company = await Company.findById(req.params.id).populate("ownerId", "name email role");
+  const company = await companyService.getCompany(req.params.id);
 
-  if (!company) throw new AppError("Company not found", 404);
   if (!ownedWebsiteIds.map(id => id.toString()).includes(company.websiteId.toString())) {
     throw new AppError("Unauthorized access to this company's data", 403);
   }
@@ -61,7 +50,7 @@ export const getCompanyDetails = asyncHandler(async (req, res) => {
 export const createCompany = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_CREATE);
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
-  const { websiteId, companyName } = req.body;
+  const { websiteId } = req.body;
 
   let resolvedWebsiteId = websiteId;
   if (!resolvedWebsiteId && ownedWebsiteIds.length > 0) resolvedWebsiteId = ownedWebsiteIds[0];
@@ -69,11 +58,10 @@ export const createCompany = asyncHandler(async (req, res) => {
     throw new AppError("Unauthorized access to this website's data", 403);
   }
 
-  const company = await Company.create({
-    ...req.body,
-    websiteId: resolvedWebsiteId,
-    ownerId: req.body.ownerId || req.user._id
-  });
+  const company = await companyService.createCompany(
+    { ...req.body, websiteId: resolvedWebsiteId },
+    req.user._id
+  );
 
   res.status(201).json(company);
 });
@@ -81,27 +69,25 @@ export const createCompany = asyncHandler(async (req, res) => {
 export const updateCompany = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
-  const company = await Company.findById(req.params.id);
+  const company = await companyService.getCompany(req.params.id);
 
-  if (!company) throw new AppError("Company not found", 404);
   if (!ownedWebsiteIds.map(id => id.toString()).includes(company.websiteId.toString())) {
     throw new AppError("Unauthorized access to this company's data", 403);
   }
 
-  const updated = await Company.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  const updated = await companyService.updateCompany(req.params.id, req.body, req.user._id);
   res.json(updated);
 });
 
 export const deleteCompany = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_DELETE);
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
-  const company = await Company.findById(req.params.id);
+  const company = await companyService.getCompany(req.params.id);
 
-  if (!company) throw new AppError("Company not found", 404);
   if (!ownedWebsiteIds.map(id => id.toString()).includes(company.websiteId.toString())) {
     throw new AppError("Unauthorized access to this company's data", 403);
   }
 
-  await Company.findByIdAndDelete(req.params.id);
-  res.json({ message: "Company deleted successfully" });
+  const response = await companyService.deleteCompany(req.params.id, req.user._id);
+  res.json(response);
 });

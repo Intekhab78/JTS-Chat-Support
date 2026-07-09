@@ -12,12 +12,10 @@ async function bootstrap() {
     await connectDatabase();
     logger.log("Database connected");
 
-    try {
-      const { runCrmMigration } = await import("./migrations/crmMigration.js");
-      await runCrmMigration();
-    } catch (migrationErr) {
-      console.error("Failed to run CRM migration:", migrationErr);
-    }
+    // Run CRM migration asynchronously in the background so it doesn't block server startup
+    import("./migrations/crmMigration.js")
+      .then(({ runCrmMigration }) => runCrmMigration())
+      .catch((migrationErr) => console.error("Failed to run CRM migration:", migrationErr));
 
     const app = createApp();
     const server = http.createServer(app);

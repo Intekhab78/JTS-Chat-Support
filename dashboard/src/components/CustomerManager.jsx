@@ -28,6 +28,9 @@ export default function CustomerManager({ websiteId }) {
     isActive: true
   });
 
+  const [portalAccess, setPortalAccess] = useState({ active: false, email: "" });
+  const [portalLoading, setPortalLoading] = useState(false);
+
   async function loadData() {
     setLoading(true);
     try {
@@ -88,7 +91,41 @@ export default function CustomerManager({ websiteId }) {
     });
   }
 
-  const openDrawer = (item = null) => {
+  const fetchPortalAccessStatus = async (id) => {
+    setPortalLoading(true);
+    try {
+      const res = await api(`/api/crm/${id}/portal-access`);
+      setPortalAccess(res || { active: false, email: "" });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setPortalLoading(false);
+    }
+  };
+
+  const handleGrantPortalAccess = async () => {
+    if (!window.confirm("Are you sure you want to grant Client Portal access for this customer?")) return;
+    try {
+      const res = await api(`/api/crm/${editingId}/portal-access`, { method: "POST" });
+      alert(res.message || "Portal access granted.");
+      fetchPortalAccessStatus(editingId);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleRevokePortalAccess = async () => {
+    if (!window.confirm("Are you sure you want to revoke Client Portal access? This will delete their login credentials.")) return;
+    try {
+      const res = await api(`/api/crm/${editingId}/portal-access`, { method: "DELETE" });
+      alert(res.message || "Portal access revoked.");
+      fetchPortalAccessStatus(editingId);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const openDrawer = async (item = null) => {
     if (item) {
       setEditingId(item._id);
       setForm({
@@ -104,8 +141,19 @@ export default function CustomerManager({ websiteId }) {
         pipelineStage: item.pipelineStage || "new",
         isActive: item.isActive !== false
       });
+      // Fetch portal status
+      setPortalLoading(true);
+      try {
+        const res = await api(`/api/crm/${item._id}/portal-access`);
+        setPortalAccess(res || { active: false, email: "" });
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setPortalLoading(false);
+      }
     } else {
       setEditingId("");
+      setPortalAccess({ active: false, email: "" });
       setForm({
         name: "",
         email: "",
@@ -475,6 +523,48 @@ export default function CustomerManager({ websiteId }) {
                   <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                 </label>
               </section>
+
+              {/* Section: Client Portal Access */}
+              {editingId && (
+                <section className="bg-white rounded-2xl p-5 border border-slate-100 space-y-4 shadow-sm">
+                  <div className="flex items-center gap-2 border-b pb-2.5">
+                    <div className="w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500 shadow-sm"><ShieldCheck size={12} /></div>
+                    <h6 className="text-[11px] font-black text-slate-900 uppercase tracking-tight">Client Portal Access</h6>
+                  </div>
+                  {portalLoading ? (
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Synchronizing Portal Credentials...</p>
+                  ) : (
+                    <div className="space-y-4 text-xs font-bold text-slate-600">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-black uppercase text-slate-400">Portal Link Status</span>
+                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${portalAccess.active ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>
+                          {portalAccess.active ? "Active" : "Inactive"}
+                        </span>
+                      </div>
+                      {portalAccess.active ? (
+                        <div className="space-y-3">
+                          <p className="text-[10px] font-bold text-slate-500">Authorized User: <strong className="text-slate-800 block mt-0.5 truncate">{portalAccess.email}</strong></p>
+                          <button
+                            type="button"
+                            onClick={handleRevokePortalAccess}
+                            className="w-full py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 text-[9px] font-black uppercase rounded-xl transition-all"
+                          >
+                            Revoke Portal Access
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleGrantPortalAccess}
+                          className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[9px] font-black uppercase rounded-xl transition-all shadow-md"
+                        >
+                          Grant Portal Access
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </section>
+              )}
 
               <div className="h-4" />
             </form>

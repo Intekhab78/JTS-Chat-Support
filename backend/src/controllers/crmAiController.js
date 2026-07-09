@@ -170,20 +170,38 @@ export const runAgentQuery = asyncHandler(async (req, res) => {
   const config = await AiModelConfig.findOne({ websiteId: resolvedWebsiteId }) || { provider: "gemini", modelName: "gemini-1.5-flash" };
   const driver = AiProviderManager.getProvider(config.provider);
 
-  // Load prompt library templates
-  let systemPrompt = "";
-  if (promptName) {
-    const promptLib = await AiPrompt.findOne({ websiteId: resolvedWebsiteId, name: promptName, isActive: true });
-    if (promptLib) systemPrompt = promptLib.promptText;
+  // 1. Fetch relevant knowledge sources for RAG context
+  const knowledgeSources = await AiKnowledgeSource.find({ websiteId: resolvedWebsiteId });
+  let ragContext = "";
+  if (knowledgeSources.length > 0) {
+    const queryWords = queryText.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    const matched = knowledgeSources.filter(src => {
+      const textToMatch = `${src.name} ${src.content}`.toLowerCase();
+      return queryWords.some(word => textToMatch.includes(word));
+    });
+
+    const sourcesToUse = matched.length > 0 ? matched : knowledgeSources.slice(0, 3);
+    ragContext = sourcesToUse.map(src => `[Document: ${src.name}]\n${src.content}`).join("\n\n");
   }
 
-  const fullPromptText = `${systemPrompt}\nUser Query: ${queryText}`;
+  // 2. Load prompt library templates
+  let systemPrompt = "";
+  const activePromptName = promptName || "agent_chat";
+  const promptLib = await AiPrompt.findOne({ websiteId: resolvedWebsiteId, name: activePromptName, isActive: true });
+  if (promptLib) {
+    systemPrompt = promptLib.promptText;
+  }
+
+  const fullPromptText = `${systemPrompt}
+${ragContext ? `\nUse the following reference documents to answer the User Query:\n${ragContext}\n` : ""}
+User Query: ${queryText}`;
   
   // Call LLM completion driver
   const result = await driver.generateCompletion({
     prompt: fullPromptText,
     temperature: config.temperature,
-    maxTokens: config.maxTokens
+    maxTokens: config.maxTokens,
+    modelName: config.modelName
   });
 
   // Log usage tokens

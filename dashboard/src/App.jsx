@@ -14,10 +14,12 @@ const ManagerPage = lazy(() => import("./pages/ManagerPage.jsx"));
 const SalesPage = lazy(() => import("./pages/SalesPage.jsx"));
 const SupplierPage = lazy(() => import("./pages/SupplierPage.jsx"));
 const AccountsPage = lazy(() => import("./pages/AccountsPage.jsx"));
+const CustomerPortalPage = lazy(() => import("./pages/CustomerPortalPage.jsx"));
 
 function destinationForRole(role) {
   if (String(role || "").trim().toLowerCase() === "purchase") return "/purchase";
   const normalizedRole = normalizeRole(role);
+  if (normalizedRole === "customer") return "/customer-portal";
   if (normalizedRole === "accounts") return "/accounts";
   if (normalizedRole === "agent") return "/agent";
   if (normalizedRole === "sales") return "/sales";
@@ -70,6 +72,7 @@ export default function App() {
           <Route path="/supplier" element={<ProtectedRoute allowedRoles={["supplier"]}><SupplierPage /></ProtectedRoute>} />
           <Route path="/sales" element={<ProtectedRoute allowedRoles={["sales"]}><SalesPage /></ProtectedRoute>} />
           <Route path="/accounts" element={<ProtectedRoute allowedRoles={["accounts"]}><AccountsPage /></ProtectedRoute>} />
+          <Route path="/customer-portal" element={<ProtectedRoute allowedRoles={["customer"]}><CustomerPortalPage /></ProtectedRoute>} />
           <Route path="/agent" element={<ProtectedRoute allowedRoles={["agent", "user"]}><AgentPage /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to={user ? destinationForRole(user.role) : "/"} replace />} />
         </Routes>

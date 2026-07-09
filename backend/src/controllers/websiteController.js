@@ -73,30 +73,28 @@ export async function updateWebsite(req, res) {
   if (role !== "admin" && !ownedWebsiteIds.map(id => id.toString()).includes(req.params.id)) {
     return res.status(403).json({ message: "Access denied" });
   }
+  const updateData = {};
+  const fields = [
+    "websiteName", "domain", "primaryColor", "accentColor", "launcherIcon",
+    "welcomeMessage", "awayMessage", "position", "businessHours", "webhooks",
+    "isActive", "enableChat", "enableLeadGeneration", "enableTicketing",
+    "enableKnowledgeBase", "enableLiveAgent", "enableAutomation", "currencySettings"
+  ];
+  
+  fields.forEach(field => {
+    if (req.body[field] !== undefined) {
+      updateData[field] = req.body[field];
+    }
+  });
+
+  if (Array.isArray(req.body.pipelineStages)) {
+    updateData.pipelineStages = req.body.pipelineStages;
+  }
+
   const filter = { _id: req.params.id };
   const website = await Website.findOneAndUpdate(
     filter,
-    {
-      websiteName: req.body.websiteName,
-      domain: req.body.domain,
-      primaryColor: req.body.primaryColor,
-      accentColor: req.body.accentColor,
-      launcherIcon: req.body.launcherIcon,
-      welcomeMessage: req.body.welcomeMessage,
-      awayMessage: req.body.awayMessage,
-      position: req.body.position,
-      businessHours: req.body.businessHours,
-      webhooks: req.body.webhooks,
-      ...(req.body.isActive !== undefined ? { isActive: req.body.isActive } : {}),
-      ...(req.body.enableChat !== undefined ? { enableChat: req.body.enableChat } : {}),
-      ...(req.body.enableLeadGeneration !== undefined ? { enableLeadGeneration: req.body.enableLeadGeneration } : {}),
-      ...(req.body.enableTicketing !== undefined ? { enableTicketing: req.body.enableTicketing } : {}),
-      ...(req.body.enableKnowledgeBase !== undefined ? { enableKnowledgeBase: req.body.enableKnowledgeBase } : {}),
-      ...(req.body.enableLiveAgent !== undefined ? { enableLiveAgent: req.body.enableLiveAgent } : {}),
-      ...(req.body.enableAutomation !== undefined ? { enableAutomation: req.body.enableAutomation } : {}),
-      ...(Array.isArray(req.body.pipelineStages) ? { pipelineStages: req.body.pipelineStages } : {}),
-      ...(req.body.currencySettings ? { currencySettings: req.body.currencySettings } : {})
-    },
+    updateData,
     { new: true }
   );
 

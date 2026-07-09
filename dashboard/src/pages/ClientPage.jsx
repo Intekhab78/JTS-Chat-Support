@@ -409,6 +409,9 @@ export default function ClientPage() {
         setQueuedSessions(queRes);
         setSessions(sesRes);
         setWebsites(webRes);
+        if (webRes && webRes.length > 0) {
+          setSelectedWebsiteId(prev => prev || webRes[0]._id);
+        }
         setProcurementStats(procRes);
         setError("");
       } catch (err) {
@@ -494,6 +497,13 @@ export default function ClientPage() {
         label: "Inventory",
         children: [
           { label: "Item Master", href: "/client?tab=inventory-master" },
+          { label: "Category Master", href: "/client?tab=inventory-category" },
+          { label: "Subcategory Master", href: "/client?tab=inventory-subcategory" },
+          { label: "Brand Master", href: "/client?tab=inventory-brand" },
+          { label: "Size Master", href: "/client?tab=inventory-size" },
+          { label: "Color Master", href: "/client?tab=inventory-color" },
+          { label: "Unit Master", href: "/client?tab=inventory-unit" },
+          { label: "Supplier Master", href: "/client?tab=inventory-supplier" },
           { label: "Stock In", href: "/client?tab=inventory-stock-in" },
           { label: "Stock Out", href: "/client?tab=inventory-stock-out" },
           { label: "Adjustment", href: "/client?tab=inventory-adjustment" }
@@ -621,6 +631,48 @@ export default function ClientPage() {
     content = <InventoryManager websiteId={selectedWebsiteId} activeTab="history" />;
   }
 
+  if (tab === "inventory-category") {
+    title = "Inventory Category Master";
+    subtitle = "Manage item categories for structured inventory";
+    content = <InventoryManager websiteId={selectedWebsiteId} activeTab="inventory-category" />;
+  }
+
+  if (tab === "inventory-subcategory") {
+    title = "Inventory Subcategory Master";
+    subtitle = "Manage item subcategories for granular organization";
+    content = <InventoryManager websiteId={selectedWebsiteId} activeTab="inventory-subcategory" />;
+  }
+
+  if (tab === "inventory-brand") {
+    title = "Inventory Brand Master";
+    subtitle = "Manage item brands for catalog structure";
+    content = <InventoryManager websiteId={selectedWebsiteId} activeTab="inventory-brand" />;
+  }
+
+  if (tab === "inventory-size") {
+    title = "Inventory Size Master";
+    subtitle = "Manage item sizes for variant control";
+    content = <InventoryManager websiteId={selectedWebsiteId} activeTab="inventory-size" />;
+  }
+
+  if (tab === "inventory-color") {
+    title = "Inventory Color Master";
+    subtitle = "Manage item colors for variant control";
+    content = <InventoryManager websiteId={selectedWebsiteId} activeTab="inventory-color" />;
+  }
+
+  if (tab === "inventory-unit") {
+    title = "Inventory Unit Master";
+    subtitle = "Manage item measurement units";
+    content = <InventoryManager websiteId={selectedWebsiteId} activeTab="inventory-unit" />;
+  }
+
+  if (tab === "inventory-supplier") {
+    title = "Inventory Supplier Master";
+    subtitle = "Manage preferred item suppliers";
+    content = <InventoryManager websiteId={selectedWebsiteId} activeTab="inventory-supplier" />;
+  }
+
   if (tab === "crm") {
     title = "CRM Master Console";
     subtitle = "Strategic customer relationship management and intelligence";
@@ -710,7 +762,7 @@ export default function ClientPage() {
   }
 
   // Handle other tabs generically for now
-  if (!["overview", "chats", "websites", "agents", "clients", "reports", "tickets", "shortcuts", "history", "categories", "departments", "crm", "security", "billing", "subscriptions", "roles", "inventory-customer", "flow-analytics", "help-center", "inventory", "inventory-master", "inventory-stock-in", "inventory-stock-out", "inventory-adjustment", "inventory-history"].includes(tab)) {
+  if (!["overview", "chats", "websites", "agents", "clients", "reports", "tickets", "shortcuts", "history", "categories", "departments", "crm", "security", "billing", "subscriptions", "roles", "inventory-customer", "flow-analytics", "help-center", "inventory", "inventory-master", "inventory-stock-in", "inventory-stock-out", "inventory-adjustment", "inventory-history", "inventory-category", "inventory-subcategory", "inventory-brand", "inventory-size", "inventory-color", "inventory-unit", "inventory-supplier"].includes(tab)) {
     content = (
       <div className="bg-white p-24 rounded-[40px] border border-slate-200/60 shadow-sm text-center">
         <div className="max-w-xs mx-auto space-y-4">

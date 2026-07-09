@@ -2,8 +2,13 @@ import cron from "node-cron";
 import { User } from "../models/User.js";
 import { Website } from "../models/Website.js";
 import nodemailer from "nodemailer";
+import { checkAndDispatchReminders } from "./reminderSchedulerService.js";
 
 export const startCronJobs = () => {
+  // Check and dispatch reminders every minute
+  cron.schedule("*/1 * * * *", () => {
+    checkAndDispatchReminders();
+  });
   // Setup email transporter using Ethereal for dev or your real SMTP
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.ethereal.email',

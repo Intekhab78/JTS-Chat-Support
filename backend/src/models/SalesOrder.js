@@ -53,6 +53,7 @@ const salesOrderSchema = new mongoose.Schema(
     },
     ownerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
     notes: { type: String, default: "" },
+    isStockDeducted: { type: Boolean, default: false },
     approvalHistory: [{
       approverId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
       action: { type: String, enum: ["pending", "approved", "rejected"] },

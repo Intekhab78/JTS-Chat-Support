@@ -19,8 +19,17 @@ const activitySchema = new mongoose.Schema(
     duration: { type: Number, default: 0 }, // in minutes
     ownerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
     participants: [activityParticipantSchema],
-    status: { type: String, default: "completed", index: true },
+    status: { type: String, default: "pending", index: true },
     priority: { type: String, enum: ["low", "medium", "high"], default: "medium" },
+    dueDate: { type: Date, default: Date.now, index: true },
+    endAt: { type: Date, default: null },
+    timezone: { type: String, default: "Asia/Kolkata" },
+    meetingType: { type: String, enum: ["zoom", "google_meet", "in_person", "phone", "custom"], default: "zoom" },
+    reminderDate: { type: Date, default: null },
+    completedAt: { type: Date, default: null },
+    completedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    outcomeNotes: { type: String, default: "" },
+    isDeleted: { type: Boolean, default: false, index: true },
     attachments: [{
       filename: { type: String, trim: true },
       url: { type: String, trim: true }
@@ -35,5 +44,14 @@ const activitySchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+activitySchema.pre("validate", function(next) {
+  if (this.activityAt && !this.dueDate) {
+    this.dueDate = this.activityAt;
+  } else if (this.dueDate && !this.activityAt) {
+    this.activityAt = this.dueDate;
+  }
+  next();
+});
 
 export const Activity = mongoose.model("Activity", activitySchema);

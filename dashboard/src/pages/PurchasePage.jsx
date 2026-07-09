@@ -827,19 +827,19 @@ export default function PurchasePage() {
 
   const menuItems = [
     { label: "Dashboard", href: "/purchase" },
-    { label: "Accounts", href: "/purchase?tab=accounts" },
     { label: "Requests", href: "/purchase?tab=requests" },
     { label: "Procurement", href: "/purchase?tab=procurement" },
-    { label: "Quotations", href: "/purchase?tab=quotations" },
-    { label: "Invoices", href: "/purchase?tab=invoices" },
     {
       label: "Inventory",
       children: [
         { label: "Item Master", href: "/purchase?tab=inventory-master" },
         { label: "Category Master", href: "/purchase?tab=inventory-category" },
         { label: "Subcategory Master", href: "/purchase?tab=inventory-subcategory" },
+        { label: "Brand Master", href: "/purchase?tab=inventory-brand" },
         { label: "Size Master", href: "/purchase?tab=inventory-size" },
         { label: "Color Master", href: "/purchase?tab=inventory-color" },
+        { label: "Unit Master", href: "/purchase?tab=inventory-unit" },
+        { label: "Supplier Master", href: "/purchase?tab=inventory-supplier" },
         { label: "Stock In", href: "/purchase?tab=inventory-stock-in" },
         { label: "Stock Out", href: "/purchase?tab=inventory-stock-out" },
         { label: "Adjustment", href: "/purchase?tab=inventory-adjustment" }
@@ -1202,6 +1202,54 @@ export default function PurchasePage() {
           label="Inventory Scope"
         />
         <InventoryManager websiteId={selectedInventoryWebsiteId} activeTab="inventory-color" />
+      </div>
+    );
+  }
+
+  if (tab === "inventory-brand") {
+    title = "Inventory Brand Master";
+    subtitle = "Manage item brands for catalog structure";
+    content = (
+      <div className="space-y-6">
+        <PurchaseWebsiteSelector
+          websites={inventoryWebsites}
+          websiteId={selectedInventoryWebsiteId}
+          setWebsiteId={setSelectedInventoryWebsiteId}
+          label="Inventory Scope"
+        />
+        <InventoryManager websiteId={selectedInventoryWebsiteId} activeTab="inventory-brand" />
+      </div>
+    );
+  }
+
+  if (tab === "inventory-unit") {
+    title = "Inventory Unit Master";
+    subtitle = "Manage item measurement units";
+    content = (
+      <div className="space-y-6">
+        <PurchaseWebsiteSelector
+          websites={inventoryWebsites}
+          websiteId={selectedInventoryWebsiteId}
+          setWebsiteId={setSelectedInventoryWebsiteId}
+          label="Inventory Scope"
+        />
+        <InventoryManager websiteId={selectedInventoryWebsiteId} activeTab="inventory-unit" />
+      </div>
+    );
+  }
+
+  if (tab === "inventory-supplier") {
+    title = "Inventory Supplier Master";
+    subtitle = "Manage preferred item suppliers";
+    content = (
+      <div className="space-y-6">
+        <PurchaseWebsiteSelector
+          websites={inventoryWebsites}
+          websiteId={selectedInventoryWebsiteId}
+          setWebsiteId={setSelectedInventoryWebsiteId}
+          label="Inventory Scope"
+        />
+        <InventoryManager websiteId={selectedInventoryWebsiteId} activeTab="inventory-supplier" />
       </div>
     );
   }

@@ -136,6 +136,27 @@ export const updateQuotationStatus = asyncHandler(async (req, res) => {
       customer.isLocked = true;
       await customer.save();
 
+      // Automatically create a default Customer Success Onboarding profile
+      const { CustomerSuccess } = await import("../models/CustomerSuccess.js");
+      await CustomerSuccess.findOneAndUpdate(
+        { websiteId: customer.websiteId, customerId: customer._id },
+        { 
+          websiteId: customer.websiteId,
+          customerId: customer._id,
+          onboardingStatus: "pending",
+          healthScore: 80, // Default baseline health
+          onboardingChecklist: {
+            workspaceCreated: false,
+            adminInvited: false,
+            usersAdded: false,
+            dataImported: false,
+            trainingCompleted: false,
+            goLive: false
+          }
+        },
+        { upsert: true, new: true }
+      );
+
       // Notify purchase team
       const purchaseRecipients = await getPurchaseRecipientsForWebsite(customer.websiteId, req.user.managerId);
       await Promise.all(purchaseRecipients.map(recipient => createAndEmitCrmNotification({
@@ -162,6 +183,26 @@ export const sendQuotation = asyncHandler(async (req, res) => {
   res.json(quotation);
 });
 
+export const listAllQuotations = asyncHandler(async (req, res) => {
+  const { websiteId } = req.query;
+  if (!websiteId) throw new AppError("Website ID is required.", 400);
+  assertWebsiteAccess(req.user, req.ownedWebsiteIds, websiteId);
+
+  const quotes = await Quotation.find({ websiteId })
+    .populate("customerId", "name email companyName recordType")
+    .sort({ createdAt: -1 });
+
+  res.json(quotes);
+});
+
+export const getQuotationsReports = asyncHandler(async (req, res) => {
+  const { websiteId } = req.query;
+  if (!websiteId) throw new AppError("Website ID is required.", 400);
+  assertWebsiteAccess(req.user, req.ownedWebsiteIds, websiteId);
+
+  res.json({ success: true, message: "Quotation reports loaded" });
+});
+
 export const createQuotationPayment = asyncHandler(async (req, res) => {
   const stripeKey = env.stripeSecretKey;
   if (!stripeKey) throw new AppError("Stripe not configured", 500);
@@ -186,8 +227,81 @@ export const updateQuotation = asyncHandler(async (req, res) => {
   if (!quotation) throw new AppError("Quotation not found.", 404);
   assertWebsiteAccess(req.user, req.ownedWebsiteIds, quotation.websiteId);
 
-  const updated = await Quotation.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  res.json(updated);
+  const items = req.body.items || quotation.items;
+  const discountAmount = req.body.discountAmount !== undefined ? Number(req.body.discountAmount) : quotation.discountAmount;
+  const shippingCharges = req.body.shippingCharges !== undefined ? Number(req.body.shippingCharges) : quotation.shippingCharges;
+  const isInterState = req.body.isInterState !== undefined ? req.body.isInterState : (quotation.isInterState || false);
+
+  const totals = calculateTotals({
+    items,
+    discountAmount,
+    shippingCharges,
+    isInterState
+  });
+
+  if (quotation.status === "draft") {
+    // Modify in place
+    const updated = await Quotation.findByIdAndUpdate(req.params.id, {
+      ...req.body,
+      items: totals.items,
+      subtotal: totals.subtotal,
+      discountAmount: totals.discountAmount,
+      shippingCharges: totals.shippingCharges,
+      tax: totals.tax,
+      total: totals.total,
+      isInterState
+    }, { new: true });
+    return res.json(updated);
+  } else {
+    // Create new version revision
+    const highestVerQuote = await Quotation.findOne({ 
+      websiteId: quotation.websiteId, 
+      quotationNumber: quotation.quotationNumber 
+    }).sort({ version: -1 });
+
+    const nextVersion = (highestVerQuote ? highestVerQuote.version : quotation.version) + 1;
+    const nextQuotationId = `${quotation.quotationNumber}-V${nextVersion}`;
+
+    // Multi-tier discount check for new draft version
+    const totalDiscountPct = (totals.discountAmount / (totals.subtotal || 1)) * 100;
+    const approvalCheck = determineApprovalRole(totalDiscountPct);
+
+    let initialStatus = "draft";
+    let initialApprovalStatus = "none";
+
+    const newVersion = await Quotation.create({
+      ...quotation.toObject(),
+      _id: undefined,
+      createdAt: undefined,
+      updatedAt: undefined,
+      quotationId: nextQuotationId,
+      version: nextVersion,
+      items: totals.items,
+      subtotal: totals.subtotal,
+      discountAmount: totals.discountAmount,
+      shippingCharges: totals.shippingCharges,
+      tax: totals.tax,
+      total: totals.total,
+      isInterState,
+      status: initialStatus,
+      approvalStatus: initialApprovalStatus,
+      approvalHistory: [],
+      notes: req.body.notes !== undefined ? req.body.notes : quotation.notes,
+      validUntil: req.body.validUntil !== undefined ? req.body.validUntil : quotation.validUntil
+    });
+
+    // Log Activity Timeline
+    await logCrmActivity({
+      websiteId: quotation.websiteId,
+      type: "quotation_sent",
+      title: `New Quotation Revision: ${nextQuotationId}`,
+      description: `Created version revision ${nextVersion} from ${quotation.quotationId} with total value $${totals.total}.`,
+      customerId: quotation.customerId,
+      ownerId: req.user._id
+    });
+
+    return res.json(newVersion);
+  }
 });
 
 export const deleteQuotation = asyncHandler(async (req, res) => {

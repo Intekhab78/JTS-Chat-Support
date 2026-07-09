@@ -22,12 +22,24 @@ export async function dispatchWebhookEvent(websiteId, eventName, url, payload = 
 
     console.log(`[Webhook Dispatcher] Generated Header x-jts-signature: ${signature}`);
 
-    // Simulated Axios/Fetch dispatch logic (mock success)
-    console.log(`[Webhook Dispatcher] Payload delivered successfully.`);
+    // Perform actual outbound HTTP POST Request
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-jts-signature": signature
+      },
+      body: payloadStr,
+      signal: AbortSignal.timeout(5000)
+    });
+
+    httpStatus = response.status;
+    status = response.ok ? "sent" : "failed";
+    console.log(`[Webhook Dispatcher] Payload delivered. HTTP Status: ${httpStatus}`);
   } catch (err) {
-    console.error(`[Webhook Dispatcher] Delivery failed:`, err);
+    console.error(`[Webhook Dispatcher] Delivery failed:`, err.message);
     status = "failed";
-    httpStatus = 500;
+    httpStatus = err.name === "TimeoutError" ? 408 : 500;
   } finally {
     // Save audit log trace
     await WebhookDeliveryLog.create({

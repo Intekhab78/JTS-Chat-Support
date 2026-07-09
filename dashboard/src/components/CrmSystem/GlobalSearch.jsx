@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Search, Command, X, Mail, Phone, ChevronRight, Zap } from "lucide-react";
 import { api } from "../../api/client.js";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 export default function GlobalSearch() {
   const [isOpen, setIsOpen] = useState(false);
@@ -12,6 +12,7 @@ export default function GlobalSearch() {
   const inputRef = useRef(null);
   const resultsRef = useRef(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const openSearch = () => setIsOpen(true);
@@ -88,8 +89,17 @@ export default function GlobalSearch() {
 
   const handleSelect = (result) => {
     setIsOpen(false);
-    // Navigate to sales page with the lead highlighted
-    navigate(`/sales?leadId=${result._id}`);
+    const pathPrefix = location.pathname.startsWith("/manager") ? "/manager" : location.pathname.startsWith("/client") ? "/client" : location.pathname.startsWith("/agent") ? "/agent" : "/sales";
+    
+    if (result.type === "company") {
+      navigate(`${pathPrefix}?tab=crm&workspaceTab=companies&companyId=${result._id}`);
+    } else if (result.type === "contact") {
+      navigate(`${pathPrefix}?tab=crm&workspaceTab=contacts&contactId=${result._id}`);
+    } else if (result.type === "opportunity") {
+      navigate(`${pathPrefix}?tab=crm&workspaceTab=deals&dealId=${result._id}`);
+    } else {
+      navigate(`${pathPrefix}?leadId=${result._id}`);
+    }
   };
 
   if (!isOpen) return null;

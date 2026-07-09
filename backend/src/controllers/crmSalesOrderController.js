@@ -1,5 +1,6 @@
 import { SalesOrder } from "../models/SalesOrder.js";
 import { Quotation } from "../models/Quotation.js";
+import { Invoice } from "../models/Invoice.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
@@ -80,7 +81,50 @@ export const updateSalesOrderStatus = asyncHandler(async (req, res) => {
   }
 
   const previousStatus = order.status;
-  const updated = await SalesOrder.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  const newStatus = req.body.status || order.status;
+
+  // Inventory Stock Auto-Deduction trigger on shipping
+  if (["shipped", "delivered", "completed"].includes(newStatus) && !order.isStockDeducted) {
+    const { InventoryItem } = await import("../models/InventoryItem.js");
+    const { InventoryMovement } = await import("../models/InventoryMovement.js");
+
+    for (const item of order.items) {
+      if (!item.sku) continue;
+      const invItem = await InventoryItem.findOne({ 
+        websiteId: order.websiteId, 
+        sku: item.sku 
+      });
+
+      if (invItem) {
+        const prevQty = invItem.quantity || 0;
+        const newQty = Math.max(0, prevQty - item.quantity);
+        invItem.quantity = newQty;
+        await invItem.save();
+
+        await InventoryMovement.create({
+          websiteId: order.websiteId,
+          itemId: invItem._id,
+          type: "out",
+          quantity: item.quantity,
+          previousQuantity: prevQty,
+          balanceAfter: newQty,
+          reference: order.orderNumber,
+          notes: `Auto-deducted on Order Dispatch (${order.orderNumber})`,
+          createdBy: req.user._id
+        });
+      }
+    }
+    order.isStockDeducted = true;
+  }
+
+  // Update order fields
+  order.status = newStatus;
+  if (req.body.paymentStatus) order.paymentStatus = req.body.paymentStatus;
+  if (req.body.shippingAddress) order.shippingAddress = req.body.shippingAddress;
+  if (req.body.billingAddress) order.billingAddress = req.body.billingAddress;
+  if (req.body.notes) order.notes = req.body.notes;
+
+  const updated = await order.save();
 
   if (previousStatus !== updated.status) {
     await logCrmActivity({
@@ -138,6 +182,41 @@ export const convertQuotationToOrder = asyncHandler(async (req, res) => {
     ownerId: req.user._id
   });
 
+  // Automatically generate the corresponding Invoice
+  const invoiceId = `INV-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
+  const invoiceItems = quotation.items.map(item => ({
+    productId: item.productId || null,
+    sku: item.sku || "CUSTOM",
+    description: item.description,
+    quantity: item.quantity,
+    price: item.price,
+    discount: item.discount,
+    taxRate: item.taxRate,
+    taxAmount: item.taxAmount,
+    subtotal: item.subtotal,
+    total: item.total
+  }));
+
+  await Invoice.create({
+    invoiceId,
+    invoiceNumber: invoiceId,
+    customerId: quotation.customerId,
+    websiteId: quotation.websiteId,
+    ownerId: req.user._id,
+    salesOrderId: order._id,
+    quotationId: quotation.quotationId,
+    items: invoiceItems,
+    subtotal: quotation.subtotal,
+    discountAmount: quotation.discountAmount,
+    tax: quotation.tax,
+    shippingCharges: quotation.shippingCharges,
+    total: quotation.total,
+    currency: quotation.currency || "EUR",
+    status: "pending",
+    notes: quotation.notes,
+    issuedAt: new Date()
+  });
+
   // Mark quotation as converted
   quotation.status = "converted";
   await quotation.save();
@@ -147,7 +226,7 @@ export const convertQuotationToOrder = asyncHandler(async (req, res) => {
     websiteId: quotation.websiteId,
     type: "sales_order",
     title: `Quotation Converted: ${orderNumber}`,
-    description: `Quotation ${quotation.quotationId} successfully converted to confirmed Sales Order ${orderNumber}. Inventory reserved (placeholder).`,
+    description: `Quotation ${quotation.quotationId} successfully converted to confirmed Sales Order ${orderNumber} and Invoice ${invoiceId}. Inventory reserved (placeholder).`,
     customerId: quotation.customerId,
     ownerId: req.user._id
   });

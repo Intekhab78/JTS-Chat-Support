@@ -2,7 +2,14 @@ import React, { useState, useEffect } from "react";
 import { Phone, Video, AlertCircle, Clock, CheckCircle2, ChevronRight, User } from "lucide-react";
 import { api } from "../../api/client.js";
 
-export default function CrmDashboardWidgets({ websiteId, onOpenCustomer }) {
+export default function CrmDashboardWidgets({
+  websiteId,
+  onOpenCustomer,
+  onOpenCalendar,
+  onViewCallAnalytics,
+  onViewAllOpenTasks,
+  onExploreCompleteTimeline
+}) {
   const [calls, setCalls] = useState([]);
   const [meetings, setMeetings] = useState([]);
   const [tasks, setTasks] = useState([]);
@@ -21,7 +28,7 @@ export default function CrmDashboardWidgets({ websiteId, onOpenCustomer }) {
       setCalls(callRes.calls || []);
 
       // 3. Fetch Overdue Tasks
-      const taskRes = await api(`/api/crm/tasks/my?websiteId=${websiteId}`); // Fallbacks to my tasks
+      const taskRes = await api(`/api/crm/tasks/my?websiteId=${websiteId}`);
       const allTasks = Array.isArray(taskRes) ? taskRes : (taskRes.tasks || []);
       const overdue = allTasks.filter(t => t.status === "open" && new Date(t.dueAt) < new Date());
       setTasks(overdue.slice(0, 5));
@@ -29,8 +36,8 @@ export default function CrmDashboardWidgets({ websiteId, onOpenCustomer }) {
       // 4. Fetch Recent Activities
       const actRes = await api(`/api/crm/activities?websiteId=${websiteId}&limit=5`);
       setActivities(actRes.activities || []);
-    } catch (err) {
-      console.error("Widget fetch failed:", err);
+    } catch (e) {
+      console.error("Dashboard widget fetch error: ", e);
     } finally {
       setLoading(false);
     }
@@ -43,8 +50,15 @@ export default function CrmDashboardWidgets({ websiteId, onOpenCustomer }) {
   if (loading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[1, 2, 3, 4].map(n => (
-          <div key={n} className="bg-slate-50 border border-slate-100 rounded-[28px] h-48 animate-pulse" />
+        {[1, 2, 3, 4].map(idx => (
+          <div key={idx} className="bg-white border border-slate-100 rounded-[28px] p-6 min-h-[220px] animate-pulse flex flex-col justify-between">
+            <div className="h-4 bg-slate-100 rounded-full w-24"></div>
+            <div className="space-y-2">
+              <div className="h-3 bg-slate-100 rounded-full w-full"></div>
+              <div className="h-3 bg-slate-100 rounded-full w-3/4"></div>
+            </div>
+            <div className="h-3 bg-slate-100 rounded-full w-16"></div>
+          </div>
         ))}
       </div>
     );
@@ -72,7 +86,10 @@ export default function CrmDashboardWidgets({ websiteId, onOpenCustomer }) {
             )}
           </div>
         </div>
-        <div className="text-[9px] font-black text-indigo-600 uppercase tracking-wider mt-4 flex items-center gap-1 cursor-pointer hover:underline">
+        <div
+          onClick={() => onOpenCalendar && onOpenCalendar()}
+          className="text-[9px] font-black text-indigo-600 uppercase tracking-wider mt-4 flex items-center gap-1 cursor-pointer hover:underline"
+        >
           Go to calendar <ChevronRight size={10} />
         </div>
       </div>
@@ -97,7 +114,10 @@ export default function CrmDashboardWidgets({ websiteId, onOpenCustomer }) {
             )}
           </div>
         </div>
-        <div className="text-[9px] font-black text-indigo-600 uppercase tracking-wider mt-4 flex items-center gap-1 cursor-pointer hover:underline">
+        <div
+          onClick={() => onViewCallAnalytics && onViewCallAnalytics()}
+          className="text-[9px] font-black text-indigo-600 uppercase tracking-wider mt-4 flex items-center gap-1 cursor-pointer hover:underline"
+        >
           View call analytics <ChevronRight size={10} />
         </div>
       </div>
@@ -122,7 +142,10 @@ export default function CrmDashboardWidgets({ websiteId, onOpenCustomer }) {
             )}
           </div>
         </div>
-        <div className="text-[9px] font-black text-indigo-600 uppercase tracking-wider mt-4 flex items-center gap-1 cursor-pointer hover:underline">
+        <div
+          onClick={() => onViewAllOpenTasks && onViewAllOpenTasks()}
+          className="text-[9px] font-black text-indigo-600 uppercase tracking-wider mt-4 flex items-center gap-1 cursor-pointer hover:underline"
+        >
           View all open tasks <ChevronRight size={10} />
         </div>
       </div>
@@ -147,7 +170,10 @@ export default function CrmDashboardWidgets({ websiteId, onOpenCustomer }) {
             )}
           </div>
         </div>
-        <div className="text-[9px] font-black text-indigo-600 uppercase tracking-wider mt-4 flex items-center gap-1 cursor-pointer hover:underline">
+        <div
+          onClick={() => onExploreCompleteTimeline && onExploreCompleteTimeline()}
+          className="text-[9px] font-black text-indigo-600 uppercase tracking-wider mt-4 flex items-center gap-1 cursor-pointer hover:underline"
+        >
           Explore complete timeline <ChevronRight size={10} />
         </div>
       </div>

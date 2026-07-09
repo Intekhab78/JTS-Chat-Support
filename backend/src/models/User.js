@@ -66,6 +66,8 @@ const userSchema = new mongoose.Schema(
     stripeSubscriptionId: { type: String, default: null },
     // Supplier Integration
     supplierId: { type: mongoose.Schema.Types.ObjectId, ref: "Supplier", default: null },
+    // Customer Portal Integration
+    customerId: { type: mongoose.Schema.Types.ObjectId, ref: "Customer", default: null },
     // Advanced CRM Tier-2 Fields
     specialties: { type: [String], default: [] }, // e.g., ["technical", "medical", "legal"]
     territories: { type: [String], default: [] }, // e.g., ["india", "usa", "emea"]
