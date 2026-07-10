@@ -54,7 +54,9 @@ const invoiceSchema = new mongoose.Schema({
     zip: String,
     country: String
   },
-  issuedAt: { type: Date, default: Date.now, index: true }
+  issuedAt: { type: Date, default: Date.now, index: true },
+  dueDate: { type: Date, default: null, index: true },   // payment due date for overdue reminder
+  reminderSent: { type: Boolean, default: false }         // tracks if overdue reminder email was dispatched
 }, { timestamps: true });
 
 export const Invoice = mongoose.model("Invoice", invoiceSchema);

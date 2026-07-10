@@ -2,6 +2,7 @@ import { PurchaseOrder } from "../models/PurchaseOrder.js";
 import { Supplier } from "../models/Supplier.js";
 import { InventoryItem } from "../models/InventoryItem.js";
 import { InventoryMovement } from "../models/InventoryMovement.js";
+import { Customer } from "../models/Customer.js";
 import { 
   checkAndNotifyLowStock, 
   notifyOrderStatusUpdate 
@@ -15,6 +16,7 @@ import { assertWebsiteAccess } from "../utils/websiteScope.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { addPOHistory, updateSupplierPerformance } from "../services/procurementIntelligenceService.js";
+
 
 // @desc    Get all suppliers
 // @route   GET /api/procurement/suppliers
@@ -99,15 +101,46 @@ export const getPurchaseOrders = asyncHandler(async (req, res) => {
 
 export const getProcurementStats = async (req, res) => {
   try {
-    const websiteIds = await getOwnedWebsiteIds(req.user);
+    const allWebsiteIds = await getOwnedWebsiteIds(req.user);
     
-    // 1. Total Spend (Completed Orders)
+    // Build websiteId filter
+    let websiteIds;
+    if (req.query.websiteId) {
+      // Use the provided websiteId directly (user is authenticated, route requires role)
+      // Try to use it directly if it's in the manager's allowed list, 
+      // OR if the manager can see it (shown in their website selector)
+      const filtered = allWebsiteIds.filter(id => id.toString() === req.query.websiteId);
+      websiteIds = filtered.length > 0 ? filtered : allWebsiteIds;
+      // If manager has no websites in allWebsiteIds, allow direct query on provided websiteId
+      if (allWebsiteIds.length === 0 && req.query.websiteId) {
+        // Direct fallback for managers whose getOwnedWebsiteIds may not be configured
+        const fallbackWebsite = await Website.findById(req.query.websiteId).select("_id");
+        if (fallbackWebsite) websiteIds = [fallbackWebsite._id];
+      }
+    } else {
+      websiteIds = allWebsiteIds;
+    }
+
+    // Guard: if still empty, return zeros rather than querying all data
+    if (!websiteIds || websiteIds.length === 0) {
+      return res.json({
+        totalSpend: 0,
+        statusDistribution: [],
+        topSuppliers: [],
+        lowStockCount: 0,
+        lowStockItems: [],
+        totalOrders: 0,
+        crm: { wonDeals: 0, lockedDeals: 0, completedWorkflows: 0, wonRevenue: 0 }
+      });
+    }
+    
+    // 1. Total Spend (all non-draft POs)
     const spendData = await PurchaseOrder.aggregate([
-      { $match: { websiteId: { $in: websiteIds }, status: "delivered" } },
+      { $match: { websiteId: { $in: websiteIds }, status: { $ne: "draft" } } },
       { $group: { _id: null, total: { $sum: "$total" } } }
     ]);
 
-    // 2. Status Distribution
+    // 2. Status Distribution of POs
     const statusData = await PurchaseOrder.aggregate([
       { $match: { websiteId: { $in: websiteIds } } },
       { $group: { _id: "$status", count: { $sum: 1 } } }
@@ -136,6 +169,28 @@ export const getProcurementStats = async (req, res) => {
       $expr: { $lte: ["$quantity", "$reorderLevel"] }
     }).limit(5);
 
+    // 5. Total PO count
+    const totalOrders = await PurchaseOrder.countDocuments({ websiteId: { $in: websiteIds } });
+
+    // 6. CRM Won Deals — supplement procurement view with real business activity
+    // Check both pipelineStage and dealStage to be robust
+    const wonDeals = await Customer.countDocuments({
+      websiteId: { $in: websiteIds },
+      $or: [{ pipelineStage: "won" }, { dealStage: "won" }]
+    });
+    const lockedDeals = await Customer.countDocuments({
+      websiteId: { $in: websiteIds },
+      isLocked: true
+    });
+    const completedWorkflows = await Customer.countDocuments({
+      websiteId: { $in: websiteIds },
+      purchaseWorkflowStatus: "completed"
+    });
+    const wonRevenueData = await Customer.aggregate([
+      { $match: { websiteId: { $in: websiteIds }, $or: [{ pipelineStage: "won" }, { dealStage: "won" }] } },
+      { $group: { _id: null, total: { $sum: "$leadValue" } } }
+    ]);
+
     res.json({
       totalSpend: spendData[0]?.total || 0,
       statusDistribution: statusData,
@@ -144,12 +199,21 @@ export const getProcurementStats = async (req, res) => {
         websiteId: { $in: websiteIds },
         $expr: { $lte: ["$quantity", "$reorderLevel"] }
       }),
-      lowStockItems
+      lowStockItems,
+      totalOrders,
+      crm: {
+        wonDeals,
+        lockedDeals,
+        completedWorkflows,
+        wonRevenue: wonRevenueData[0]?.total || 0
+      }
     });
   } catch (error) {
+    console.error("getProcurementStats error:", error);
     res.status(500).json({ message: error.message });
   }
 };
+
 
 export const downloadPurchaseOrderPDF = asyncHandler(async (req, res, next) => {
   const order = await PurchaseOrder.findById(req.params.id);
@@ -177,23 +241,67 @@ export const downloadPurchaseOrderPDF = asyncHandler(async (req, res, next) => {
 // @route   POST /api/procurement/orders
 // @access  Private (Internal)
 export const createPurchaseOrder = asyncHandler(async (req, res, next) => {
-  const { supplierId, websiteId, items, notes, terms, expectedDeliveryDate } = req.body;
+  const { supplierId, websiteId, items, notes, terms, expectedDeliveryDate, crmCustomerId } = req.body;
   const validWebsiteIds = await getOwnedWebsiteIds(req.user);
 
   assertWebsiteAccess(req.user, validWebsiteIds, websiteId);
 
-  // Calculate totals
-  const total = items.reduce((acc, item) => acc + (Number(item.quantity) * Number(item.unitPrice)), 0);
+  // Validate and dynamically register any new inventory items
+  const parsedItems = [];
+  for (const item of items) {
+    let itemId = item.itemId;
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(itemId);
+    if (!isValidObjectId || itemId === "new" || !itemId) {
+      // Look up existing active item by name for this website to prevent duplicate SKUs
+      let dbItem = await InventoryItem.findOne({
+        websiteId,
+        name: item.description.trim(),
+        isDeleted: { $ne: true }
+      });
+      
+      if (!dbItem) {
+        // Create matching inventory item on the fly
+        const cleanName = item.description.trim();
+        const cleanPrefix = cleanName.substring(0, 3).toUpperCase().replace(/[^A-Z]/g, "ITEM");
+        const prefix = cleanPrefix.length === 3 ? cleanPrefix : "POITEM";
+        const rand = Math.floor(1000 + Math.random() * 9000);
+        const sku = `${prefix}-${rand}`;
+        
+        dbItem = await InventoryItem.create({
+          websiteId,
+          name: cleanName,
+          sku,
+          unit: "pcs",
+          unitCost: Number(item.unitPrice || 0),
+          quantity: 0,
+          reorderLevel: 5
+        });
+      }
+      itemId = dbItem._id;
+    }
+    
+    parsedItems.push({
+      itemId,
+      description: item.description,
+      quantity: Number(item.quantity || 1),
+      unitPrice: Number(item.unitPrice || 0),
+      total: Number(item.quantity || 1) * Number(item.unitPrice || 0)
+    });
+  }
+
+  // Calculate totals from validated items
+  const total = parsedItems.reduce((acc, item) => acc + item.total, 0);
 
   const po = new PurchaseOrder({
     poNumber: `PO-${Date.now()}`,
     supplierId,
     websiteId,
-    items,
+    items: parsedItems,
     total,
     notes,
     terms,
     expectedDeliveryDate,
+    crmCustomerId,
     status: "sent", // Assuming sending immediately
     createdBy: req.user._id
   });

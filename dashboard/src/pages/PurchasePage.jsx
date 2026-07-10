@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { FileSpreadsheet, ShieldCheck, Ticket, Clock3, RefreshCw, Building2, ReceiptText, TrendingUp, Zap } from "lucide-react";
+import { FileSpreadsheet, ShieldCheck, Ticket, Clock3, RefreshCw, Building2, ReceiptText, TrendingUp, Zap, Package, PhoneCall, X, IndianRupee } from "lucide-react";
 import Layout from "../components/Layout.jsx";
 import StatCard from "../components/StatCard.jsx";
 import PaginationControls from "../components/PaginationControls.jsx";
@@ -101,6 +101,271 @@ function WorkflowActionButton({ customer, busy, onAdvance }) {
       {busy ? <div className="h-3 w-3 rounded-full border-2 border-current border-t-transparent animate-spin" /> : <Zap size={13} />}
       {currentStep.action}
     </button>
+  );
+}
+
+// ─── Create PO from Deal Modal ──────────────────────────────────────────────
+function CreatePOFromDealModal({ customer, onClose, websiteId, inventoryWebsites }) {
+  const [suppliers, setSuppliers] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [openDropIdx, setOpenDropIdx] = useState(null); // which line item has dropdown open
+
+  const prefillDescription = customer?.requirement
+    && customer.requirement.trim().length > 0
+    ? customer.requirement.trim()
+    : customer?.companyName
+    ? `Service delivery for ${customer.companyName}`
+    : "Service/Product Delivery";
+
+  const [form, setForm] = useState({
+    supplierId: "",
+    notes: `Procurement for: ${customer?.name || customer?.companyName || ""} — Requirement: ${customer?.requirement || "Not specified"} — Code: ${customer?.generatedCode || ""}`,
+    items: [{ description: prefillDescription, quantity: 1, unitPrice: customer?.leadValue || 0, total: customer?.leadValue || 0 }],
+    expectedDeliveryDate: ""
+  });
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState("");
+  const activeWebsiteId = websiteId || inventoryWebsites?.[0]?._id || "";
+
+  useEffect(() => {
+    api.get("/api/procurement/suppliers").then(setSuppliers).catch(() => {});
+    // Load products/services catalog for the active website
+    const wid = activeWebsiteId;
+    if (wid) {
+      api.get(`/api/crm/products?websiteId=${wid}&limit=200`).then(r => setProducts(r.products || [])).catch(() => {});
+    }
+  }, [activeWebsiteId]);
+
+  const updateItem = (idx, patch) => {
+    const newItems = [...form.items];
+    newItems[idx] = { ...newItems[idx], ...patch };
+    newItems[idx].total = (newItems[idx].quantity || 1) * (newItems[idx].unitPrice || 0);
+    setForm(f => ({ ...f, items: newItems }));
+  };
+
+  const removeItem = (idx) => {
+    setForm(f => ({ ...f, items: f.items.filter((_, i) => i !== idx) }));
+  };
+
+  const selectProduct = (idx, product) => {
+    updateItem(idx, { description: product.name, unitPrice: product.price });
+    setOpenDropIdx(null);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!activeWebsiteId) { setError("No website scope found. Please select a website in Procurement tab first."); return; }
+    if (!form.supplierId) { setError("Please select a supplier."); return; }
+    setCreating(true);
+    setError("");
+    try {
+      await api("/api/procurement/orders", {
+        method: "POST",
+        body: JSON.stringify({ ...form, websiteId: activeWebsiteId, crmCustomerId: customer?._id })
+      });
+      onClose(true);
+    } catch (err) {
+      setError(err.message || "Failed to create PO");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const totalValue = form.items.reduce((s, i) => s + (i.total || 0), 0);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={e => e.target === e.currentTarget && onClose(false)}>
+      <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-start justify-between p-8 pb-0">
+          <div className="space-y-1">
+            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-indigo-500">Create Supplier PO</p>
+            <h3 className="text-xl font-black text-slate-900 tracking-tight">From CRM Deal</h3>
+          </div>
+          <button onClick={() => onClose(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400"><X size={18} /></button>
+        </div>
+
+        {/* Client Info Banner */}
+        <div className="mx-8 mt-6 p-4 rounded-2xl bg-indigo-50 border border-indigo-100">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Client</p>
+              <p className="text-sm font-black text-indigo-900">{customer?.name || customer?.companyName || "—"}</p>
+            </div>
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Deal Value</p>
+              <p className="text-sm font-black text-indigo-900">{customer?.leadValue ? `₹${Number(customer.leadValue).toLocaleString()}` : "—"}</p>
+            </div>
+            <div className="col-span-2">
+              <p className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Requirement</p>
+              <p className="text-xs font-bold text-indigo-800">{customer?.requirement || "Not specified"}</p>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-8 space-y-5">
+          {/* Supplier Select */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Select Supplier *</label>
+            <select
+              value={form.supplierId}
+              onChange={e => setForm(f => ({ ...f, supplierId: e.target.value }))}
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400"
+              required
+            >
+              <option value="">-- Choose Supplier --</option>
+              {suppliers.map(s => <option key={s._id} value={s._id}>{s.companyName}</option>)}
+            </select>
+            {suppliers.length === 0 && <p className="text-[10px] text-amber-600 font-bold">⚠ No suppliers found. Add one in the Procurement tab first.</p>}
+          </div>
+
+          {/* Items */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">PO Line Items</label>
+              {products.length > 0 && (
+                <span className="text-[9px] font-bold text-indigo-400 bg-indigo-50 px-2 py-0.5 rounded-lg">
+                  {products.length} products/services in catalog
+                </span>
+              )}
+            </div>
+
+            {/* Column headers */}
+            <div className="grid grid-cols-[1fr_64px_96px_80px_28px] gap-2 px-1">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Description / Service</span>
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Qty</span>
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Unit Price</span>
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Total</span>
+              <span></span>
+            </div>
+
+            {form.items.map((item, idx) => {
+              const filteredProducts = products.filter(p =>
+                !item.description || p.name.toLowerCase().includes(item.description.toLowerCase()) || p.sku?.toLowerCase().includes(item.description.toLowerCase())
+              );
+              const showDropdown = openDropIdx === idx && filteredProducts.length > 0;
+
+              return (
+                <div key={idx} className="grid grid-cols-[1fr_64px_96px_80px_28px] gap-2 items-start">
+                  {/* Description with catalog dropdown */}
+                  <div className="relative">
+                    <input
+                      value={item.description}
+                      onChange={e => { updateItem(idx, { description: e.target.value }); setOpenDropIdx(idx); }}
+                      onFocus={() => setOpenDropIdx(idx)}
+                      onBlur={() => setTimeout(() => setOpenDropIdx(null), 180)}
+                      placeholder="Type or pick from catalog…"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                    />
+                    {showDropdown && (
+                      <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden max-h-48 overflow-y-auto">
+                        <div className="px-3 py-2 bg-slate-50 border-b border-slate-100">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Product / Service Catalog</p>
+                        </div>
+                        {filteredProducts.slice(0, 8).map(p => (
+                          <button
+                            key={p._id}
+                            type="button"
+                            onMouseDown={() => selectProduct(idx, p)}
+                            className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-indigo-50 text-left transition-colors group"
+                          >
+                            <div>
+                              <p className="text-xs font-black text-slate-800 group-hover:text-indigo-700">{p.name}</p>
+                              <p className="text-[9px] font-bold text-slate-400 uppercase">{p.type} • SKU: {p.sku}</p>
+                            </div>
+                            <span className="text-xs font-black text-indigo-600 ml-4 shrink-0">₹{Number(p.price).toLocaleString()}</span>
+                          </button>
+                        ))}
+                        {filteredProducts.length === 0 && (
+                          <p className="px-4 py-3 text-[10px] font-bold text-slate-400">No match — type custom description</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Qty */}
+                  <input
+                    type="number" min={1} value={item.quantity}
+                    onChange={e => updateItem(idx, { quantity: Number(e.target.value) })}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2.5 text-xs font-bold text-center outline-none focus:border-indigo-400"
+                  />
+
+                  {/* Unit Price */}
+                  <input
+                    type="number" min={0} value={item.unitPrice}
+                    onChange={e => updateItem(idx, { unitPrice: Number(e.target.value) })}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold outline-none focus:border-indigo-400"
+                  />
+
+                  {/* Total */}
+                  <div className="flex items-center justify-end text-xs font-black text-slate-700 py-2.5 pr-1">
+                    ₹{(item.total || 0).toLocaleString()}
+                  </div>
+
+                  {/* Delete button */}
+                  <button
+                    type="button"
+                    onClick={() => removeItem(idx)}
+                    disabled={form.items.length === 1}
+                    className="flex items-center justify-center w-7 h-7 mt-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+                    title="Remove item"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              );
+            })}
+
+            <button
+              type="button"
+              onClick={() => setForm(f => ({ ...f, items: [...f.items, { description: "", quantity: 1, unitPrice: 0, total: 0 }] }))}
+              className="flex items-center gap-1.5 text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-800 transition-colors mt-1"
+            >
+              <span className="text-base leading-none">+</span> Add Line Item
+            </button>
+          </div>
+
+          {/* Notes */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Notes</label>
+            <textarea
+              value={form.notes}
+              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+              rows={3}
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400"
+            />
+          </div>
+
+          {/* Expected Delivery */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Expected Delivery Date</label>
+            <input type="date" value={form.expectedDeliveryDate}
+              onChange={e => setForm(f => ({ ...f, expectedDeliveryDate: e.target.value }))}
+              className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400"
+            />
+          </div>
+
+          {/* Total Preview */}
+          <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-900 text-white">
+            <span className="text-[10px] font-black uppercase tracking-widest">PO Total</span>
+            <span className="text-lg font-black">₹{totalValue.toLocaleString()}</span>
+          </div>
+
+          {error && <p className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-xl p-3">{error}</p>}
+
+          <div className="flex gap-3">
+            <button type="button" onClick={() => onClose(false)}
+              className="flex-1 rounded-2xl border border-slate-200 bg-white py-3 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50">
+              Cancel
+            </button>
+            <button type="submit" disabled={creating}
+              className="flex-1 rounded-2xl bg-slate-900 py-3 text-[10px] font-black uppercase tracking-widest text-white hover:bg-black disabled:opacity-50">
+              {creating ? "Creating PO…" : "Create Draft PO"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
@@ -292,8 +557,9 @@ function PurchaseOverview({ sessions, tickets, loading, onRefresh, user, custome
   );
 }
 
-function PurchaseRequests({ sessions, tickets, customers, page, setPage, loading, onRefresh, onSelectCustomer, workflowFilter, setWorkflowFilter, updatingWorkflowId, onAdvanceWorkflow }) {
+function PurchaseRequests({ sessions, tickets, customers, page, setPage, loading, onRefresh, onSelectCustomer, workflowFilter, setWorkflowFilter, updatingWorkflowId, onAdvanceWorkflow, inventoryWebsites, selectedInventoryWebsiteId }) {
   const [convertingId, setConvertingId] = useState("");
+  const [createPODeal, setCreatePODeal] = useState(null); // customer to create PO for
 
   const handleConvert = async (item) => {
     setConvertingId(item.id);
@@ -349,8 +615,13 @@ function PurchaseRequests({ sessions, tickets, customers, page, setPage, loading
       kind: "Deal Request",
       title: customer.companyName || customer.name || customer.crn || "Won deal handoff",
       subtitle: customer.websiteId?.websiteName || customer.email || "Purchase request",
+      // Show requirement + lead value prominently
+      requirement: customer.requirement || "",
+      leadValue: customer.leadValue || 0,
+      phone: customer.phone || "",
+      email: customer.email || "",
       detail: customer.generatedCode
-        ? `Generated code: ${customer.generatedCode}`
+        ? `Code: ${customer.generatedCode}`
         : `Locked won deal${customer.crn ? ` • ${customer.crn}` : ""}`,
       status: customer.isLocked ? "queued" : "open",
       workflowStatus: getWorkflowStatus(customer),
@@ -378,6 +649,19 @@ function PurchaseRequests({ sessions, tickets, customers, page, setPage, loading
 
   return (
     <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
+      {/* Create PO from Deal Modal */}
+      {createPODeal && (
+        <CreatePOFromDealModal
+          customer={createPODeal}
+          inventoryWebsites={inventoryWebsites}
+          websiteId={selectedInventoryWebsiteId}
+          onClose={(created) => {
+            setCreatePODeal(null);
+            if (created) alert("Draft PO created! View it in the Procurement tab.");
+          }}
+        />
+      )}
+
       <div className="space-y-1">
         <h3 className="text-xl font-black text-slate-900 tracking-tight">Purchase Request Queue</h3>
         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Combined view of locked won deals, assigned conversations, and tickets</p>
@@ -418,51 +702,93 @@ function PurchaseRequests({ sessions, tickets, customers, page, setPage, loading
           <div className="space-y-4">
             {paginated.pageItems.map((item) => (
               <article key={item.id} className="rounded-3xl border border-slate-100 bg-slate-50/70 p-5 transition-all hover:border-indigo-200 hover:bg-white">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="flex flex-col lg:flex-row lg:items-center gap-6 flex-1 min-w-0">
-                    <div className="space-y-1 flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="rounded-lg bg-slate-900 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-white">{item.kind}</span>
-                        <StatusBadge status={item.status} />
-                        {item.kind === "Deal Request" ? <WorkflowBadge status={item.workflowStatus} /> : null}
-                      </div>
-                      <h4 className="text-sm font-black uppercase tracking-tight text-slate-900 truncate">{item.title}</h4>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 truncate">{item.subtitle}</p>
-                      <p className="text-xs font-bold text-slate-500 truncate">{item.detail}</p>
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="flex flex-col gap-3 flex-1 min-w-0">
+                    {/* Header row */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="rounded-lg bg-slate-900 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-white">{item.kind}</span>
+                      <StatusBadge status={item.status} />
+                      {item.kind === "Deal Request" ? <WorkflowBadge status={item.workflowStatus} /> : null}
                     </div>
 
-                    <div className="flex items-center gap-3 shrink-0">
-                      {item.kind === "Deal Request" ? (
+                    {/* Client name */}
+                    <h4 className="text-sm font-black uppercase tracking-tight text-slate-900 truncate">{item.title}</h4>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 truncate">{item.subtitle}</p>
+
+                    {/* Deal Request Extra Info */}
+                    {item.kind === "Deal Request" && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-1">
+                        {/* Requirement */}
+                        <div className="flex items-start gap-2 p-3 rounded-xl bg-indigo-50 border border-indigo-100 col-span-2">
+                          <Package size={13} className="text-indigo-400 mt-0.5 shrink-0" />
+                          <div>
+                            <p className="text-[8px] font-black uppercase tracking-widest text-indigo-400">Requirement / Product</p>
+                            <p className="text-xs font-bold text-indigo-900 mt-0.5">{item.requirement || "Not specified"}</p>
+                          </div>
+                        </div>
+                        {/* Lead Value */}
+                        <div className="flex items-start gap-2 p-3 rounded-xl bg-emerald-50 border border-emerald-100">
+                          <IndianRupee size={13} className="text-emerald-500 mt-0.5 shrink-0" />
+                          <div>
+                            <p className="text-[8px] font-black uppercase tracking-widest text-emerald-400">Deal Value</p>
+                            <p className="text-xs font-black text-emerald-800 mt-0.5">{item.leadValue ? `₹${Number(item.leadValue).toLocaleString()}` : "—"}</p>
+                          </div>
+                        </div>
+                        {/* Phone & Code */}
+                        {(item.phone || item.detail) && (
+                          <div className="flex items-start gap-2 p-3 rounded-xl bg-slate-100 border border-slate-200 col-span-3">
+                            {item.phone && <><PhoneCall size={11} className="text-slate-400 mt-0.5 shrink-0" /><span className="text-[10px] font-bold text-slate-600 mr-4">{item.phone}</span></>}
+                            <span className="text-[10px] font-bold text-slate-400 truncate">{item.detail}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Non-deal detail */}
+                    {item.kind !== "Deal Request" && (
+                      <p className="text-xs font-bold text-slate-500 truncate">{item.detail}</p>
+                    )}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                    {item.kind === "Deal Request" ? (
+                      <>
                         <WorkflowActionButton
                           customer={item.original}
                           busy={updatingWorkflowId === item.original._id}
                           onAdvance={onAdvanceWorkflow}
                         />
-                      ) : null}
+                        <button
+                          type="button"
+                          disabled={convertingId === item.id}
+                          onClick={(e) => { e.stopPropagation(); handleConvert(item); }}
+                          className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-[9px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-100 disabled:opacity-50"
+                        >
+                          {convertingId === item.id ? <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <Zap size={14} />}
+                          Manage Sale
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setCreatePODeal(item.original); }}
+                          className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-[9px] font-black uppercase tracking-widest bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
+                        >
+                          <Package size={14} />
+                          Create PO
+                        </button>
+                      </>
+                    ) : (
                       <button
                         type="button"
                         disabled={convertingId === item.id}
                         onClick={() => handleConvert(item)}
-                        className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-[9px] font-black uppercase tracking-widest transition-all ${
-                          item.kind === "Deal Request"
-                            ? "bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-100"
-                            : "bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100 shadow-sm shadow-emerald-500/10"
-                        } disabled:opacity-50`}
+                        className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100 shadow-sm shadow-emerald-500/10 disabled:opacity-50"
                       >
-                        {convertingId === item.id ? (
-                          <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                        ) : item.kind === "Deal Request" ? (
-                          <Zap size={14} />
-                        ) : (
-                          <TrendingUp size={14} />
-                        )}
-                        {item.kind === "Deal Request" ? "Manage Sale" : "Convert to Sales"}
+                        {convertingId === item.id ? <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <TrendingUp size={14} />}
+                        Convert to Sales
                       </button>
-                    </div>
-                  </div>
-                  
-                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-300">
-                    {formatDate(item.updatedAt)}
+                    )}
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">{formatDate(item.updatedAt)}</span>
                   </div>
                 </div>
               </article>
@@ -1023,6 +1349,8 @@ export default function PurchasePage() {
         setWorkflowFilter={setWorkflowFilter}
         updatingWorkflowId={updatingWorkflowId}
         onAdvanceWorkflow={updatePurchaseWorkflow}
+        inventoryWebsites={inventoryWebsites}
+        selectedInventoryWebsiteId={selectedInventoryWebsiteId}
         onSelectCustomer={(id) => {
           setSelectedCustomerId(id);
           setSearchParams({ tab: "accounts" });

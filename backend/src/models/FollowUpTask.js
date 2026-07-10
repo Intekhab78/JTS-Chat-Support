@@ -16,6 +16,7 @@ const followUpTaskSchema = new mongoose.Schema(
     status: { type: String, enum: FOLLOW_UP_TASK_STATUSES, default: "open", index: true },
     priority: { type: String, enum: ["low", "medium", "high", "urgent"], default: "medium", index: true },
     reminderAt: { type: Date, default: null },
+    reminderSent: { type: Boolean, default: false },     // prevents duplicate reminder emails
     checklist: [{
       text: { type: String, trim: true },
       checked: { type: Boolean, default: false }

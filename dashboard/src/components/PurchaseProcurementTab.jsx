@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { Plus, CheckCircle, Package, Search, Download, FileText, Clock3 } from "lucide-react";
+import { Plus, CheckCircle, Package, Search, Download, FileText, Clock3, IndianRupee, Phone, Zap, X } from "lucide-react";
 import { api, apiUrl } from "../api/client.js";
 import { ItemAutocomplete, QuickCreateItemModal } from "./ItemAutocomplete.jsx";
 import ProcurementAnalytics from "./ProcurementAnalytics.jsx";
 import { formatCurrency } from "../utils/currencyFormatter.js";
 
+
 export default function PurchaseProcurementTab({ websiteId }) {
   const [suppliers, setSuppliers] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [wonDeals, setWonDeals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [showAddSupplier, setShowAddSupplier] = useState(false);
@@ -16,9 +18,11 @@ export default function PurchaseProcurementTab({ websiteId }) {
     supplierId: "",
     items: [{ itemId: "", description: "", quantity: 1, unitPrice: 0, total: 0 }],
     expectedDeliveryDate: "",
-    notes: ""
+    notes: "",
+    crmCustomerId: ""
   });
   const [quickCreateQuery, setQuickCreateQuery] = useState("");
+
 
   useEffect(() => {
     fetchData();
@@ -27,18 +31,21 @@ export default function PurchaseProcurementTab({ websiteId }) {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [suppRes, ordRes] = await Promise.all([
+      const [suppRes, ordRes, dealsRes] = await Promise.all([
         api.get("/api/procurement/suppliers"),
-        api.get(`/api/procurement/orders${websiteId ? `?websiteId=${websiteId}` : ""}`)
+        api.get(`/api/procurement/orders${websiteId ? `?websiteId=${websiteId}` : ""}`),
+        api.get(`/api/crm?pipelineStage=won${websiteId ? `&websiteId=${websiteId}` : ""}&limit=100`).catch(() => [])
       ]);
       setSuppliers(suppRes);
       setOrders(ordRes);
+      setWonDeals(Array.isArray(dealsRes) ? dealsRes : dealsRes?.customers || []);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
   };
+
 
   const approveDraft = async (orderId) => {
     try {
@@ -74,13 +81,15 @@ export default function PurchaseProcurementTab({ websiteId }) {
         supplierId: "",
         items: [{ itemId: "", description: "", quantity: 1, unitPrice: 0, total: 0 }],
         expectedDeliveryDate: "",
-        notes: ""
+        notes: "",
+        crmCustomerId: ""
       });
       fetchData();
     } catch (err) {
       alert(err.message || "Failed to create PO");
     }
   };
+
 
   const handleCreateSupplier = async (e) => {
     e.preventDefault();
@@ -175,7 +184,54 @@ export default function PurchaseProcurementTab({ websiteId }) {
         </div>
       )}
 
-      <ProcurementAnalytics />
+      <ProcurementAnalytics websiteId={websiteId} />
+
+      {/* Won CRM Deals section */}
+      {wonDeals.filter(deal => !orders.some(o => o.crmCustomerId === deal._id)).length > 0 && (
+        <div className="space-y-4 mb-8 bg-indigo-50/40 border border-indigo-100/60 p-6 rounded-[28px]">
+          <div className="flex items-center gap-2">
+            <Zap size={16} className="text-indigo-600 animate-pulse" />
+            <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">Won Deals Awaiting Supplier PO</h4>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {wonDeals
+              .filter(deal => !orders.some(o => o.crmCustomerId === deal._id))
+              .map(deal => (
+                <div key={deal._id} className="bg-white p-5 rounded-2xl border border-indigo-100 hover:border-indigo-300 transition-all flex flex-col justify-between">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-start">
+                      <span className="text-[9px] font-black uppercase bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">CRM Won Handoff</span>
+                      <span className="text-xs font-black text-slate-800">₹{(deal.leadValue || 0).toLocaleString()}</span>
+                    </div>
+                    <h5 className="text-xs font-black text-slate-900 truncate">{deal.companyName || deal.name}</h5>
+                    <p className="text-[10px] text-slate-500 font-medium italic truncate">Requirement: {deal.requirement || "Not specified"}</p>
+                    {deal.phone && (
+                      <div className="flex items-center gap-1 text-[9px] text-slate-400 font-bold">
+                        <Phone size={10} /> {deal.phone}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setForm({
+                        supplierId: "",
+                        notes: `Procurement for: ${deal.companyName || deal.name} — Requirement: ${deal.requirement || "Not specified"} — Code: ${deal.generatedCode || ""}`,
+                        items: [{ itemId: "new", description: deal.requirement || "Service/Product Delivery", quantity: 1, unitPrice: deal.leadValue || 0, total: deal.leadValue || 0 }],
+                        expectedDeliveryDate: "",
+                        crmCustomerId: deal._id
+                      });
+                      setShowCreate(true);
+                    }}
+                    className="mt-4 w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all"
+                  >
+                    + Create PO
+                  </button>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
           <h3 className="text-xl font-black text-slate-900 tracking-tight">Vendor Management</h3>
@@ -240,97 +296,117 @@ export default function PurchaseProcurementTab({ websiteId }) {
       )}
 
       {showCreate && (
-        <div className="bg-white rounded-[32px] border border-indigo-100 p-8 shadow-sm">
-          <form onSubmit={handleCreatePO} className="space-y-6">
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Supplier</label>
-                <select 
-                  required
-                  value={form.supplierId}
-                  onChange={e => setForm({...form, supplierId: e.target.value})}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-400"
-                >
-                  <option value="">Select Supplier</option>
-                  {suppliers.map(s => (
-                    <option key={s._id} value={s._id}>
-                      {s.companyName} {s.rating ? `(Rating: ${s.rating}/100)` : ""}
-                    </option>
-                  ))}
-                </select>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={e => e.target === e.currentTarget && setShowCreate(false)}>
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-8 relative">
+            <button type="button" onClick={() => setShowCreate(false)} className="absolute top-6 right-6 p-2 rounded-xl hover:bg-slate-100 text-slate-400">
+              <X size={18} />
+            </button>
+            <div className="space-y-1 mb-6">
+              <p className="text-[9px] font-black uppercase tracking-[0.3em] text-indigo-500">Procurement</p>
+              <h3 className="text-xl font-black text-slate-900 tracking-tight">Create Supplier Purchase Order</h3>
+            </div>
+            
+            <form onSubmit={handleCreatePO} className="space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Supplier</label>
+                  <select 
+                    required
+                    value={form.supplierId}
+                    onChange={e => setForm({...form, supplierId: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-400"
+                  >
+                    <option value="">Select Supplier</option>
+                    {suppliers.map(s => (
+                      <option key={s._id} value={s._id}>
+                        {s.companyName} {s.rating ? `(Rating: ${s.rating}/100)` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Expected Delivery</label>
+                  <input 
+                    type="date"
+                    required
+                    value={form.expectedDeliveryDate}
+                    onChange={e => setForm({...form, expectedDeliveryDate: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-400"
+                  />
+                </div>
               </div>
+
+              <div className="space-y-4">
+                <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest border-b border-indigo-50 pb-2">Order Items</p>
+                {form.items.map((item, idx) => (
+                  <div key={idx} className="grid grid-cols-12 gap-3 items-center">
+                    <div className="col-span-6">
+                      <ItemAutocomplete
+                        value={item.description}
+                        onChange={val => updateItem(idx, { description: val })}
+                        onSelect={selected => updateItem(idx, { 
+                          itemId: selected._id, 
+                          description: selected.name, 
+                          unitPrice: selected.unitCost || 0 
+                        })}
+                        websiteId={websiteId}
+                        placeholder="Search inventory item..."
+                        onCreateNew={(q) => setQuickCreateQuery(q)}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <input 
+                        type="number" min="1" placeholder="Qty"
+                        value={item.quantity}
+                        onChange={e => updateItem(idx, { quantity: Number(e.target.value) })}
+                        required
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-400"
+                      />
+                    </div>
+                    <div className="col-span-3">
+                      <input 
+                        type="number" min="0" placeholder="Unit Price"
+                        value={item.unitPrice}
+                        onChange={e => updateItem(idx, { unitPrice: Number(e.target.value) })}
+                        required
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-400"
+                      />
+                    </div>
+                    <div className="col-span-1 text-center">
+                      {form.items.length > 1 && (
+                        <button type="button" onClick={() => setForm({...form, items: form.items.filter((_, i) => i !== idx)})} className="text-rose-400 hover:text-rose-600 font-black">×</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                <button 
+                  type="button" 
+                  onClick={() => setForm({...form, items: [...form.items, { itemId: "", description: "", quantity: 1, unitPrice: 0, total: 0 }]})}
+                  className="text-[10px] font-black text-indigo-500 hover:text-indigo-700 uppercase tracking-widest"
+                >
+                  + Add Item
+                </button>
+              </div>
+
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Expected Delivery</label>
-                <input 
-                  type="date"
-                  required
-                  value={form.expectedDeliveryDate}
-                  onChange={e => setForm({...form, expectedDeliveryDate: e.target.value})}
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Notes / Details</label>
+                <textarea 
+                  rows="3" 
+                  value={form.notes} 
+                  onChange={e => setForm({...form, notes: e.target.value})} 
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-400"
                 />
               </div>
-            </div>
 
-            <div className="space-y-4">
-              <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest border-b border-indigo-50 pb-2">Order Items</p>
-              {form.items.map((item, idx) => (
-                <div key={idx} className="grid grid-cols-12 gap-3 items-center">
-                  <div className="col-span-6">
-                    <ItemAutocomplete
-                      value={item.description}
-                      onChange={val => updateItem(idx, { description: val })}
-                      onSelect={selected => updateItem(idx, { 
-                        itemId: selected._id, 
-                        description: selected.name, 
-                        unitPrice: selected.unitCost || 0 
-                      })}
-                      websiteId={websiteId}
-                      placeholder="Search inventory item..."
-                      onCreateNew={(q) => setQuickCreateQuery(q)}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <input 
-                      type="number" min="1" placeholder="Qty"
-                      value={item.quantity}
-                      onChange={e => updateItem(idx, { quantity: Number(e.target.value) })}
-                      required
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-400"
-                    />
-                  </div>
-                  <div className="col-span-3">
-                    <input 
-                      type="number" min="0" placeholder="Unit Price"
-                      value={item.unitPrice}
-                      onChange={e => updateItem(idx, { unitPrice: Number(e.target.value) })}
-                      required
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-400"
-                    />
-                  </div>
-                  <div className="col-span-1 text-center">
-                    {form.items.length > 1 && (
-                      <button type="button" onClick={() => setForm({...form, items: form.items.filter((_, i) => i !== idx)})} className="text-rose-400 hover:text-rose-600 font-black">×</button>
-                    )}
-                  </div>
+              <div className="flex justify-between items-center pt-4 border-t border-slate-100">
+                <span className="text-sm font-black text-slate-900 uppercase">Total: {formatCurrency(form.items.reduce((a, b) => a + b.total, 0))}</span>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setShowCreate(false)} className="px-5 py-2.5 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:bg-slate-50 rounded-xl">Cancel</button>
+                  <button type="submit" className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 shadow-lg shadow-indigo-100">Draft PO</button>
                 </div>
-              ))}
-              <button 
-                type="button" 
-                onClick={() => setForm({...form, items: [...form.items, { itemId: "", description: "", quantity: 1, unitPrice: 0, total: 0 }]})}
-                className="text-[10px] font-black text-indigo-500 hover:text-indigo-700 uppercase tracking-widest"
-              >
-                + Add Item
-              </button>
-            </div>
-
-            <div className="flex justify-between items-center pt-4 border-t border-slate-100">
-              <span className="text-sm font-black text-slate-900 uppercase">Total: {formatCurrency(form.items.reduce((a, b) => a + b.total, 0))}</span>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setShowCreate(false)} className="px-5 py-2.5 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:bg-slate-50 rounded-xl">Cancel</button>
-                <button type="submit" className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 shadow-lg shadow-indigo-100">Draft PO</button>
               </div>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
       )}
 

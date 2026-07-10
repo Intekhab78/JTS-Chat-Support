@@ -73,7 +73,7 @@ export async function generatePurchaseOrderPDF(order, supplier, website) {
       doc.fillColor("#4F46E5").fontSize(11);
       doc.text(formatCurrency(order.total, website?.currency || "AED"), 440, totalPosition + 9, { width: 100, align: "right" });
 
-      drawFooter(doc);
+      drawFooter(doc, totalPosition + 40);
       doc.end();
     } catch (error) {
       reject(error);
@@ -279,7 +279,7 @@ export async function generateInvoicePDF(invoice) {
       doc.fillColor("#4F46E5").fontSize(11);
       doc.text(formatCurrency(invoice.total, invoice.currency), 440, totalPosition + 9, { width: 100, align: "right" });
 
-      drawFooter(doc);
+      drawFooter(doc, totalPosition + 40);
       doc.end();
     } catch (error) {
       reject(error);
@@ -390,8 +390,10 @@ function generateHr(doc, y) {
     .stroke();
 }
 
-function drawFooter(doc) {
-  const footerTop = 750;
+function drawFooter(doc, lastContentY) {
+  // Dynamically position footer just below content, capped at y=720 to stay within A4
+  // A4 usable height ≈ 742pt (with 50pt margins); footer text takes ~50pt
+  const footerTop = Math.min(Math.max(lastContentY || 680, 600), 720);
 
   // Footer divider
   doc.moveTo(50, footerTop).lineTo(545, footerTop).strokeColor("#E2E8F0").lineWidth(1).stroke();

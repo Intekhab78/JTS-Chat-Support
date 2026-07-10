@@ -169,3 +169,122 @@ export function salesOutreachTemplate({ customerName, salesName, body, websiteNa
     subject: `Message from ${websiteName}`
   };
 }
+
+// ─── Reminder Email Templates ────────────────────────────────────────────────
+
+/** Invoice Overdue Reminder (to sales owner / finance) */
+export function invoiceOverdueTemplate({ ownerName, customerName, invoiceId, total, currency, dueDate, daysOverdue, dashboardUrl }) {
+  const content = `
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:20px;margin-bottom:28px;">
+      <p style="margin:0;color:#991b1b;font-size:13px;font-weight:700;">⚠️ Invoice Overdue — Payment Not Received</p>
+    </div>
+    <h2 style="margin:0 0 8px;color:#1e293b;font-size:20px;font-weight:800;">Invoice Payment Overdue</h2>
+    <p style="margin:0 0 24px;color:#64748b;font-size:14px;line-height:1.7;">Hi <strong>${ownerName}</strong>, the following invoice is overdue and payment has not been received. Please follow up with the customer immediately.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Invoice #</span></td><td style="text-align:right;"><strong style="color:#1e293b;font-size:14px;">${invoiceId}</strong></td></tr>
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Customer</span></td><td style="text-align:right;"><span style="color:#475569;font-size:13px;">${customerName}</span></td></tr>
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Amount Due</span></td><td style="text-align:right;"><strong style="color:#ef4444;font-size:15px;">${currency} ${Number(total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong></td></tr>
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Due Date</span></td><td style="text-align:right;"><span style="color:#475569;font-size:13px;">${new Date(dueDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</span></td></tr>
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Overdue By</span></td><td style="text-align:right;">${badge(`${daysOverdue} Day${daysOverdue > 1 ? "s" : ""} Overdue`, "#ef4444")}</td></tr>
+    </table>
+    ${button("View Invoice & Follow Up", dashboardUrl, "#ef4444")}
+  `;
+  return {
+    html: layout(content, `Invoice ${invoiceId} is ${daysOverdue} day(s) overdue`),
+    subject: `🔴 Invoice Overdue: ${invoiceId} — ${daysOverdue} Day${daysOverdue > 1 ? "s" : ""} Past Due`
+  };
+}
+
+/** Follow-Up Task Reminder (to assigned user) */
+export function followUpTaskReminderTemplate({ ownerName, taskTitle, customerName, dueDate, priority, notes, dashboardUrl }) {
+  const priorityColors = { low: "#22c55e", medium: "#3b82f6", high: "#f97316", urgent: "#ef4444" };
+  const content = `
+    <div style="background:#fefce8;border:1px solid #fde68a;border-radius:12px;padding:20px;margin-bottom:28px;">
+      <p style="margin:0;color:#92400e;font-size:13px;font-weight:700;">🔔 Reminder — Your Follow-Up Task is Due Soon</p>
+    </div>
+    <h2 style="margin:0 0 8px;color:#1e293b;font-size:20px;font-weight:800;">Task Reminder: ${taskTitle}</h2>
+    <p style="margin:0 0 24px;color:#64748b;font-size:14px;line-height:1.7;">Hi <strong>${ownerName}</strong>, this is a reminder that your follow-up task is due soon. Please take action.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Task</span></td><td style="text-align:right;"><strong style="color:#1e293b;font-size:14px;">${taskTitle}</strong></td></tr>
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Customer</span></td><td style="text-align:right;"><span style="color:#475569;font-size:13px;">${customerName || "—"}</span></td></tr>
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Due Date</span></td><td style="text-align:right;"><span style="color:#475569;font-size:13px;">${new Date(dueDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span></td></tr>
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Priority</span></td><td style="text-align:right;">${badge(priority || "medium", priorityColors[priority] || "#3b82f6")}</td></tr>
+    </table>
+    ${notes ? `<div style="background:#fafafa;border-left:4px solid #f59e0b;border-radius:0 8px 8px 0;padding:16px 20px;margin-bottom:24px;"><p style="margin:0 0 4px;color:#92400e;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Notes</p><p style="margin:0;color:#64748b;font-size:13px;line-height:1.6;">${notes}</p></div>` : ""}
+    ${button("Open Task in Dashboard", dashboardUrl, "#f59e0b")}
+  `;
+  return {
+    html: layout(content, `Reminder: ${taskTitle} is due soon`),
+    subject: `🔔 Task Reminder: ${taskTitle} — Due ${new Date(dueDate).toLocaleDateString("en-IN")}`
+  };
+}
+
+/** Quotation Expiry Reminder (to sales owner) */
+export function quotationExpiryTemplate({ ownerName, customerName, quotationId, total, currency, validUntil, daysLeft, dashboardUrl }) {
+  const urgentColor = daysLeft <= 1 ? "#ef4444" : "#f97316";
+  const content = `
+    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:20px;margin-bottom:28px;">
+      <p style="margin:0;color:#9a3412;font-size:13px;font-weight:700;">⏰ Quotation Expiring ${daysLeft === 0 ? "Today" : `in ${daysLeft} Day${daysLeft > 1 ? "s" : ""}`} — Follow Up Now!</p>
+    </div>
+    <h2 style="margin:0 0 8px;color:#1e293b;font-size:20px;font-weight:800;">Quotation Expiry Alert</h2>
+    <p style="margin:0 0 24px;color:#64748b;font-size:14px;line-height:1.7;">Hi <strong>${ownerName}</strong>, the following quotation is about to expire. Contact the customer now to close the deal before it's too late.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Quotation #</span></td><td style="text-align:right;"><strong style="color:#1e293b;font-size:14px;">${quotationId}</strong></td></tr>
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Customer</span></td><td style="text-align:right;"><span style="color:#475569;font-size:13px;">${customerName}</span></td></tr>
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Quote Value</span></td><td style="text-align:right;"><strong style="color:#1e293b;font-size:15px;">${currency} ${Number(total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong></td></tr>
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Expires On</span></td><td style="text-align:right;"><span style="color:#475569;font-size:13px;">${new Date(validUntil).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</span></td></tr>
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Time Left</span></td><td style="text-align:right;">${badge(daysLeft === 0 ? "Expires Today" : `${daysLeft} Day${daysLeft > 1 ? "s" : ""} Left`, urgentColor)}</td></tr>
+    </table>
+    ${button("View Quotation & Follow Up", dashboardUrl, urgentColor)}
+  `;
+  return {
+    html: layout(content, `Quotation ${quotationId} expires in ${daysLeft} day(s)`),
+    subject: `⏰ Quotation Expiring ${daysLeft === 0 ? "Today" : `in ${daysLeft} Day${daysLeft > 1 ? "s" : ""}`}: ${quotationId} — ${customerName}`
+  };
+}
+
+/** Purchase Order Delivery Due Reminder (to purchase team) */
+export function poDeliveryReminderTemplate({ ownerName, poNumber, supplierName, expectedDeliveryDate, total, currency, daysLeft, dashboardUrl }) {
+  const content = `
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:20px;margin-bottom:28px;">
+      <p style="margin:0;color:#166534;font-size:13px;font-weight:700;">📦 Purchase Order Delivery Expected ${daysLeft === 0 ? "Today" : "Tomorrow"} — Prepare to Receive</p>
+    </div>
+    <h2 style="margin:0 0 8px;color:#1e293b;font-size:20px;font-weight:800;">PO Delivery Due ${daysLeft === 0 ? "Today" : "Tomorrow"}</h2>
+    <p style="margin:0 0 24px;color:#64748b;font-size:14px;line-height:1.7;">Hi <strong>${ownerName}</strong>, a purchase order delivery is expected ${daysLeft === 0 ? "today" : "tomorrow"}. Please coordinate with the supplier and prepare to receive and verify the shipment.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">PO Number</span></td><td style="text-align:right;"><strong style="color:#1e293b;font-size:14px;">${poNumber}</strong></td></tr>
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Supplier</span></td><td style="text-align:right;"><span style="color:#475569;font-size:13px;">${supplierName}</span></td></tr>
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Order Value</span></td><td style="text-align:right;"><strong style="color:#1e293b;font-size:15px;">${currency} ${Number(total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong></td></tr>
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Expected Delivery</span></td><td style="text-align:right;"><span style="color:#475569;font-size:13px;">${new Date(expectedDeliveryDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</span></td></tr>
+    </table>
+    ${button("View Purchase Order", dashboardUrl, "#16a34a")}
+  `;
+  return {
+    html: layout(content, `PO ${poNumber} delivery expected ${daysLeft === 0 ? "today" : "tomorrow"}`),
+    subject: `📦 PO Delivery ${daysLeft === 0 ? "Today" : "Tomorrow"}: ${poNumber} — from ${supplierName}`
+  };
+}
+
+/** Deal Stale Alert (to CRM manager/owner) */
+export function dealStaleTemplate({ ownerName, customerName, companyName, stageName, lastActivityDaysAgo, leadValue, currency, dashboardUrl }) {
+  const content = `
+    <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:12px;padding:20px;margin-bottom:28px;">
+      <p style="margin:0;color:#6b21a8;font-size:13px;font-weight:700;">😴 Deal Stale — No Activity for ${lastActivityDaysAgo} Days</p>
+    </div>
+    <h2 style="margin:0 0 8px;color:#1e293b;font-size:20px;font-weight:800;">Deal Needs Attention</h2>
+    <p style="margin:0 0 24px;color:#64748b;font-size:14px;line-height:1.7;">Hi <strong>${ownerName}</strong>, the following deal has been idle for <strong>${lastActivityDaysAgo} days</strong> with no stage progression. Please reach out to the client to keep the deal moving.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Customer</span></td><td style="text-align:right;"><strong style="color:#1e293b;font-size:14px;">${customerName}</strong></td></tr>
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Company</span></td><td style="text-align:right;"><span style="color:#475569;font-size:13px;">${companyName || "—"}</span></td></tr>
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Current Stage</span></td><td style="text-align:right;">${badge(stageName || "Unknown Stage", "#7c3aed")}</td></tr>
+      ${leadValue ? `<tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Deal Value</span></td><td style="text-align:right;"><strong style="color:#1e293b;font-size:15px;">${currency || "INR"} ${Number(leadValue || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong></td></tr>` : ""}
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Last Activity</span></td><td style="text-align:right;">${badge(`${lastActivityDaysAgo} Days Ago`, "#9ca3af")}</td></tr>
+    </table>
+    ${button("View Deal in CRM", dashboardUrl, "#7c3aed")}
+  `;
+  return {
+    html: layout(content, `Deal stale: ${customerName} — ${lastActivityDaysAgo} days idle`),
+    subject: `😴 Stale Deal Alert: ${companyName || customerName} — ${lastActivityDaysAgo} Days No Activity`
+  };
+}
+

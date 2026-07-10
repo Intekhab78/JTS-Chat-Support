@@ -35,18 +35,24 @@ const StatCard = ({ title, value, icon: Icon, color, trend, trendValue }) => (
   </div>
 );
 
-export default function ProcurementAnalytics() {
+export default function ProcurementAnalytics({ websiteId }) {
   const [stats, setStats] = useState(null);
+  const [rfqs, setRfqs] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [websiteId]);
 
   const fetchStats = async () => {
     try {
-      const res = await api.get("/api/procurement/stats");
-      setStats(res);
+      const params = websiteId ? `?websiteId=${websiteId}` : "";
+      const [statsRes, rfqRes] = await Promise.all([
+        api.get(`/api/procurement/stats${params}`),
+        api.get(`/api/procurement/rfqs${params}`).catch(() => [])
+      ]);
+      setStats(statsRes);
+      setRfqs(Array.isArray(rfqRes) ? rfqRes : []);
     } catch (err) {
       console.error("Failed to load procurement stats", err);
     } finally {
@@ -62,19 +68,17 @@ export default function ProcurementAnalytics() {
     </div>
   );
 
-  const formatCurrency = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
-
   return (
     <div className="space-y-8 mb-8">
       {/* Overview Cards */}
       <div className="grid grid-cols-4 gap-6">
         <StatCard 
-          title="Total Spend" 
-          value={formatCurrency(stats.totalSpend)} 
+          title="Total Revenue" 
+          value={formatCurrency(stats.totalSpend > 0 ? stats.totalSpend : (stats.crm?.wonRevenue || 0))} 
           icon={IndianRupee} 
           color="indigo" 
           trend="up" 
-          trendValue="+12%" 
+          trendValue={stats.totalSpend > 0 ? "+POs" : stats.crm?.wonDeals > 0 ? `${stats.crm.wonDeals} Deals` : ""}
         />
         <StatCard 
           title="Top Suppliers" 
@@ -91,8 +95,8 @@ export default function ProcurementAnalytics() {
           trendValue={stats.lowStockCount > 0 ? "Critical" : "Good"}
         />
         <StatCard 
-          title="Total Orders" 
-          value={stats.statusDistribution.reduce((acc, s) => acc + s.count, 0)} 
+          title="Won Deals" 
+          value={(stats.totalOrders || 0) + (stats.crm?.wonDeals || 0)} 
           icon={BarChart3} 
           color="emerald" 
         />
@@ -151,10 +155,31 @@ export default function ProcurementAnalytics() {
               </div>
             ))}
             {stats.lowStockItems.length === 0 && (
-              <p className="text-center py-8 text-[10px] font-black text-emerald-500 uppercase tracking-widest">All stock levels healthy</p>
-            )}
+            <p className="text-center py-8 text-[10px] font-black text-emerald-500 uppercase tracking-widest">All stock levels healthy</p>
+          )}
+        </div>
+      </div>
+
+      {/* CRM Deal Summary — shown when no traditional PO data */}
+      {stats.crm && (stats.crm.wonDeals > 0 || stats.crm.lockedDeals > 0) && (
+        <div className="grid grid-cols-3 gap-6">
+          <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-5">
+            <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1">Won Deals (CRM)</p>
+            <p className="text-2xl font-black text-emerald-700">{stats.crm.wonDeals}</p>
+            <p className="text-[9px] text-emerald-500 mt-1">Total revenue: {formatCurrency(stats.crm.wonRevenue)}</p>
+          </div>
+          <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5">
+            <p className="text-[9px] font-black text-indigo-600 uppercase tracking-widest mb-1">Locked Deals</p>
+            <p className="text-2xl font-black text-indigo-700">{stats.crm.lockedDeals}</p>
+            <p className="text-[9px] text-indigo-500 mt-1">Purchase code generated</p>
+          </div>
+          <div className="bg-slate-50 border border-slate-100 rounded-2xl p-5">
+            <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">Completed Workflows</p>
+            <p className="text-2xl font-black text-slate-700">{stats.crm.completedWorkflows}</p>
+            <p className="text-[9px] text-slate-500 mt-1">Fully processed deals</p>
           </div>
         </div>
+      )}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Supplier Scorecard */}
@@ -213,21 +238,24 @@ export default function ProcurementAnalytics() {
               <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.3em]">Strategic Bidding</p>
               <h4 className="text-xl font-black tracking-tight">Competitive Monitoring</h4>
               <div className="space-y-4 pt-4">
-                 {[
-                   { title: "Direct Sourcing (RFQ-012)", price: formatCurrency(24500), bids: 3, status: "Active" },
-                   { title: "Raw Material Batch (RFQ-011)", price: formatCurrency(18900), bids: 5, status: "Closing" }
-                 ].map((rfq, i) => (
-                   <div key={i} className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all cursor-pointer">
+                 {rfqs.length === 0 ? (
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center py-4">No active RFQs</p>
+                 ) : rfqs.slice(0, 3).map((rfq) => (
+                   <div key={rfq._id} className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all cursor-pointer">
                       <div className="flex justify-between items-center mb-2">
-                        <p className="text-[10px] font-black uppercase tracking-tight">{rfq.title}</p>
-                        <span className="text-[8px] font-black px-2 py-0.5 rounded bg-indigo-500 text-white uppercase tracking-widest animate-pulse">{rfq.status}</span>
+                        <p className="text-[10px] font-black uppercase tracking-tight truncate max-w-[140px]">{rfq.title || rfq.rfqNumber}</p>
+                        <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-widest ${
+                          rfq.status === "awarded" ? "bg-emerald-500" :
+                          rfq.status === "closed" ? "bg-rose-500" :
+                          "bg-indigo-500 animate-pulse"
+                        } text-white`}>{rfq.status || "Active"}</span>
                       </div>
                       <div className="flex justify-between items-end">
                         <div>
                           <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Best Quote</p>
-                          <p className="text-sm font-black italic">{rfq.price}</p>
+                          <p className="text-sm font-black italic">{formatCurrency(rfq.bestBid || rfq.estimatedValue || 0)}</p>
                         </div>
-                        <p className="text-[9px] font-black text-indigo-300 uppercase tracking-widest">{rfq.bids} Bids Submitted</p>
+                        <p className="text-[9px] font-black text-indigo-300 uppercase tracking-widest">{(rfq.bids?.length || 0)} Bids Submitted</p>
                       </div>
                    </div>
                  ))}

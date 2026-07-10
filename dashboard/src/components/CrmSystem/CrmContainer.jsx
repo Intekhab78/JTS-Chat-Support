@@ -838,9 +838,7 @@ export default function CrmContainer({
           active: s.active !== false
         };
       });
-      console.log("[CRM Stages] saved stages from DB:", JSON.stringify(saved));
       const filteredKeys = saved.filter(s => s.active !== false).map(s => s.key);
-      console.log("[CRM Stages] filtered active keys:", filteredKeys);
       setWebsiteStages(saved);
       setStageKeys(filteredKeys);
     } else {
