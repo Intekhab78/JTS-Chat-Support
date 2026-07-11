@@ -13,6 +13,99 @@ const VIEW_MODES = [
   { id: "agenda", label: "Agenda" }
 ];
 
+// ─── Reusable Searchable Combobox ─────────────────────────────────────────────
+function SearchableSelect({ value, onChange, options, placeholder = "Search...", labelKey = "label", valueKey = "value", emptyText = "No results found" }) {
+  const [query, setQuery] = React.useState("");
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef(null);
+
+  // Compute display label for the current value
+  const selectedOption = options.find(o => String(o[valueKey]) === String(value));
+  const displayLabel = selectedOption ? (typeof selectedOption[labelKey] === 'string' ? selectedOption[labelKey] : String(selectedOption[labelKey])) : "";
+
+  const filtered = options.filter(o =>
+    !query || String(o[labelKey]).toLowerCase().includes(query.toLowerCase())
+  );
+
+  // Close on outside click
+  React.useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleSelect = (optValue) => {
+    onChange(optValue);
+    setQuery("");
+    setOpen(false);
+  };
+
+  const handleClear = (e) => {
+    e.stopPropagation();
+    onChange("");
+    setQuery("");
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <div
+        className={`flex items-center w-full bg-slate-50 border rounded-xl px-3 py-2 cursor-text gap-2 transition-all ${open ? "border-indigo-400 ring-2 ring-indigo-100" : "border-slate-200 hover:border-slate-300"}`}
+        onClick={() => setOpen(true)}
+      >
+        <input
+          className="flex-1 bg-transparent outline-none text-xs font-bold text-slate-700 placeholder:text-slate-400 min-w-0"
+          placeholder={open ? "Type to search..." : (displayLabel || placeholder)}
+          value={open ? query : ""}
+          onChange={e => { setQuery(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+        />
+        {!open && displayLabel && (
+          <span className="text-xs font-bold text-slate-700 truncate flex-1 pointer-events-none absolute left-3">{displayLabel}</span>
+        )}
+        <div className="flex items-center gap-1 shrink-0">
+          {value && (
+            <button type="button" onClick={handleClear} className="text-slate-300 hover:text-red-400 transition-colors">
+              <X size={12} />
+            </button>
+          )}
+          <ChevronLeft size={12} className={`text-slate-400 transition-transform ${open ? "-rotate-90" : "rotate-180"}`} style={{transform: open ? 'rotate(90deg)' : 'rotate(-90deg)'}} />
+        </div>
+      </div>
+      {open && (
+        <div className="absolute top-full left-0 right-0 z-[9999] mt-1 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
+          <div className="max-h-48 overflow-y-auto">
+            <button
+              type="button"
+              onMouseDown={() => handleSelect("")}
+              className="w-full text-left px-4 py-2.5 text-[10px] font-black text-slate-400 uppercase hover:bg-slate-50 border-b border-slate-50"
+            >
+              — {placeholder}
+            </button>
+            {filtered.slice(0, 50).map(o => (
+              <button
+                key={o[valueKey]}
+                type="button"
+                onMouseDown={() => handleSelect(o[valueKey])}
+                className={`w-full text-left px-4 py-2.5 text-xs font-bold hover:bg-indigo-50 hover:text-indigo-700 transition-colors ${
+                  String(o[valueKey]) === String(value) ? "bg-indigo-50 text-indigo-700" : "text-slate-700"
+                }`}
+              >
+                {o[labelKey]}
+              </button>
+            ))}
+            {filtered.length === 0 && (
+              <p className="px-4 py-3 text-[10px] font-bold text-slate-400">{emptyText}</p>
+            )}
+            {filtered.length > 50 && (
+              <p className="px-4 py-2 text-[9px] font-bold text-slate-400 bg-slate-50 border-t">Showing first 50 — type to narrow down</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CrmCalendarView({ websiteId }) {
   const toast = useToast();
   const [viewMode, setViewMode] = useState("month");
@@ -46,32 +139,46 @@ export default function CrmCalendarView({ websiteId }) {
   const [companies, setCompanies] = useState([]);
   const [contacts, setContacts] = useState([]);
   const [deals, setDeals] = useState([]);
+  const [platforms, setPlatforms] = useState([]);
 
   const fetchCalendarItems = async () => {
     setLoading(true);
     try {
-      // Calculate date range for current view
+      // Use a COPY of currentDate — NEVER mutate state directly
+      const ref = new Date(currentDate);
+      const yr = ref.getFullYear();
+      const mo = ref.getMonth();
+      const day = ref.getDate();
+
       let startDate, endDate;
-      const yr = currentDate.getFullYear();
-      const mo = currentDate.getMonth();
 
       if (viewMode === "month") {
+        // Fetch prev-month tail + next-month head so grid edges are covered
         startDate = new Date(yr, mo - 1, 20).toISOString();
-        endDate = new Date(yr, mo + 1, 10).toISOString();
+        endDate   = new Date(yr, mo + 1, 10).toISOString();
       } else if (viewMode === "week") {
-        const start = currentDate.getDate() - currentDate.getDay();
-        startDate = new Date(currentDate.setDate(start)).toISOString();
-        endDate = new Date(currentDate.setDate(start + 7)).toISOString();
+        // Calculate week start (Sunday) WITHOUT mutating ref
+        const dayOfWeek = ref.getDay(); // 0=Sun … 6=Sat
+        const weekStart = new Date(yr, mo, day - dayOfWeek, 0, 0, 0);
+        const weekEnd   = new Date(yr, mo, day - dayOfWeek + 6, 23, 59, 59);
+        startDate = weekStart.toISOString();
+        endDate   = weekEnd.toISOString();
+      } else if (viewMode === "day") {
+        startDate = new Date(yr, mo, day, 0, 0, 0).toISOString();
+        endDate   = new Date(yr, mo, day, 23, 59, 59).toISOString();
       } else {
-        startDate = new Date(yr, mo, currentDate.getDate(), 0, 0, 0).toISOString();
-        endDate = new Date(yr, mo, currentDate.getDate(), 23, 59, 59).toISOString();
+        // Agenda: load 3 months window around current date
+        startDate = new Date(yr, mo - 1, 1).toISOString();
+        endDate   = new Date(yr, mo + 2, 0).toISOString();
       }
 
-      const actRes = await api(`/api/crm/activities?websiteId=${websiteId}&startDate=${startDate}&endDate=${endDate}`);
+      // Fetch without strict websiteId so events saved before websiteId fix also appear
+      const wsParam = websiteId ? `&websiteId=${websiteId}` : "";
+      const [actRes, remRes] = await Promise.all([
+        api(`/api/crm/activities?startDate=${startDate}&endDate=${endDate}${wsParam}&limit=200`).catch(() => ({})),
+        api(`/api/crm/activities?type=reminder&startDate=${startDate}&endDate=${endDate}${wsParam}&limit=200`).catch(() => ({}))
+      ]);
       setActivities(actRes.activities || []);
-
-      // Load Reminders
-      const remRes = await api(`/api/crm/activities?websiteId=${websiteId}&type=reminder&startDate=${startDate}&endDate=${endDate}`);
       setReminders(remRes.activities || []);
     } catch (err) {
       console.error(err);
@@ -82,16 +189,46 @@ export default function CrmCalendarView({ websiteId }) {
 
   const fetchLookups = async () => {
     try {
-      const custRes = await api(`/api/crm?websiteId=${websiteId}`);
+      const [custRes, compRes, contRes] = await Promise.all([
+        api(`/api/crm?websiteId=${websiteId}&limit=200`).catch(() => ({})),
+        api(`/api/crm/companies?websiteId=${websiteId}`).catch(() => ({})),
+        api(`/api/crm/contacts?websiteId=${websiteId}`).catch(() => ({}))
+      ]);
       setCustomers(custRes.customers || []);
-      const compRes = await api(`/api/crm/companies?websiteId=${websiteId}`);
       setCompanies(compRes.companies || []);
-      const contRes = await api(`/api/crm/contacts?websiteId=${websiteId}`);
       setContacts(contRes.contacts || []);
-      const dealRes = await api(`/api/crm/deals?websiteId=${websiteId}`);
-      setDeals(dealRes.deals || []);
+
+      // Deals: fetch customers with recordType=deal (the CRM's deal pipeline)
+      const dealCustRes = await api(`/api/crm?websiteId=${websiteId}&recordType=deal&limit=200`).catch(() => ({}));
+      const dealCustomers = dealCustRes.customers || [];
+      // Also try the dedicated deals endpoint
+      const dealRes = await api(`/api/crm/deals?websiteId=${websiteId}&limit=200`).catch(() => ({}));
+      const dedicatedDeals = dealRes.deals || [];
+      // Merge both sources, prefer dedicated deals
+      if (dedicatedDeals.length > 0) {
+        setDeals(dedicatedDeals);
+      } else {
+        // Map deal-stage customers as deals (dealName = companyName or name + leadValue)
+        setDeals(dealCustomers.map(c => ({
+          _id: c._id,
+          dealName: `${c.companyName || c.name}${c.leadValue ? ` — ₹${Number(c.leadValue).toLocaleString()}` : ''}`
+        })));
+      }
     } catch (err) {
       console.error("Lookups load failed:", err);
+    }
+
+    // Fetch meeting platforms
+    try {
+      const platRes = await api(`/api/crm/meeting-platforms?websiteId=${websiteId}`).catch(() => ({}));
+      const loadedPlatforms = platRes.platforms || [];
+      setPlatforms(loadedPlatforms);
+      // Set default meetingType to first platform's key
+      if (loadedPlatforms.length > 0) {
+        setForm(prev => ({ ...prev, meetingType: prev.meetingType || loadedPlatforms[0].key }));
+      }
+    } catch (e) {
+      console.warn("[Platforms] Load failed:", e.message);
     }
   };
 
@@ -103,21 +240,28 @@ export default function CrmCalendarView({ websiteId }) {
   const handleCreateOrUpdate = async (e) => {
     e.preventDefault();
     try {
-      const parsedParticipants = form.participantsInput.split(",").map(p => p.trim()).filter(Boolean).map(email => ({
-        participantId: new mongoose.Types.ObjectId(), // mock id representation
-        participantType: "Customer"
-      }));
+      // Participants: plain email strings stored in participantEmails field
+      const participantEmails = form.participantsInput
+        .split(",")
+        .map(p => p.trim())
+        .filter(p => p.length > 0);
 
       const payload = {
         ...form,
-        dueDate: new Date(form.dueDate),
+        websiteId,
+        dueDate: form.dueDate ? new Date(form.dueDate) : null,
         endAt: form.endAt ? new Date(form.endAt) : null,
-        participants: parsedParticipants
+        customerId: form.customerId || null,
+        companyId: form.companyId || null,
+        contactId: form.contactId || null,
+        dealId: form.dealId || null,
+        participants: [],          // always empty — we use participantEmails instead
+        participantEmails
       };
 
       if (selectedActivity) {
         await api(`/api/crm/activities/${selectedActivity._id}`, {
-          method: "PUT",
+          method: "PATCH",
           body: JSON.stringify(payload)
         });
         toast.success("Meeting rescheduled/updated successfully");
@@ -304,56 +448,172 @@ export default function CrmCalendarView({ websiteId }) {
               );
             })}
           </div>
-        ) : (
-          /* List Agenda / Day / Week View */
-          <div className="space-y-4">
-            {allItems.length === 0 ? (
-              <p className="text-center py-20 text-slate-400 text-xs font-bold uppercase tracking-widest">No calendar events scheduled.</p>
-            ) : (
-              allItems.map(item => (
-                <div key={item._id} className="p-5 border border-slate-100 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center hover:bg-slate-50/50 transition-colors gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-3 rounded-2xl ${item.type === "meeting" ? "bg-indigo-50 text-indigo-600" : item.type === "call" ? "bg-sky-50 text-sky-600" : "bg-slate-100 text-slate-600"}`}>
-                      {item.type === "meeting" ? <Video size={18} /> : item.type === "call" ? <Phone size={18} /> : <CheckSquare size={18} />}
-                    </div>
-                    <div>
-                      <h5 className="text-xs font-black text-slate-800">{item.title}</h5>
-                      <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase flex items-center gap-2">
-                        <span>📅 {new Date(item.dueDate).toLocaleString()}</span>
-                        {item.timezone && <span>• 🌍 {item.timezone}</span>}
-                        {item.meetingType && <span>• 🔗 {item.meetingType}</span>}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                    {item.type !== "reminder" && (
-                      <>
-                        <button
-                          onClick={() => handleUpdateStatus(item._id, "completed")}
-                          className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 text-[9px] font-black uppercase rounded-xl transition-all"
-                        >
-                          Complete
-                        </button>
-                        <button
-                          onClick={() => handleUpdateStatus(item._id, "cancelled")}
-                          className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-[9px] font-black uppercase rounded-xl transition-all"
-                        >
-                          Cancel
-                        </button>
-                      </>
-                    )}
-                    <button
-                      onClick={() => handleDeleteActivity(item._id)}
-                      className="p-2 border hover:bg-slate-50 rounded-xl text-slate-400 hover:text-red-500 transition-all"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+        ) : viewMode === "week" ? (
+          /* ── Week View ── */
+          (() => {
+            const startOfWeek = new Date(currentDate);
+            startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
+            const weekDays = Array.from({ length: 7 }, (_, i) => {
+              const d = new Date(startOfWeek);
+              d.setDate(startOfWeek.getDate() + i);
+              return d;
+            });
+            return (
+              <div className="overflow-x-auto">
+                <div className="grid grid-cols-8 min-w-[700px] gap-0 border border-slate-100 rounded-2xl overflow-hidden">
+                  {/* Header row */}
+                  <div className="bg-slate-50 border-b border-r border-slate-100 p-2" />
+                  {weekDays.map(day => {
+                    const isToday = day.toDateString() === new Date().toDateString();
+                    return (
+                      <div key={day.toDateString()} className={`border-b border-r border-slate-100 p-2 text-center ${isToday ? "bg-indigo-50" : "bg-slate-50"}`}>
+                        <p className="text-[9px] font-black text-slate-400 uppercase">{day.toLocaleDateString("en", { weekday: "short" })}</p>
+                        <p className={`text-sm font-black ${isToday ? "text-indigo-600" : "text-slate-700"}`}>{day.getDate()}</p>
+                      </div>
+                    );
+                  })}
+                  {/* Time slots */}
+                  {Array.from({ length: 12 }, (_, hr) => hr + 7).map(hour => (
+                    <React.Fragment key={hour}>
+                      <div className="border-r border-b border-slate-100 p-2 text-[9px] font-black text-slate-400 bg-slate-50/50 text-right pr-3">
+                        {hour % 12 || 12}{hour < 12 ? "am" : "pm"}
+                      </div>
+                      {weekDays.map(day => {
+                        const cellItems = allItems.filter(item => {
+                          const d = new Date(item.dueDate);
+                          return d.toDateString() === day.toDateString() && d.getHours() === hour;
+                        });
+                        return (
+                          <div key={day.toDateString()} className="border-r border-b border-slate-100 p-1 min-h-[48px] hover:bg-slate-50/40 transition-colors">
+                            {cellItems.map(item => (
+                              <div
+                                key={item._id}
+                                onClick={() => { setSelectedActivity(item); setShowScheduleModal(true); }}
+                                className={`text-[8px] font-black px-1.5 py-1 rounded-lg mb-0.5 truncate cursor-pointer ${item.type === "meeting" ? "bg-indigo-100 text-indigo-700" : item.type === "call" ? "bg-sky-100 text-sky-700" : "bg-amber-50 text-amber-700"}`}
+                              >
+                                {item.title}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </React.Fragment>
+                  ))}
                 </div>
-              ))
-            )}
-          </div>
+                {allItems.length === 0 && (
+                  <p className="text-center py-10 text-slate-400 text-xs font-bold uppercase tracking-widest">No events this week.</p>
+                )}
+              </div>
+            );
+          })()
+        ) : viewMode === "day" ? (
+          /* ── Day View ── */
+          (() => {
+            const dayStr = currentDate.toDateString();
+            const dayItems = allItems.filter(item => new Date(item.dueDate).toDateString() === dayStr);
+            return (
+              <div>
+                <div className="text-center mb-6">
+                  <p className="text-sm font-black text-slate-700">{currentDate.toLocaleDateString("en", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">{dayItems.length} event{dayItems.length !== 1 ? "s" : ""} scheduled</p>
+                </div>
+                <div className="space-y-1 border border-slate-100 rounded-2xl overflow-hidden">
+                  {Array.from({ length: 17 }, (_, i) => i + 6).map(hour => {
+                    const slotItems = dayItems.filter(item => new Date(item.dueDate).getHours() === hour);
+                    return (
+                      <div key={hour} className={`flex gap-4 px-4 py-2 border-b border-slate-50 hover:bg-slate-50/40 transition-colors min-h-[52px] ${slotItems.length ? "bg-indigo-50/30" : ""}`}>
+                        <div className="w-14 shrink-0 text-[10px] font-black text-slate-400 pt-1">
+                          {hour % 12 || 12}:00 {hour < 12 ? "AM" : "PM"}
+                        </div>
+                        <div className="flex-1 flex flex-col gap-1">
+                          {slotItems.map(item => (
+                            <div
+                              key={item._id}
+                              onClick={() => { setSelectedActivity(item); setShowScheduleModal(true); }}
+                              className={`flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer ${item.type === "meeting" ? "bg-indigo-100 text-indigo-700 hover:bg-indigo-200" : item.type === "call" ? "bg-sky-100 text-sky-700 hover:bg-sky-200" : "bg-amber-50 text-amber-700 hover:bg-amber-100"}`}
+                            >
+                              <div>
+                                <p className="text-xs font-black">{item.title}</p>
+                                <p className="text-[9px] font-bold opacity-70 uppercase mt-0.5">{item.type} • {item.meetingType || ""}</p>
+                              </div>
+                              <div className="flex gap-1">
+                                <button onClick={(e) => { e.stopPropagation(); handleUpdateStatus(item._id, "completed"); }} className="text-[9px] bg-emerald-100 text-emerald-700 font-black px-2 py-1 rounded-lg">Done</button>
+                                <button onClick={(e) => { e.stopPropagation(); handleDeleteActivity(item._id); }} className="text-[9px] bg-red-50 text-red-500 font-black px-2 py-1 rounded-lg">Del</button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()
+        ) : (
+          /* ── Agenda View ── */
+          (() => {
+            // Group all events by date, sorted ascending
+            const grouped = allItems.reduce((acc, item) => {
+              const key = new Date(item.dueDate).toDateString();
+              if (!acc[key]) acc[key] = [];
+              acc[key].push(item);
+              return acc;
+            }, {});
+            const sortedDates = Object.keys(grouped).sort((a, b) => new Date(a) - new Date(b));
+            return (
+              <div className="space-y-6">
+                {sortedDates.length === 0 ? (
+                  <p className="text-center py-20 text-slate-400 text-xs font-bold uppercase tracking-widest">No calendar events scheduled.</p>
+                ) : sortedDates.map(dateStr => {
+                  const dateItems = grouped[dateStr].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+                  const date = new Date(dateStr);
+                  const isToday = dateStr === new Date().toDateString();
+                  return (
+                    <div key={dateStr}>
+                      <div className={`flex items-center gap-3 mb-3 px-2 py-1.5 rounded-xl ${isToday ? "bg-indigo-50" : ""}`}>
+                        <div className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center text-center ${isToday ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"}`}>
+                          <span className="text-[9px] font-black uppercase leading-none">{date.toLocaleDateString("en", { month: "short" })}</span>
+                          <span className="text-sm font-black leading-none">{date.getDate()}</span>
+                        </div>
+                        <div>
+                          <p className={`text-xs font-black uppercase ${isToday ? "text-indigo-600" : "text-slate-700"}`}>{date.toLocaleDateString("en", { weekday: "long" })}{isToday ? " — Today" : ""}</p>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase">{dateItems.length} event{dateItems.length !== 1 ? "s" : ""}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2 pl-13 ml-1 border-l-2 border-slate-100 pl-6">
+                        {dateItems.map(item => (
+                          <div
+                            key={item._id}
+                            onClick={() => { setSelectedActivity(item); setShowScheduleModal(true); }}
+                            className="flex items-center justify-between p-4 border border-slate-100 rounded-2xl hover:bg-slate-50/50 cursor-pointer transition-colors group"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`p-2.5 rounded-xl ${item.type === "meeting" ? "bg-indigo-50 text-indigo-600" : item.type === "call" ? "bg-sky-50 text-sky-600" : "bg-amber-50 text-amber-600"}`}>
+                                {item.type === "meeting" ? <Video size={15} /> : item.type === "call" ? <Phone size={15} /> : <CheckSquare size={15} />}
+                              </div>
+                              <div>
+                                <p className="text-xs font-black text-slate-800 group-hover:text-indigo-700 transition-colors">{item.title}</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5 flex gap-2">
+                                  <span>🕐 {new Date(item.dueDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                                  {item.timezone && <span>• 🌍 {item.timezone.replace("_", " ")}</span>}
+                                  {item.meetingType && <span>• {item.meetingType}</span>}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={(e) => { e.stopPropagation(); handleUpdateStatus(item._id, "completed"); }} className="text-[9px] bg-emerald-50 border border-emerald-100 text-emerald-700 font-black px-2.5 py-1.5 rounded-xl">Complete</button>
+                              <button onClick={(e) => { e.stopPropagation(); handleDeleteActivity(item._id); }} className="text-[9px] bg-red-50 border border-red-100 text-red-500 font-black p-1.5 rounded-xl"><Trash2 size={11} /></button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()
         )}
       </div>
 
@@ -385,13 +645,30 @@ export default function CrmCalendarView({ websiteId }) {
                   <select
                     value={form.meetingType}
                     onChange={(e) => setForm({ ...form, meetingType: e.target.value })}
-                    className="w-full bg-slate-50 border rounded-xl px-3 py-2"
+                    className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-xs font-bold"
                   >
-                    <option value="zoom">Zoom</option>
-                    <option value="google_meet">Google Meet</option>
-                    <option value="phone">Phone</option>
-                    <option value="in_person">In Person</option>
+                    {platforms.length > 0 ? (
+                      platforms.map(p => (
+                        <option key={p.key} value={p.key}>
+                          {p.icon} {p.name}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="jts_meet">🎯 JTS Meet</option>
+                        <option value="zoom">📹 Zoom</option>
+                        <option value="google_meet">🟢 Google Meet</option>
+                        <option value="phone">📞 Phone</option>
+                        <option value="in_person">🤝 In Person</option>
+                      </>
+                    )}
                   </select>
+                  {/* Show join link hint if platform has URL template */}
+                  {platforms.find(p => p.key === form.meetingType)?.urlTemplate && (
+                    <p className="text-[9px] font-bold text-indigo-500 mt-1">
+                      ✨ Join link will be auto-generated
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -432,16 +709,24 @@ export default function CrmCalendarView({ websiteId }) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Timezone</label>
-                  <select
+                  <SearchableSelect
                     value={form.timezone}
-                    onChange={(e) => setForm({ ...form, timezone: e.target.value })}
-                    className="w-full bg-slate-50 border rounded-xl px-3 py-2"
-                  >
-                    <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
-                    <option value="UTC">UTC</option>
-                    <option value="America/New_York">New York (EST)</option>
-                    <option value="Europe/London">London (GMT)</option>
-                  </select>
+                    onChange={val => setForm({ ...form, timezone: val || "Asia/Kolkata" })}
+                    placeholder="Search timezone..."
+                    options={(Intl.supportedValuesOf ? Intl.supportedValuesOf('timeZone') : [
+                      'Asia/Kolkata','UTC','America/New_York','America/Los_Angeles',
+                      'Europe/London','Europe/Paris','Asia/Dubai','Asia/Tokyo',
+                      'Australia/Sydney','Pacific/Auckland'
+                    ]).map(tz => {
+                      let offset = '';
+                      try {
+                        const parts = new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'shortOffset' }).formatToParts(new Date());
+                        offset = parts.find(p => p.type === 'timeZoneName')?.value || '';
+                      } catch (_) {}
+                      return { value: tz, label: `${tz.replace(/_/g, ' ')} (${offset})` };
+                    })}
+                    emptyText="No timezone found"
+                  />
                 </div>
                 <div>
                   <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Reminder Alert Time</label>
@@ -462,50 +747,46 @@ export default function CrmCalendarView({ websiteId }) {
               <div className="grid grid-cols-2 gap-4 border-t pt-4 border-slate-100">
                 <div>
                   <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Link Customer</label>
-                  <select
+                  <SearchableSelect
                     value={form.customerId}
-                    onChange={(e) => setForm({ ...form, customerId: e.target.value })}
-                    className="w-full bg-slate-50 border rounded-xl px-3 py-2"
-                  >
-                    <option value="">Select customer...</option>
-                    {customers.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                  </select>
+                    onChange={val => setForm({ ...form, customerId: val })}
+                    placeholder="Select customer..."
+                    options={customers.map(c => ({ value: c._id, label: c.name || c.companyName || c._id }))}
+                    emptyText="No customers found"
+                  />
                 </div>
                 <div>
                   <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Link Company</label>
-                  <select
+                  <SearchableSelect
                     value={form.companyId}
-                    onChange={(e) => setForm({ ...form, companyId: e.target.value })}
-                    className="w-full bg-slate-50 border rounded-xl px-3 py-2"
-                  >
-                    <option value="">Select company...</option>
-                    {companies.map(c => <option key={c._id} value={c._id}>{c.companyName}</option>)}
-                  </select>
+                    onChange={val => setForm({ ...form, companyId: val })}
+                    placeholder="Select company..."
+                    options={companies.map(c => ({ value: c._id, label: c.companyName || c._id }))}
+                    emptyText="No companies found"
+                  />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Link Contact</label>
-                  <select
+                  <SearchableSelect
                     value={form.contactId}
-                    onChange={(e) => setForm({ ...form, contactId: e.target.value })}
-                    className="w-full bg-slate-50 border rounded-xl px-3 py-2"
-                  >
-                    <option value="">Select contact...</option>
-                    {contacts.map(c => <option key={c._id} value={c._id}>{c.displayName}</option>)}
-                  </select>
+                    onChange={val => setForm({ ...form, contactId: val })}
+                    placeholder="Select contact..."
+                    options={contacts.map(c => ({ value: c._id, label: c.displayName || c.name || c._id }))}
+                    emptyText="No contacts found"
+                  />
                 </div>
                 <div>
                   <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Link Opportunity (Deal)</label>
-                  <select
+                  <SearchableSelect
                     value={form.dealId}
-                    onChange={(e) => setForm({ ...form, dealId: e.target.value })}
-                    className="w-full bg-slate-50 border rounded-xl px-3 py-2"
-                  >
-                    <option value="">Select deal...</option>
-                    {deals.map(d => <option key={d._id} value={d._id}>{d.dealName}</option>)}
-                  </select>
+                    onChange={val => setForm({ ...form, dealId: val })}
+                    placeholder="Select deal..."
+                    options={deals.map(d => ({ value: d._id, label: d.dealName || d.name || d._id }))}
+                    emptyText="No deals found"
+                  />
                 </div>
               </div>
 
@@ -529,6 +810,24 @@ export default function CrmCalendarView({ websiteId }) {
                   className="w-full bg-slate-50 border rounded-xl px-4 py-2 h-16"
                 />
               </div>
+
+              {/* Join Meeting link button for host */}
+              {selectedActivity && selectedActivity.meetingLink && (
+                <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 flex flex-col items-center gap-2">
+                  <p className="text-[10px] font-black text-indigo-600 uppercase">⚡ Host Controls</p>
+                  <a
+                    href={selectedActivity.meetingLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full text-center py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase rounded-xl shadow-md inline-block"
+                  >
+                    🎯 Join Meeting Room
+                  </a>
+                  <p className="text-[9px] font-bold text-slate-400 truncate max-w-full">
+                    Link: {selectedActivity.meetingLink}
+                  </p>
+                </div>
+              )}
 
               <div className="flex gap-2 border-t pt-4">
                 <button type="button" onClick={() => setShowScheduleModal(false)} className="flex-1 py-2.5 bg-slate-100 text-slate-700 text-xs font-black uppercase rounded-xl">

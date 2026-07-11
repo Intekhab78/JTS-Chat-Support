@@ -6,7 +6,7 @@ import {
   Package, FileText, ShoppingCart, BarChart3, Repeat, Receipt,
   Inbox, MessageSquare, LifeBuoy, Award, GitFork, History,
   Cpu, BarChart2, ShieldAlert, Terminal, Sparkles, CreditCard,
-  Calendar
+  Calendar, Video
 } from "lucide-react";
 import MagicCelebration from "./MagicCelebration.jsx";
 
@@ -50,6 +50,7 @@ import CrmBiDashboard from "./CrmBiDashboard.jsx";
 import CrmAdminConsole from "./CrmAdminConsole.jsx";
 import CrmDeveloperConsole from "./CrmDeveloperConsole.jsx";
 import CrmCalendarView from "./CrmCalendarView.jsx";
+import MeetingPlatformsManager from "./MeetingPlatformsManager.jsx";
 
 const crmGroups = [
   {
@@ -64,6 +65,7 @@ const crmGroups = [
       { id: "deals", label: "Deals", icon: Briefcase },
       { id: "pipelines", label: "Pipelines", icon: GitBranch },
       { id: "calendar", label: "Calendar", icon: Calendar },
+      { id: "meeting-platforms", label: "Meeting Platforms", icon: Video },
     ]
   },
   {
@@ -1294,6 +1296,10 @@ export default function CrmContainer({
 
       {workspaceTab === "admin" && (
         <CrmAdminConsole websiteId={websiteId} />
+      )}
+
+      {workspaceTab === "meeting-platforms" && (
+        <MeetingPlatformsManager websiteId={websiteId} />
       )}
 
       {workspaceTab === "developer" && (

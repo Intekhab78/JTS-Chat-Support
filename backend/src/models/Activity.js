@@ -1,8 +1,9 @@
 import mongoose from "mongoose";
 
 const activityParticipantSchema = new mongoose.Schema({
-  participantId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  participantType: { type: String, enum: ["User", "Contact", "Customer"], required: true }
+  participantId: { type: mongoose.Schema.Types.ObjectId, required: false },
+  participantType: { type: String, enum: ["User", "Contact", "Customer", "external"], default: "external" },
+  email: { type: String, trim: true }   // for external participants without a DB record
 }, { _id: false });
 
 const activitySchema = new mongoose.Schema(
@@ -24,7 +25,9 @@ const activitySchema = new mongoose.Schema(
     dueDate: { type: Date, default: Date.now, index: true },
     endAt: { type: Date, default: null },
     timezone: { type: String, default: "Asia/Kolkata" },
-    meetingType: { type: String, enum: ["zoom", "google_meet", "in_person", "phone", "custom"], default: "zoom" },
+    meetingType: { type: String, default: "zoom" },
+    meetingLink: { type: String, trim: true, default: null },   // auto-generated join URL
+    meetingRoomId: { type: String, trim: true, default: null }, // room ID portion
     reminderDate: { type: Date, default: null },
     completedAt: { type: Date, default: null },
     completedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
@@ -40,7 +43,8 @@ const activitySchema = new mongoose.Schema(
     dealId: { type: mongoose.Schema.Types.ObjectId, ref: "Deal", default: null, index: true },
     ticketId: { type: mongoose.Schema.Types.ObjectId, ref: "Ticket", default: null, index: true },
     invoiceId: { type: mongoose.Schema.Types.ObjectId, ref: "Invoice", default: null, index: true },
-    quoteId: { type: mongoose.Schema.Types.ObjectId, ref: "Quotation", default: null, index: true }
+    quoteId: { type: mongoose.Schema.Types.ObjectId, ref: "Quotation", default: null, index: true },
+    participantEmails: [{ type: String, trim: true }]  // simple email list for external attendees
   },
   { timestamps: true }
 );

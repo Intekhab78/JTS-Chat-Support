@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Shield, Settings, Plus, Key, ToggleLeft, ToggleRight, Trash2, Cpu, Globe, Users, Clock, AlertTriangle } from "lucide-react";
+import { Shield, Settings, Plus, Key, ToggleLeft, ToggleRight, Trash2, Cpu, Globe, Users, Clock, AlertTriangle, Video, Edit2, Check, X as XIcon } from "lucide-react";
 import { api } from "../../api/client.js";
 
 export default function CrmAdminConsole({ websiteId }) {
@@ -8,6 +8,10 @@ export default function CrmAdminConsole({ websiteId }) {
   const [fields, setFields] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [platforms, setPlatforms] = useState([]);
+  const [showPlatformForm, setShowPlatformForm] = useState(false);
+  const [platformForm, setPlatformForm] = useState({ name: "", icon: "🎥", color: "#6366f1", urlTemplate: "", description: "" });
+  const [savingPlatform, setSavingPlatform] = useState(false);
 
   // Forms
   const [showFieldForm, setShowFieldForm] = useState(false);
@@ -30,6 +34,10 @@ export default function CrmAdminConsole({ websiteId }) {
 
       const sessionRes = await api(`/api/crm/admin/sessions?websiteId=${websiteId}`);
       setSessions(sessionRes || []);
+
+      // Load meeting platforms
+      const platRes = await api(`/api/crm/meeting-platforms/all?websiteId=${websiteId}`).catch(() => ({}));
+      setPlatforms(platRes.platforms || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -268,6 +276,121 @@ export default function CrmAdminConsole({ websiteId }) {
           </form>
         </div>
       )}
+
+      {/* ── Meeting Platforms Management ─────────────────────────────── */}
+      <div className="bg-white border border-slate-200/80 rounded-[30px] p-6 shadow-sm space-y-4">
+        <div className="flex justify-between items-center border-b pb-3 border-slate-100">
+          <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+            <Video size={14} className="text-indigo-500" /> Meeting Platforms
+          </h4>
+          <button
+            onClick={() => setShowPlatformForm(!showPlatformForm)}
+            className="flex items-center gap-1 text-[9px] font-black text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-xl hover:bg-indigo-100 transition-all uppercase"
+          >
+            <Plus size={10} /> Add Platform
+          </button>
+        </div>
+
+        {/* Add form */}
+        {showPlatformForm && (
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            setSavingPlatform(true);
+            try {
+              await api(`/api/crm/meeting-platforms`, {
+                method: "POST",
+                body: JSON.stringify({ ...platformForm, websiteId })
+              });
+              setShowPlatformForm(false);
+              setPlatformForm({ name: "", icon: "🎥", color: "#6366f1", urlTemplate: "", description: "" });
+              fetchData();
+            } catch (err) { alert(err.message); }
+            finally { setSavingPlatform(false); }
+          }} className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-4 space-y-3">
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Icon (emoji)</label>
+                <input value={platformForm.icon} onChange={e => setPlatformForm({...platformForm, icon: e.target.value})}
+                  className="w-full bg-white border rounded-xl px-3 py-2 text-xs text-center text-lg" maxLength={2} />
+              </div>
+              <div className="col-span-2">
+                <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Platform Name *</label>
+                <input required value={platformForm.name} onChange={e => setPlatformForm({...platformForm, name: e.target.value})}
+                  placeholder="e.g. JTS Meet, Teams..." className="w-full bg-white border rounded-xl px-3 py-2 text-xs font-bold" />
+              </div>
+            </div>
+            <div>
+              <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Join URL Template (optional)</label>
+              <input value={platformForm.urlTemplate} onChange={e => setPlatformForm({...platformForm, urlTemplate: e.target.value})}
+                placeholder="https://meet.jts.com/{roomId}" className="w-full bg-white border rounded-xl px-3 py-2 text-xs font-mono" />
+              <p className="text-[9px] text-slate-400 mt-1">Use <code className="bg-slate-100 px-1 rounded">{'{roomId}'}</code> — will be auto-replaced with unique room ID</p>
+            </div>
+            <div>
+              <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Description</label>
+              <input value={platformForm.description} onChange={e => setPlatformForm({...platformForm, description: e.target.value})}
+                placeholder="Short description..." className="w-full bg-white border rounded-xl px-3 py-2 text-xs font-bold" />
+            </div>
+            <div className="flex gap-2">
+              <button type="submit" disabled={savingPlatform} className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black uppercase rounded-xl transition-all">
+                {savingPlatform ? "Saving..." : "Create Platform"}
+              </button>
+              <button type="button" onClick={() => setShowPlatformForm(false)} className="px-4 py-2.5 bg-slate-100 text-slate-600 text-[10px] font-black uppercase rounded-xl">
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Platform list */}
+        <div className="space-y-2">
+          {platforms.map(p => (
+            <div key={p._id} className={`flex items-center justify-between p-3 border rounded-2xl transition-all ${
+              p.isActive ? "border-slate-100 bg-slate-50/30" : "border-slate-100 bg-slate-100/50 opacity-60"
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg" style={{ backgroundColor: p.color + "22" }}>
+                  {p.icon}
+                </div>
+                <div>
+                  <p className="text-xs font-black text-slate-800">{p.name}</p>
+                  {p.urlTemplate ? (
+                    <p className="text-[9px] font-mono text-indigo-500 truncate max-w-[200px]">{p.urlTemplate}</p>
+                  ) : (
+                    <p className="text-[9px] font-bold text-slate-400">No URL template</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {p.isDefault && <span className="text-[8px] font-black bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-lg uppercase">Default</span>}
+                <button
+                  onClick={async () => {
+                    await api(`/api/crm/meeting-platforms/${p._id}`, { method: "PATCH", body: JSON.stringify({ isActive: !p.isActive }) });
+                    fetchData();
+                  }}
+                  className={`p-1.5 rounded-lg transition-all ${p.isActive ? "bg-emerald-50 text-emerald-600 hover:bg-emerald-100" : "bg-slate-200 text-slate-500 hover:bg-slate-300"}`}
+                  title={p.isActive ? "Deactivate" : "Activate"}
+                >
+                  {p.isActive ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!window.confirm(`Delete ${p.name}?`)) return;
+                    await api(`/api/crm/meeting-platforms/${p._id}`, { method: "DELETE" });
+                    fetchData();
+                  }}
+                  className="p-1.5 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 transition-all"
+                  title="Delete"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            </div>
+          ))}
+          {platforms.length === 0 && !loading && (
+            <p className="text-[10px] font-bold text-slate-400 text-center py-4">No platforms yet — click "Add Platform" to get started</p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

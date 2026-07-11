@@ -125,7 +125,11 @@ function CreatePOFromDealModal({ customer, onClose, websiteId, inventoryWebsites
   });
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
-  const activeWebsiteId = websiteId || inventoryWebsites?.[0]?._id || "";
+  // Use customer's websiteId first (always available), then fall back to the Procurement tab's selected website
+  const activeWebsiteId = customer?.websiteId?._id || customer?.websiteId
+    || websiteId
+    || inventoryWebsites?.[0]?._id
+    || "";
 
   useEffect(() => {
     api.get("/api/procurement/suppliers").then(setSuppliers).catch(() => {});

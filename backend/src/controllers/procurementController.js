@@ -242,8 +242,16 @@ export const downloadPurchaseOrderPDF = asyncHandler(async (req, res, next) => {
 // @access  Private (Internal)
 export const createPurchaseOrder = asyncHandler(async (req, res, next) => {
   const { supplierId, websiteId, items, notes, terms, expectedDeliveryDate, crmCustomerId } = req.body;
-  const validWebsiteIds = await getOwnedWebsiteIds(req.user);
 
+  // Guard: websiteId is required — give a clear error instead of cascade Mongoose validation failures
+  if (!websiteId || String(websiteId).trim() === "") {
+    return next(new AppError("websiteId is required to create a Purchase Order. Please select a website in the Procurement tab first.", 400));
+  }
+  if (!supplierId) {
+    return next(new AppError("Please select a supplier.", 400));
+  }
+
+  const validWebsiteIds = await getOwnedWebsiteIds(req.user);
   assertWebsiteAccess(req.user, validWebsiteIds, websiteId);
 
   // Validate and dynamically register any new inventory items

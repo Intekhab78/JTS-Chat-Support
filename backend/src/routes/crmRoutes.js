@@ -53,6 +53,7 @@ import aiRoutes from "./crmAiRoutes.js";
 import biRoutes from "./crmBiRoutes.js";
 import adminRoutes from "./crmAdminRoutes.js";
 import integrationRoutes from "./crmIntegrationRoutes.js";
+import meetingPlatformRoutes from "./meetingPlatformRoutes.js";
 
 const router = Router();
 
@@ -93,6 +94,7 @@ router.use("/calls", callRoutes);
 router.use("/emails", emailRoutes);
 router.use("/documents", documentRoutes);
 router.use("/reminders", reminderRoutes);
+router.use("/meeting-platforms", meetingPlatformRoutes);
 
 // Analytics & Reports (Move above /:id to avoid shadowing)
 router.get("/reports", requireRole("admin", "client", "manager"), analyticsController.getCrmReports);
