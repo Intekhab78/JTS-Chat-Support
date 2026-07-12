@@ -99,7 +99,9 @@ export const listCustomers = asyncHandler(async (req, res) => {
     ];
   }
 
-  if (req.user.role === "sales") query.ownerId = req.user._id;
+  // Sales can see ALL leads in their website scope (not just ownerId-assigned ones)
+  // They can use view=my_leads to filter to their own leads
+  // if (req.user.role === "sales") query.ownerId = req.user._id;  ← removed: too restrictive
 
   if (req.user.role === "purchase") {
     query.pipelineStage = "won";
@@ -149,7 +151,8 @@ export const listCustomers = asyncHandler(async (req, res) => {
   // Compute summary stats dynamically based on website scope
   const scopeQuery = { websiteId: query.websiteId };
   if (includeArchived !== "true") scopeQuery.archivedAt = null;
-  if (req.user.role === "sales") scopeQuery.ownerId = req.user._id;
+  // Sales can see stats across all website leads, not just their own
+  // if (req.user.role === "sales") scopeQuery.ownerId = req.user._id;  ← removed: too restrictive
 
   const allScopedCustomers = await Customer.find(scopeQuery).select('_id leadValue probability pipelineStage ownerId archivedAt');
 
@@ -451,9 +454,18 @@ export const updateCustomer = asyncHandler(async (req, res) => {
   const updates = req.body;
   const previousState = customer.toObject();
 
-  // Basic update logic
+  // Allowed fields for direct update — covers all Edit Lead form fields
+  const ALLOWED_FIELDS = [
+    "name", "phone", "email", "companyName",
+    "leadValue", "budget", "priority", "tags",
+    "requirement", "timeline", "interestLevel", "leadCategory",
+    "decisionMaker", "expectedCloseDate", "lostReason",
+    "territory", "industry", "competitor", "campaign",
+    "leadSource", "notes", "probability",
+    "nextFollowUpAt", "lastFollowUpAt"
+  ];
   Object.keys(updates).forEach(key => {
-    if (["name", "phone", "email", "companyName", "leadValue", "priority", "tags"].includes(key)) {
+    if (ALLOWED_FIELDS.includes(key)) {
       customer[key] = updates[key];
     }
   });

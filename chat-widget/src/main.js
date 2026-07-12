@@ -20,6 +20,7 @@ import "./style.css";
   console.log("ChatWidget: Using API Origin:", origin);
   const visitorKey = `chat_support_visitor_${apiKey}`;
   const sessionKey = `chat_support_session_${apiKey}`;
+  const panelOpenKey = `chat_support_panel_open_${apiKey}`;
   let visitorId = localStorage.getItem(visitorKey) || "";
   let activeSessionId = localStorage.getItem(sessionKey) || "";
   let socket;
@@ -60,6 +61,27 @@ import "./style.css";
     `;
     ui.feedback.dataset.rating = "0";
     ui.feedback.classList.remove("show");
+  }
+
+  function showNewChatButton(ui) {
+    ui.statusBar.textContent = "Conversation Closed";
+    ui.feedback.innerHTML = `
+      <button class="csw-new-chat-btn" type="button">Start New Chat</button>
+    `;
+    ui.feedback.classList.add("show");
+    ui.form.style.display = "none";
+  }
+
+  function handleStartNewChat(ui) {
+    localStorage.removeItem(sessionKey);
+    localStorage.removeItem(visitorKey);
+    ui.messages.innerHTML = "";
+    ui.prechat.style.display = "block";
+    ui.chatInterface.style.display = "none";
+    ui.statusBar.textContent = "Start New Chat";
+    ui.feedback.classList.remove("show");
+    ui.form.style.display = "flex";
+    boot(ui);
   }
 
   function setBranding(colors) {
@@ -131,6 +153,12 @@ import "./style.css";
     document.body.appendChild(launcher);
     document.body.appendChild(panel);
 
+    // Persist panel open/closed state on refresh
+    const isPanelOpen = localStorage.getItem(panelOpenKey) === "true";
+    if (isPanelOpen) {
+      panel.classList.add("open");
+    }
+
     const emojiGrid = panel.querySelector("#csw-emoji-grid");
     const emojis = "😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😛 😝 😜 🤪 🤨 🧐 🤓 😎 🤩 🥳 😏 😒 😞 😔 😟 😕 🙁 ☹️ 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤬 🤯 😳 🥵 🥶 😱 😨 😰 😥 😓 🤗 🤔 🤭 🤫 🤥 😶 😐 😑 😬 🙄 😯 😦 😧 😮 😲 🥱 😴 🤤 😪 😵 🤐 🥴 🤢 🤮 🤧 😷 🤒 🤕 🤑 🤠 😈 👿 👹 👺 🤡 💩 👻 💀 ☠️ 👽 👾 🤖 🎃 😺 😸 😹 😻 😼 😽 🙀 😿 😾".split(" ");
     emojis.forEach((emoji) => {
@@ -141,7 +169,11 @@ import "./style.css";
       emojiGrid.appendChild(btn);
     });
 
-    launcher.onclick = () => panel.classList.toggle("open");
+    launcher.onclick = () => {
+      panel.classList.toggle("open");
+      const isOpen = panel.classList.contains("open");
+      localStorage.setItem(panelOpenKey, isOpen ? "true" : "false");
+    };
 
     return {
       launcher,
@@ -1046,6 +1078,8 @@ import "./style.css";
       if (shouldShowFeedback(config) && data.session?.status === "closed" && !feedbackSent) {
         ui.feedback.classList.add("show");
         ui.form.style.display = "none";
+      } else if (data.session?.status === "closed") {
+        showNewChatButton(ui);
       } else {
         ui.feedback.classList.remove("show");
         if (!config.botEnabled || data.botStatus === "escalated" || data.messages?.length > 0) {
@@ -1157,8 +1191,7 @@ import "./style.css";
           ui.feedback.classList.add("show");
           appendMessage(ui, "agent", "This conversation has ended. We'd love to hear your feedback!", null, null, "System", false);
         } else {
-          // If already sent, we can clear immediately or show 'thanks'
-          ui.statusBar.textContent = "Conversation Closed";
+          showNewChatButton(ui);
         }
       });
 
@@ -1272,6 +1305,11 @@ import "./style.css";
 
   // Event Delegation for Feedback (crucial for reconstructed UI)
   ui.panel.addEventListener("click", (e) => {
+    if (e.target.classList.contains("csw-new-chat-btn")) {
+      handleStartNewChat(ui);
+      return;
+    }
+
     if (e.target.classList.contains("csw-star")) {
       const rating = Number(e.target.dataset.rating || 0);
       if (!Number.isFinite(rating)) return;

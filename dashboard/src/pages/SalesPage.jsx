@@ -356,9 +356,6 @@ export default function SalesPage() {
         const data = await api("/api/websites");
         const list = Array.isArray(data) ? data : [];
         setWebsites(list);
-        if (list.length > 0 && !selectedWebsiteId) {
-          setSelectedWebsiteId(list[0]._id);
-        }
       } catch (err) {
         console.error("Failed to load websites", err);
       }
@@ -406,7 +403,7 @@ export default function SalesPage() {
           onChange={(e) => setSelectedWebsiteId(e.target.value)}
           className="w-full bg-transparent border-none text-sm font-black text-slate-900 uppercase tracking-tight outline-none cursor-pointer"
         >
-          <option value="">Select a Website</option>
+          <option value="">All Ecosystem Assets</option>
           {websites.map(w => (
             <option key={w._id} value={w._id}>{w.websiteName}</option>
           ))}

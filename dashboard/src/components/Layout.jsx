@@ -417,7 +417,66 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
     fallback.push({ label: "Reports", href: "/accounts?tab=reports" });
   }
 
-  const links = menuItems.length ? menuItems : fallback;
+  const adminMenuItems = [
+    { label: "Dashboard", href: "/admin" },
+    { label: "Clients", href: "/admin?tab=clients" },
+    { label: "Websites", href: "/admin?tab=websites" },
+    { label: "Agents", href: "/admin?tab=agents" },
+    { label: "Chats", href: "/admin?tab=chats" },
+    { label: "Tickets", href: "/admin?tab=tickets" },
+    {
+      label: "Inventory",
+      children: [
+        { label: "Item Master", href: "/admin?tab=inventory-master" },
+        { label: "Category Master", href: "/admin?tab=inventory-category" },
+        { label: "Subcategory Master", href: "/admin?tab=inventory-subcategory" },
+        { label: "Brand Master", href: "/admin?tab=inventory-brand" },
+        { label: "Size Master", href: "/admin?tab=inventory-size" },
+        { label: "Color Master", href: "/admin?tab=inventory-color" },
+        { label: "Unit Master", href: "/admin?tab=inventory-unit" },
+        { label: "Supplier Master", href: "/admin?tab=inventory-supplier" },
+        { label: "Stock In", href: "/admin?tab=inventory-stock-in" },
+        { label: "Stock Out", href: "/admin?tab=inventory-stock-out" },
+        { label: "Adjustment", href: "/admin?tab=inventory-adjustment" }
+      ]
+    },
+    {
+      label: "Procurement (Purchase)",
+      children: [
+        { label: "Purchase Dashboard", href: "/purchase" },
+        { label: "Purchase Orders", href: "/purchase?tab=procurement" },
+        { label: "Purchase Requests", href: "/purchase?tab=requests" },
+        { label: "Purchase Accounts", href: "/purchase?tab=accounts" }
+      ]
+    },
+    {
+      label: "Finance (Accounts)",
+      children: [
+        { label: "Finance Dashboard", href: "/accounts" },
+        { label: "General Ledger", href: "/accounts?tab=ledger" },
+        { label: "Finance Invoices", href: "/accounts?tab=invoices" },
+        { label: "Subscriptions Revenue", href: "/accounts?tab=subscriptions" },
+        { label: "Financial Intelligence", href: "/accounts?tab=intelligence" }
+      ]
+    },
+    { label: "Sales Board", href: "/sales" },
+    { label: "Agent Desk", href: "/agent" },
+    { label: "Manager Board", href: "/manager" },
+    { label: "CRM", href: "/admin?tab=crm" },
+    { label: "Customer Master", href: "/admin?tab=inventory-customer" },
+    { label: "Departments", href: "/admin?tab=departments" },
+    { label: "Categories", href: "/admin?tab=categories" },
+    { label: "Shortcuts", href: "/admin?tab=shortcuts" },
+    { label: "Reports", href: "/admin?tab=reports" },
+    { label: "Flow Analytics", href: "/admin?tab=flow-analytics" },
+    { label: "Historical Archive", href: "/admin?tab=history" },
+    { label: "Security", href: "/admin?tab=security" },
+    { label: "Help Center", href: "/admin?tab=help-center" },
+    { label: "Subscriptions", href: "/admin?tab=subscriptions" },
+    { label: "Role Master", href: "/admin?tab=roles" }
+  ];
+
+  const links = role === "admin" ? adminMenuItems : (menuItems.length ? menuItems : fallback);
   const sidebarProps = { links, user, isDarkMode, setIsDarkMode, logout };
 
   return (

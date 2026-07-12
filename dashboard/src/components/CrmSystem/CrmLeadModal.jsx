@@ -135,16 +135,13 @@ export default function CrmLeadModal({
               </div>
               <div className="space-y-1.5">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Requirement</label>
-                <select
+                <textarea
                   value={form.requirement}
                   onChange={(e) => setForm(prev => ({ ...prev, requirement: e.target.value }))}
-                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
-                >
-                  <option value="">Select requirement level...</option>
-                  <option value="identified">Identified</option>
-                  <option value="unclear">Unclear</option>
-                  <option value="none">None</option>
-                </select>
+                  placeholder="Describe what the customer is looking for..."
+                  rows={3}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 resize-none"
+                />
               </div>
               <div className="space-y-1.5">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Priority</label>

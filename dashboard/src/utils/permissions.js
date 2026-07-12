@@ -28,7 +28,7 @@ const MATRIX = {
     PERMISSIONS.TEAM_VIEW
   ]),
 
-  // Manager: full CRM control + monitoring + delete
+  // Manager: full CRM control + monitoring + delete + Chat assignment/transfer + Ticket assignment
   [ROLES.MANAGER]: new Set([
     PERMISSIONS.CRM_VIEW,
     PERMISSIONS.CRM_CREATE,
@@ -44,6 +44,7 @@ const MATRIX = {
     PERMISSIONS.TICKET_UPDATE,
     PERMISSIONS.TICKET_ASSIGN,
     PERMISSIONS.CHAT_VIEW,
+    PERMISSIONS.CHAT_TRANSFER,
     PERMISSIONS.CHAT_NOTE,
     PERMISSIONS.ACTIVITY_VIEW,
     PERMISSIONS.NOTIFICATION_VIEW,
@@ -52,26 +53,37 @@ const MATRIX = {
     PERMISSIONS.TEAM_VIEW
   ]),
 
-  // Sales: own assigned leads only, no delete/assign/archive
+  // Sales: Full CRM control + Chat access + Ticket access
   [ROLES.SALES]: new Set([
     PERMISSIONS.CRM_VIEW,
     PERMISSIONS.CRM_CREATE,
     PERMISSIONS.CRM_UPDATE,
+    PERMISSIONS.CRM_ARCHIVE,
+    PERMISSIONS.CRM_DELETE,
+    PERMISSIONS.CRM_ASSIGN_OWNER,
+    PERMISSIONS.CRM_MERGE,
     PERMISSIONS.CRM_SEND_EMAIL,
     PERMISSIONS.CRM_MANAGE_TASKS,
+    PERMISSIONS.CRM_AUTO_ASSIGN,
     PERMISSIONS.TICKET_VIEW,
     PERMISSIONS.TICKET_UPDATE,
+    PERMISSIONS.TICKET_ASSIGN,
     PERMISSIONS.CHAT_VIEW,
+    PERMISSIONS.CHAT_TRANSFER,
     PERMISSIONS.CHAT_NOTE,
     PERMISSIONS.ACTIVITY_VIEW,
     PERMISSIONS.NOTIFICATION_VIEW,
     PERMISSIONS.REPORTS_VIEW
   ]),
 
+  // Agent: Tickets access + CRM access (view, create, update)
   [ROLES.AGENT]: new Set([
     PERMISSIONS.CRM_VIEW,
+    PERMISSIONS.CRM_CREATE,
+    PERMISSIONS.CRM_UPDATE,
     PERMISSIONS.TICKET_VIEW,
     PERMISSIONS.TICKET_UPDATE,
+    PERMISSIONS.TICKET_ASSIGN,
     PERMISSIONS.CHAT_VIEW,
     PERMISSIONS.CHAT_TRANSFER,
     PERMISSIONS.CHAT_NOTE,
@@ -97,11 +109,12 @@ const MATRIX = {
 };
 
 export function hasPermission(user, permission) {
+  if (user?.role === "admin") return true; // Super Admin has access to all actions
   if (!user?.role) return false;
 
-  // 1. Check custom dynamic permissions if present (even if empty)
-  if (Array.isArray(user.permissions)) {
-    return user.permissions.includes(permission);
+  // 1. Check custom dynamic permissions if present
+  if (Array.isArray(user.permissions) && user.permissions.includes(permission)) {
+    return true;
   }
 
   // 2. Fallback to static matrix for built-in roles

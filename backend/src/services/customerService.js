@@ -1,7 +1,14 @@
+import mongoose from "mongoose";
 import { logger } from "../utils/logger.js";
 import { Customer } from "../models/Customer.js";
 import { incrementCustomers } from "./analyticsService.js";
 import { User } from "../models/User.js";
+
+// Safely cast a value to ObjectId; returns null if invalid
+const toObjectId = (id) => {
+  if (!id) return null;
+  try { return new mongoose.Types.ObjectId(id.toString()); } catch { return null; }
+};
 
 /**
  * Generates a unique CRN in the format CRN-YYYY-XXXX
@@ -48,7 +55,10 @@ export const getOrCreateCustomer = async (data) => {
       phone: phone || null,
       websiteId,
       leadSource: data.leadSource || "Manual",
-      ownerId: data.ownerId || null
+      ownerId: toObjectId(data.ownerId),   // always ObjectId, never string
+      archivedAt: null,          // explicit null so CRM archived filter works correctly
+      lastInteraction: new Date(),
+      lastActivity: new Date()
     });
     await customer.save();
     await incrementCustomers(websiteId);
@@ -65,6 +75,11 @@ export const getOrCreateCustomer = async (data) => {
     }
     if (phone && !customer.phone) {
       customer.phone = phone;
+    }
+    // Set ownerId if not set and one is provided — always store as ObjectId
+    if (data.ownerId && !customer.ownerId) {
+      customer.ownerId = toObjectId(data.ownerId);
+      customer.ownerAssignedAt = new Date();
     }
     await customer.save();
   }

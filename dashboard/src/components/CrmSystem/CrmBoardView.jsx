@@ -235,7 +235,9 @@ function BoardCard({ customer, canManagePipeline, onOpenCustomer, draggedCustome
           </div>
           <div className="flex items-center justify-between gap-3 text-[9px] font-black uppercase tracking-[0.16em]">
             <span className="text-slate-400">Requirement</span>
-            <span className="text-indigo-600 truncate text-right max-w-[120px]">{customer.requirement || "None"}</span>
+            <span className={`truncate text-right max-w-[120px] ${customer.requirement ? 'text-indigo-600' : 'text-slate-300'}`}>
+              {customer.requirement || "—"}
+            </span>
           </div>
           <div className="flex items-center justify-between gap-3 text-[9px] font-black uppercase tracking-[0.16em]">
             <span className="text-slate-400">Probability</span>
@@ -247,7 +249,9 @@ function BoardCard({ customer, canManagePipeline, onOpenCustomer, draggedCustome
           </div>
           <div className="flex items-center justify-between gap-3 text-[9px] font-black uppercase tracking-[0.16em]">
             <span className="text-slate-400">Created At</span>
-            <span className="text-slate-700 truncate text-right">{formatFullDateTime(customer.createdAt)}</span>
+            <span className="text-slate-700 truncate text-right">
+              {formatFullDateTime(customer.createdAt || customer.firstInteraction)}
+            </span>
           </div>
         </div>
         <div className="flex flex-wrap gap-1.5">

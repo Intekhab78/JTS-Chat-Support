@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import ConversationHub from "../components/ConversationHub.jsx";
+import { useSocket } from "../context/SocketContext.jsx";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import { X, MessageSquare, Globe } from "lucide-react";
@@ -21,6 +23,7 @@ import { PERMISSIONS } from "../constants/domain.js";
 
 export default function ManagerPage() {
   const { user } = useAuth();
+  const socket = useSocket();
   const [analytics, setAnalytics] = useState(null);
   const [websites, setWebsites] = useState([]);
   const [agents, setAgents] = useState([]);

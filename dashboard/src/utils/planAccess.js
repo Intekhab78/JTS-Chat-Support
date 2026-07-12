@@ -8,10 +8,10 @@ export function getSubscription(user) {
 }
 
 export function hasModule(user, moduleName) {
+  if (user?.role === "admin") return true; // Super Admin has access to all modules bypass
   const subscription = getSubscription(user);
   // Strictly enforce active status
   if (subscription.status === "expired" || subscription.status === "suspended") {
-    // Basic chat might still be allowed if you want, but for now we block all modules
     return false;
   }
   return Array.isArray(subscription.enabledModules) && subscription.enabledModules.includes(moduleName);

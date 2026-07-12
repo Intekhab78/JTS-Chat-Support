@@ -31,13 +31,48 @@ export const createTicketFromChat = asyncHandler(async (req, res) => {
   if (!session) throw new AppError("Session not found", 404);
   if (!(await ensureSessionTicketAccess(session, req.user))) throw new AppError("Access denied", 403);
 
+  const websiteId = session.websiteId?._id || session.websiteId;
+  const visitor = session.visitorId;
+
+  // --- Auto-create/upgrade Customer record from visitor ---
+  // If there's a real email, ensure a proper Customer exists (not an anonymous placeholder)
+  let resolvedCustomerId = session.customerId || null;
+  let resolvedCrn = session.crn || null;
+
+  if (visitor?.email && !visitor.email.endsWith("@visitor.local")) {
+    const customer = await getOrCreateCustomer({
+      name: visitor.name || "Unknown",
+      email: visitor.email,
+      websiteId,
+      leadSource: "Live Chat",
+      ownerId: session.assignedAgent || req.user._id
+    });
+    if (customer) {
+      resolvedCustomerId = customer._id;
+      resolvedCrn = customer.crn;
+      // Patch the visitor record too if it was missing the link
+      if (visitor && (!visitor.customerId || !visitor.crn)) {
+        await visitor.constructor.updateOne(
+          { _id: visitor._id },
+          { $set: { customerId: customer._id, crn: customer.crn } }
+        );
+      }
+      // Patch the session too
+      if (!session.customerId || !session.crn) {
+        session.customerId = customer._id;
+        session.crn = customer.crn;
+        await session.save();
+      }
+    }
+  }
+
   const ticket = new Ticket({
     ticketId: buildTicketId(),
     shareToken: crypto.randomBytes(12).toString("hex"),
-    websiteId: session.websiteId?._id || session.websiteId,
-    visitorId: session.visitorId?._id || null,
-    customerId: session.customerId || null,
-    crn: session.crn || null,
+    websiteId,
+    visitorId: visitor?._id || null,
+    customerId: resolvedCustomerId,
+    crn: resolvedCrn,
     assignedAgent: session.assignedAgent || req.user._id,
     subject: subject || "Support Request from Live Chat",
     priority: priority || "medium",
@@ -50,7 +85,7 @@ export const createTicketFromChat = asyncHandler(async (req, res) => {
   await ticket.save();
   
   await syncSalesOwnerFromTicket(ticket, req.user._id);
-  await notifyVisitorOfTicketCreation({ ticket, visitorEmail: session.visitorId?.email, websiteName: session.websiteId?.websiteName });
+  await notifyVisitorOfTicketCreation({ ticket, visitorEmail: visitor?.email, websiteName: session.websiteId?.websiteName });
   await shareTicketLinkInChat({ session, ticket, actor: req.user });
   await notifyAssignedAgent(ticket);
   await createManagerTicketNotification(ticket);

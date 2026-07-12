@@ -409,9 +409,6 @@ export default function ClientPage() {
         setQueuedSessions(queRes);
         setSessions(sesRes);
         setWebsites(webRes);
-        if (webRes && webRes.length > 0) {
-          setSelectedWebsiteId(prev => prev || webRes[0]._id);
-        }
         setProcurementStats(procRes);
         setError("");
       } catch (err) {
@@ -462,7 +459,46 @@ export default function ClientPage() {
       { label: "Agents", href: "/admin?tab=agents" },
       { label: "Chats", href: "/admin?tab=chats" },
       { label: "Tickets", href: "/admin?tab=tickets" },
+      {
+        label: "Inventory",
+        children: [
+          { label: "Item Master", href: "/admin?tab=inventory-master" },
+          { label: "Category Master", href: "/admin?tab=inventory-category" },
+          { label: "Subcategory Master", href: "/admin?tab=inventory-subcategory" },
+          { label: "Brand Master", href: "/admin?tab=inventory-brand" },
+          { label: "Size Master", href: "/admin?tab=inventory-size" },
+          { label: "Color Master", href: "/admin?tab=inventory-color" },
+          { label: "Unit Master", href: "/admin?tab=inventory-unit" },
+          { label: "Supplier Master", href: "/admin?tab=inventory-supplier" },
+          { label: "Stock In", href: "/admin?tab=inventory-stock-in" },
+          { label: "Stock Out", href: "/admin?tab=inventory-stock-out" },
+          { label: "Adjustment", href: "/admin?tab=inventory-adjustment" }
+        ]
+      },
+      {
+        label: "Procurement (Purchase)",
+        children: [
+          { label: "Purchase Dashboard", href: "/purchase" },
+          { label: "Purchase Orders", href: "/purchase?tab=procurement" },
+          { label: "Purchase Requests", href: "/purchase?tab=requests" },
+          { label: "Purchase Accounts", href: "/purchase?tab=accounts" }
+        ]
+      },
+      {
+        label: "Finance (Accounts)",
+        children: [
+          { label: "Finance Dashboard", href: "/accounts" },
+          { label: "General Ledger", href: "/accounts?tab=ledger" },
+          { label: "Finance Invoices", href: "/accounts?tab=invoices" },
+          { label: "Subscriptions Revenue", href: "/accounts?tab=subscriptions" },
+          { label: "Financial Intelligence", href: "/accounts?tab=intelligence" }
+        ]
+      },
+      { label: "Sales Board", href: "/sales" },
+      { label: "Agent Desk", href: "/agent" },
+      { label: "Manager Board", href: "/manager" },
       { label: "CRM", href: "/admin?tab=crm" },
+      { label: "Customer Master", href: "/admin?tab=inventory-customer" },
       { label: "Departments", href: "/admin?tab=departments" },
       { label: "Categories", href: "/admin?tab=categories" },
       { label: "Shortcuts", href: "/admin?tab=shortcuts" },
@@ -470,9 +506,9 @@ export default function ClientPage() {
       { label: "Flow Analytics", href: "/admin?tab=flow-analytics" },
       { label: "Historical Archive", href: "/admin?tab=history" },
       { label: "Security", href: "/admin?tab=security" },
+      { label: "Help Center", href: "/admin?tab=help-center" },
       { label: "Subscriptions", href: "/admin?tab=subscriptions" },
-      { label: "Role Master", href: "/admin?tab=roles" },
-      { label: "Customer Master", href: "/admin?tab=inventory-customer" }
+      { label: "Role Master", href: "/admin?tab=roles" }
     ]
     : [
       { label: "Dashboard", href: "/client" },

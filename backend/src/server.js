@@ -1,3 +1,4 @@
+
 import { logger } from "./utils/logger.js";
 import http from "http";
 import { createApp } from "./app.js";
@@ -6,6 +7,15 @@ import { connectDatabase } from "./config/database.js";
 import { createSocketServer } from "./sockets/index.js";
 import { startSlaMonitor } from "./services/slaService.js";
 import { startCronJobs } from "./services/cronService.js";
+
+// Safety handlers to prevent process crashes on transient connection errors
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
+});
+
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught Exception thrown:", error);
+});
 
 async function bootstrap() {
   try {

@@ -25,6 +25,15 @@ export async function getUserFromToken(token) {
     throw new AppError("The user belonging to this token no longer exists.", 401);
   }
 
+  // Populate dynamic permissions from Role collection
+  const { Role } = await import("../models/Role.js");
+  const roleDoc = await Role.findOne({ name: user.role, isActive: true });
+  if (roleDoc) {
+    user.permissions = roleDoc.permissions || [];
+  } else {
+    user.permissions = [];
+  }
+
   return user;
 }
 
@@ -48,6 +57,10 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
 
 export function requireRole(...roles) {
   return (req, res, next) => {
+    if (req.user?.role === "admin" || normalizeRole(req.user?.role) === "admin") {
+      return next();
+    }
+
     let allowedRoles = [...roles];
     // If 'client' is allowed, also allow 'manager' (tenant admins)
     if (allowedRoles.includes("client")) {

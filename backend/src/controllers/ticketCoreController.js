@@ -1,5 +1,6 @@
 import { Ticket } from "../models/Ticket.js";
 import { Category } from "../models/Category.js";
+import { Customer } from "../models/Customer.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
@@ -11,8 +12,10 @@ import {
   ticketToCsvRow,
   normalizeDepartment,
   pushAssignmentHistory,
-  syncSalesOwnerFromTicket
+  syncSalesOwnerFromTicket,
+  mapTicketCrmStageToPipelineStage
 } from "../utils/ticketUtils.js";
+import { deriveLifecycleFields } from "../utils/crmUtils.js";
 import { buildTicketSlaFields } from "../services/automationService.js";
 import { calculateTicketHeatScore, getTicketNBA } from "../services/intelligenceService.js";
 import { normalizeRole } from "../utils/roleUtils.js";
@@ -44,7 +47,44 @@ export const getTickets = asyncHandler(async (req, res) => {
     return doc;
   }));
 
-  res.json({ tickets: enrichedTickets });
+  const summary = {
+    all: tickets.length,
+    open: tickets.filter(t => t.status === "open").length,
+    in_progress: tickets.filter(t => t.status === "in_progress").length,
+    waiting: tickets.filter(t => t.status === "waiting").length,
+    pending: tickets.filter(t => t.status === "pending").length,
+    resolved: tickets.filter(t => t.status === "resolved").length,
+    closed: tickets.filter(t => t.status === "closed").length,
+  };
+
+  res.json({ tickets: enrichedTickets, summary });
+});
+
+export const getTicketById = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.TICKET_VIEW);
+  const ticket = await findScopedTicketById(req.params.id, req.user);
+  if (!ticket) throw new AppError("Ticket not found", 404);
+
+  const doc = ticket.toObject();
+  doc.heatScore = calculateTicketHeatScore(doc);
+  doc.nbaMetadata = await getTicketNBA(doc);
+
+  // Attach chat session messages if session exists
+  let messages = [];
+  if (ticket.visitorId) {
+    const { ChatSession } = await import("../models/ChatSession.js");
+    const { Message } = await import("../models/Message.js");
+    const session = await ChatSession.findOne({ visitorId: ticket.visitorId, websiteId: ticket.websiteId })
+      .sort({ createdAt: -1 });
+    if (session) {
+      messages = await Message.find({ sessionId: session._id })
+        .sort({ createdAt: 1 })
+        .select("role content createdAt senderName fileUrl fileType");
+      doc.sessionId = session.sessionId;
+    }
+  }
+
+  res.json({ ticket: doc, messages });
 });
 
 export const updateTicket = asyncHandler(async (req, res) => {
@@ -52,7 +92,7 @@ export const updateTicket = asyncHandler(async (req, res) => {
   const ticket = await findScopedTicketById(req.params.id, req.user);
   if (!ticket) throw new AppError("Ticket not found", 404);
 
-  const { status, priority, category, note, assignedAgent } = req.body;
+  const { status, priority, category, note, assignedAgent, crmStage } = req.body;
   const prevStatus = ticket.status;
   const prevAssignedAgent = ticket.assignedAgent;
 
@@ -64,6 +104,46 @@ export const updateTicket = asyncHandler(async (req, res) => {
   if (assignedAgent !== undefined) {
     ticket.assignedAgent = assignedAgent;
     pushAssignmentHistory(ticket, { assignedAgentId: assignedAgent, assignedBy: req.user._id, reason: "manual_update" });
+  }
+  if (category !== undefined) ticket.category = category;
+  if (crmStage !== undefined) {
+    ticket.crmStage = crmStage;
+    const pipelineStage = mapTicketCrmStageToPipelineStage(crmStage);
+    if (pipelineStage) {
+      const crmFields = deriveLifecycleFields({ pipelineStage });
+      let customer = null;
+      if (ticket.customerId) {
+        customer = await Customer.findById(ticket.customerId);
+      } else if (ticket.crn) {
+        customer = await Customer.findOne({ crn: ticket.crn, websiteId: ticket.websiteId });
+      }
+      if (customer) {
+        Object.assign(customer, crmFields);
+        customer.lastActivity = new Date();
+        if (!customer.stageHistory) customer.stageHistory = [];
+        customer.stageHistory.push({
+          fromStage: customer.status || "new",
+          toStage: pipelineStage,
+          changedBy: req.user._id,
+          changedAt: new Date(),
+          reason: `Auto-synced from ticket update (${ticket.ticketId})`
+        });
+        await customer.save();
+        
+        try {
+          const io = getSocketServer();
+          if (io) {
+            io.emit("lead:created", {
+              message: `Lead status updated to ${pipelineStage}`,
+              user: customer.name,
+              customerId: customer._id,
+              websiteId: ticket.websiteId,
+              recordType: customer.recordType
+            });
+          }
+        } catch (err) {}
+      }
+    }
   }
   if (note) {
     if (!ticket.notes) ticket.notes = [];

@@ -42,6 +42,10 @@ function ProtectedRoute({ children, allowedRoles }) {
   }
 
   const rawRole = String(user.role || "").trim().toLowerCase();
+  if (rawRole === "admin") {
+    return children; // Super Admin has access to all page routes
+  }
+
   if ((rawRole === "purchase" || rawRole === "supplier") && allowedRoles && !allowedRoles.includes(rawRole)) {
     return <Navigate to={destinationForRole(user.role)} replace />;
   }

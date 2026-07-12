@@ -33,7 +33,7 @@ export default function TicketStatusPage() {
   const primaryColor = ticket?.website?.primaryColor || "#6366f1";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950/20 flex items-center justify-center p-6 transition-colors duration-500">
+    <div className="h-screen overflow-y-auto bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950/20 flex items-start justify-center p-6 transition-colors duration-500">
       <div className="w-full max-w-xl animate-in fade-in slide-in-from-bottom-4 duration-700">
 
         {/* Branding Header */}

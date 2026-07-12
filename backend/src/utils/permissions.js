@@ -138,8 +138,16 @@ const MATRIX = Object.freeze({
 
 export function hasPermission(user, permission) {
   if (!user?.role || !permission) return false;
-  const effectiveRole = normalizeRole(user.role);
-  return MATRIX[user.role]?.has(permission) || MATRIX[effectiveRole]?.has(permission) || false;
+  const role = normalizeRole(user.role);
+  if (role === "admin" || user.role === "admin") return true;
+
+  // 1. Check dynamic DB permission list if populated
+  if (Array.isArray(user.permissions) && user.permissions.includes(permission)) {
+    return true;
+  }
+
+  // 2. Fallback to static MATRIX
+  return MATRIX[user.role]?.has(permission) || MATRIX[role]?.has(permission) || false;
 }
 
 export function requirePermission(user, permission, message = "Access denied") {

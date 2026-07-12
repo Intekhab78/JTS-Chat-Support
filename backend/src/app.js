@@ -105,12 +105,21 @@ export function createApp() {
     app.use(morgan("dev"));
   }
 
+  app.set("trust proxy", true);
+
   const authLimiter = rateLimit({
     max: 5,
     windowMs: 15 * 60 * 1000,
     message: { status: "error", message: "Too many login attempts. Please try again in 15 minutes." },
     standardHeaders: true,
     legacyHeaders: false,
+    keyGenerator: (req) => {
+      // Partition rate limiting by the login email input or Client IP
+      const email = req.body && typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
+      const forwardedFor = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+      const ip = forwardedFor || req.ip || req.socket?.remoteAddress || "";
+      return email ? `${ip}_${email}` : ip;
+    },
     skip: (req) => process.env.NODE_ENV === "development" || isLocalRequest(req)
   });
   const generalLimiter = rateLimit({
