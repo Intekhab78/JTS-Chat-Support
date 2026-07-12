@@ -1226,17 +1226,17 @@ export default function PurchasePage() {
           ? "/api/crm?limit=100&pipelineStage=won"
           : "/api/crm?view=my_leads&limit=100";
 
-      // purchase role has no access to chat/ticket routes — skip those calls
+      // load real chat sessions and support tickets dynamically
       const [sessionResult, ticketResult, customerResult, inventoryMetaResult, procurementResult] = await Promise.allSettled([
-        Promise.resolve([]),
-        Promise.resolve([]),
+        api("/api/chats/sessions"),
+        api("/api/tickets"),
         api(customerQuery),
         api("/api/inventory/meta"),
         api("/api/procurement/stats")
       ]);
 
       setSessions(sessionResult.status === "fulfilled" && Array.isArray(sessionResult.value) ? sessionResult.value : []);
-      setTickets(ticketResult.status === "fulfilled" && Array.isArray(ticketResult.value) ? ticketResult.value : []);
+      setTickets(ticketResult.status === "fulfilled" && Array.isArray(ticketResult.value?.tickets) ? ticketResult.value.tickets : []);
       const nextCustomers = customerResult.status === "fulfilled"
         ? (Array.isArray(customerResult.value) ? customerResult.value : customerResult.value?.customers || [])
         : [];
