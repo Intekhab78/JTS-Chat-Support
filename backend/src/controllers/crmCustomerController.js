@@ -110,6 +110,13 @@ export const listCustomers = asyncHandler(async (req, res) => {
   }
 
   const now = new Date();
+  let startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  let endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
+  let sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
   if (view === "my_leads") {
     query.ownerId = req.user._id;
   } else if (view === "won_this_month") {
@@ -117,6 +124,30 @@ export const listCustomers = asyncHandler(async (req, res) => {
     query.updatedAt = { $gte: new Date(now.getFullYear(), now.getMonth(), 1) };
   } else if (view === "archived") {
     query.archivedAt = { $ne: null };
+  } else if (view === "due_today") {
+    const taskQuery = {
+      websiteId: query.websiteId,
+      status: "open",
+      dueAt: { $gte: startOfToday, $lte: endOfToday }
+    };
+    if (req.user.role === "sales") {
+      taskQuery.ownerId = req.user._id;
+    }
+    const customerIdsWithTasksDueToday = await FollowUpTask.distinct("customerId", taskQuery);
+    query._id = { $in: customerIdsWithTasksDueToday };
+  } else if (view === "no_follow_up") {
+    const customerIdsWithOpenTasks = await FollowUpTask.distinct("customerId", {
+      websiteId: query.websiteId,
+      status: "open"
+    });
+    query._id = { $nin: customerIdsWithOpenTasks };
+  } else if (view === "hot_leads") {
+    query.interestLevel = "hot";
+  } else if (view === "high_value") {
+    query.leadValue = { $gte: 50000 };
+  } else if (view === "stale") {
+    query.pipelineStage = { $nin: ["won", "lost"] };
+    query.updatedAt = { $lt: sevenDaysAgo };
   }
 
   if (leadSource) query.leadSource = leadSource;
@@ -154,7 +185,7 @@ export const listCustomers = asyncHandler(async (req, res) => {
   // Sales can see stats across all website leads, not just their own
   // if (req.user.role === "sales") scopeQuery.ownerId = req.user._id;  ← removed: too restrictive
 
-  const allScopedCustomers = await Customer.find(scopeQuery).select('_id leadValue probability pipelineStage ownerId archivedAt');
+  const allScopedCustomers = await Customer.find(scopeQuery).select('_id leadValue probability pipelineStage ownerId archivedAt interestLevel updatedAt');
 
   let totalLeads = 0;
   let pipelineValue = 0;
@@ -162,6 +193,11 @@ export const listCustomers = asyncHandler(async (req, res) => {
   let wonRevenue = 0;
   let wonCount = 0;
   let myLeads = 0;
+  let hotLeads = 0;
+  let highValue = 0;
+  let staleLeads = 0;
+
+
 
   for (const c of allScopedCustomers) {
     const doc = c.toObject();
@@ -171,6 +207,18 @@ export const listCustomers = asyncHandler(async (req, res) => {
     
     if (c.ownerId && c.ownerId.toString() === req.user._id.toString()) {
       myLeads++;
+    }
+
+    if (c.interestLevel === "hot") {
+      hotLeads++;
+    }
+
+    if (Number(c.leadValue || 0) >= 50000) {
+      highValue++;
+    }
+
+    if (c.pipelineStage !== "won" && c.pipelineStage !== "lost" && c.updatedAt < sevenDaysAgo) {
+      staleLeads++;
     }
     
     if (c.pipelineStage === "won") {
@@ -187,10 +235,7 @@ export const listCustomers = asyncHandler(async (req, res) => {
     archivedAt: { $ne: null }
   });
 
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  const endOfToday = new Date();
-  endOfToday.setHours(23, 59, 59, 999);
+
 
   const taskQuery = {
     websiteId: query.websiteId,
@@ -255,9 +300,7 @@ export const listCustomers = asyncHandler(async (req, res) => {
     if (!item._id) item._id = "direct";
   });
 
-  // Calculate leadsPerDay
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  // Calculate leadsPerDay (sevenDaysAgo already declared above)
   const leadsPerDay = await Customer.aggregate([
     { $match: { ...scopeQuery, createdAt: { $gte: sevenDaysAgo } } },
     { $group: {
@@ -318,6 +361,9 @@ export const listCustomers = asyncHandler(async (req, res) => {
     myLeads,
     dueToday: dueTodayCount,
     noFollowUp,
+    hotLeads,
+    highValue,
+    staleLeads,
     archived: archivedCount,
     ltv: averageLtv,
     cac: averageCac,

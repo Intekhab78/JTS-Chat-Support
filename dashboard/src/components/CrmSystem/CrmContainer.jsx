@@ -922,8 +922,11 @@ export default function CrmContainer({
   const workspaceCards = [
     { key: "all", label: "Pipeline", value: summary.totalLeads || pagination.total || customers.length, helper: "Active records", icon: LayoutGrid },
     { key: "my_leads", label: "Assigned to Me", value: summary.myLeads || 0, helper: "Owned by you", icon: UserCheck },
+    { key: "hot_leads", label: "Hot Deals", value: summary.hotLeads || 0, helper: "High interest", icon: Zap },
+    { key: "high_value", label: "High Value", value: summary.highValue || 0, helper: "Value >= ₹50k", icon: Award },
     { key: "due_today", label: "Due Today", value: summary.dueToday || 0, helper: "Activities due", icon: Clock },
-    { key: "no_follow_up", label: "Missing Plan", value: summary.noFollowUp || 0, helper: "Needs activity", icon: AlertCircle },
+    { key: "stale", label: "Stale Leads", value: summary.staleLeads || 0, helper: "7+ days inactive", icon: AlertCircle },
+    { key: "no_follow_up", label: "Missing Plan", value: summary.noFollowUp || 0, helper: "Needs activity", icon: History },
     { key: "archived", label: "Archived", value: summary.archived || 0, helper: "Inactive records", icon: Shield }
   ];
 
@@ -1009,7 +1012,7 @@ export default function CrmContainer({
             </div>
 
             <div className="px-5 py-5 md:px-6">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
                 {workspaceCards.map(card => {
                   const Icon = card.icon;
                   return (
@@ -1082,23 +1085,30 @@ export default function CrmContainer({
             </div>
 
             <div className="px-5 py-5 md:px-6">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
                 {workspaceCards.map(card => {
                   const Icon = card.icon;
                   const active = leadView === card.key;
+                  const accentMap = {
+                    hot_leads:  { bg: "bg-rose-600",   border: "border-rose-600",   icon: "bg-white/20 text-white", label: "text-rose-200", value: "text-white" },
+                    high_value: { bg: "bg-indigo-600", border: "border-indigo-600", icon: "bg-white/20 text-white", label: "text-indigo-200", value: "text-white" },
+                    stale:      { bg: "bg-amber-500",  border: "border-amber-500",  icon: "bg-white/20 text-white", label: "text-amber-100", value: "text-white" },
+                    due_today:  { bg: "bg-sky-600",    border: "border-sky-600",    icon: "bg-white/20 text-white", label: "text-sky-200",   value: "text-white" },
+                  };
+                  const accent = active ? (accentMap[card.key] || { bg: "bg-slate-900", border: "border-slate-900", icon: "bg-white/10 text-white", label: "text-slate-300", value: "text-white" }) : null;
                   return (
                     <button
                       key={card.key}
                       onClick={() => setLeadView(card.key)}
-                      className={`rounded-2xl border px-4 py-4 text-left transition-all ${active ? "border-slate-900 bg-slate-900 text-white shadow-md" : "border-slate-200 bg-slate-50 hover:bg-white"}`}
+                      className={`rounded-2xl border px-3 py-3 text-left transition-all duration-200 ${active ? `${accent.bg} ${accent.border} shadow-md scale-[1.02]` : "border-slate-200 bg-slate-50 hover:bg-white hover:border-slate-300 hover:shadow-sm"}`}
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${active ? "text-slate-300" : "text-slate-400"}`}>{card.label}</p>
-                          <p className={`mt-2 text-2xl font-black ${active ? "text-white" : "text-slate-950"}`}>{card.value}</p>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className={`text-[8px] font-black uppercase tracking-[0.18em] truncate ${active ? accent.label : "text-slate-400"}`}>{card.label}</p>
+                          <p className={`mt-1.5 text-xl font-black ${active ? accent.value : "text-slate-950"}`}>{card.value}</p>
                         </div>
-                        <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${active ? "bg-white/10 text-white" : "bg-white text-slate-600 border border-slate-200"}`}>
-                          <Icon size={16} />
+                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${active ? accent.icon : "bg-white text-slate-500 border border-slate-200"}`}>
+                          <Icon size={14} />
                         </div>
                       </div>
                     </button>

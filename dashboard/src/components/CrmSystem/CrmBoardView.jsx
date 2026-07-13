@@ -1,5 +1,5 @@
 import React from "react";
-import { ChevronRight, User, AlertTriangle, TrendingUp, Brain, Clock, Shield } from "lucide-react";
+import { ChevronRight, User, AlertTriangle, TrendingUp, Brain, Clock, Shield, Flame, Award, Zap } from "lucide-react";
 import {
   WinProbabilityBadge,
   HeatIndicator,
@@ -141,8 +141,20 @@ function BoardCard({ customer, canManagePipeline, onOpenCustomer, draggedCustome
         setDropTargetStatus("");
       }}
       onClick={() => onOpenCustomer(customer)}
-      className={`rounded-[22px] border bg-white p-4 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer group relative ${draggedCustomerId === customer._id ? "border-indigo-300 opacity-70 scale-[0.98]" : "border-slate-200"} ${isStale ? "ring-2 ring-amber-400/30 ring-offset-2 animate-pulse-subtle bg-amber-50/10" : ""}`}
+      className={`rounded-[22px] border bg-white p-4 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer group relative overflow-hidden ${
+        draggedCustomerId === customer._id ? "border-indigo-300 opacity-70 scale-[0.98]" :
+        isStale ? "border-amber-200" :
+        "border-slate-200"
+      }`}
     >
+      {/* Left accent bar for stale leads */}
+      {isStale && (
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-orange-500 rounded-l-[22px]" />
+      )}
+      {/* Left accent bar for high value leads */}
+      {isHighValue && !isStale && (
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-indigo-500 to-violet-600 rounded-l-[22px]" />
+      )}
       {customer.pipelineStage === "won" && !customer.isLocked && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-400 via-yellow-200 to-amber-500 text-slate-900 text-[9px] font-black uppercase tracking-[0.2em] px-4 py-1.5 rounded-full shadow-[0_8px_20px_-4px_rgba(234,179,8,0.4)] z-20 flex items-center gap-2 border border-yellow-200 overflow-hidden group/badge">
           <div className="absolute inset-0 animate-shimmer pointer-events-none" />
@@ -154,19 +166,24 @@ function BoardCard({ customer, canManagePipeline, onOpenCustomer, draggedCustome
           <Shield size={10} className="fill-amber-400 text-amber-400" /> LOCKED
         </div>
       )}
-      {customer.nbaMetadata && (
-        <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-violet-600 text-white text-[7px] font-black uppercase tracking-widest px-2 py-1 rounded-lg shadow-lg z-10 flex items-center gap-1 animate-bounce">
-          <Brain size={8} /> Active Insight
-        </div>
-      )}
-      {isStale && (
-        <div className="absolute -top-2 -left-2 bg-amber-500 text-white text-[7px] font-black uppercase tracking-widest px-2 py-1 rounded-lg shadow-lg z-10 flex items-center gap-1">
-          <AlertTriangle size={8} /> Stale
-        </div>
-      )}
-      {isHighValue && (
-        <div className="absolute -top-2 -right-2 bg-indigo-600 text-white text-[7px] font-black uppercase tracking-widest px-2 py-1 rounded-lg shadow-lg z-10 flex items-center gap-1">
-          <TrendingUp size={8} /> High Value
+      {/* Inline alert badge row — clearly visible inside the card */}
+      {(isStale || isHighValue || customer.nbaMetadata) && (
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {isStale && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 text-[9px] font-black uppercase tracking-widest">
+              <AlertTriangle size={9} className="shrink-0" /> Inactive 7+ Days
+            </span>
+          )}
+          {isHighValue && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 text-[9px] font-black uppercase tracking-widest">
+              <Award size={9} className="shrink-0" /> High Value
+            </span>
+          )}
+          {customer.nbaMetadata && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-violet-50 text-violet-700 border border-violet-200 text-[9px] font-black uppercase tracking-widest">
+              <Brain size={9} className="shrink-0" /> AI Insight
+            </span>
+          )}
         </div>
       )}
       <div className="flex items-start justify-between gap-3 mb-4">

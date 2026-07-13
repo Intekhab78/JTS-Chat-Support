@@ -28,15 +28,21 @@ async function canReachLocalApi() {
 
 export async function getApiBase() {
   if (EXPLICIT_API_URL) {
+    // If the explicit url is a local address, verify its reachability first.
+    if (EXPLICIT_API_URL.includes("localhost") || EXPLICIT_API_URL.includes("127.0.0.1")) {
+      if (!apiBasePromise) {
+        apiBasePromise = canReachLocalApi().then((localIsReachable) => {
+          API_BASE = localIsReachable ? EXPLICIT_API_URL : DEFAULT_REMOTE_API_URL;
+          return API_BASE;
+        });
+      }
+      return apiBasePromise;
+    }
     API_BASE = EXPLICIT_API_URL;
     return API_BASE;
   }
 
-  if (import.meta.env.PROD) {
-    API_BASE = REMOTE_API_URL;
-    return API_BASE;
-  }
-
+  // If no explicit URL is configured, dynamically detect if local API is running, else use remote.
   if (!apiBasePromise) {
     apiBasePromise = canReachLocalApi().then((localIsReachable) => {
       API_BASE = localIsReachable ? LOCAL_API_URL : REMOTE_API_URL;
