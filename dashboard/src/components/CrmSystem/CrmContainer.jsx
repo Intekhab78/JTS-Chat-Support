@@ -50,6 +50,7 @@ import CrmAiConsole from "./CrmAiConsole.jsx";
 import CrmBiDashboard from "./CrmBiDashboard.jsx";
 import CrmAdminConsole from "./CrmAdminConsole.jsx";
 import CrmDeveloperConsole from "./CrmDeveloperConsole.jsx";
+import CrmAuditLogsView from "./CrmAuditLogsView.jsx";
 import CrmCalendarView from "./CrmCalendarView.jsx";
 import MeetingPlatformsManager from "./MeetingPlatformsManager.jsx";
 import CrmSalesTargets from "./CrmSalesTargets.jsx";
@@ -124,6 +125,7 @@ const crmGroups = [
     items: [
       { id: "admin", label: "SaaS Admin Center", icon: ShieldAlert },
       { id: "developer", label: "Developer Platform", icon: Terminal },
+      { id: "audit-logs", label: "Audit Trail", icon: Shield },
     ]
   }
 ];
@@ -1435,6 +1437,10 @@ export default function CrmContainer({
 
       {workspaceTab === "admin" && (
         <CrmAdminConsole websiteId={websiteId} />
+      )}
+      
+      {workspaceTab === "audit-logs" && (
+        <CrmAuditLogsView websiteId={websiteId} />
       )}
 
       {workspaceTab === "meeting-platforms" && (

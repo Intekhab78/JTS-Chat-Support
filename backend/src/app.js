@@ -22,6 +22,7 @@ import crmRoutes from "./routes/crmRoutes.js";
 import auditRoutes from "./routes/auditRoutes.js";
 import webhookRoutes from "./routes/webhookRoutes.js";
 import stripeWebhookRoutes from "./routes/stripeWebhookRoutes.js";
+import whatsappWebhookRoutes from "./routes/whatsappWebhookRoutes.js";
 import flowRoutes from "./routes/flowRoutes.js";
 import billingRoutes from "./routes/billingRoutes.js";
 import trackingRoutes from "./routes/trackingRoutes.js";
@@ -135,6 +136,7 @@ export function createApp() {
 
   // STRIPE WEBHOOK NEEDS TO BE REGISTERED BEFORE EXPRESS.JSON
   app.use("/api/stripe-webhooks", stripeWebhookRoutes);
+  app.use("/api/whatsapp-webhooks", whatsappWebhookRoutes);
 
   app.use(express.json({ limit: "50kb" }));
   app.use(cookieParser());

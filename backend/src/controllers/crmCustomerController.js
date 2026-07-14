@@ -981,17 +981,27 @@ export const importCustomers = asyncHandler(async (req, res) => {
 
   let importCount = 0;
   let skippedCount = 0;
+  const skippedDetails = [];
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const phoneRegex = /^[0-9\s+\-()]+$/;
 
   for (let i = 1; i < lines.length; i++) {
     const cells = parseCsvLine(lines[i]);
-    if (cells.length === 0 || !cells[nameIdx]) {
+    if (cells.length === 0 || cells.every(c => c === "")) {
       skippedCount++;
       continue;
     }
 
     const name = cells[nameIdx];
-    const email = emailIdx !== -1 ? cells[emailIdx] : "";
-    const phone = phoneIdx !== -1 ? cells[phoneIdx] : "";
+    if (!name) {
+      skippedCount++;
+      skippedDetails.push({ row: i + 1, name: "N/A", reason: "Missing lead name value" });
+      continue;
+    }
+
+    const email = emailIdx !== -1 ? cells[emailIdx].toLowerCase().trim() : "";
+    const phone = phoneIdx !== -1 ? cells[phoneIdx].trim() : "";
     const companyName = companyIdx !== -1 ? cells[companyIdx] : "";
     const leadValue = valueIdx !== -1 ? Number(cells[valueIdx]) || 0 : 0;
     const budget = budgetIdx !== -1 ? Number(cells[budgetIdx]) || 0 : 0;
@@ -1000,11 +1010,27 @@ export const importCustomers = asyncHandler(async (req, res) => {
     const leadSource = sourceIdx !== -1 ? cells[sourceIdx] : "csv_import";
     const territory = territoryIdx !== -1 ? cells[territoryIdx] : "";
 
-    // Skip duplicate emails inside the same website scope
+    // 1. Email validation checks
     if (email) {
-      const existing = await Customer.findOne({ websiteId, email: email.toLowerCase().trim() });
+      if (!emailRegex.test(email)) {
+        skippedCount++;
+        skippedDetails.push({ row: i + 1, name, reason: `Invalid email address format: "${email}"` });
+        continue;
+      }
+      
+      const existing = await Customer.findOne({ websiteId, email });
       if (existing) {
         skippedCount++;
+        skippedDetails.push({ row: i + 1, name, reason: `Duplicate email registry: "${email}"` });
+        continue;
+      }
+    }
+
+    // 2. Phone validation checks
+    if (phone) {
+      if (!phoneRegex.test(phone) || phone.replace(/[^0-9]/g, "").length < 7) {
+        skippedCount++;
+        skippedDetails.push({ row: i + 1, name, reason: `Invalid phone format/length: "${phone}"` });
         continue;
       }
     }
@@ -1014,7 +1040,7 @@ export const importCustomers = asyncHandler(async (req, res) => {
     await Customer.create({
       crn,
       name,
-      email: email.toLowerCase().trim(),
+      email,
       phone,
       companyName,
       leadValue,
@@ -1040,7 +1066,8 @@ export const importCustomers = asyncHandler(async (req, res) => {
     success: true,
     message: `Successfully imported ${importCount} leads. Skipped ${skippedCount} duplicate or invalid entries.`,
     imported: importCount,
-    skipped: skippedCount
+    skipped: skippedCount,
+    skippedDetails
   });
 });
 
