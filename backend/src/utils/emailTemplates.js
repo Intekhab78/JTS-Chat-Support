@@ -155,17 +155,13 @@ export function salesOutreachTemplate({ customerName, salesName, body, websiteNa
       .replace(/>/g, "&gt;"))
     .join("<br />");
 
-  const trimmedBodyLower = String(body || "").trim().toLowerCase();
-  const hasGreeting = trimmedBodyLower.startsWith("hi") || 
-                      trimmedBodyLower.startsWith("hello") || 
-                      trimmedBodyLower.startsWith("dear") ||
-                      trimmedBodyLower.startsWith("hey");
+  const cleanBody = String(body || "")
+    .trim()
+    .replace(/^[^a-zA-Z0-9]+/, "");
+  
+  const hasGreeting = /^(hi|hello|dear|hey|respect|greeting)/i.test(cleanBody);
                       
-  const hasSignOff = trimmedBodyLower.includes("best regards") || 
-                     trimmedBodyLower.includes("regards") || 
-                     trimmedBodyLower.includes("thanks") || 
-                     trimmedBodyLower.includes("sincerely") ||
-                     trimmedBodyLower.includes("thank you");
+  const hasSignOff = /best regards|regards|thanks|sincerely|thank you/i.test(cleanBody);
 
   const content = `
     <h2 style="margin:0 0 16px;color:#1e293b;font-size:20px;font-weight:800;">Message from ${websiteName}</h2>

@@ -6,7 +6,7 @@ import {
   Package, FileText, ShoppingCart, BarChart3, Repeat, Receipt,
   Inbox, MessageSquare, LifeBuoy, Award, GitFork, History,
   Cpu, BarChart2, ShieldAlert, Terminal, Sparkles, CreditCard,
-  Calendar, Video, Target
+  Calendar, Video, Target, Mail
 } from "lucide-react";
 import MagicCelebration from "./MagicCelebration.jsx";
 
@@ -51,6 +51,7 @@ import CrmBiDashboard from "./CrmBiDashboard.jsx";
 import CrmAdminConsole from "./CrmAdminConsole.jsx";
 import CrmDeveloperConsole from "./CrmDeveloperConsole.jsx";
 import CrmAuditLogsView from "./CrmAuditLogsView.jsx";
+import CrmEmailBuilderView from "./CrmEmailBuilderView.jsx";
 import CrmCalendarView from "./CrmCalendarView.jsx";
 import MeetingPlatformsManager from "./MeetingPlatformsManager.jsx";
 import CrmSalesTargets from "./CrmSalesTargets.jsx";
@@ -126,6 +127,7 @@ const crmGroups = [
       { id: "admin", label: "SaaS Admin Center", icon: ShieldAlert },
       { id: "developer", label: "Developer Platform", icon: Terminal },
       { id: "audit-logs", label: "Audit Trail", icon: Shield },
+      { id: "email-builder", label: "Email Builder", icon: Mail },
     ]
   }
 ];
@@ -1441,6 +1443,10 @@ export default function CrmContainer({
       
       {workspaceTab === "audit-logs" && (
         <CrmAuditLogsView websiteId={websiteId} />
+      )}
+      
+      {workspaceTab === "email-builder" && (
+        <CrmEmailBuilderView websiteId={websiteId} />
       )}
 
       {workspaceTab === "meeting-platforms" && (

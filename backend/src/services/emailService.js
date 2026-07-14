@@ -47,10 +47,52 @@ export async function sendEmail({ to, subject, html, attachments = [] }) {
 }
 
 import { buildPremiumEmailTemplate } from "../utils/htmlEmailTemplates.js";
+import { EmailTemplate } from "../models/EmailTemplate.js";
 
 /**
  * Generate a standard HTML template for system emails
  */
 export function getEmailTemplate(title, message, buttonText, buttonUrl) {
   return buildPremiumEmailTemplate(title, message, buttonText, buttonUrl);
+}
+
+/**
+ * Sends an email using a custom stored HTML template with placeholder merge tags
+ * @param {string} to - Destination recipient email address.
+ * @param {string} templateName - The name key of the customized template.
+ * @param {string} websiteId - Website scope context ID.
+ * @param {Object} mergeVars - KV merge tags (e.g. { customerName: "John", amount: "$50" }).
+ */
+export async function sendCustomEmailTemplate(to, templateName, websiteId, mergeVars = {}) {
+  try {
+    const template = await EmailTemplate.findOne({ name: templateName, websiteId });
+    
+    let htmlContent = "";
+    let subject = "Notification Update";
+
+    if (template) {
+      htmlContent = template.htmlContent;
+      subject = template.subject;
+
+      // Swap placeholder merge tags dynamically
+      Object.entries(mergeVars).forEach(([key, val]) => {
+        const regex = new RegExp(`{${key}}`, "g");
+        htmlContent = htmlContent.replace(regex, val);
+        subject = subject.replace(regex, val);
+      });
+    } else {
+      console.warn(`[Email Service] Custom template "${templateName}" not found. Falling back to default layout.`);
+      subject = mergeVars.subject || "Notification Dispatch";
+      htmlContent = buildPremiumEmailTemplate(subject, mergeVars.message || "");
+    }
+
+    return await sendEmail({
+      to,
+      subject,
+      html: htmlContent
+    });
+  } catch (error) {
+    console.error("[Email Service] Failed sending custom template email:", error.message);
+    return null;
+  }
 }
