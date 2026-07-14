@@ -141,6 +141,8 @@ export function createApp() {
 
   app.use(express.static(path.join(__dirname, "public")));
   app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+  // Self-healing fallback to serve uploads from root to support legacy database entries missing '/uploads' prefix
+  app.use(express.static(path.join(__dirname, "../uploads")));
 
   app.get("/", (_, res) => res.json({ status: "success", message: "JTS Chat Backend is Live", version: "1.0.0" }));
   app.get("/health", (_, res) => res.json({ ok: true, timestamp: new Date() }));

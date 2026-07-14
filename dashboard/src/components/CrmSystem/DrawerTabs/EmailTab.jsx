@@ -5,23 +5,23 @@ import { useAuth } from "../../../context/AuthContext.jsx";
 const emailTemplates = [
   {
     name: "Introduction Follow-up",
-    subject: "Following up from {{websiteName}}",
-    body: "Hi {{customerName}},\n\nThank you for reaching out to us. I am {{salesName}} from {{websiteName}}.\n\nI wanted to follow up and see how we can assist you with your requirements. Let me know if you would like to schedule a quick call this week.\n\nBest regards,\n{{salesName}}"
+    subject: "Connecting regarding your inquiry — {{websiteName}}",
+    body: "Hi {{customerName}},\n\nThank you for visiting {{websiteName}} and reaching out to us. I am {{salesName}}, your dedicated Account Manager.\n\nI would love to learn more about your current requirements and explore how we can support your business goals.\n\nCould you please let me know a convenient day and time this week for a brief 5 to 10-minute introductory call? Alternatively, you can reply directly to this email with your preferred timing.\n\nBest regards,\n{{salesName}}"
   },
   {
-    name: "Post-Meeting Summary",
-    subject: "Great speaking with you - {{websiteName}}",
-    body: "Hi {{customerName}},\n\nThank you for taking the time to speak with me today. It was great learning more about your business.\n\nAs discussed, I will prepare a proposal and send it over by tomorrow. Please let me know if you have any questions in the meantime.\n\nBest regards,\n{{salesName}}"
+    name: "Proposal & Quotation Shared",
+    subject: "Customized Proposal & Pricing — {{websiteName}}",
+    body: "Hi {{customerName}},\n\nIt was a pleasure speaking with you recently regarding your project.\n\nBased on our discussion, I have prepared a customized proposal detailing the solutions and pricing structured for your requirements. Please find the details updated in your Client Portal.\n\nWe are highly excited about the opportunity to partner with you and deliver exceptional value. Please review the details and let me know if you would like us to make any adjustments.\n\nBest regards,\n{{salesName}}"
   },
   {
-    name: "Pricing & Special Offer",
-    subject: "Exclusive Offer from {{websiteName}}",
-    body: "Hi {{customerName}},\n\nI hope you are doing well.\n\nI wanted to share our customized proposal and pricing details based on our previous discussions. We are excited about the opportunity to partner with you.\n\nPlease review it and let me know if you would like to make any revisions.\n\nBest regards,\n{{salesName}}"
+    name: "Schedule Meeting / Demo",
+    subject: "Invitation: Brief discussion on your requirements — {{websiteName}}",
+    body: "Hi {{customerName}},\n\nI hope you are having a productive week.\n\nTo ensure we address all your queries and showcase the best solutions for your team, we would like to invite you to a short product walk-through / online demo session.\n\nPlease reply with a few slots that work best for your schedule, or let us know if we can connect via Microsoft Teams / Zoom at your convenience.\n\nBest regards,\n{{salesName}}"
   },
   {
-    name: "Stale Lead Check-in",
-    subject: "Checking in from {{websiteName}}",
-    body: "Hi {{customerName}},\n\nI hope you are having a productive week.\n\nI haven't heard back from you regarding our last discussion. Just wanted to check in and see if you are still interested or if the timeline has shifted.\n\nLooking forward to hearing from you.\n\nBest regards,\n{{salesName}}"
+    name: "Cold Lead Re-engagement",
+    subject: "Following up on your request — {{websiteName}}",
+    body: "Hi {{customerName}},\n\nI hope you are doing well.\n\nI am writing to check if you had a chance to review the details we sent earlier regarding your inquiry.\n\nWe understand your timelines might have shifted, but if you are still looking to move forward or need any additional information, please let me know. I am here to help.\n\nBest regards,\n{{salesName}}"
   }
 ];
 

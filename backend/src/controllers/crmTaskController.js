@@ -31,8 +31,26 @@ export const createFollowUpTask = asyncHandler(async (req, res) => {
 });
 
 export const getMyFollowUpTasks = asyncHandler(async (req, res) => {
-  const tasks = await FollowUpTask.find({ ownerId: req.user._id })
-    .populate("customerId", "name email crn status")
+  const query = {};
+  if (req.query.customerId) {
+    query.customerId = req.query.customerId;
+  } else {
+    const isRestricted = ["sales", "agent"].includes(req.user.role);
+    if (isRestricted && req.query.all !== "true") {
+      query.ownerId = req.user._id;
+    } else if (req.query.ownerId) {
+      query.ownerId = req.query.ownerId;
+    }
+  }
+
+  if (req.query.status) {
+    query.status = req.query.status;
+  }
+
+  const tasks = await FollowUpTask.find(query)
+    .populate("customerId", "name email crn status websiteId companyName")
+    .populate("ownerId", "name email role")
+    .populate("createdBy", "name")
     .sort({ dueAt: 1 });
   res.json(tasks);
 });

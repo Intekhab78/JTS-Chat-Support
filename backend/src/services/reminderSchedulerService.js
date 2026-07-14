@@ -1,4 +1,5 @@
 import { Reminder } from "../models/Reminder.js";
+import { Subscription } from "../models/Subscription.js";
 import { FollowUpTask } from "../models/FollowUpTask.js";
 import { Invoice } from "../models/Invoice.js";
 import { Quotation } from "../models/Quotation.js";
@@ -358,5 +359,78 @@ export const checkStaleDealReminders = async () => {
     }
   } catch (err) {
     console.error("[Reminder Error] Stale deal reminders:", err.message);
+  }
+};
+
+// ─── 7. Subscription Renewal / Expiry Reminders (daily — fires 3 days before) ─
+export const checkSubscriptionRenewalReminders = async () => {
+  try {
+    const now = new Date();
+    const threeDaysLaterStart = new Date(now);
+    threeDaysLaterStart.setDate(threeDaysLaterStart.getDate() + 3);
+    threeDaysLaterStart.setHours(0, 0, 0, 0);
+
+    const threeDaysLaterEnd = new Date(threeDaysLaterStart);
+    threeDaysLaterEnd.setHours(23, 59, 59, 999);
+
+    // Find active subscriptions renewing in exactly 3 days
+    const renewingSubscriptions = await Subscription.find({
+      status: { $in: ["active", "renewed"] },
+      endDate: { $gte: threeDaysLaterStart, $lte: threeDaysLaterEnd }
+    }).populate("planId").populate("customerId");
+
+    for (const sub of renewingSubscriptions) {
+      const customer = sub.customerId;
+      if (!customer || !customer.email) continue;
+
+      const planName = sub.planId ? sub.planId.name : "SaaS Plan";
+      const price = sub.planId ? sub.planId.price : 0;
+      const currency = sub.planId?.currency || "USD";
+
+      console.log(`[Reminder] Subscription ${sub.autoRenewal ? "Renewal" : "Expiry"} → ${customer.email} (due in 3 days)`);
+
+      let subject, html;
+      if (sub.autoRenewal) {
+        subject = `🔔 Subscription Renewal Notice: ${planName}`;
+        html = `
+          <div style="font-family: sans-serif; padding: 20px; color: #333; line-height: 1.6;">
+            <h2 style="color: #4f46e5;">Subscription Renewal Notice</h2>
+            <p>Hello <strong>${customer.name}</strong>,</p>
+            <p>This is a friendly reminder that your subscription for the <strong>${planName}</strong> plan will auto-renew in 3 days on <strong>${sub.endDate.toLocaleDateString()}</strong>.</p>
+            <p>An automatic renewal invoice of <strong>${currency} ${price}</strong> will be generated. You do not need to take any action if you wish to keep your services active.</p>
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+            <p style="font-size: 11px; color: #999;">Thank you for choosing JTS Support!</p>
+          </div>
+        `;
+      } else {
+        subject = `⚠️ Subscription Expiration Notice: ${planName}`;
+        html = `
+          <div style="font-family: sans-serif; padding: 20px; color: #333; line-height: 1.6;">
+            <h2 style="color: #e11d48;">Subscription Expiration Warning</h2>
+            <p>Hello <strong>${customer.name}</strong>,</p>
+            <p>Your subscription for the <strong>${planName}</strong> plan will expire in 3 days on <strong>${sub.endDate.toLocaleDateString()}</strong> because auto-renewal is turned off.</p>
+            <p>Please log in to your dashboard to enable auto-renewal or renew manually to prevent any service interruptions.</p>
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+            <p style="font-size: 11px; color: #999;">Thank you for choosing JTS Support!</p>
+          </div>
+        `;
+      }
+
+      await sendEmail({ to: customer.email, subject, html }).catch(() => {});
+
+      // Notify the workspace owner
+      const owner = customer.ownerId || sub.websiteId; // fallback
+      if (owner) {
+        await createNotification({
+          userId: owner,
+          websiteId: sub.websiteId,
+          type: "alert",
+          title: `Subscription ${sub.autoRenewal ? "Renewing" : "Expiring"}: ${customer.name}`,
+          content: `${customer.name}'s subscription for ${planName} is due in 3 days.`
+        }).catch(() => {});
+      }
+    }
+  } catch (err) {
+    console.error("[Reminder Error] Subscription reminders:", err.message);
   }
 };

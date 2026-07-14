@@ -155,13 +155,25 @@ export function salesOutreachTemplate({ customerName, salesName, body, websiteNa
       .replace(/>/g, "&gt;"))
     .join("<br />");
 
+  const trimmedBodyLower = String(body || "").trim().toLowerCase();
+  const hasGreeting = trimmedBodyLower.startsWith("hi") || 
+                      trimmedBodyLower.startsWith("hello") || 
+                      trimmedBodyLower.startsWith("dear") ||
+                      trimmedBodyLower.startsWith("hey");
+                      
+  const hasSignOff = trimmedBodyLower.includes("best regards") || 
+                     trimmedBodyLower.includes("regards") || 
+                     trimmedBodyLower.includes("thanks") || 
+                     trimmedBodyLower.includes("sincerely") ||
+                     trimmedBodyLower.includes("thank you");
+
   const content = `
-    <h2 style="margin:0 0 8px;color:#1e293b;font-size:20px;font-weight:800;">Message from ${websiteName}</h2>
-    <p style="margin:0 0 24px;color:#64748b;font-size:14px;line-height:1.7;">Hi <strong>${customerName || "there"}</strong>,</p>
+    <h2 style="margin:0 0 16px;color:#1e293b;font-size:20px;font-weight:800;">Message from ${websiteName}</h2>
+    ${!hasGreeting ? `<p style="margin:0 0 24px;color:#64748b;font-size:14px;line-height:1.7;">Hi <strong>${customerName || "there"}</strong>,</p>` : ""}
     <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:24px;color:#475569;font-size:14px;line-height:1.8;">
       ${safeBody}
     </div>
-    <p style="margin:0;color:#64748b;font-size:14px;line-height:1.7;">Best regards,<br /><strong>${salesName}</strong><br />${websiteName}</p>
+    ${!hasSignOff ? `<p style="margin:0;color:#64748b;font-size:14px;line-height:1.7;">Best regards,<br /><strong>${salesName}</strong><br />${websiteName}</p>` : ""}
   `;
 
   return {

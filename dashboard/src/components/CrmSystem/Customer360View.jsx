@@ -55,7 +55,9 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
     setLoading(true);
     try {
       const res = await api(`/api/crm/${customerId}`);
-      setCustomer(res);
+      setCustomer(res.customer || res);
+      if (res.tasks) setTasks(res.tasks);
+      if (res.activity) setTimeline(res.activity);
     } catch (err) {
       console.error(err);
     } finally {
@@ -100,11 +102,11 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
   const fetchTabData = async () => {
     try {
       if (activeTab === "timeline") {
-        const res = await api(`/api/crm/activities?customerId=${customerId}&websiteId=${websiteId}`);
-        setTimeline(res.activities || []);
+        const res = await api(`/api/crm/${customerId}/activity`);
+        setTimeline(res || []);
       } else if (activeTab === "deals") {
         const res = await api(`/api/crm/deals?customerId=${customerId}&websiteId=${websiteId}`);
-        setDeals(res.deals || []);
+        setDeals(res.deals || res);
       } else if (activeTab === "tasks") {
         const res = await api(`/api/crm/tasks/my?customerId=${customerId}`); // standard fallback
         setTasks(Array.isArray(res) ? res : (res.tasks || []));
@@ -121,7 +123,7 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
         const res = await api(`/api/crm/documents?customerId=${customerId}&websiteId=${websiteId}`);
         setDocuments(res.documents || []);
       } else if (activeTab === "invoices") {
-        const res = await api(`/api/crm/invoices?customerId=${customerId}&websiteId=${websiteId}`);
+        const res = await api(`/api/crm/${customerId}/invoices`);
         setInvoices(Array.isArray(res) ? res : (res.invoices || []));
       } else if (activeTab === "payments") {
         const res = await api(`/api/crm/payments?customerId=${customerId}&websiteId=${websiteId}`);

@@ -54,6 +54,7 @@ import CrmCalendarView from "./CrmCalendarView.jsx";
 import MeetingPlatformsManager from "./MeetingPlatformsManager.jsx";
 import CrmSalesTargets from "./CrmSalesTargets.jsx";
 import CrmActivityFeed from "./CrmActivityFeed.jsx";
+import CrmTasksView from "./CrmTasksView.jsx";
 
 const crmGroups = [
   {
@@ -70,6 +71,7 @@ const crmGroups = [
       { id: "calendar", label: "Calendar", icon: Calendar },
       { id: "meeting-platforms", label: "Meeting Platforms", icon: Video },
       { id: "targets", label: "Sales Targets", icon: Target },
+      { id: "tasks", label: "Tasks Hub", icon: Clock },
       { id: "feed", label: "Activity Feed", icon: History },
     ]
   },
@@ -125,6 +127,16 @@ const crmGroups = [
     ]
   }
 ];
+
+const buildSalesEmailDraft = (customer, currentUser) => {
+  const customerName = customer?.name || "there";
+  const salesName = currentUser?.name || "Sales Team";
+  const websiteName = (typeof customer?.websiteId === 'object' ? customer?.websiteId?.websiteName : "our team") || "our team";
+  return {
+    subject: `Follow-up from ${websiteName}`,
+    body: `Hi ${customerName},\n\nThank you for your interest. I am ${salesName} from ${websiteName}.\n\nI am following up regarding your recent inquiry. Please reply with a convenient time or any details you would like us to prepare before we connect.\n\nBest regards,\n${salesName}`
+  };
+};
 
 export default function CrmContainer({
   websiteId = "",
@@ -365,6 +377,9 @@ export default function CrmContainer({
     try {
       const data = await api(`/api/crm/${customer._id}`);
       setCustomerDetails(data);
+      if (data.customer) {
+        setSelectedCustomer(data.customer);
+      }
       // Initialize draft if not already set or if opening a new customer
       setEmailDraft(buildSalesEmailDraft(data.customer || customer, user));
     } catch (err) {
@@ -633,16 +648,6 @@ export default function CrmContainer({
     } catch (err) {
       setActionMessage({ type: "error", text: "Deletion failed." });
     }
-  };
-
-  const buildSalesEmailDraft = (customer, currentUser) => {
-    const customerName = customer?.name || "there";
-    const salesName = currentUser?.name || "Sales Team";
-    const websiteName = (typeof customer?.websiteId === 'object' ? customer?.websiteId?.websiteName : "our team") || "our team";
-    return {
-      subject: `Follow-up from ${websiteName}`,
-      body: `Hi ${customerName},\n\nThank you for your interest. I am ${salesName} from ${websiteName}.\n\nI am following up regarding your recent inquiry. Please reply with a convenient time or any details you would like us to prepare before we connect.\n\nBest regards,\n${salesName}`
-    };
   };
 
   const onSendEmail = async (e) => {
@@ -1446,6 +1451,10 @@ export default function CrmContainer({
 
       {workspaceTab === "feed" && (
         <CrmActivityFeed websiteId={websiteId} onOpenCustomer={openCustomer} />
+      )}
+
+      {workspaceTab === "tasks" && (
+        <CrmTasksView onOpenCustomer={openCustomer} />
       )}
 
       {/* ── Overlays ── */}

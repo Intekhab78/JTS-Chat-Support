@@ -124,7 +124,15 @@ export const createTicket = asyncHandler(async (req, res) => {
     priority,
     category: category || "general",
     status: "open",
-    source: "portal"
+    source: "portal",
+    assignedAgent: customer.ownerId || undefined,
+    assignedAt: customer.ownerId ? new Date() : null,
+    assignmentHistory: customer.ownerId ? [{
+      assignedAgent: customer.ownerId,
+      assignedBy: null,
+      reason: "Auto-assigned to Account Manager / Customer Owner",
+      assignedAt: new Date()
+    }] : []
   });
 
   // Log activity
@@ -244,7 +252,7 @@ export const payInvoice = asyncHandler(async (req, res) => {
     gateway: "portal_stripe_mock",
     paymentMethod,
     referenceNumber: `REF-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
-    status: "success",
+    status: "completed",
     paymentDate: new Date()
   });
 

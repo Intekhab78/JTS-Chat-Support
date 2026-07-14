@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import * as dealService from "../services/dealService.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -7,7 +8,7 @@ import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
 export const listDeals = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_VIEW);
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
-  const { search, websiteId, pipelineId, stage, page = 1, limit = 20 } = req.query;
+  const { search, websiteId, pipelineId, stage, customerId, page = 1, limit = 20 } = req.query;
 
   if (ownedWebsiteIds.length === 0) {
     return res.json({ deals: [], pagination: { total: 0, page: 1, pages: 0 } });
@@ -28,6 +29,32 @@ export const listDeals = asyncHandler(async (req, res) => {
 
   if (search) {
     query.dealName = new RegExp(search, "i");
+  }
+
+  if (customerId) {
+    const orConditions = [
+      { primaryContactId: customerId },
+      { companyId: customerId }
+    ];
+    try {
+      const CustomerModel = mongoose.model("Customer");
+      const customer = await CustomerModel.findById(customerId);
+      if (customer && customer.email) {
+        const ContactModel = mongoose.model("Contact");
+        const contacts = await ContactModel.find({ 
+          email: customer.email.toLowerCase().trim(),
+          isDeleted: { $ne: true }
+        }).select("_id");
+        const contactIds = contacts.map(c => c._id);
+        if (contactIds.length > 0) {
+          orConditions.push({ primaryContactId: { $in: contactIds } });
+          orConditions.push({ contacts: { $in: contactIds } });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to enrich deal query by customerId:", err);
+    }
+    query.$or = orConditions;
   }
 
   if (req.user.role === "sales") {

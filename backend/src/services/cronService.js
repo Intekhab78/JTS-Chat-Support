@@ -5,7 +5,8 @@ import {
   checkInvoiceOverdueReminders,
   checkQuotationExpiryReminders,
   checkPODeliveryReminders,
-  checkStaleDealReminders
+  checkStaleDealReminders,
+  checkSubscriptionRenewalReminders
 } from "./reminderSchedulerService.js";
 
 export const startCronJobs = () => {
@@ -50,6 +51,12 @@ export const startCronJobs = () => {
   cron.schedule("0 9 * * 1-5", () => {
     console.log("[Cron] Running Stale Deal Reminder check...");
     checkStaleDealReminders();
+  });
+
+  // 7. Subscription Renewal Reminders — fires daily at 8:00 AM (3 days before endDate)
+  cron.schedule("0 8 * * *", () => {
+    console.log("[Cron] Running Subscription Renewal/Expiry Reminder check...");
+    checkSubscriptionRenewalReminders();
   });
 
   console.log("[Cron] ✅ All reminder cron jobs registered:");

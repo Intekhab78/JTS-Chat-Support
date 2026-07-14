@@ -27,6 +27,10 @@ export async function runSubscriptionBillingCron() {
         
         if (sub.billingCycle === "monthly") {
           nextEnd.setMonth(nextEnd.getMonth() + 1);
+        } else if (sub.billingCycle === "quarterly") {
+          nextEnd.setMonth(nextEnd.getMonth() + 3);
+        } else if (sub.billingCycle === "half_yearly") {
+          nextEnd.setMonth(nextEnd.getMonth() + 6);
         } else if (sub.billingCycle === "yearly") {
           nextEnd.setFullYear(nextEnd.getFullYear() + 1);
         } else {

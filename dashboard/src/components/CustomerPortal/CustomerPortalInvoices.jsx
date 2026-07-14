@@ -32,7 +32,18 @@ export default function CustomerPortalInvoices() {
     try {
       const result = await api(`/api/crm/invoices/${invoiceId}/pdf`, { method: "POST" });
       const cleanUrl = `${API_BASE}${result.pdfUrl}`;
-      window.open(cleanUrl, "_blank");
+      
+      const response = await fetch(cleanUrl);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.setAttribute("download", result.pdfUrl.split("/").pop() || `invoice_${invoiceId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
     } catch (err) {
       toast.error(err.message || "Failed to generate PDF");
     }
