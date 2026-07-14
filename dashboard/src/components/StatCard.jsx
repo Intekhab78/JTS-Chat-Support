@@ -1,6 +1,6 @@
 import { ArrowUpRight } from "lucide-react";
 
-export default function StatCard({ label, value, trend, color = "indigo" }) {
+export default function StatCard({ label, value, trend, color = "indigo", onClick }) {
   const colors = {
     indigo: "from-indigo-500 to-indigo-600 shadow-indigo-500/20 text-indigo-500",
     orange: "from-orange-500 to-amber-500 shadow-orange-500/20 text-orange-500",
@@ -11,7 +11,12 @@ export default function StatCard({ label, value, trend, color = "indigo" }) {
   const selectedColor = colors[color] || colors.indigo;
 
   return (
-    <article className="premium-card p-6 lg:p-8 group hover:-translate-y-1 transition-all duration-500 bg-white dark:bg-slate-900/50 border border-slate-200/60 dark:border-white/5 shadow-sm rounded-[32px] overflow-hidden flex flex-col justify-between">
+    <article
+      onClick={onClick}
+      className={`premium-card p-6 lg:p-8 group hover:-translate-y-1 transition-all duration-500 bg-white dark:bg-slate-900/50 border border-slate-200/60 dark:border-white/5 shadow-sm rounded-[32px] overflow-hidden flex flex-col justify-between ${
+        onClick ? "cursor-pointer active:scale-95" : ""
+      }`}
+    >
       <div className="space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition-colors leading-relaxed">{label}</span>

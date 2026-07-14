@@ -6,6 +6,8 @@ import { normalizeRole } from "./utils/roles.js";
 
 const LandingPage = lazy(() => import("./pages/LandingPage.jsx"));
 const LoginPage = lazy(() => import("./pages/LoginPage.jsx"));
+const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage.jsx"));
+const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage.jsx"));
 const ClientPage = lazy(() => import("./pages/ClientPage.jsx"));
 const AgentPage = lazy(() => import("./pages/AgentPage.jsx"));
 const PurchasePage = lazy(() => import("./pages/PurchasePage.jsx"));
@@ -68,6 +70,8 @@ export default function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
           <Route path="/ticket-status/:ticketId" element={<TicketStatusPage />} />
           <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><ClientPage /></ProtectedRoute>} />
           <Route path="/manager" element={<ProtectedRoute allowedRoles={["manager"]}><ManagerPage /></ProtectedRoute>} />

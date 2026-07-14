@@ -193,7 +193,11 @@ export default function LoginPage() {
 
         {mode === "login" && (
           <div className="text-center">
-            <button type="button" className="text-[10px] font-bold text-slate-400 hover:text-indigo-600 transition-colors underline-offset-2 hover:underline">
+            <button 
+              type="button" 
+              onClick={() => navigate("/forgot-password")}
+              className="text-[10px] font-bold text-slate-400 hover:text-indigo-600 transition-colors underline-offset-2 hover:underline"
+            >
               Forgot your password?
             </button>
           </div>

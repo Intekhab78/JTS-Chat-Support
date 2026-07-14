@@ -5,6 +5,7 @@ import { api } from "../../api/client.js";
 export default function CrmSubscriptionsView({ websiteId }) {
   const [subscriptions, setSubscriptions] = useState([]);
   const [plans, setPlans] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [showSubForm, setShowSubForm] = useState(false);
@@ -25,6 +26,10 @@ export default function CrmSubscriptionsView({ websiteId }) {
 
       const planRes = await api(`/api/crm/plans?websiteId=${websiteId}`);
       setPlans(planRes || []);
+
+      const customerRes = await api(`/api/crm?limit=200&websiteId=${websiteId}`);
+      const customerList = Array.isArray(customerRes) ? customerRes : (customerRes?.customers || []);
+      setCustomers(customerList);
     } catch (err) {
       console.error(err);
     } finally {
@@ -84,6 +89,20 @@ export default function CrmSubscriptionsView({ websiteId }) {
       alert(err.message);
     }
   };
+
+  if (!websiteId) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 bg-white border border-slate-200/80 rounded-[30px] shadow-sm text-center">
+        <div className="w-16 h-16 bg-indigo-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-indigo-600">
+          <Calendar size={32} />
+        </div>
+        <h3 className="text-sm font-black text-slate-900 tracking-tight uppercase">Select a Specific Website Domain</h3>
+        <p className="text-xs font-bold text-slate-400 max-w-sm leading-relaxed mt-2">
+          Plans, renewals, and subscriptions are configured per website asset. Please select a specific domain from the website selector at the top to configure billing structures.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -167,12 +186,36 @@ export default function CrmSubscriptionsView({ websiteId }) {
           <form onSubmit={handleCreateSub} className="relative w-full max-w-sm bg-white rounded-[32px] p-8 shadow-2xl space-y-6">
             <h3 className="text-base font-black text-slate-900">Assign Subscription</h3>
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Customer ID (ObjectId)</label>
-              <input required value={subForm.customerId} onChange={(e) => setSubForm({ ...subForm, customerId: e.target.value })} className="w-full bg-slate-50 border px-4 py-3 rounded-xl text-xs font-bold" />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Select Customer</label>
+              <select
+                required
+                value={subForm.customerId}
+                onChange={(e) => setSubForm({ ...subForm, customerId: e.target.value })}
+                className="w-full bg-slate-50 border px-4 py-3 rounded-xl text-xs font-bold"
+              >
+                <option value="">Choose Customer...</option>
+                {customers.map((c) => (
+                  <option key={c._id} value={c._id}>
+                    {c.name || c.companyName || "Unnamed account"} ({c.email || "No email"})
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Plan ID (ObjectId)</label>
-              <input required value={subForm.planId} onChange={(e) => setSubForm({ ...subForm, planId: e.target.value })} className="w-full bg-slate-50 border px-4 py-3 rounded-xl text-xs font-bold" />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Select Plan</label>
+              <select
+                required
+                value={subForm.planId}
+                onChange={(e) => setSubForm({ ...subForm, planId: e.target.value })}
+                className="w-full bg-slate-50 border px-4 py-3 rounded-xl text-xs font-bold"
+              >
+                <option value="">Choose Plan...</option>
+                {plans.map((p) => (
+                  <option key={p._id} value={p._id}>
+                    {p.name} (${p.price}/{p.billingCycle})
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">

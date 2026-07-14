@@ -311,10 +311,11 @@ export const checkStaleDealReminders = async () => {
     const now = new Date();
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    // Find active CRM customers not updated in 7+ days (locked_won or active pipeline deals)
+    // Find active CRM customers not updated in 7+ days (active pipeline deals)
     const staleCustomers = await Customer.find({
       updatedAt: { $lte: sevenDaysAgo },
-      status: { $in: ["contacted", "qualified", "proposal", "negotiation", "proposal_sent", "proposition"] }
+      pipelineStage: { $nin: ["won", "lost"] },
+      archivedAt: null
     }).populate("ownerId");
 
     for (const customer of staleCustomers) {
@@ -325,7 +326,7 @@ export const checkStaleDealReminders = async () => {
       const customerName = customer.name || "Customer";
       const companyName = customer.companyName || "";
       const lastActivityDaysAgo = daysBetween(customer.updatedAt, now);
-      const stageName = customer.status || "Active";
+      const stageName = customer.pipelineStage || "Active";
 
       console.log(`[Reminder] Stale Deal → ${companyName || customerName} → ${owner.email} (${lastActivityDaysAgo} days)`);
 

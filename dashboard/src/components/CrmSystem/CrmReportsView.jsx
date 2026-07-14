@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { 
   XCircle, Filter, Info, Calendar, ArrowUpRight, ArrowDownRight, Printer, FileText,
   Clock, TrendingUp, Zap, TrendingDown, AlertTriangle, 
-  BarChart3, PieChart, Users, Target, CheckCircle2, TrendingUp as TrendUpIcon, Sparkles
+  BarChart3, PieChart, Users, Target, CheckCircle2, TrendingUp as TrendUpIcon, Sparkles,
+  Repeat, Receipt
 } from "lucide-react";
 import { 
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid 
@@ -20,6 +21,12 @@ export default function CRMReportsView({ summary, onDrillDown, activeRange, setA
   const followUpHealth = summary?.followUpHealth || { overdue: 0, completedToday: 0, totalOpen: 0 };
   const { cac, ltv, agents, lostReasons, totalLeads, conversionRate, comparison, lostByStage } = summary || {};
 
+  const safeConversionRate = typeof conversionRate === "number" && !Number.isNaN(conversionRate) ? conversionRate : 0;
+  const totalReceived = Number(summary?.totalReceived) || 0;
+  const totalInvoiced = Number(summary?.totalInvoiced) || 0;
+  const collectionEfficiency = totalInvoiced > 0 ? (totalReceived / totalInvoiced) * 100 : 100;
+  const safeCollectionEfficiency = !Number.isNaN(collectionEfficiency) ? collectionEfficiency : 100;
+
   const revenueGrowth = comparison?.prevMonthRevenue 
     ? ((summary.revenue - comparison.prevMonthRevenue) / comparison.prevMonthRevenue * 100).toFixed(1)
     : 0;
@@ -33,8 +40,57 @@ export default function CRMReportsView({ summary, onDrillDown, activeRange, setA
   }, {});
   const sortedLossStages = Object.entries(stageLossCount).sort((a,b) => b[1] - a[1]);
 
+  const stageOrder = ["new", "contacted", "qualified", "proposal", "negotiation", "won"];
+  const sortedBreakdown = stageOrder
+    .map(stageKey => {
+      const found = breakdown.find(b => b._id === stageKey);
+      return {
+        stage: stageKey,
+        count: found ? found.count : 0,
+        totalValue: found ? found.totalValue : 0
+      };
+    })
+    .filter(item => item.count > 0 || item.totalValue > 0);
+
+  const funnelData = sortedBreakdown.map((item, idx, arr) => {
+    const prev = idx > 0 ? arr[idx - 1] : null;
+    const baseline = arr[0];
+    const convFromPrev = prev && prev.count > 0 ? Math.round((item.count / prev.count) * 100) : 100;
+    const convFromBase = baseline && baseline.count > 0 ? Math.round((item.count / baseline.count) * 100) : 100;
+    return {
+      ...item,
+      convFromPrev,
+      convFromBase
+    };
+  });
+
   return (
     <div id="reports-print-area" className="space-y-10 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          aside, header, nav, footer, .no-print {
+            display: none !important;
+            visibility: hidden !important;
+          }
+          #reports-print-area, #reports-print-area * {
+            visibility: visible !important;
+          }
+          #reports-print-area {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 20px !important;
+            box-shadow: none !important;
+            background: white !important;
+            color: black !important;
+          }
+        }
+      `}} />
       
       {/* ── HEADER & GLOBAL FILTERS ────────────────────────── */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -49,12 +105,12 @@ export default function CRMReportsView({ summary, onDrillDown, activeRange, setA
         <div className="flex items-center gap-3">
           <button 
             onClick={() => window.print()}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-slate-200 text-[10px] font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50 shadow-sm transition-all"
+            className="no-print flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-slate-200 text-[10px] font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50 shadow-sm transition-all"
           >
             <Printer size={14} /> Save as PDF
           </button>
           
-          <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-2xl border border-slate-200">
+          <div className="no-print flex items-center gap-2 p-1 bg-slate-100 rounded-2xl border border-slate-200">
              {["today", "week", "month"].map(range => (
                <button 
                   key={range}
@@ -146,10 +202,10 @@ export default function CRMReportsView({ summary, onDrillDown, activeRange, setA
              >
                 <svg className="w-full h-full transform -rotate-90">
                   <circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-slate-100" />
-                  <circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="12" fill="transparent" strokeDasharray={364} strokeDashoffset={364 - (364 * (conversionRate || 0)) / 100} className="text-emerald-500 transition-all duration-1000 group-hover/gauge:text-emerald-600" />
+                  <circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="12" fill="transparent" strokeDasharray={364} strokeDashoffset={364 - (364 * safeConversionRate) / 100} className="text-emerald-500 transition-all duration-1000 group-hover/gauge:text-emerald-600" />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                   <p className="text-2xl font-black text-slate-950 leading-none">{conversionRate || 0}%</p>
+                   <p className="text-2xl font-black text-slate-950 leading-none">{safeConversionRate}%</p>
                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">Velocity</p>
                 </div>
              </button>
@@ -163,32 +219,39 @@ export default function CRMReportsView({ summary, onDrillDown, activeRange, setA
           </div>
         </div>
 
-        {/* REPORT 3: PIPELINE */}
+        {/* REPORT 3: PIPELINE CONVERSION FUNNEL */}
         <div className="md:col-span-4 rounded-[32px] border border-slate-200 bg-white p-8 shadow-sm">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center">
               <BarChart3 size={20} />
             </div>
             <div>
-              <h3 className="text-sm font-black text-slate-950 uppercase tracking-tight">Report 3: Pipeline</h3>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Capital at risk by stage</p>
+              <h3 className="text-sm font-black text-slate-950 uppercase tracking-tight">Report 3: Sales Funnel</h3>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Pipeline conversion & drop-offs</p>
             </div>
           </div>
 
-          <div className="space-y-2">
-            {breakdown.length > 0 ? breakdown.map((item, idx) => (
-              <div key={item._id} className="relative group">
+          <div className="space-y-4">
+            {funnelData.length > 0 ? funnelData.map((item, idx) => (
+              <div key={item.stage} className="space-y-1 text-center">
                 <button 
-                  onClick={() => onDrillDown?.("stage", item._id)}
-                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-white hover:shadow-lg transition-all duration-300 group/item cursor-pointer"
+                  onClick={() => onDrillDown?.("stage", item.stage)}
+                  style={{ width: `${Math.max(45, item.convFromBase)}%` }}
+                  className="mx-auto flex flex-col justify-center items-center px-3 py-2.5 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 hover:from-orange-50 hover:to-orange-100/50 border border-slate-100 hover:border-orange-200 hover:shadow-md transition-all duration-300 group/funnel cursor-pointer"
                 >
-                   <div className="flex items-center gap-3">
-                      <span className="w-5 h-5 rounded bg-white border border-slate-200 flex items-center justify-center text-[8px] font-black text-slate-400 group-hover/item:border-orange-200 group-hover/item:text-orange-500">{item.count}</span>
-                      <span className="text-[10px] font-black text-slate-900 uppercase tracking-tight group-hover/item:text-orange-600">{item._id}</span>
-                   </div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{formatCurrency(item.totalValue)}</p>
+                  <span className="text-[9px] font-black text-slate-900 uppercase tracking-wider group-hover/funnel:text-orange-600">{item.stage}</span>
+                  <div className="flex items-baseline gap-1 mt-1 text-[8px] font-bold text-slate-400">
+                    <span className="text-slate-900 font-black">{item.count} leads</span>
+                    <span>•</span>
+                    <span>{formatCurrencyCompact(item.totalValue)}</span>
+                  </div>
                 </button>
-                {idx < breakdown.length - 1 && <div className="flex justify-center h-2 overflow-hidden"><div className="w-0.5 h-full bg-slate-200" /></div>}
+                
+                {idx < funnelData.length - 1 && (
+                  <div className="text-[9px] font-black text-orange-500 uppercase tracking-widest py-0.5 animate-pulse">
+                    ↓ {funnelData[idx + 1].convFromPrev}% conversion
+                  </div>
+                )}
               </div>
             )) : <div className="py-12 text-center text-slate-300"><p className="text-[10px] font-black uppercase tracking-widest">Zero pipeline current</p></div>}
           </div>
@@ -305,6 +368,118 @@ export default function CRMReportsView({ summary, onDrillDown, activeRange, setA
                   <div className="h-1.5 w-full bg-slate-50 rounded-full overflow-hidden"><div className="h-full bg-orange-500 rounded-full group-hover/reason:bg-orange-600 transition-all" style={{ width: `${(reason.count / (totalLeads || 1)) * 100}%` }} /></div>
                 </button>
               )) : null}
+            </div>
+          </div>
+        </div>
+
+        {/* REPORT 9: SUBSCRIPTIONS & RECURRING REVENUE */}
+        <div className="md:col-span-6 rounded-[32px] border border-slate-200 bg-white p-8 shadow-sm relative overflow-hidden flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <Repeat size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-slate-950 uppercase tracking-tight">Report 9: Subscriptions</h3>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Active Plans & Recurring MRR</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Monthly Recurring (MRR)</p>
+                <p className="text-xl font-black text-slate-800">${(summary?.mrr || 0).toLocaleString()}</p>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Annual Run Rate (ARR)</p>
+                <p className="text-xl font-black text-indigo-600">${(summary?.arr || 0).toLocaleString()}</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Plan Distribution ({summary?.activeSubscriptionsCount || 0} Active)</p>
+              {summary?.planDistribution && summary.planDistribution.length > 0 ? (
+                summary.planDistribution.map((plan) => {
+                  const maxCount = Math.max(...summary.planDistribution.map(p => p.count)) || 1;
+                  return (
+                    <div key={plan.name} className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-600">
+                        <span>{plan.name}</span>
+                        <span>{plan.count} users</span>
+                      </div>
+                      <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-indigo-500 rounded-full" 
+                          style={{ width: `${(plan.count / maxCount) * 100}%` }} 
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-[10px] font-bold text-slate-350 py-4 text-center">No active subscriptions</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* REPORT 10: FINANCE & ACCOUNTS RECEIVABLE */}
+        <div className="md:col-span-6 rounded-[32px] border border-slate-200 bg-white p-8 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <Receipt size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-slate-950 uppercase tracking-tight">Report 10: Receivables & Cash</h3>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Gross Invoiced vs Cash Collected</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Invoiced</p>
+                <p className="text-xs font-black text-slate-800">${(summary?.totalInvoiced || 0).toLocaleString()}</p>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Collected</p>
+                <p className="text-xs font-black text-emerald-600">${(summary?.totalReceived || 0).toLocaleString()}</p>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Outstanding</p>
+                <p className="text-xs font-black text-rose-600">${(summary?.totalOutstanding || 0).toLocaleString()}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-6 bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+              <div className="relative w-16 h-16 flex items-center justify-center shrink-0">
+                <svg className="w-full h-full transform -rotate-90">
+                  <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="6" fill="transparent" className="text-slate-200" />
+                  <circle 
+                    cx="32" 
+                    cy="32" 
+                    r="28" 
+                    stroke="currentColor" 
+                    strokeWidth="6" 
+                    fill="transparent" 
+                    strokeDasharray={176} 
+                    strokeDashoffset={176 - (176 * Math.min(100, safeCollectionEfficiency)) / 100} 
+                    className="text-emerald-500" 
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                  <p className="text-[10px] font-black text-slate-900 leading-none">
+                    {Math.round(safeCollectionEfficiency)}%
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-slate-800 uppercase tracking-tight">Collection Efficiency Rate</p>
+                <p className="text-[10px] font-medium text-slate-500 leading-relaxed">
+                  Percentage of gross invoiced billing converted to cash. 
+                  {summary?.totalOutstanding > 0 ? ` Please follow up on $${(summary.totalOutstanding).toLocaleString()} unpaid receivables.` : " All invoice bills fully settled!"}
+                </p>
+              </div>
             </div>
           </div>
         </div>

@@ -626,6 +626,11 @@ export default function CRMQuotationTab({ customer, websiteId, onPostWin }) {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight">{quote.quotationId}</p>
+                      {quote.invoiceNumber && (
+                        <span className="text-[8px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-lg px-2 py-0.5 uppercase tracking-wide">
+                          Invoice: {quote.invoiceNumber}
+                        </span>
+                      )}
                       <StatusBadge status={quote.status} />
                       <span className="text-[8px] text-slate-300 font-bold">{expandedQuoteId === quote._id ? "▲ hide" : "▼ details"}</span>
                     </div>

@@ -28,6 +28,7 @@ router.get("/orders", portalController.getOrders);
 
 // Invoices
 router.get("/invoices", portalController.getInvoices);
+router.post("/invoices/:id/pay", portalController.payInvoice);
 
 // Support tickets
 router.get("/tickets", portalController.getTickets);

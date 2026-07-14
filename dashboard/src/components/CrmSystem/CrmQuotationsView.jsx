@@ -164,6 +164,14 @@ export default function CrmQuotationsView({ websiteId }) {
                 <div>
                   <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-1">{selectedQuote.quotationId}</h4>
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Date created: {new Date(selectedQuote.createdAt).toLocaleDateString()}</p>
+                  {selectedQuote.invoiceNumber && (
+                    <div className="mt-1.5 flex items-center gap-1.5">
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Invoice:</span>
+                      <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-lg px-2 py-0.5 uppercase">
+                        {selectedQuote.invoiceNumber}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2 text-xs font-bold text-slate-600 border-t border-slate-100 pt-4">

@@ -9,6 +9,8 @@ import { Notification } from "../models/Notification.js";
 import { ChatSession } from "../models/ChatSession.js";
 import { Activity } from "../models/Activity.js";
 import { User } from "../models/User.js";
+import { Payment } from "../models/Payment.js";
+import { advancePurchaseWorkflow } from "../services/purchaseWorkflowService.js";
 import bcrypt from "bcryptjs";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
@@ -212,4 +214,75 @@ export const changePassword = asyncHandler(async (req, res) => {
   await user.save();
 
   res.json({ success: true, message: "Password updated successfully" });
+});
+
+// 7. Pay Invoice (Simulation from Customer Portal)
+export const payInvoice = asyncHandler(async (req, res) => {
+  const { paymentMethod = "credit_card", amount } = req.body;
+  const invoice = await Invoice.findById(req.params.id);
+  if (!invoice) throw new AppError("Invoice not found", 404);
+  checkCustomerIsolation(req.user, invoice.customerId);
+
+  if (invoice.status === "cancelled" || invoice.status === "void") {
+    throw new AppError("Cannot pay cancelled or void invoices", 400);
+  }
+
+  const payAmount = Number(amount || invoice.total || invoice.totalAmount || 0);
+  if (payAmount <= 0) {
+    throw new AppError("Invalid payment amount", 400);
+  }
+
+  const paymentNumber = `PAY-PORTAL-${Date.now().toString().slice(-6)}`;
+
+  // Create payment record
+  const payment = await Payment.create({
+    websiteId: invoice.websiteId,
+    paymentNumber,
+    invoiceId: invoice._id,
+    customerId: invoice.customerId,
+    amount: payAmount,
+    gateway: "portal_stripe_mock",
+    paymentMethod,
+    referenceNumber: `REF-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
+    status: "success",
+    paymentDate: new Date()
+  });
+
+  // Update invoice paid balance
+  invoice.paidAmount = (invoice.paidAmount || 0) + payAmount;
+  if (invoice.paidAmount >= (invoice.total || invoice.totalAmount)) {
+    invoice.status = "paid";
+    invoice.paymentStatus = "paid";
+  } else {
+    invoice.status = "partially_paid";
+    invoice.paymentStatus = "partially_paid";
+  }
+  await invoice.save();
+
+  // Trigger post-payment workflows and lead transitions
+  try {
+    // 1. Log activity
+    await logCrmActivity({
+      websiteId: invoice.websiteId,
+      type: "meeting",
+      title: "Invoice Paid Online",
+      description: `Invoice #${invoice.invoiceNumber || invoice._id} paid online via Customer Portal for $${payAmount}. Reference: ${payment.referenceNumber}`,
+      customerId: invoice.customerId
+    });
+
+    // 2. Advance Purchase Workflow & transition lead if fully paid
+    if (invoice.status === "paid") {
+      await advancePurchaseWorkflow(invoice._id, "completed", "Invoice paid in full");
+      
+      const customer = await Customer.findById(invoice.customerId);
+      if (customer) {
+        customer.pipelineStage = "won";
+        await customer.save();
+      }
+    }
+  } catch (err) {
+    console.error("Failed to run post-payment updates in portal:", err);
+  }
+
+  res.json({ success: true, message: "Payment processed successfully", payment });
 });

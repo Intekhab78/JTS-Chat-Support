@@ -133,7 +133,7 @@ function getLatestAssignmentReason(ticket) {
    return ticket.assignmentHistory?.[0]?.reason || ticket.assignmentReason || "";
 }
 
-function TicketDetailPanel({ ticket, onUpdate, onClose, assignableAgents = [], canManageAssignment = false }) {
+function TicketDetailPanel({ ticket, onUpdate, onClose, assignableAgents = [], canManageAssignment = false, stages = DEFAULT_STAGES }) {
    const toast = useToast();
    const [status, setStatus] = useState(ticket.status);
    const [priority, setPriority] = useState(ticket.priority);
@@ -1078,6 +1078,7 @@ export default function TicketManager({ websiteId }) {
                ticket={selectedTicket}
                assignableAgents={assignableAgents}
                canManageAssignment={canManageAssignment}
+               stages={stages}
                onUpdate={() => { fetchTickets(); setSelectedTicket(null); }}
                onClose={() => setSelectedTicket(null)}
             />

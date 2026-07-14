@@ -373,7 +373,7 @@ function CreatePOFromDealModal({ customer, onClose, websiteId, inventoryWebsites
   );
 }
 
-function PurchaseOverview({ sessions, tickets, loading, onRefresh, user, customers, quotes, invoices, procurementStats }) {
+function PurchaseOverview({ sessions, tickets, loading, onRefresh, user, customers, quotes, invoices, procurementStats, setSearchParams, setWorkflowFilter }) {
   const activeRequests = sessions.filter((session) => ["active", "queued"].includes(session.status));
   const openTickets = tickets.filter((ticket) => ["open", "waiting", "in_progress", "pending"].includes(ticket.status));
   const pendingQuotes = quotes.filter((quote) => ["draft", "sent", "viewed", "pending_approval"].includes(quote.status));
@@ -420,17 +420,87 @@ function PurchaseOverview({ sessions, tickets, loading, onRefresh, user, custome
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        <StatCard label="Assigned Requests" value={activeRequests.length} trend="Live workload" color="indigo" />
-        <StatCard label="Open Tickets" value={openTickets.length} trend="Needs review" color="orange" />
-        <StatCard label="Pending Quotes" value={pendingQuotes.length} trend={`${customers.length} live accounts`} color="emerald" />
-        <StatCard label="Pending Invoices" value={pendingInvoices.length} trend={user?.isAvailable ? "Desk ready" : "Desk standby"} color="rose" />
+        <StatCard
+          label="Assigned Requests"
+          value={activeRequests.length}
+          trend="Live workload"
+          color="indigo"
+          onClick={() => {
+            if (setWorkflowFilter) setWorkflowFilter("all");
+            if (setSearchParams) setSearchParams({ tab: "requests" });
+          }}
+        />
+        <StatCard
+          label="Open Tickets"
+          value={openTickets.length}
+          trend="Needs review"
+          color="orange"
+          onClick={() => {
+            if (setWorkflowFilter) setWorkflowFilter("all");
+            if (setSearchParams) setSearchParams({ tab: "requests" });
+          }}
+        />
+        <StatCard
+          label="Pending Quotes"
+          value={pendingQuotes.length}
+          trend={`${customers.length} live accounts`}
+          color="emerald"
+          onClick={() => {
+            if (setSearchParams) setSearchParams({ tab: "accounts" });
+          }}
+        />
+        <StatCard
+          label="Pending Invoices"
+          value={pendingInvoices.length}
+          trend={user?.isAvailable ? "Desk ready" : "Desk standby"}
+          color="rose"
+          onClick={() => {
+            if (setSearchParams) setSearchParams({ tab: "accounts" });
+          }}
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        <StatCard label="In Review" value={workflowStats.in_review || 0} trend={`${workflowStats.new || 0} new requests`} color="indigo" />
-        <StatCard label="Quote Ready" value={workflowStats.quotation_ready || 0} trend="Commercial proposals ready" color="emerald" />
-        <StatCard label="Invoice Ready" value={workflowStats.invoice_ready || 0} trend="Awaiting payment closure" color="orange" />
-        <StatCard label="Completed" value={workflowStats.completed || 0} trend={`${completedThisMonth} this month, avg ${averageCompletionDays || "-"} days`} color="rose" />
+        <StatCard
+          label="In Review"
+          value={workflowStats.in_review || 0}
+          trend={`${workflowStats.new || 0} new requests`}
+          color="indigo"
+          onClick={() => {
+            if (setWorkflowFilter) setWorkflowFilter("in_review");
+            if (setSearchParams) setSearchParams({ tab: "requests" });
+          }}
+        />
+        <StatCard
+          label="Quote Ready"
+          value={workflowStats.quotation_ready || 0}
+          trend="Commercial proposals ready"
+          color="emerald"
+          onClick={() => {
+            if (setWorkflowFilter) setWorkflowFilter("quotation_ready");
+            if (setSearchParams) setSearchParams({ tab: "requests" });
+          }}
+        />
+        <StatCard
+          label="Invoice Ready"
+          value={workflowStats.invoice_ready || 0}
+          trend="Awaiting payment closure"
+          color="orange"
+          onClick={() => {
+            if (setWorkflowFilter) setWorkflowFilter("invoice_ready");
+            if (setSearchParams) setSearchParams({ tab: "requests" });
+          }}
+        />
+        <StatCard
+          label="Completed"
+          value={workflowStats.completed || 0}
+          trend={`${completedThisMonth} this month, avg ${averageCompletionDays || "-"} days`}
+          color="rose"
+          onClick={() => {
+            if (setWorkflowFilter) setWorkflowFilter("completed");
+            if (setSearchParams) setSearchParams({ tab: "requests" });
+          }}
+        />
       </div>
 
       {procurementStats && (
@@ -812,7 +882,7 @@ function PurchaseRequests({ sessions, tickets, customers, page, setPage, loading
   );
 }
 
-function PurchaseCustomerPicker({ customers, selectedCustomerId, onSelect, loading, onRefresh, updatingWorkflowId, onAdvanceWorkflow }) {
+function PurchaseCustomerPicker({ customers, selectedCustomerId, onSelect, loading, onRefresh, updatingWorkflowId, onAdvanceWorkflow, setSearchParams }) {
   return (
     <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -893,6 +963,31 @@ function PurchaseCustomerPicker({ customers, selectedCustomerId, onSelect, loadi
                     onAdvance={onAdvanceWorkflow}
                   />
                 </div>
+
+                {isActive && (
+                  <div className="mt-4 pt-4 border-t border-slate-100 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSearchParams({ tab: "quotations" });
+                      }}
+                      className="flex-1 py-3 px-4 rounded-xl bg-indigo-50 border border-indigo-100 text-[10px] font-black uppercase tracking-wider text-indigo-600 hover:bg-indigo-100 text-center transition-all"
+                    >
+                      View Quotations
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSearchParams({ tab: "invoices" });
+                      }}
+                      className="flex-1 py-3 px-4 rounded-xl bg-emerald-50 border border-emerald-100 text-[10px] font-black uppercase tracking-wider text-emerald-600 hover:bg-emerald-100 text-center transition-all"
+                    >
+                      View Invoices
+                    </button>
+                  </div>
+                )}
               </article>
             );
           })
@@ -1138,6 +1233,8 @@ export default function PurchasePage() {
   const [customers, setCustomers] = useState([]);
   const [quotes, setQuotes] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [globalQuotes, setGlobalQuotes] = useState([]);
+  const [globalInvoices, setGlobalInvoices] = useState([]);
   const [procurementStats, setProcurementStats] = useState(null);
   const [inventoryWebsites, setInventoryWebsites] = useState([]);
   const [selectedInventoryWebsiteId, setSelectedInventoryWebsiteId] = useState("");
@@ -1227,12 +1324,14 @@ export default function PurchasePage() {
           : "/api/crm?view=my_leads&limit=100";
 
       // load real chat sessions and support tickets dynamically
-      const [sessionResult, ticketResult, customerResult, inventoryMetaResult, procurementResult] = await Promise.allSettled([
-        api("/api/chats/sessions"),
+      const [sessionResult, ticketResult, customerResult, inventoryMetaResult, procurementResult, quotesResult, invoicesResult] = await Promise.allSettled([
+        api("/api/chat/sessions"),
         api("/api/tickets"),
         api(customerQuery),
         api("/api/inventory/meta"),
-        api("/api/procurement/stats")
+        api("/api/procurement/stats"),
+        api("/api/crm/quotations"),
+        api("/api/crm/invoices")
       ]);
 
       setSessions(sessionResult.status === "fulfilled" && Array.isArray(sessionResult.value) ? sessionResult.value : []);
@@ -1249,6 +1348,8 @@ export default function PurchasePage() {
       if (procurementResult.status === "fulfilled") {
         setProcurementStats(procurementResult.value);
       }
+      setGlobalQuotes(quotesResult.status === "fulfilled" && Array.isArray(quotesResult.value) ? quotesResult.value : []);
+      setGlobalInvoices(invoicesResult.status === "fulfilled" && Array.isArray(invoicesResult.value) ? invoicesResult.value : []);
       setSelectedInventoryWebsiteId((current) => {
         if (current && nextInventoryWebsites.some((website) => website._id === current)) {
           return current;
@@ -1310,6 +1411,8 @@ export default function PurchasePage() {
       quotes={quotes}
       invoices={invoices}
       procurementStats={procurementStats}
+      setSearchParams={setSearchParams}
+      setWorkflowFilter={setWorkflowFilter}
     />
   );
 
@@ -1326,6 +1429,7 @@ export default function PurchasePage() {
           onRefresh={loadWorkspace}
           updatingWorkflowId={updatingWorkflowId}
           onAdvanceWorkflow={updatePurchaseWorkflow}
+          setSearchParams={setSearchParams}
         />
         <PurchaseActivityPanel
           customer={selectedCustomer}
@@ -1398,14 +1502,23 @@ export default function PurchasePage() {
               {selectedCustomer.websiteId?.websiteName || "Unassigned site"}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => loadFinancialRecords(selectedCustomerId)}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-white transition-all hover:bg-black"
-          >
-            <RefreshCw size={14} />
-            Refresh Quotes
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setSearchParams({ tab: "accounts" })}
+              className="py-3 px-5 border border-slate-200 hover:bg-slate-50 text-[10px] font-black uppercase text-slate-700 rounded-2xl transition-all"
+            >
+              ← Back to Accounts
+            </button>
+            <button
+              type="button"
+              onClick={() => loadFinancialRecords(selectedCustomerId)}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-white transition-all hover:bg-black"
+            >
+              <RefreshCw size={14} />
+              Refresh Quotes
+            </button>
+          </div>
         </div>
 
         <CRMQuotationTab customer={selectedCustomer} websiteId={selectedCustomer.websiteId?._id || selectedCustomer.websiteId} />
@@ -1419,6 +1532,7 @@ export default function PurchasePage() {
         onRefresh={loadWorkspace}
         updatingWorkflowId={updatingWorkflowId}
         onAdvanceWorkflow={updatePurchaseWorkflow}
+        setSearchParams={setSearchParams}
       />
     );
   }
@@ -1435,6 +1549,23 @@ export default function PurchasePage() {
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
               {selectedCustomer.websiteId?.websiteName || "Unassigned site"}
             </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setSearchParams({ tab: "accounts" })}
+              className="py-3 px-5 border border-slate-200 hover:bg-slate-50 text-[10px] font-black uppercase text-slate-700 rounded-2xl transition-all"
+            >
+              ← Back to Accounts
+            </button>
+            <button
+              type="button"
+              onClick={() => loadFinancialRecords(selectedCustomerId)}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-white transition-all hover:bg-black"
+            >
+              <RefreshCw size={14} />
+              Refresh Invoices
+            </button>
           </div>
         </div>
 
@@ -1454,6 +1585,7 @@ export default function PurchasePage() {
         onRefresh={loadWorkspace}
         updatingWorkflowId={updatingWorkflowId}
         onAdvanceWorkflow={updatePurchaseWorkflow}
+        setSearchParams={setSearchParams}
       />
     );
   }

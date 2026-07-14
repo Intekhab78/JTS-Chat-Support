@@ -76,7 +76,8 @@ export const listActivities = asyncHandler(async (req, res) => {
 
   const result = await activityService.getActivitiesList(query, {
     page: parseInt(page),
-    limit: parseInt(limit)
+    limit: parseInt(limit),
+    populate: ["ownerId", "customerId"]
   });
 
   res.json(result);

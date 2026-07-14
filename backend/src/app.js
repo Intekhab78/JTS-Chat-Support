@@ -108,9 +108,9 @@ export function createApp() {
   app.set("trust proxy", true);
 
   const authLimiter = rateLimit({
-    max: 5,
-    windowMs: 15 * 60 * 1000,
-    message: { status: "error", message: "Too many login attempts. Please try again in 15 minutes." },
+    max: 30,
+    windowMs: 1 * 60 * 1000,
+    message: { status: "error", message: "Too many login attempts. Please try again in 1 minute." },
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req) => {

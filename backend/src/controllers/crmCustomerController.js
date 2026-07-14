@@ -8,6 +8,9 @@ import { Quotation } from "../models/Quotation.js";
 import { Analytics } from "../models/Analytics.js";
 import { Ticket } from "../models/Ticket.js";
 import { Visitor } from "../models/Visitor.js";
+import { Subscription } from "../models/Subscription.js";
+import { Plan } from "../models/Plan.js";
+import { Invoice } from "../models/Invoice.js";
 import { FollowUpTask } from "../models/FollowUpTask.js";
 import { logCrmActivity } from "../services/activityLoggerService.js";
 import { incrementCustomers } from "../services/analyticsService.js";
@@ -352,6 +355,58 @@ export const listCustomers = asyncHandler(async (req, res) => {
   const lostStagesList = lostDeals.map(d => d.lostReason || "Unknown").filter(Boolean);
   const lostByStage = [{ stages: lostStagesList }];
 
+  // Calculate Subscriptions MRR & Plan Distribution
+  let activeSubscriptionsCount = 0;
+  let mrr = 0;
+  const planDistributionMap = {};
+
+  try {
+    const activeSubs = await Subscription.find({
+      websiteId: query.websiteId,
+      status: { $in: ["active", "renewed"] }
+    }).populate("planId");
+
+    for (const sub of activeSubs) {
+      if (sub.planId) {
+        activeSubscriptionsCount++;
+        const seats = Number(sub.seats || 1);
+        const planPrice = Number(sub.planId.price || 0);
+        let monthlyEquivalent = planPrice;
+        if (sub.billingCycle === "yearly" || sub.planId.billingCycle === "yearly") {
+          monthlyEquivalent = planPrice / 12;
+        }
+        mrr += Math.round(monthlyEquivalent * seats);
+
+        const planName = sub.planId.name || "Custom Plan";
+        planDistributionMap[planName] = (planDistributionMap[planName] || 0) + 1;
+      }
+    }
+  } catch (err) {
+    console.error("Failed to aggregate subscriptions summary:", err);
+  }
+
+  const planDistribution = Object.entries(planDistributionMap).map(([name, count]) => ({ name, count }));
+
+  // Calculate Invoices Receivables & Accounts Receivables (AR)
+  let totalInvoiced = 0;
+  let totalReceived = 0;
+  let totalOutstanding = 0;
+
+  try {
+    const invoicesList = await Invoice.find({
+      websiteId: query.websiteId,
+      status: { $nin: ["draft", "cancelled", "void"] }
+    });
+
+    for (const inv of invoicesList) {
+      totalInvoiced += Number(inv.total || 0);
+      totalReceived += Number(inv.paidAmount || 0);
+      totalOutstanding += Math.max(0, Number(inv.total || 0) - Number(inv.paidAmount || 0));
+    }
+  } catch (err) {
+    console.error("Failed to aggregate invoice receivables summary:", err);
+  }
+
   const summary = {
     totalLeads,
     pipelineValue,
@@ -375,7 +430,14 @@ export const listCustomers = asyncHandler(async (req, res) => {
     lostByStage,
     comparison: {
       prevMonthRevenue: wonRevenue > 0 ? Math.round(wonRevenue * 0.8) : 5000
-    }
+    },
+    activeSubscriptionsCount,
+    mrr,
+    arr: mrr * 12,
+    planDistribution,
+    totalInvoiced,
+    totalReceived,
+    totalOutstanding
   };
 
   res.json({
@@ -858,3 +920,127 @@ export const getEmployees = asyncHandler(async (req, res) => {
   const employees = await User.find(filter).select("-password").sort({ name: 1 });
   res.json({ employees });
 });
+
+// CSV parser helper supporting quoted values
+function parseCsvLine(line) {
+  const result = [];
+  let current = "";
+  let inQuotes = false;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === "," && !inQuotes) {
+      result.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  result.push(current.trim());
+  return result.map(val => val.replace(/^["']|["']$/g, ""));
+}
+
+export const importCustomers = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_CREATE);
+  const { websiteId, ownerId } = req.body;
+
+  if (!websiteId) {
+    throw new AppError("websiteId is required for CSV imports", 400);
+  }
+
+  if (!req.file || !req.file.buffer) {
+    throw new AppError("No file uploaded or file is empty", 400);
+  }
+
+  const fileContent = req.file.buffer.toString("utf8");
+  const lines = fileContent.split(/\r?\n/).filter(line => line.trim() !== "");
+
+  if (lines.length <= 1) {
+    throw new AppError("CSV file is empty or missing data rows", 400);
+  }
+
+  // Parse headers
+  const headers = parseCsvLine(lines[0]).map(h => h.toLowerCase().trim());
+  
+  const nameIdx = headers.indexOf("name");
+  if (nameIdx === -1) {
+    throw new AppError("CSV file must contain a 'name' column header", 400);
+  }
+
+  const emailIdx = headers.indexOf("email");
+  const phoneIdx = headers.indexOf("phone");
+  const companyIdx = headers.indexOf("company");
+  const valueIdx = headers.indexOf("value");
+  const budgetIdx = headers.indexOf("budget");
+  const reqIdx = headers.indexOf("requirement");
+  const priorityIdx = headers.indexOf("priority");
+  const sourceIdx = headers.indexOf("source");
+  const territoryIdx = headers.findIndex(h => ["territory", "country", "region", "location"].includes(h));
+
+  let importCount = 0;
+  let skippedCount = 0;
+
+  for (let i = 1; i < lines.length; i++) {
+    const cells = parseCsvLine(lines[i]);
+    if (cells.length === 0 || !cells[nameIdx]) {
+      skippedCount++;
+      continue;
+    }
+
+    const name = cells[nameIdx];
+    const email = emailIdx !== -1 ? cells[emailIdx] : "";
+    const phone = phoneIdx !== -1 ? cells[phoneIdx] : "";
+    const companyName = companyIdx !== -1 ? cells[companyIdx] : "";
+    const leadValue = valueIdx !== -1 ? Number(cells[valueIdx]) || 0 : 0;
+    const budget = budgetIdx !== -1 ? Number(cells[budgetIdx]) || 0 : 0;
+    const requirement = reqIdx !== -1 ? cells[reqIdx] : "";
+    const priority = priorityIdx !== -1 ? cells[priorityIdx].toLowerCase() : "medium";
+    const leadSource = sourceIdx !== -1 ? cells[sourceIdx] : "csv_import";
+    const territory = territoryIdx !== -1 ? cells[territoryIdx] : "";
+
+    // Skip duplicate emails inside the same website scope
+    if (email) {
+      const existing = await Customer.findOne({ websiteId, email: email.toLowerCase().trim() });
+      if (existing) {
+        skippedCount++;
+        continue;
+      }
+    }
+
+    const crn = await generateCRN();
+    
+    await Customer.create({
+      crn,
+      name,
+      email: email.toLowerCase().trim(),
+      phone,
+      companyName,
+      leadValue,
+      budget,
+      requirement,
+      priority: ["low", "medium", "high"].includes(priority) ? priority : "medium",
+      leadSource,
+      territory: territory || "",
+      websiteId,
+      ownerId: ownerId || req.user._id,
+      recordType: "lead",
+      leadStatus: "new",
+      pipelineStage: "new",
+      status: "new",
+      leadCategory: "warm",
+      interestLevel: "warm"
+    });
+
+    importCount++;
+  }
+
+  res.json({
+    success: true,
+    message: `Successfully imported ${importCount} leads. Skipped ${skippedCount} duplicate or invalid entries.`,
+    imported: importCount,
+    skipped: skippedCount
+  });
+});
+

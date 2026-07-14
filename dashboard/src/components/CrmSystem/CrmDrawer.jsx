@@ -318,7 +318,7 @@ export default function CrmDrawer({
             {[
               { key: "tickets", label: "Tickets", icon: TicketIcon, badge: customerDetails?.tickets?.length },
               { key: "chats", label: "Chats", icon: MessageCircle, badge: customerDetails?.sessions?.length },
-              { key: "email", label: "Email", icon: Mail },
+              { key: "email", label: "Email & WhatsApp", icon: Mail },
               { key: "notes", label: "Notes", icon: Tag, badge: customerDetails?.customer?.internalNotes?.length },
               { key: "tasks", label: "Tasks", icon: Clock, badge: customerDetails?.tasks?.length },
               { key: "quotes", label: "Quotes", icon: FileText },
@@ -368,6 +368,7 @@ export default function CrmDrawer({
                     setEmailDraft={setEmailDraft}
                     onSendEmail={onSendEmail}
                     sendingEmail={sendingEmail}
+                    customer={selectedCustomer}
                   />
                 )}
                 {drawerTab === "notes" && (

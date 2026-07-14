@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { FileText, Download, Check, X, AlertCircle } from "lucide-react";
-import { api } from "../../api/client.js";
+import { FileText, Download, Check, X, AlertCircle, ShieldCheck } from "lucide-react";
+import { api, API_BASE } from "../../api/client.js";
 import { useToast } from "../../context/ToastContext.jsx";
 
 export default function CustomerPortalQuotations() {
   const toast = useToast();
   const [quotations, setQuotations] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Custom confirmation modal state
+  const [confirmModal, setConfirmModal] = useState({ show: false, quoteId: null, action: null });
 
   const fetchQuotations = async () => {
     try {
@@ -23,14 +26,27 @@ export default function CustomerPortalQuotations() {
     fetchQuotations();
   }, []);
 
-  const handleUpdateStatus = async (quoteId, action) => {
-    if (!window.confirm(`Are you sure you want to ${action} this quotation?`)) return;
+  const handleDownloadPdf = async (quoteId) => {
+    try {
+      const result = await api(`/api/crm/quotations/${quoteId}/pdf`, { method: "POST" });
+      const cleanUrl = `${API_BASE}${result.pdfUrl}`;
+      window.open(cleanUrl, "_blank");
+    } catch (err) {
+      toast.error(err.message || "Failed to generate PDF");
+    }
+  };
+
+  const handleUpdateStatus = async () => {
+    const { quoteId, action } = confirmModal;
+    if (!quoteId || !action) return;
+
     try {
       await api(`/api/crm/customer-portal/quotations/${quoteId}/status`, {
         method: "POST",
         body: JSON.stringify({ action })
       });
       toast.success(`Quotation ${action}ed successfully`);
+      setConfirmModal({ show: false, quoteId: null, action: null });
       fetchQuotations();
     } catch (err) {
       toast.error(err.message);
@@ -68,20 +84,20 @@ export default function CustomerPortalQuotations() {
                 <div className="flex flex-col md:flex-row items-start md:items-center gap-4 w-full md:w-auto justify-end">
                   <div className="text-right">
                     <p className="text-xs font-extrabold text-slate-800">₹{quote.totalAmount || quote.total || 0}</p>
-                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${quote.status === "accepted" ? "bg-emerald-50 text-emerald-600" : quote.status === "declined" ? "bg-rose-50 text-rose-600" : "bg-slate-100 text-slate-600"}`}>{quote.status}</span>
+                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${quote.status === "accepted" ? "bg-emerald-50 text-emerald-600" : quote.status === "rejected" ? "bg-rose-50 text-rose-600" : "bg-slate-100 text-slate-600"}`}>{quote.status}</span>
                   </div>
 
                   <div className="flex gap-2 w-full md:w-auto">
                     {quote.status === "sent" && (
                       <>
                         <button
-                          onClick={() => handleUpdateStatus(quote._id, "accept")}
+                          onClick={() => setConfirmModal({ show: true, quoteId: quote._id, action: "accept" })}
                           className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 text-[9px] font-black uppercase rounded-xl transition-all flex items-center gap-1"
                         >
                           <Check size={10} /> Accept
                         </button>
                         <button
-                          onClick={() => handleUpdateStatus(quote._id, "reject")}
+                          onClick={() => setConfirmModal({ show: true, quoteId: quote._id, action: "reject" })}
                           className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-[9px] font-black uppercase rounded-xl transition-all flex items-center gap-1"
                         >
                           <X size={10} /> Reject
@@ -89,8 +105,9 @@ export default function CustomerPortalQuotations() {
                       </>
                     )}
                     <button
-                      onClick={() => toast.success("Quote PDF download simulated successfully")}
+                      onClick={() => handleDownloadPdf(quote._id)}
                       className="p-2 border hover:bg-slate-50 rounded-xl text-slate-400 hover:text-slate-600 transition-all"
+                      title="Download PDF"
                     >
                       <Download size={14} />
                     </button>
@@ -101,6 +118,51 @@ export default function CustomerPortalQuotations() {
           </div>
         )}
       </div>
+
+      {/* Custom Confirmation Modal */}
+      {confirmModal.show && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-[32px] w-full max-w-sm p-8 border border-slate-100 shadow-2xl relative space-y-6 animate-in fade-in zoom-in-95 duration-200">
+            <button 
+              onClick={() => setConfirmModal({ show: false, quoteId: null, action: null })}
+              className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="text-center space-y-2">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-2 ${
+                confirmModal.action === "accept" ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+              }`}>
+                {confirmModal.action === "accept" ? <Check size={24} /> : <X size={24} />}
+              </div>
+              <h3 className="text-base font-black text-slate-950 uppercase tracking-tight">
+                {confirmModal.action === "accept" ? "Accept Proposal" : "Reject Proposal"}
+              </h3>
+              <p className="text-[10px] font-bold text-slate-450 uppercase leading-relaxed text-slate-400">
+                Are you sure you want to {confirmModal.action} this quotation? This action will update your proposal commercial status in our database.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmModal({ show: false, quoteId: null, action: null })}
+                className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-700 font-black text-[10px] uppercase tracking-wider rounded-xl transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateStatus}
+                className={`flex-1 py-3 text-white font-black text-[10px] uppercase tracking-wider rounded-xl shadow-lg transition-all active:scale-[0.98] ${
+                  confirmModal.action === "accept" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700"
+                }`}
+              >
+                Confirm {confirmModal.action === "accept" ? "Accept" : "Reject"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

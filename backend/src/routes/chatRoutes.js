@@ -14,11 +14,15 @@ const router = Router();
 router.get("/admin/sessions", requireAuth, requireRole("admin"), listManagerSessions);
 router.get("/client/sessions", requireAuth, requireRole("admin", "client"), listManagerSessions);
 router.get("/agent/sessions", requireAuth, requireRole("agent", "sales", "user"), listAgentSessions);
-router.get("/sessions", requireAuth, async (req, res) => {
-  const role = req.user.role;
-  if (role === "admin" || role === "client" || role === "manager") return listManagerSessions(req, res);
-  if (role === "sales") return listSalesSessions(req, res);
-  return listAgentSessions(req, res);
+router.get("/sessions", requireAuth, async (req, res, next) => {
+  try {
+    const role = req.user.role;
+    if (role === "admin" || role === "client" || role === "manager") return await listManagerSessions(req, res, next);
+    if (role === "sales") return await listSalesSessions(req, res, next);
+    return await listAgentSessions(req, res, next);
+  } catch (err) {
+    next(err);
+  }
 });
 router.get("/queued", requireAuth, requireRole("admin", "client"), listQueuedSessions);
 router.get("/history", requireAuth, requireRole("admin", "client", "manager"), getChatHistory);

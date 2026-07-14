@@ -1,12 +1,14 @@
 import { Payment } from "../models/Payment.js";
 import { Invoice } from "../models/Invoice.js";
 import { CreditNote } from "../models/CreditNote.js";
+import { Customer } from "../models/Customer.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
 import { logCrmActivity } from "../services/activityLoggerService.js";
 import { PaymentGatewayManager } from "../services/paymentGateway.js";
+import { advancePurchaseWorkflow } from "../services/purchaseWorkflowService.js";
 
 export const listPayments = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_VIEW);
@@ -71,6 +73,36 @@ export const createPayment = asyncHandler(async (req, res) => {
     invoice.status = "partially_paid";
   }
   await invoice.save();
+
+  if (invoice.status === "paid") {
+    try {
+      // Advance purchase workflow to completed
+      await advancePurchaseWorkflow({
+        customerId: invoice.customerId,
+        status: "completed",
+        actor: req.user,
+        reason: "invoice_fully_paid"
+      });
+
+      // Update customer CRM pipeline stage to won
+      const customer = await Customer.findById(invoice.customerId);
+      if (customer && customer.pipelineStage !== "won") {
+        customer.pipelineStage = "won";
+        await customer.save();
+
+        await logCrmActivity({
+          websiteId: invoice.websiteId,
+          type: "lead_won",
+          title: `Lead Won: ${customer.name || customer.companyName}`,
+          description: `Lead transitioned to won stage because invoice ${invoice.invoiceId} was fully paid.`,
+          customerId: invoice.customerId,
+          ownerId: req.user._id
+        });
+      }
+    } catch (err) {
+      console.error("Failed to advance workflow/CRM stage on paid invoice:", err);
+    }
+  }
 
   // Log timeline activity
   await logCrmActivity({

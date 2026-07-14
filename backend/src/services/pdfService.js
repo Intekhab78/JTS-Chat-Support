@@ -131,7 +131,7 @@ export async function generateQuotationPDF(quotation) {
       stream.on("error", reject);
       doc.pipe(stream);
 
-      drawHeader(doc, websiteDetails.name, "QUOTATION", quotation.quotationId, quotation.createdAt, websiteDetails.domain);
+      drawHeader(doc, websiteDetails.name, "QUOTATION", quotation.quotationId, quotation.createdAt, websiteDetails.domain, { invoiceNumber: quotation.invoiceNumber });
       drawAddresses(doc, { name: websiteDetails.name, sub: "Sales Quotation Dept" }, customerDetails);
 
       const tableTop = 240;
@@ -234,7 +234,7 @@ export async function generateInvoicePDF(invoice) {
       stream.on("error", reject);
       doc.pipe(stream);
 
-      drawHeader(doc, websiteDetails.name, "INVOICE", invoice.invoiceId, invoice.issuedAt || invoice.createdAt, websiteDetails.domain);
+      drawHeader(doc, websiteDetails.name, "INVOICE", invoice.invoiceId, invoice.issuedAt || invoice.createdAt, websiteDetails.domain, { quotationId: invoice.quotationId });
       drawAddresses(doc, { name: websiteDetails.name, sub: "Finance Department" }, customerDetails);
 
       const tableTop = 240;
@@ -289,14 +289,25 @@ export async function generateInvoicePDF(invoice) {
 
 // --- HELPERS ---
 
-function drawHeader(doc, titleLeft, titleRight, number, date, subLeft) {
+function drawHeader(doc, titleLeft, titleRight, number, date, subLeft, extraDetails = {}) {
   // Let's draw a nice accent band at the top of the page
   doc.rect(0, 0, 595, 12).fill("#4F46E5");
+
+  // Determine dynamic logo initial based on the company name
+  const logoChar = titleLeft ? titleLeft.trim().charAt(0).toUpperCase() : "J";
+
+  // Clean sub-header to remove protocols and trailing slashes for clean domain display
+  let cleanSub = subLeft || "Official Customer Ledger";
+  if (subLeft && (subLeft.startsWith("http://") || subLeft.startsWith("https://") || subLeft.includes("/"))) {
+    try {
+      cleanSub = subLeft.replace(/^(https?:\/\/)?(www\.)?/, "").replace(/\/$/, "");
+    } catch (err) {}
+  }
 
   // Draw a premium vector logo badge
   doc.save();
   doc.roundedRect(50, 35, 36, 36, 8).fill("#4F46E5");
-  doc.fontSize(18).fillColor("#FFFFFF").font("Helvetica-Bold").text("J", 50, 44, { width: 36, align: "center" });
+  doc.fontSize(18).fillColor("#FFFFFF").font("Helvetica-Bold").text(logoChar, 50, 44, { width: 36, align: "center" });
   doc.restore();
 
   // Company Name next to logo
@@ -307,20 +318,36 @@ function drawHeader(doc, titleLeft, titleRight, number, date, subLeft) {
     .fontSize(9)
     .font("Helvetica")
     .fillColor("#64748B")
-    .text(subLeft || "Official Customer Ledger", 98, 55);
+    .text(cleanSub, 98, 55);
 
   // Document Title and Info on the right
   doc.fontSize(22)
     .font("Helvetica-Bold")
     .fillColor("#4F46E5")
-    .text(titleRight, 350, 35, { align: "right" })
-    .fontSize(9)
+    .text(titleRight, 200, 35, { width: 345, align: "right" });
+
+  const titleHeight = doc.heightOfString(titleRight, { width: 345 });
+  let currentY = 35 + titleHeight + 4;
+
+  doc.fontSize(9)
     .font("Helvetica")
     .fillColor("#475569")
-    .text(`Reference No: ${number}`, 350, 62, { align: "right" })
-    .text(`Issued Date: ${new Date(date).toLocaleDateString("en-US", { year: 'numeric', month: 'short', day: 'numeric' })}`, 350, 76, { align: "right" });
+    .text(`Reference No: ${number}`, 200, currentY, { width: 345, align: "right" });
+  currentY += 14;
 
-  doc.moveTo(50, 100).lineTo(545, 100).strokeColor("#E2E8F0").lineWidth(1).stroke();
+  if (extraDetails.quotationId) {
+    doc.text(`Quotation No: ${extraDetails.quotationId}`, 200, currentY, { width: 345, align: "right" });
+    currentY += 14;
+  }
+  if (extraDetails.invoiceNumber) {
+    doc.text(`Invoice No: ${extraDetails.invoiceNumber}`, 200, currentY, { width: 345, align: "right" });
+    currentY += 14;
+  }
+
+  doc.text(`Issued Date: ${new Date(date).toLocaleDateString("en-US", { year: 'numeric', month: 'short', day: 'numeric' })}`, 200, currentY, { width: 345, align: "right" });
+
+  const headerBottomY = Math.max(100, currentY + 14);
+  doc.moveTo(50, headerBottomY).lineTo(545, headerBottomY).strokeColor("#E2E8F0").lineWidth(1).stroke();
 }
 
 function drawAddresses(doc, from, to) {

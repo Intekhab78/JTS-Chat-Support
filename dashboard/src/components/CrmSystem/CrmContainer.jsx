@@ -6,7 +6,7 @@ import {
   Package, FileText, ShoppingCart, BarChart3, Repeat, Receipt,
   Inbox, MessageSquare, LifeBuoy, Award, GitFork, History,
   Cpu, BarChart2, ShieldAlert, Terminal, Sparkles, CreditCard,
-  Calendar, Video
+  Calendar, Video, Target
 } from "lucide-react";
 import MagicCelebration from "./MagicCelebration.jsx";
 
@@ -25,6 +25,7 @@ import CrmDrawer from "./CrmDrawer.jsx";
 import CrmLeadModal from "./CrmLeadModal.jsx";
 import CrmReportsView from "./CrmReportsView.jsx";
 import CrmStageEditor from "./CrmStageEditor.jsx";
+import CrmImportModal from "./CrmImportModal.jsx";
 import PaginationControls from "../PaginationControls.jsx";
 import { formatCurrency, CRM_STAGE_CONFIG, DEFAULT_CRM_STAGE_CONFIG } from "./CrmUIComponents.jsx";
 import CrmContactsView from "./CrmContactsView.jsx";
@@ -51,6 +52,8 @@ import CrmAdminConsole from "./CrmAdminConsole.jsx";
 import CrmDeveloperConsole from "./CrmDeveloperConsole.jsx";
 import CrmCalendarView from "./CrmCalendarView.jsx";
 import MeetingPlatformsManager from "./MeetingPlatformsManager.jsx";
+import CrmSalesTargets from "./CrmSalesTargets.jsx";
+import CrmActivityFeed from "./CrmActivityFeed.jsx";
 
 const crmGroups = [
   {
@@ -66,6 +69,8 @@ const crmGroups = [
       { id: "pipelines", label: "Pipelines", icon: GitBranch },
       { id: "calendar", label: "Calendar", icon: Calendar },
       { id: "meeting-platforms", label: "Meeting Platforms", icon: Video },
+      { id: "targets", label: "Sales Targets", icon: Target },
+      { id: "feed", label: "Activity Feed", icon: History },
     ]
   },
   {
@@ -187,6 +192,7 @@ export default function CrmContainer({
 
   // -- Modal Lead Modal State --
   const [showCreateLead, setShowCreateLead] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [editLeadId, setEditLeadId] = useState(null);
   const [creatingLead, setCreatingLead] = useState(false);
   const [createLeadForm, setCreateLeadForm] = useState({
@@ -343,7 +349,13 @@ export default function CrmContainer({
     }
   };
 
-  const openCustomer = async (customer, tab = "tickets") => {
+  const openCustomer = async (customerOrId, tab = "tickets") => {
+    let customer = customerOrId;
+    if (typeof customerOrId === "string") {
+      customer = { _id: customerOrId };
+    }
+    if (!customer || !customer._id) return;
+
     setSelectedCustomer(customer);
     setShowDrawer(true);
     setLoadingDetails(true);
@@ -919,6 +931,89 @@ export default function CrmContainer({
     }
   };
 
+  const cardColors = {
+    all: {
+      border: "border-slate-200 hover:border-slate-300",
+      activeBorder: "border-slate-900 bg-slate-950 text-white",
+      iconBg: "bg-slate-100 text-slate-700",
+      activeIconBg: "bg-white/20 text-white",
+      label: "text-slate-400",
+      activeLabel: "text-slate-300",
+      value: "text-slate-900",
+      activeValue: "text-white"
+    },
+    my_leads: {
+      border: "border-indigo-100 hover:border-indigo-200",
+      activeBorder: "border-indigo-600 bg-indigo-600 text-white",
+      iconBg: "bg-indigo-50 text-indigo-600",
+      activeIconBg: "bg-white/20 text-white",
+      label: "text-slate-400",
+      activeLabel: "text-indigo-200",
+      value: "text-slate-900",
+      activeValue: "text-white"
+    },
+    hot_leads: {
+      border: "border-rose-100 hover:border-rose-200",
+      activeBorder: "border-rose-600 bg-rose-600 text-white",
+      iconBg: "bg-rose-50 text-rose-600",
+      activeIconBg: "bg-white/20 text-white",
+      label: "text-slate-400",
+      activeLabel: "text-rose-200",
+      value: "text-slate-900",
+      activeValue: "text-white"
+    },
+    high_value: {
+      border: "border-violet-100 hover:border-violet-200",
+      activeBorder: "border-violet-600 bg-violet-600 text-white",
+      iconBg: "bg-violet-50 text-violet-600",
+      activeIconBg: "bg-white/20 text-white",
+      label: "text-slate-400",
+      activeLabel: "text-violet-200",
+      value: "text-slate-900",
+      activeValue: "text-white"
+    },
+    due_today: {
+      border: "border-sky-100 hover:border-sky-200",
+      activeBorder: "border-sky-600 bg-sky-600 text-white",
+      iconBg: "bg-sky-50 text-sky-600",
+      activeIconBg: "bg-white/20 text-white",
+      label: "text-slate-400",
+      activeLabel: "text-sky-200",
+      value: "text-slate-900",
+      activeValue: "text-white"
+    },
+    stale: {
+      border: "border-amber-100 hover:border-amber-200",
+      activeBorder: "border-amber-500 bg-amber-500 text-white",
+      iconBg: "bg-amber-50 text-amber-600",
+      activeIconBg: "bg-white/20 text-white",
+      label: "text-slate-400",
+      activeLabel: "text-amber-100",
+      value: "text-slate-900",
+      activeValue: "text-white"
+    },
+    no_follow_up: {
+      border: "border-orange-100 hover:border-orange-200",
+      activeBorder: "border-orange-600 bg-orange-600 text-white",
+      iconBg: "bg-orange-50 text-orange-600",
+      activeIconBg: "bg-white/20 text-white",
+      label: "text-slate-400",
+      activeLabel: "text-orange-200",
+      value: "text-slate-900",
+      activeValue: "text-white"
+    },
+    archived: {
+      border: "border-slate-200 hover:border-slate-300",
+      activeBorder: "border-slate-700 bg-slate-700 text-white",
+      iconBg: "bg-slate-100 text-slate-600",
+      activeIconBg: "bg-white/20 text-white",
+      label: "text-slate-400",
+      activeLabel: "text-slate-200",
+      value: "text-slate-900",
+      activeValue: "text-white"
+    }
+  };
+
   const workspaceCards = [
     { key: "all", label: "Pipeline", value: summary.totalLeads || pagination.total || customers.length, helper: "Active records", icon: LayoutGrid },
     { key: "my_leads", label: "Assigned to Me", value: summary.myLeads || 0, helper: "Owned by you", icon: UserCheck },
@@ -1015,21 +1110,31 @@ export default function CrmContainer({
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
                 {workspaceCards.map(card => {
                   const Icon = card.icon;
+                  const colors = cardColors[card.key] || cardColors.all;
                   return (
-                    <div
+                    <button
                       key={card.key}
-                      className="rounded-2xl border px-4 py-4 text-left border-slate-200 bg-slate-50"
+                      onClick={() => {
+                        setLeadView(card.key);
+                        setWorkspaceTab("leads");
+                      }}
+                      className={`group rounded-3xl border p-4 text-left transition-all duration-300 ${colors.border} bg-slate-50/50 hover:bg-white hover:shadow-md hover:-translate-y-0.5`}
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">{card.label}</p>
-                          <p className="mt-2 text-2xl font-black text-slate-950">{card.value}</p>
+                      <div className="flex flex-col h-full justify-between gap-4">
+                        <div className="flex items-center justify-between">
+                          <div className={`flex h-9 w-9 items-center justify-center rounded-2xl transition-colors duration-300 ${colors.iconBg}`}>
+                            <Icon size={16} />
+                          </div>
+                          <span className="text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded bg-slate-900/5 dark:bg-white/5 text-slate-400">
+                            {card.key === "all" ? "Live" : card.value > 0 ? "Active" : "Empty"}
+                          </span>
                         </div>
-                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-slate-600 border border-slate-200">
-                          <Icon size={16} />
+                        <div className="space-y-1">
+                          <p className="text-[9px] font-black uppercase tracking-[0.15em] line-clamp-1 text-slate-400">{card.label}</p>
+                          <p className="text-2xl font-black tracking-tight text-slate-900">{card.value}</p>
                         </div>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -1089,26 +1194,37 @@ export default function CrmContainer({
                 {workspaceCards.map(card => {
                   const Icon = card.icon;
                   const active = leadView === card.key;
-                  const accentMap = {
-                    hot_leads:  { bg: "bg-rose-600",   border: "border-rose-600",   icon: "bg-white/20 text-white", label: "text-rose-200", value: "text-white" },
-                    high_value: { bg: "bg-indigo-600", border: "border-indigo-600", icon: "bg-white/20 text-white", label: "text-indigo-200", value: "text-white" },
-                    stale:      { bg: "bg-amber-500",  border: "border-amber-500",  icon: "bg-white/20 text-white", label: "text-amber-100", value: "text-white" },
-                    due_today:  { bg: "bg-sky-600",    border: "border-sky-600",    icon: "bg-white/20 text-white", label: "text-sky-200",   value: "text-white" },
-                  };
-                  const accent = active ? (accentMap[card.key] || { bg: "bg-slate-900", border: "border-slate-900", icon: "bg-white/10 text-white", label: "text-slate-300", value: "text-white" }) : null;
+                  const colors = cardColors[card.key] || cardColors.all;
                   return (
                     <button
                       key={card.key}
                       onClick={() => setLeadView(card.key)}
-                      className={`rounded-2xl border px-3 py-3 text-left transition-all duration-200 ${active ? `${accent.bg} ${accent.border} shadow-md scale-[1.02]` : "border-slate-200 bg-slate-50 hover:bg-white hover:border-slate-300 hover:shadow-sm"}`}
+                      className={`group rounded-3xl border p-4 text-left transition-all duration-300 ${
+                        active 
+                          ? `${colors.activeBorder} shadow-lg shadow-slate-900/5 scale-[1.03]` 
+                          : `${colors.border} bg-slate-50/50 hover:bg-white hover:shadow-md hover:-translate-y-0.5`
+                      }`}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className={`text-[8px] font-black uppercase tracking-[0.18em] truncate ${active ? accent.label : "text-slate-400"}`}>{card.label}</p>
-                          <p className={`mt-1.5 text-xl font-black ${active ? accent.value : "text-slate-950"}`}>{card.value}</p>
+                      <div className="flex flex-col h-full justify-between gap-4">
+                        <div className="flex items-center justify-between">
+                          <div className={`flex h-9 w-9 items-center justify-center rounded-2xl transition-colors duration-300 ${
+                            active ? colors.activeIconBg : colors.iconBg
+                          }`}>
+                            <Icon size={16} />
+                          </div>
+                          <span className={`text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded bg-slate-900/5 dark:bg-white/5 ${
+                            active ? "text-white/80" : "text-slate-400"
+                          }`}>
+                            {card.key === "all" ? "Live" : card.value > 0 ? "Active" : "Empty"}
+                          </span>
                         </div>
-                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${active ? accent.icon : "bg-white text-slate-500 border border-slate-200"}`}>
-                          <Icon size={14} />
+                        <div className="space-y-1">
+                          <p className={`text-[9px] font-black uppercase tracking-[0.15em] line-clamp-1 ${
+                            active ? colors.activeLabel : colors.label
+                          }`}>{card.label}</p>
+                          <p className={`text-2xl font-black tracking-tight ${
+                            active ? colors.activeValue : colors.value
+                          }`}>{card.value}</p>
                         </div>
                       </div>
                     </button>
@@ -1157,9 +1273,17 @@ export default function CrmContainer({
                 </button>
 
                 {canCreateLead && (
-                  <button onClick={() => openCreateModal()} className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-5 py-3 text-[10px] font-black uppercase text-white shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">
-                    <Plus size={14} /> New Lead
-                  </button>
+                  <>
+                    <button
+                      onClick={() => setShowImportModal(true)}
+                      className="inline-flex items-center gap-2 rounded-2xl bg-white border border-slate-200 px-4 py-3 text-[10px] font-black uppercase text-slate-700 hover:bg-slate-50 transition-all"
+                    >
+                      <Download size={14} className="rotate-180 text-indigo-500" /> Import Leads
+                    </button>
+                    <button onClick={() => openCreateModal()} className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-5 py-3 text-[10px] font-black uppercase text-white shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">
+                      <Plus size={14} /> New Lead
+                    </button>
+                  </>
                 )}
                 {canManagePipeline && (
                   <button onClick={() => setShowStageEditor(true)} className="inline-flex items-center gap-2 rounded-2xl bg-white border border-slate-200 px-4 py-3 text-[10px] font-black uppercase text-slate-700 hover:bg-slate-50 transition-all">
@@ -1316,6 +1440,14 @@ export default function CrmContainer({
         <CrmDeveloperConsole websiteId={websiteId} />
       )}
 
+      {workspaceTab === "targets" && (
+        <CrmSalesTargets websiteId={websiteId} teamMembers={teamMembers} />
+      )}
+
+      {workspaceTab === "feed" && (
+        <CrmActivityFeed websiteId={websiteId} onOpenCustomer={openCustomer} />
+      )}
+
       {/* ── Overlays ── */}
       <CrmDrawer
         showDrawer={showDrawer}
@@ -1379,6 +1511,18 @@ export default function CrmContainer({
         onClose={() => setShowStageEditor(false)}
         onChangeStages={handleStagesChange}
         currentStages={websiteStages}
+      />
+
+      <CrmImportModal
+        open={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        websiteId={websiteId}
+        teamMembers={teamMembers}
+        currentUser={user}
+        onSuccess={(msg) => {
+          setActionMessage({ type: "success", text: msg });
+          fetchCustomers();
+        }}
       />
 
       {activeCustomer360Id && (

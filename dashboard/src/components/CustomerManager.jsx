@@ -6,6 +6,21 @@ import {
 } from "lucide-react";
 import { api } from "../api/client";
 
+const getDisplayTerritory = (item) => {
+  if (item.territory && item.territory.trim() !== "") return item.territory;
+  if (item.sourceDetails?.location && item.sourceDetails.location.trim() !== "") return item.sourceDetails.location;
+  
+  const siteName = item.websiteId?.websiteName || "";
+  const nameUpper = siteName.toUpperCase();
+  if (nameUpper.includes("UAE") || nameUpper.includes("MIDDLE EAST") || nameUpper.includes("DUBAI") || nameUpper.includes("ARAB")) {
+    return "UAE";
+  }
+  if (nameUpper.includes("JTS") || nameUpper.includes("JBIN") || nameUpper.includes("INDIA")) {
+    return "India";
+  }
+  return "Unassigned";
+};
+
 export default function CustomerManager({ websiteId }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -308,7 +323,7 @@ export default function CustomerManager({ websiteId }) {
                     <div className="flex items-center gap-1.5">
                       <MapPin size={12} className="text-slate-300" />
                       <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">
-                        {item.territory || "Unassigned"}
+                        {getDisplayTerritory(item)}
                       </span>
                     </div>
                   </td>

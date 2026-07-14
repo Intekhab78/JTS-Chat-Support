@@ -57,6 +57,8 @@ const quotationSchema = new mongoose.Schema(
     terms: { type: String, trim: true },
     validUntil: { type: Date, required: true },
     pdfUrl: { type: String, trim: true },
+    invoiceId: { type: mongoose.Schema.Types.ObjectId, ref: "Invoice", default: null, index: true },
+    invoiceNumber: { type: String, default: "" },
     tracking: [quotationTrackingSchema]
   },
   { timestamps: true }

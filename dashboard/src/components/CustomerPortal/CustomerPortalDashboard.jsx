@@ -3,8 +3,10 @@ import {
   MessageSquare, FileText, ShoppingCart, Receipt, Headphones,
   Calendar, ArrowRight, ShieldCheck, AlertCircle, Clock
 } from "lucide-react";
+import { useAuth } from "../../context/AuthContext.jsx";
 
 export default function CustomerPortalDashboard({ data, loading, onTabChange }) {
+  const { user } = useAuth();
   if (loading) {
     return <p className="text-center py-20 text-slate-400 text-xs font-black uppercase">Loading portal dashboard...</p>;
   }
@@ -23,7 +25,13 @@ export default function CustomerPortalDashboard({ data, loading, onTabChange }) 
       {/* Welcome Banner */}
       <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-[28px] p-8 text-white relative overflow-hidden shadow-xl border border-slate-700">
         <div className="relative z-10 space-y-2">
-          <h2 className="text-xl font-black tracking-tight">Welcome to your Client Portal</h2>
+          <h2 className="text-xl font-black tracking-tight flex flex-wrap items-center gap-2">
+            <span>Welcome to your Client Portal,</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 font-black drop-shadow-[0_2px_10px_rgba(99,102,241,0.2)]">
+              {user?.name || "Client"}
+            </span>
+            <span className="inline-block animate-pulse">👋✨</span>
+          </h2>
           <p className="text-xs text-slate-300 max-w-md font-bold leading-relaxed">
             Access quote agreements, monitor open sales orders, track support ticket responses, and manage billing history.
           </p>

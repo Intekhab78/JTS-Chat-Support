@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+import { getOrCreateCustomer } from "../services/customerService.js";
 import { Ticket } from "../models/Ticket.js";
 import { Category } from "../models/Category.js";
 import { Customer } from "../models/Customer.js";
@@ -114,8 +116,47 @@ export const updateTicket = asyncHandler(async (req, res) => {
       let customer = null;
       if (ticket.customerId) {
         customer = await Customer.findById(ticket.customerId);
+        // Self-healing: If the loaded customer's email doesn't match the ticket's visitor email, it is a mismatch!
+        if (customer && ticket.visitorId) {
+          const Visitor = mongoose.model("Visitor");
+          const visitor = await Visitor.findById(ticket.visitorId);
+          if (visitor && visitor.email && customer.email && visitor.email.toLowerCase().trim() !== customer.email.toLowerCase().trim()) {
+            customer = null;
+          }
+        }
       } else if (ticket.crn) {
         customer = await Customer.findOne({ crn: ticket.crn, websiteId: ticket.websiteId });
+      }
+
+      // If no customer is linked yet, resolve/promote them from visitor details
+      if (!customer && ticket.visitorId) {
+        const Visitor = mongoose.model("Visitor");
+        const visitor = await Visitor.findById(ticket.visitorId);
+        if (visitor) {
+          customer = await getOrCreateCustomer({
+            name: visitor.name || "Unknown",
+            email: visitor.email,
+            phone: visitor.phone,
+            websiteId: ticket.websiteId,
+            visitorId: visitor.visitorId,
+            leadSource: "Live Chat",
+            ownerId: ticket.assignedAgent || req.user._id
+          });
+          if (customer) {
+            ticket.customerId = customer._id;
+            ticket.crn = customer.crn;
+            
+            visitor.customerId = customer._id;
+            visitor.crn = customer.crn;
+            await visitor.save();
+
+            const ChatSession = mongoose.model("ChatSession");
+            await ChatSession.updateMany(
+              { visitorId: visitor._id },
+              { $set: { customerId: customer._id, crn: customer.crn } }
+            );
+          }
+        }
       }
       if (customer) {
         Object.assign(customer, crmFields);

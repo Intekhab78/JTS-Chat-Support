@@ -1,5 +1,7 @@
 import { Invoice } from "../models/Invoice.js";
 import { Customer } from "../models/Customer.js";
+import { Quotation } from "../models/Quotation.js";
+import mongoose from "mongoose";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
@@ -97,6 +99,22 @@ export const createInvoice = asyncHandler(async (req, res) => {
     invoiceId, quotationId, customerId, websiteId: resolvedWebsiteId, ownerId: req.user._id,
     items: items || [], total: total || 0, currency: currency || "INR", status: status || "pending", issuedAt: new Date(), notes
   });
+
+  if (quotationId) {
+    try {
+      const isOid = mongoose.isValidObjectId(quotationId);
+      const query = isOid ? { _id: quotationId } : { quotationId };
+      const quote = await Quotation.findOne(query);
+      if (quote) {
+        quote.status = "converted";
+        quote.invoiceId = invoice._id;
+        quote.invoiceNumber = invoiceId;
+        await quote.save();
+      }
+    } catch (err) {
+      console.error("Failed to link quotation to invoice:", err);
+    }
+  }
 
   await logCrmActivity({
     websiteId: resolvedWebsiteId,

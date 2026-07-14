@@ -197,7 +197,7 @@ export const convertQuotationToOrder = asyncHandler(async (req, res) => {
     total: item.total
   }));
 
-  await Invoice.create({
+  const createdInvoice = await Invoice.create({
     invoiceId,
     invoiceNumber: invoiceId,
     customerId: quotation.customerId,
@@ -219,6 +219,8 @@ export const convertQuotationToOrder = asyncHandler(async (req, res) => {
 
   // Mark quotation as converted
   quotation.status = "converted";
+  quotation.invoiceId = createdInvoice._id;
+  quotation.invoiceNumber = invoiceId;
   await quotation.save();
 
   // Log to Activity Timeline

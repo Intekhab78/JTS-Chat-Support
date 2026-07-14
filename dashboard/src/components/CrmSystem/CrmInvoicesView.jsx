@@ -15,6 +15,15 @@ export default function CrmInvoicesView({ websiteId }) {
   const [showRefundForm, setShowRefundForm] = useState(false);
   const [refundForm, setRefundForm] = useState({ reason: "" });
 
+  const [confirmModal, setConfirmModal] = useState({
+    show: false,
+    title: "",
+    message: "",
+    onConfirm: null,
+    confirmText: "Yes",
+    type: "danger"
+  });
+
   const fetchInvoices = async () => {
     setLoading(true);
     try {
@@ -131,6 +140,14 @@ export default function CrmInvoicesView({ websiteId }) {
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-1">
                       Issued: {new Date(selectedInvoice.issuedAt || selectedInvoice.createdAt).toLocaleDateString()}
                     </p>
+                    {selectedInvoice.quotationId && (
+                      <div className="mt-1.5 flex items-center gap-1.5">
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Quote:</span>
+                        <span className="text-[9px] font-black text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg px-2 py-0.5 uppercase">
+                          {selectedInvoice.quotationId}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <span className={`text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-xl border ${
                     selectedInvoice.status === "paid" ? "bg-emerald-50 text-emerald-700 border-emerald-100" :
@@ -240,25 +257,62 @@ export default function CrmInvoicesView({ websiteId }) {
                       <Download size={11} /> PDF Invoice
                     </button>
 
-                    <button
-                      onClick={async () => {
-                        try {
-                          await api(`/api/crm/invoices/${selectedInvoice._id}`, {
-                            method: "PUT",
-                            body: JSON.stringify({ status: "cancelled" })
+                    {selectedInvoice.status === "cancelled" ? (
+                      <button
+                        onClick={() => {
+                          setConfirmModal({
+                            show: true,
+                            title: "Restore Invoice",
+                            message: "Are you sure you want to reverse cancellation and restore this invoice to pending status?",
+                            confirmText: "Restore Invoice",
+                            type: "info",
+                            onConfirm: async () => {
+                              try {
+                                await api(`/api/crm/invoices/${selectedInvoice._id}`, {
+                                  method: "PUT",
+                                  body: JSON.stringify({ status: "pending" })
+                                });
+                                setSelectedInvoice({ ...selectedInvoice, status: "pending" });
+                                fetchInvoices();
+                              } catch (err) {
+                                alert(err.message || "Failed to restore invoice");
+                              }
+                            }
                           });
-                          setSelectedInvoice(null);
-                          fetchInvoices();
-                          alert("Invoice cancelled/voided successfully!");
-                        } catch (err) {
-                          alert(err.message || "Failed to cancel invoice");
-                        }
-                      }}
-                      disabled={selectedInvoice.status === "cancelled" || selectedInvoice.status === "paid"}
-                      className="py-2.5 bg-red-50 hover:bg-red-100 border border-red-100 disabled:opacity-50 text-red-600 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all"
-                    >
-                      <X size={11} /> Void Invoice
-                    </button>
+                        }}
+                        className="py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 text-indigo-600 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
+                      >
+                        <RefreshCw size={11} /> Restore Invoice
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setConfirmModal({
+                            show: true,
+                            title: "Void Invoice",
+                            message: "Are you sure you want to void/cancel this invoice? This will set its status to cancelled.",
+                            confirmText: "Void Invoice",
+                            type: "danger",
+                            onConfirm: async () => {
+                              try {
+                                await api(`/api/crm/invoices/${selectedInvoice._id}`, {
+                                  method: "PUT",
+                                  body: JSON.stringify({ status: "cancelled" })
+                                });
+                                setSelectedInvoice({ ...selectedInvoice, status: "cancelled" });
+                                fetchInvoices();
+                              } catch (err) {
+                                alert(err.message || "Failed to cancel invoice");
+                              }
+                            }
+                          });
+                        }}
+                        disabled={selectedInvoice.status === "paid"}
+                        className="py-2.5 bg-red-50 hover:bg-red-100 border border-red-100 disabled:opacity-50 text-red-600 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all"
+                      >
+                        <X size={11} /> Void Invoice
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -389,6 +443,57 @@ export default function CrmInvoicesView({ websiteId }) {
               Confirm Refund
             </button>
           </form>
+        </div>
+      )}
+      {confirmModal.show && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-200" 
+            onClick={() => setConfirmModal({ ...confirmModal, show: false })} 
+          />
+          <div className="relative w-full max-w-sm bg-white rounded-[32px] p-8 shadow-2xl space-y-6 border border-slate-100 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
+                confirmModal.type === "danger" 
+                  ? "bg-rose-50 border border-rose-100 text-rose-600" 
+                  : "bg-indigo-50 border border-indigo-100 text-indigo-600"
+              }`}>
+                {confirmModal.type === "danger" ? <AlertCircle size={18} /> : <RefreshCw size={18} />}
+              </div>
+              <div>
+                <h3 className="text-xs font-black text-slate-900 tracking-tight uppercase">{confirmModal.title}</h3>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Please confirm your action</p>
+              </div>
+            </div>
+
+            <p className="text-xs font-bold text-slate-500 leading-relaxed">
+              {confirmModal.message}
+            </p>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmModal({ ...confirmModal, show: false })}
+                className="flex-1 rounded-2xl border border-slate-200 bg-white py-3.5 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setConfirmModal({ ...confirmModal, show: false });
+                  if (confirmModal.onConfirm) await confirmModal.onConfirm();
+                }}
+                className={`flex-1 rounded-2xl py-3.5 text-[10px] font-black uppercase tracking-widest text-white shadow-lg transition-all ${
+                  confirmModal.type === "danger"
+                    ? "bg-rose-600 hover:bg-rose-700 shadow-rose-100"
+                    : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100"
+                }`}
+              >
+                {confirmModal.confirmText}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

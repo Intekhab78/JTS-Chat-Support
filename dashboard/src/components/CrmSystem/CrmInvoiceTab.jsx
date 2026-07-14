@@ -397,6 +397,11 @@ export default function CRMInvoiceTab({ customer, websiteId, initialInvoices = [
                     <span className="rounded-lg bg-slate-900 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-white">
                       {invoice.invoiceId || "Invoice"}
                     </span>
+                    {invoice.quotationId && (
+                      <span className="rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest">
+                        Quote: {invoice.quotationId}
+                      </span>
+                    )}
                     <StatusBadge status={invoice.status} />
                   </div>
                   <h4 className="text-sm font-black uppercase tracking-tight text-slate-900 truncate">

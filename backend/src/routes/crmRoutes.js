@@ -54,6 +54,7 @@ import biRoutes from "./crmBiRoutes.js";
 import adminRoutes from "./crmAdminRoutes.js";
 import integrationRoutes from "./crmIntegrationRoutes.js";
 import meetingPlatformRoutes from "./meetingPlatformRoutes.js";
+import salesTargetRoutes from "./crmSalesTargetRoutes.js";
 
 const router = Router();
 
@@ -95,6 +96,7 @@ router.use("/emails", emailRoutes);
 router.use("/documents", documentRoutes);
 router.use("/reminders", reminderRoutes);
 router.use("/meeting-platforms", meetingPlatformRoutes);
+router.use("/sales-targets", salesTargetRoutes);
 
 // Analytics & Reports (Move above /:id to avoid shadowing)
 router.get("/reports", requireRole("admin", "client", "manager"), analyticsController.getCrmReports);
@@ -112,11 +114,12 @@ router.get("/invoices", requireRole("admin", "client", "manager", "sales", "purc
 router.post("/invoices", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), invoiceController.createInvoice);
 router.put("/invoices/:id", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), invoiceController.updateInvoice);
 router.delete("/invoices/:id", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), invoiceController.deleteInvoice);
-router.post("/invoices/:id/pdf", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), invoiceController.generateInvoicePdf);
+router.post("/invoices/:id/pdf", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "customer"), invoiceController.generateInvoicePdf);
 
 // Core Customer/Lead Routes
 router.get("/", customerController.listCustomers);
 router.post("/", requireRole("admin", "client", "manager", "sales"), validate(createCustomerSchema), customerController.createCustomer);
+router.post("/import", requireRole("admin", "client", "manager", "sales"), upload.single("file"), customerController.importCustomers);
 router.post("/merge", requireRole("admin", "client", "manager"), validate(mergeCustomersSchema), customerController.mergeCustomers);
 router.patch("/bulk-update", requireRole("admin", "client", "manager"), customerController.bulkUpdateCustomers);
 router.delete("/bulk-delete", requireRole("admin", "client", "manager"), customerController.bulkDeleteCustomers);
@@ -133,7 +136,7 @@ router.post("/quotations/:id/send", requireRole("admin", "client", "manager", "s
 router.post("/quotations/:id/pay", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), quotationController.createQuotationPayment);
 router.post("/quotations/:id/approve", requireRole("admin", "client", "manager"), quotationController.approveQuotation);
 router.post("/quotations/:id/deny", requireRole("admin", "client", "manager"), quotationController.denyQuotation);
-router.post("/quotations/:id/pdf", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), quotationController.generateQuotationPdf);
+router.post("/quotations/:id/pdf", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "customer"), quotationController.generateQuotationPdf);
 
 // Interactions & Activity
 router.get("/:id/activity", interactionController.getCustomerActivity);

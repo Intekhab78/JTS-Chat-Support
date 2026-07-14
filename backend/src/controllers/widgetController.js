@@ -44,11 +44,28 @@ export const submitWidgetLead = asyncHandler(async (req, res) => {
   const { name, email, phone, companyName, budget, requirement, sessionId } = req.body;
   const websiteId = req.website._id;
 
+  let resolvedName = name;
+  let resolvedEmail = email;
+  let resolvedPhone = phone;
+
+  // Fallback to pre-chat details from visitor profile if form submission is missing them
+  if (sessionId && (!resolvedName || !resolvedEmail || !resolvedPhone)) {
+    const session = await ChatSession.findOne({ sessionId }).populate("visitorId");
+    if (session && session.visitorId) {
+      if (!resolvedName) resolvedName = session.visitorId.name;
+      if (!resolvedEmail) resolvedEmail = session.visitorId.email;
+      if (!resolvedPhone) resolvedPhone = session.visitorId.phone;
+    }
+  }
+
+  resolvedName = resolvedName || "Anonymous Visitor";
+  resolvedEmail = resolvedEmail ? String(resolvedEmail).trim().toLowerCase() : "";
+
   const customer = await Customer.create({
     crn: await generateCRN(),
-    name,
-    email: String(email).trim().toLowerCase(),
-    phone,
+    name: resolvedName,
+    email: resolvedEmail,
+    phone: resolvedPhone || null,
     companyName,
     budget: Number(budget || 0),
     requirement,
@@ -161,11 +178,27 @@ export const executeWidgetAction = asyncHandler(async (req, res) => {
   const websiteId = req.website._id;
 
   if (actionType === "create_lead") {
+    let resolvedName = context.name;
+    let resolvedEmail = context.email;
+    let resolvedPhone = context.phone;
+
+    if (sessionId && (!resolvedName || !resolvedEmail || !resolvedPhone)) {
+      const session = await ChatSession.findOne({ sessionId }).populate("visitorId");
+      if (session && session.visitorId) {
+        if (!resolvedName) resolvedName = session.visitorId.name;
+        if (!resolvedEmail) resolvedEmail = session.visitorId.email;
+        if (!resolvedPhone) resolvedPhone = session.visitorId.phone;
+      }
+    }
+
+    resolvedName = resolvedName || "Unknown";
+    resolvedEmail = resolvedEmail ? String(resolvedEmail).trim().toLowerCase() : "";
+
     const customer = await Customer.create({
       crn: await generateCRN(),
-      name: context.name || "Unknown",
-      email: context.email ? String(context.email).trim().toLowerCase() : "",
-      phone: context.phone || "",
+      name: resolvedName,
+      email: resolvedEmail,
+      phone: resolvedPhone || "",
       companyName: context.company || context.companyName || "",
       budget: Number(context.budget?.replace(/[^0-9]/g, '') || 0),
       requirement: context.requirements || context.service_interest || context.requirement || "",
@@ -258,10 +291,23 @@ export const executeWidgetAction = asyncHandler(async (req, res) => {
   }
 
   if (actionType === "create_callback_request") {
+    let resolvedName = context.name;
+    let resolvedPhone = context.phone;
+
+    if (sessionId && (!resolvedName || !resolvedPhone)) {
+      const session = await ChatSession.findOne({ sessionId }).populate("visitorId");
+      if (session && session.visitorId) {
+        if (!resolvedName) resolvedName = session.visitorId.name;
+        if (!resolvedPhone) resolvedPhone = session.visitorId.phone;
+      }
+    }
+
+    resolvedName = resolvedName || "Callback Request";
+
     const customer = await Customer.create({
       crn: await generateCRN(),
-      name: context.name || "Callback Request",
-      phone: context.phone || "",
+      name: resolvedName,
+      phone: resolvedPhone || "",
       websiteId,
       recordType: "lead",
       leadSource: "widget",
