@@ -59,3 +59,22 @@ export const deletePlan = asyncHandler(async (req, res) => {
   await Plan.findByIdAndDelete(req.params.id);
   res.json({ message: "Plan deleted successfully" });
 });
+
+export const updatePlan = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const plan = await Plan.findById(req.params.id);
+
+  if (!plan) throw new AppError("Plan not found", 404);
+  if (!ownedWebsiteIds.map(id => id.toString()).includes(plan.websiteId.toString())) {
+    throw new AppError("Unauthorized access", 403);
+  }
+
+  const updatedPlan = await Plan.findByIdAndUpdate(
+    req.params.id,
+    { ...req.body },
+    { new: true, runValidators: true }
+  );
+
+  res.json(updatedPlan);
+});

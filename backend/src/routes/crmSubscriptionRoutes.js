@@ -5,6 +5,8 @@ const router = Router();
 
 router.get("/", subscriptionController.listSubscriptions);
 router.post("/", subscriptionController.createSubscription);
+router.put("/:id", subscriptionController.updateSubscription);
+router.delete("/:id", subscriptionController.deleteSubscription);
 router.post("/cron", subscriptionController.triggerBillingCron); // trigger billing task manually
 
 export default router;

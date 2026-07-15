@@ -69,3 +69,44 @@ export const triggerBillingCron = asyncHandler(async (req, res) => {
   await runSubscriptionBillingCron();
   res.json({ success: true, message: "Subscription billing cron executed successfully." });
 });
+
+export const updateSubscription = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const sub = await Subscription.findById(req.params.id);
+
+  if (!sub) throw new AppError("Subscription not found", 404);
+  if (!ownedWebsiteIds.map(id => id.toString()).includes(sub.websiteId.toString())) {
+    throw new AppError("Unauthorized access", 403);
+  }
+
+  const updateData = { ...req.body };
+  if (req.body.durationMonths) {
+    const endDate = new Date(sub.startDate || new Date());
+    endDate.setMonth(endDate.getMonth() + Number(req.body.durationMonths));
+    updateData.endDate = endDate;
+    updateData.renewalDate = endDate;
+  }
+
+  const updatedSub = await Subscription.findByIdAndUpdate(
+    req.params.id,
+    updateData,
+    { new: true, runValidators: true }
+  );
+
+  res.json(updatedSub);
+});
+
+export const deleteSubscription = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_DELETE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const sub = await Subscription.findById(req.params.id);
+
+  if (!sub) throw new AppError("Subscription not found", 404);
+  if (!ownedWebsiteIds.map(id => id.toString()).includes(sub.websiteId.toString())) {
+    throw new AppError("Unauthorized access", 403);
+  }
+
+  await Subscription.findByIdAndDelete(req.params.id);
+  res.json({ message: "Subscription deleted successfully" });
+});
