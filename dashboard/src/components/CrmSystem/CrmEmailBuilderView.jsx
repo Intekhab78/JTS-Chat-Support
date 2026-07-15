@@ -277,7 +277,7 @@ export default function CrmEmailBuilderView({ websiteId }) {
         method: "POST",
         body: JSON.stringify({
           targetEmail: testEmail,
-          subject,
+          subject: subject || "Notification Update",
           htmlContent
         })
       });
@@ -689,7 +689,6 @@ export default function CrmEmailBuilderView({ websiteId }) {
             <iframe
               srcDoc={compilePreview()}
               title="Template Render Sandbox"
-              sandbox="allow-same-origin"
               className="w-full h-full border-none bg-white"
             />
           </div>

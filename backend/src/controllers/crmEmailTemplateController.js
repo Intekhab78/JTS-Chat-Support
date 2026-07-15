@@ -110,9 +110,11 @@ export async function sendTestEmail(req, res, next) {
   try {
     const { targetEmail, subject, htmlContent } = req.body;
 
-    if (!targetEmail || !subject || !htmlContent) {
-      return next(new AppError("targetEmail, subject, and htmlContent are required.", 400));
+    if (!targetEmail || !htmlContent) {
+      return next(new AppError("targetEmail and htmlContent are required.", 400));
     }
+
+    const finalSubject = (subject || "").trim() || "Notification Update";
 
     // Replace test variables/placeholders for live verification checks
     let parsedHtml = htmlContent
@@ -124,7 +126,7 @@ export async function sendTestEmail(req, res, next) {
 
     await sendEmail({
       to: targetEmail,
-      subject: `[JTS Builder Test]: ${subject}`,
+      subject: `[JTS Builder Test]: ${finalSubject}`,
       html: parsedHtml
     });
 
