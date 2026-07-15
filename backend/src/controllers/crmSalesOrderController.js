@@ -7,6 +7,7 @@ import AppError from "../utils/AppError.js";
 import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
 import { logCrmActivity } from "../services/activityLoggerService.js";
 import { calculateTotals } from "../utils/salesEngine.js";
+import { sendSalesOrderDispatchNotification } from "../services/dispatchNotificationService.js";
 
 export const listSalesOrders = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_VIEW);
@@ -135,6 +136,10 @@ export const updateSalesOrderStatus = asyncHandler(async (req, res) => {
       customerId: order.customerId,
       ownerId: req.user._id
     });
+
+    if (["shipped", "delivered"].includes(updated.status)) {
+      sendSalesOrderDispatchNotification(updated).catch(err => console.error(err));
+    }
   }
 
   res.json(updated);

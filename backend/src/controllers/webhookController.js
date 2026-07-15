@@ -80,11 +80,50 @@ export const handleWebhook = asyncHandler(async (req, res) => {
     }
 
     case "payment_intent.succeeded": {
-      // Payment for a quotation succeeded
+      // Payment for a quotation or invoice succeeded
       try {
         const pi = event.data.object;
         const metadata = pi.metadata || {};
         const quotationId = metadata.quotationId || metadata.quotation_id;
+        const invoiceId = metadata.invoiceId || metadata.invoice_id;
+
+        if (invoiceId) {
+          const invoice = await Invoice.findOne({ invoiceId });
+          if (invoice && invoice.status !== "paid") {
+            invoice.status = "paid";
+            invoice.paidAmount = invoice.total;
+            await invoice.save();
+
+            const { Payment } = await import("../models/Payment.js");
+            await Payment.create({
+              websiteId: invoice.websiteId,
+              paymentNumber: `PMT-${Date.now()}`,
+              invoiceId: invoice._id,
+              customerId: invoice.customerId,
+              amount: invoice.total,
+              gateway: "stripe",
+              status: "completed",
+              transactionId: pi.id,
+              notes: `Auto-recorded from Stripe webhook`
+            });
+
+            await logCrmActivity({
+              websiteId: invoice.websiteId,
+              type: "payment",
+              title: `Invoice Auto-Paid: ${invoice.invoiceId}`,
+              description: `Confirmed Stripe transaction ${pi.id}. Marked paid.`,
+              customerId: invoice.customerId,
+              ownerId: invoice.ownerId
+            }).catch(() => {});
+
+            await advancePurchaseWorkflow({
+              customerId: invoice.customerId,
+              status: "completed",
+              actor: null,
+              reason: "stripe_payment_succeeded"
+            }).catch(() => {});
+          }
+        }
         if (quotationId) {
           const quotation = await Quotation.findOne({ quotationId });
           if (quotation && quotation.status !== "accepted") {

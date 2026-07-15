@@ -40,6 +40,41 @@ export default function CrmInvoicesView({ websiteId }) {
     fetchInvoices();
   }, [websiteId]);
 
+  const handleSimulateRazorpayPayment = async () => {
+    if (!selectedInvoice) return;
+    try {
+      const response = await fetch(`${API_BASE}/api/razorpay-webhooks/razorpay`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          event: "payment.captured",
+          payload: {
+            payment: {
+              entity: {
+                id: `pay_mock_${Math.random().toString(36).substring(2, 11)}`,
+                notes: {
+                  invoiceId: selectedInvoice.invoiceId
+                }
+              }
+            }
+          }
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error("Simulation failed. Status: " + response.status);
+      }
+      
+      alert(`Simulation Successful! Razorpay payload sent and processed for ${selectedInvoice.invoiceId}.`);
+      setSelectedInvoice(null);
+      fetchInvoices();
+    } catch (err) {
+      alert("Simulation error: " + err.message);
+    }
+  };
+
   const handleAllocatePayment = async (e) => {
     e.preventDefault();
     try {
@@ -224,12 +259,20 @@ export default function CrmInvoicesView({ websiteId }) {
                 {/* Action Suite (Allocating Payments, Downloading/Printing, etc.) */}
                 <div className="space-y-2 pt-4 border-t border-slate-100">
                   {selectedInvoice.status !== "paid" && selectedInvoice.status !== "cancelled" && (
-                    <button
-                      onClick={() => setShowPaymentModal(true)}
-                      className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-indigo-100 flex items-center justify-center gap-1.5"
-                    >
-                      <DollarSign size={12} /> Allocate Payment
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setShowPaymentModal(true)}
+                        className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-indigo-100 flex items-center justify-center gap-1.5"
+                      >
+                        <DollarSign size={12} /> Allocate Payment
+                      </button>
+                      <button
+                        onClick={handleSimulateRazorpayPayment}
+                        className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-amber-100 flex items-center justify-center gap-1.5"
+                      >
+                        ⚡ Simulate Webhook
+                      </button>
+                    </div>
                   )}
 
                   {selectedInvoice.status === "paid" && (

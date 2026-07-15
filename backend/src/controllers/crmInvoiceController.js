@@ -9,6 +9,8 @@ import { createActivityEvent } from "../services/activityService.js";
 import { advancePurchaseWorkflow } from "../services/purchaseWorkflowService.js";
 import { assertSameWebsite, buildInvoiceTenantFilter, toWebsiteIdStrings } from "../utils/invoiceAccess.js";
 import { logCrmActivity } from "../services/activityLoggerService.js";
+import { sendInvoiceDispatchNotification } from "../services/dispatchNotificationService.js";
+import { applyTaxToInvoice } from "../utils/taxCalculator.js";
 
 async function resolveOwnedWebsiteIds(req) {
   return req.ownedWebsiteIds || await getOwnedWebsiteIds(req.user);
@@ -95,9 +97,31 @@ export const createInvoice = asyncHandler(async (req, res) => {
   assertSameWebsite(customer.websiteId, resolvedWebsiteId, "Customer does not belong to this invoice website.");
 
   const invoiceId = `INV-${Date.now().toString().slice(-6)}`;
+  const billingAddress = req.body.billingAddress || {};
+  
+  const taxApplied = applyTaxToInvoice({
+    items: items || [],
+    billingAddress,
+    discountAmount: req.body.discountAmount || 0,
+    shippingCharges: req.body.shippingCharges || 0,
+    adjustment: req.body.adjustment || 0
+  });
+
   const invoice = await Invoice.create({
     invoiceId, quotationId, customerId, websiteId: resolvedWebsiteId, ownerId: req.user._id,
-    items: items || [], total: total || 0, currency: currency || "INR", status: status || "pending", issuedAt: new Date(), notes
+    items: taxApplied.items,
+    subtotal: taxApplied.subtotal,
+    tax: taxApplied.tax,
+    total: taxApplied.total,
+    discountAmount: req.body.discountAmount || 0,
+    shippingCharges: req.body.shippingCharges || 0,
+    adjustment: req.body.adjustment || 0,
+    currency: currency || "INR",
+    status: status || "pending",
+    issuedAt: new Date(),
+    notes,
+    billingAddress,
+    shippingAddress: req.body.shippingAddress || {}
   });
 
   if (quotationId) {
@@ -137,6 +161,10 @@ export const createInvoice = asyncHandler(async (req, res) => {
     reason: invoice.status === "paid" ? "paid_invoice_created" : "invoice_created"
   });
 
+  if (invoice.status !== "draft") {
+    sendInvoiceDispatchNotification(invoice).catch(err => console.error(err));
+  }
+
   res.status(201).json(invoice);
 });
 
@@ -158,9 +186,25 @@ export const updateInvoice = asyncHandler(async (req, res) => {
 
   await findAuthorizedCustomer(nextCustomerId, nextWebsiteId, ownedWebsiteIds);
 
+  let updateData = { ...req.body };
+  if (req.body.items || req.body.billingAddress) {
+    const currentInvoice = await Invoice.findOne(buildInvoiceTenantFilter(req.params.id, ownedWebsiteIds));
+    if (currentInvoice) {
+      const mergedInvoiceData = {
+        items: req.body.items || currentInvoice.items,
+        billingAddress: req.body.billingAddress || currentInvoice.billingAddress,
+        discountAmount: req.body.discountAmount !== undefined ? req.body.discountAmount : currentInvoice.discountAmount,
+        shippingCharges: req.body.shippingCharges !== undefined ? req.body.shippingCharges : currentInvoice.shippingCharges,
+        adjustment: req.body.adjustment !== undefined ? req.body.adjustment : currentInvoice.adjustment
+      };
+      const taxApplied = applyTaxToInvoice(mergedInvoiceData);
+      Object.assign(updateData, taxApplied);
+    }
+  }
+
   const updatedInvoice = await Invoice.findOneAndUpdate(
     buildInvoiceTenantFilter(req.params.id, ownedWebsiteIds),
-    req.body,
+    updateData,
     { new: true }
   );
 
@@ -183,6 +227,10 @@ export const updateInvoice = asyncHandler(async (req, res) => {
     actor: req.user,
     reason: updatedInvoice.status === "paid" ? "invoice_marked_paid" : "invoice_updated"
   });
+
+  if (invoice.status !== updatedInvoice.status && ["sent", "pending", "paid"].includes(updatedInvoice.status)) {
+    sendInvoiceDispatchNotification(updatedInvoice).catch(err => console.error(err));
+  }
 
   res.json(updatedInvoice);
 });
