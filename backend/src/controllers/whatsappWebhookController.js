@@ -1,7 +1,7 @@
 import { Customer } from "../models/Customer.js";
 import { createActivityEvent } from "../services/activityService.js";
 import { getSocketServer } from "../sockets/index.js";
-import { generateCRN } from "../utils/crmUtils.js";
+import { generateCRN } from "../services/customerService.js";
 
 /**
  * Verify WhatsApp webhook token (required by Meta Cloud API setup)
