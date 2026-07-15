@@ -212,8 +212,25 @@ export default function CrmEmailBuilderView({ websiteId }) {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!name || !subject || !htmlContent) {
-      setError("Please provide template name, subject line, and content.");
+    
+    const trimmedName = (name || "").trim();
+    const trimmedSubject = (subject || "").trim();
+    const trimmedHtml = (htmlContent || "").trim();
+
+    if (!trimmedName) {
+      setError("Please specify a unique Template Name / Identifier.");
+      return;
+    }
+    if (!trimmedSubject) {
+      setError("Please specify a default Email Subject Line.");
+      return;
+    }
+    if (!trimmedHtml) {
+      setError("Template layout code / content cannot be empty.");
+      return;
+    }
+    if (!websiteId) {
+      setError("Active Website context is missing. Please select a website from the portal header dropdown first.");
       return;
     }
 

@@ -26,9 +26,10 @@ export async function createTemplate(req, res, next) {
   try {
     const { name, subject, htmlContent, websiteId } = req.body;
 
-    if (!name || !subject || !htmlContent || !websiteId) {
-      return next(new AppError("Please provide name, subject, htmlContent, and websiteId.", 400));
-    }
+    if (!name || !name.trim()) return next(new AppError("Template name/identifier is required.", 400));
+    if (!subject || !subject.trim()) return next(new AppError("Subject line is required.", 400));
+    if (!htmlContent || !htmlContent.trim()) return next(new AppError("HTML template content is required.", 400));
+    if (!websiteId) return next(new AppError("Website ID context is missing.", 400));
 
     // Check for duplicate names inside same website scope
     const existing = await EmailTemplate.findOne({ websiteId, name: name.trim() });

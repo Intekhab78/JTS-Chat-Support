@@ -205,6 +205,7 @@ export default function CrmContainer({
 
   const [emailDraft, setEmailDraft] = useState({ subject: "", body: "" });
   const [sendingEmail, setSendingEmail] = useState(false);
+  const sendingEmailRef = useRef(false);
 
   // -- Modal Lead Modal State --
   const [showCreateLead, setShowCreateLead] = useState(false);
@@ -656,7 +657,10 @@ export default function CrmContainer({
 
   const onSendEmail = async (e) => {
     e.preventDefault();
+    if (sendingEmailRef.current) return;
     if (!selectedCustomer?._id || !emailDraft.subject.trim() || !emailDraft.body.trim()) return;
+
+    sendingEmailRef.current = true;
     setSendingEmail(true);
     try {
       const updated = await api(`/api/crm/${selectedCustomer._id}/send-email`, {
@@ -668,10 +672,12 @@ export default function CrmContainer({
       });
       syncCustomerState(updated);
       setActionMessage({ type: "success", text: "Email sent." });
+      setEmailDraft({ subject: "", body: "" }); // Clear draft fields on successful dispatch
     } catch (err) {
-      setActionMessage({ type: "error", text: "Email failed." });
+      setActionMessage({ type: "error", text: "Email failed: " + (err.message || "Unknown error") });
     } finally {
       setSendingEmail(false);
+      sendingEmailRef.current = false;
     }
   };
 
