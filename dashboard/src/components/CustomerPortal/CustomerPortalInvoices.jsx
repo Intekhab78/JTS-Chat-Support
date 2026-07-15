@@ -49,20 +49,85 @@ export default function CustomerPortalInvoices() {
     }
   };
 
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if (window.Razorpay) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
   const handleProcessPayment = async () => {
     if (!paymentModal.invoice) return;
     setProcessing(true);
     try {
-      await api(`/api/crm/customer-portal/invoices/${paymentModal.invoice._id}/pay`, {
-        method: "POST",
-        body: JSON.stringify({ paymentMethod })
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded) {
+        toast.error("Failed to load Razorpay Checkout SDK. Please check your network.");
+        return;
+      }
+
+      // Create order
+      const orderData = await api(`/api/crm/customer-portal/invoices/${paymentModal.invoice._id}/razorpay-order`, {
+        method: "POST"
       });
-      toast.success("Payment processed successfully! Invoice is now fully settled.");
-      setPaymentModal({ show: false, invoice: null });
-      fetchInvoices();
+
+      if (!orderData || !orderData.orderId) {
+        throw new Error("Failed to initialize Razorpay checkout order.");
+      }
+
+      const options = {
+        key: orderData.keyId,
+        amount: orderData.amount,
+        currency: orderData.currency || "INR",
+        name: "JTS Client Portal",
+        description: `Invoice Settlement: ${paymentModal.invoice.invoiceNumber || paymentModal.invoice._id.slice(-6).toUpperCase()}`,
+        order_id: orderData.orderId,
+        prefill: {
+          name: paymentModal.invoice.customerId?.name || "",
+          email: paymentModal.invoice.customerId?.email || "",
+          contact: paymentModal.invoice.customerId?.phone || ""
+        },
+        theme: {
+          color: "#059669"
+        },
+        handler: async function (response) {
+          setProcessing(true);
+          try {
+            await api(`/api/crm/customer-portal/invoices/${paymentModal.invoice._id}/razorpay-verify`, {
+              method: "POST",
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature
+              })
+            });
+            toast.success("Payment completed and verified successfully!");
+            setPaymentModal({ show: false, invoice: null });
+            fetchInvoices();
+          } catch (err) {
+            toast.error("Verification failed: " + err.message);
+          } finally {
+            setProcessing(false);
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            setProcessing(false);
+          }
+        }
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
     } catch (err) {
-      toast.error(err.message || "Payment failed");
-    } finally {
+      toast.error(err.message || "Payment process error");
       setProcessing(false);
     }
   };
@@ -160,36 +225,6 @@ export default function CustomerPortalInvoices() {
               </div>
             </div>
 
-            <div className="space-y-3">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Select Payment Method</label>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { id: "credit_card", label: "Credit / Debit Card" },
-                  { id: "upi", label: "UPI / QR Pay" },
-                  { id: "net_banking", label: "Net Banking" },
-                  { id: "paypal_mock", label: "Sandbox PayPal" }
-                ].map((method) => (
-                  <label 
-                    key={method.id}
-                    className={`flex items-center gap-2.5 p-3.5 border rounded-2xl cursor-pointer select-none transition-all ${
-                      paymentMethod === method.id 
-                        ? "border-emerald-500 bg-emerald-50/30 text-emerald-700 font-extrabold" 
-                        : "border-slate-200 hover:bg-slate-50 text-slate-600"
-                    }`}
-                  >
-                    <input 
-                      type="radio" 
-                      name="payment_method" 
-                      checked={paymentMethod === method.id}
-                      onChange={() => setPaymentMethod(method.id)}
-                      className="hidden" 
-                    />
-                    <span className="text-[10px] uppercase tracking-wide">{method.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
             <button
               onClick={handleProcessPayment}
               disabled={processing}
@@ -201,7 +236,7 @@ export default function CustomerPortalInvoices() {
                     <span key={i} className="w-1.5 h-1.5 rounded-full bg-white/70 animate-bounce" style={{ animationDelay: `${d}s` }} />
                   ))}
                 </span>
-              ) : `Confirm & Pay ₹${paymentModal.invoice.totalAmount || paymentModal.invoice.total || 0}`}
+              ) : `Pay with Razorpay ₹${paymentModal.invoice.totalAmount || paymentModal.invoice.total || 0}`}
             </button>
 
             <div className="flex items-center justify-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest">

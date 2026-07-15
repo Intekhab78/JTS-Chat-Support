@@ -11,6 +11,10 @@ import { assertSameWebsite, buildInvoiceTenantFilter, toWebsiteIdStrings } from 
 import { logCrmActivity } from "../services/activityLoggerService.js";
 import { sendInvoiceDispatchNotification } from "../services/dispatchNotificationService.js";
 import { applyTaxToInvoice } from "../utils/taxCalculator.js";
+import { Payment } from "../models/Payment.js";
+import { env } from "../config/env.js";
+import crypto from "crypto";
+import Razorpay from "razorpay";
 
 async function resolveOwnedWebsiteIds(req) {
   return req.ownedWebsiteIds || await getOwnedWebsiteIds(req.user);
@@ -239,4 +243,100 @@ export const deleteInvoice = asyncHandler(async (req, res) => {
   const { ownedWebsiteIds } = await findAuthorizedInvoice(req, req.params.id);
   await Invoice.findOneAndDelete(buildInvoiceTenantFilter(req.params.id, ownedWebsiteIds));
   res.json({ success: true });
+});
+
+export const createRazorpayOrder = asyncHandler(async (req, res) => {
+  const { invoice } = await findAuthorizedInvoice(req, req.params.id);
+
+  if (invoice.status === "paid") {
+    throw new AppError("Invoice is already paid", 400);
+  }
+
+  const keyId = env.razorpayKeyId || process.env.RAZORPAY_KEY_ID;
+  const keySecret = env.razorpayKeySecret || process.env.RAZORPAY_KEY_SECRET;
+
+  if (!keyId || !keySecret) {
+    throw new AppError("Razorpay keys are not configured in system settings.", 500);
+  }
+
+  const razorpay = new Razorpay({
+    key_id: keyId,
+    key_secret: keySecret
+  });
+
+  const amountInPaise = Math.round(invoice.total * 100);
+  const order = await razorpay.orders.create({
+    amount: amountInPaise,
+    currency: invoice.currency || "INR",
+    receipt: invoice.invoiceId,
+    notes: {
+      invoiceId: invoice.invoiceId
+    }
+  });
+
+  res.json({
+    orderId: order.id,
+    amount: order.amount,
+    currency: order.currency,
+    keyId: keyId
+  });
+});
+
+export const verifyRazorpayPayment = asyncHandler(async (req, res) => {
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+  const { invoice } = await findAuthorizedInvoice(req, req.params.id);
+
+  const keySecret = env.razorpayKeySecret || process.env.RAZORPAY_KEY_SECRET;
+  if (!keySecret) {
+    throw new AppError("Razorpay API Configuration missing.", 500);
+  }
+
+  // Validate signature
+  const hmac = crypto.createHmac("sha256", keySecret);
+  hmac.update(razorpay_order_id + "|" + razorpay_payment_id);
+  const generatedSignature = hmac.digest("hex");
+
+  if (generatedSignature !== razorpay_signature) {
+    throw new AppError("Payment verification failed. Signature mismatch.", 400);
+  }
+
+  // Update invoice if not already paid
+  if (invoice.status !== "paid") {
+    invoice.status = "paid";
+    invoice.paidAmount = invoice.total;
+    await invoice.save();
+
+    // Create payment record
+    await Payment.create({
+      websiteId: invoice.websiteId,
+      paymentNumber: `PMT-${Date.now()}`,
+      invoiceId: invoice._id,
+      customerId: invoice.customerId,
+      amount: invoice.total,
+      gateway: "razorpay",
+      status: "completed",
+      transactionId: razorpay_payment_id,
+      notes: `Verified from frontend checkout signature`
+    });
+
+    // Log timeline activity
+    await logCrmActivity({
+      websiteId: invoice.websiteId,
+      type: "payment",
+      title: `Invoice Paid via Razorpay: ${invoice.invoiceId}`,
+      description: `Razorpay payment ${razorpay_payment_id} verified. Marked paid.`,
+      customerId: invoice.customerId,
+      ownerId: invoice.ownerId
+    }).catch(() => {});
+
+    // Advance purchase workflows
+    await advancePurchaseWorkflow({
+      customerId: invoice.customerId,
+      status: "completed",
+      actor: null,
+      reason: "razorpay_payment_verified"
+    }).catch(() => {});
+  }
+
+  res.json({ success: true, message: "Payment verified and recorded." });
 });

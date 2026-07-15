@@ -15,6 +15,9 @@ import bcrypt from "bcryptjs";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { logCrmActivity } from "../services/activityLoggerService.js";
+import { env } from "../config/env.js";
+import crypto from "crypto";
+import Razorpay from "razorpay";
 
 // Utility to verify customer isolation matches
 const checkCustomerIsolation = (user, customerId) => {
@@ -293,4 +296,114 @@ export const payInvoice = asyncHandler(async (req, res) => {
   }
 
   res.json({ success: true, message: "Payment processed successfully", payment });
+});
+
+export const createRazorpayOrderForPortal = asyncHandler(async (req, res) => {
+  const invoice = await Invoice.findById(req.params.id);
+  if (!invoice) throw new AppError("Invoice not found", 404);
+  checkCustomerIsolation(req.user, invoice.customerId);
+
+  if (invoice.status === "paid") {
+    throw new AppError("Invoice is already paid", 400);
+  }
+
+  const keyId = env.razorpayKeyId || process.env.RAZORPAY_KEY_ID;
+  const keySecret = env.razorpayKeySecret || process.env.RAZORPAY_KEY_SECRET;
+
+  if (!keyId || !keySecret) {
+    throw new AppError("Razorpay API Configuration missing.", 500);
+  }
+
+  const razorpay = new Razorpay({
+    key_id: keyId,
+    key_secret: keySecret
+  });
+
+  const amountInPaise = Math.round(invoice.total * 100);
+  const order = await razorpay.orders.create({
+    amount: amountInPaise,
+    currency: invoice.currency || "INR",
+    receipt: invoice.invoiceId,
+    notes: {
+      invoiceId: invoice.invoiceId
+    }
+  });
+
+  res.json({
+    orderId: order.id,
+    amount: order.amount,
+    currency: order.currency,
+    keyId: keyId
+  });
+});
+
+export const verifyRazorpayPaymentForPortal = asyncHandler(async (req, res) => {
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+  const invoice = await Invoice.findById(req.params.id);
+  if (!invoice) throw new AppError("Invoice not found", 404);
+  checkCustomerIsolation(req.user, invoice.customerId);
+
+  const keySecret = env.razorpayKeySecret || process.env.RAZORPAY_KEY_SECRET;
+  if (!keySecret) {
+    throw new AppError("Razorpay API Configuration missing.", 500);
+  }
+
+  // Validate signature
+  const hmac = crypto.createHmac("sha256", keySecret);
+  hmac.update(razorpay_order_id + "|" + razorpay_payment_id);
+  const generatedSignature = hmac.digest("hex");
+
+  if (generatedSignature !== razorpay_signature) {
+    throw new AppError("Payment verification failed. Signature mismatch.", 400);
+  }
+
+  // Update invoice if not already paid
+  if (invoice.status !== "paid") {
+    invoice.status = "paid";
+    invoice.paidAmount = invoice.total;
+    await invoice.save();
+
+    // Create payment record
+    await Payment.create({
+      websiteId: invoice.websiteId,
+      paymentNumber: `PMT-${Date.now()}`,
+      invoiceId: invoice._id,
+      customerId: invoice.customerId,
+      amount: invoice.total,
+      gateway: "razorpay",
+      status: "completed",
+      transactionId: razorpay_payment_id,
+      notes: `Verified from customer portal checkout signature`
+    });
+
+    // Log timeline activity
+    await logCrmActivity({
+      websiteId: invoice.websiteId,
+      type: "payment",
+      title: `Invoice Paid via Customer Portal: ${invoice.invoiceId}`,
+      description: `Razorpay payment ${razorpay_payment_id} verified from customer portal. Marked paid.`,
+      customerId: invoice.customerId,
+      ownerId: invoice.ownerId
+    }).catch(() => {});
+
+    // Advance purchase workflows & transition lead stage to won
+    try {
+      await advancePurchaseWorkflow({
+        customerId: invoice.customerId,
+        status: "completed",
+        actor: null,
+        reason: "razorpay_payment_verified_portal"
+      });
+
+      const customer = await Customer.findById(invoice.customerId);
+      if (customer) {
+        customer.pipelineStage = "won";
+        await customer.save();
+      }
+    } catch (err) {
+      console.error("Failed to run post-payment updates in portal verified handler:", err);
+    }
+  }
+
+  res.json({ success: true, message: "Payment verified and recorded." });
 });

@@ -117,6 +117,8 @@ router.post("/invoices", requireRole("admin", "client", "manager", "sales", "pur
 router.put("/invoices/:id", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), invoiceController.updateInvoice);
 router.delete("/invoices/:id", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), invoiceController.deleteInvoice);
 router.post("/invoices/:id/pdf", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "customer"), invoiceController.generateInvoicePdf);
+router.post("/invoices/:id/razorpay-order", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), invoiceController.createRazorpayOrder);
+router.post("/invoices/:id/razorpay-verify", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), invoiceController.verifyRazorpayPayment);
 
 // Core Customer/Lead Routes
 router.get("/", customerController.listCustomers);

@@ -6,6 +6,8 @@ import AppError from "../utils/AppError.js";
 import { buildSubscription } from "../utils/planUtils.js";
 import { normalizeRole } from "../utils/roleUtils.js";
 import { canUseMockBilling, logBlockedMockBillingRequest } from "../utils/mockBillingAccess.js";
+import crypto from "crypto";
+import Razorpay from "razorpay";
 
 const getStripe = () => {
   if (!env.stripeSecretKey || env.stripeSecretKey === "") {
@@ -116,6 +118,83 @@ export const executeMockCheckout = asyncHandler(async (req, res, next) => {
   res.json({
     status: "success",
     message: `Plan ${plan} activated successfully (Mock Payment)`,
+    subscription: user.subscription
+  });
+});
+
+export const createRazorpaySubscriptionOrder = asyncHandler(async (req, res, next) => {
+  const { plan } = req.body;
+  const planPrices = {
+    basic: 2400,     // 2400 INR
+    standard: 6500,  // 6500 INR
+    pro: 16500       // 16500 INR
+  };
+
+  const amount = planPrices[plan];
+  if (!amount) {
+    return next(new AppError("Invalid plan selected", 400));
+  }
+
+  const keyId = env.razorpayKeyId || process.env.RAZORPAY_KEY_ID;
+  const keySecret = env.razorpayKeySecret || process.env.RAZORPAY_KEY_SECRET;
+
+  if (!keyId || !keySecret) {
+    return next(new AppError("Razorpay keys are not configured.", 500));
+  }
+
+  const razorpay = new Razorpay({
+    key_id: keyId,
+    key_secret: keySecret
+  });
+
+  const order = await razorpay.orders.create({
+    amount: amount * 100, // in paise
+    currency: "INR",
+    receipt: `sub_${Date.now()}`,
+    notes: {
+      userId: req.user._id.toString(),
+      plan
+    }
+  });
+
+  res.json({
+    status: "success",
+    orderId: order.id,
+    amount: order.amount,
+    currency: order.currency,
+    keyId: keyId
+  });
+});
+
+export const verifyRazorpaySubscriptionPayment = asyncHandler(async (req, res, next) => {
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, plan } = req.body;
+
+  const keySecret = env.razorpayKeySecret || process.env.RAZORPAY_KEY_SECRET;
+  if (!keySecret) {
+    return next(new AppError("Razorpay API Configuration missing.", 500));
+  }
+
+  // Verify signature
+  const hmac = crypto.createHmac("sha256", keySecret);
+  hmac.update(razorpay_order_id + "|" + razorpay_payment_id);
+  const generatedSignature = hmac.digest("hex");
+
+  if (generatedSignature !== razorpay_signature) {
+    return next(new AppError("Payment verification failed.", 400));
+  }
+
+  // Update subscription
+  const user = await User.findById(req.user._id);
+  if (!user) {
+    return next(new AppError("User not found", 404));
+  }
+
+  user.subscription = buildSubscription(plan, { status: "active" });
+  await user.save();
+
+  res.json({
+    status: "success",
+    message: `Plan ${plan} activated successfully via Razorpay`,
     subscription: user.subscription
   });
 });

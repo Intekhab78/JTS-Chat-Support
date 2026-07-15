@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FileText, Plus, Check, ChevronRight, DollarSign, Clock, AlertCircle, RefreshCw, Download, X } from "lucide-react";
+import { FileText, Plus, Check, ChevronRight, DollarSign, Clock, AlertCircle, RefreshCw, Download, X, CreditCard } from "lucide-react";
 import { api, API_BASE } from "../../api/client.js";
 
 export default function CrmInvoicesView({ websiteId }) {
@@ -8,6 +8,7 @@ export default function CrmInvoicesView({ websiteId }) {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paying, setPaying] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
     amount: 0, gateway: "cash", paymentMethod: "cash", referenceNumber: ""
   });
@@ -72,6 +73,89 @@ export default function CrmInvoicesView({ websiteId }) {
       fetchInvoices();
     } catch (err) {
       alert("Simulation error: " + err.message);
+    }
+  };
+
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if (window.Razorpay) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const handleRazorpayCheckout = async () => {
+    if (!selectedInvoice) return;
+    setPaying(true);
+    try {
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded) {
+        alert("Failed to load Razorpay SDK. Please check your internet connection.");
+        return;
+      }
+
+      // 1. Create order on backend
+      const orderData = await api(`/api/crm/invoices/${selectedInvoice._id}/razorpay-order`, {
+        method: "POST"
+      });
+
+      if (!orderData || !orderData.orderId) {
+        throw new Error("Failed to initialize payment order.");
+      }
+
+      // 2. Open Razorpay Checkout modal
+      const options = {
+        key: orderData.keyId,
+        amount: orderData.amount,
+        currency: orderData.currency || "INR",
+        name: "JTS Chat Support",
+        description: `Invoice Payment: ${selectedInvoice.invoiceId}`,
+        order_id: orderData.orderId,
+        prefill: {
+          name: selectedInvoice.customerId?.name || "",
+          email: selectedInvoice.customerId?.email || "",
+          contact: selectedInvoice.customerId?.phone || ""
+        },
+        theme: {
+          color: "#4f46e5"
+        },
+        handler: async function (response) {
+          // 3. Verify on backend
+          try {
+            await api(`/api/crm/invoices/${selectedInvoice._id}/razorpay-verify`, {
+              method: "POST",
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature
+              })
+            });
+            alert("Payment completed and verified successfully!");
+            setSelectedInvoice(null);
+            fetchInvoices();
+          } catch (err) {
+            alert("Verification failed: " + err.message);
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            setPaying(false);
+          }
+        }
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (err) {
+      alert("Error: " + err.message);
+    } finally {
+      setPaying(false);
     }
   };
 
@@ -259,18 +343,19 @@ export default function CrmInvoicesView({ websiteId }) {
                 {/* Action Suite (Allocating Payments, Downloading/Printing, etc.) */}
                 <div className="space-y-2 pt-4 border-t border-slate-100">
                   {selectedInvoice.status !== "paid" && selectedInvoice.status !== "cancelled" && (
-                    <div className="flex gap-2">
+                    <div className="space-y-2 w-full">
                       <button
-                        onClick={() => setShowPaymentModal(true)}
-                        className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-indigo-100 flex items-center justify-center gap-1.5"
+                        onClick={handleRazorpayCheckout}
+                        disabled={paying}
+                        className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] transition-all shadow-md shadow-emerald-100 flex items-center justify-center gap-2"
                       >
-                        <DollarSign size={12} /> Allocate Payment
+                        <CreditCard size={13} /> {paying ? "Opening Razorpay..." : "Pay with Razorpay"}
                       </button>
                       <button
-                        onClick={handleSimulateRazorpayPayment}
-                        className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-amber-100 flex items-center justify-center gap-1.5"
+                        onClick={() => setShowPaymentModal(true)}
+                        className="w-full py-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5"
                       >
-                        ⚡ Simulate Webhook
+                        <DollarSign size={12} /> Record Cash/Offline Payment
                       </button>
                     </div>
                   )}

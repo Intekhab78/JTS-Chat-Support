@@ -29,6 +29,8 @@ router.get("/orders", portalController.getOrders);
 // Invoices
 router.get("/invoices", portalController.getInvoices);
 router.post("/invoices/:id/pay", portalController.payInvoice);
+router.post("/invoices/:id/razorpay-order", portalController.createRazorpayOrderForPortal);
+router.post("/invoices/:id/razorpay-verify", portalController.verifyRazorpayPaymentForPortal);
 
 // Support tickets
 router.get("/tickets", portalController.getTickets);
