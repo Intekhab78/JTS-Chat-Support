@@ -27,6 +27,11 @@ async function canReachLocalApi() {
 }
 
 export async function getApiBase() {
+  if (import.meta.env.PROD) {
+    API_BASE = EXPLICIT_API_URL || REMOTE_API_URL;
+    return API_BASE;
+  }
+
   if (EXPLICIT_API_URL) {
     // If the explicit url is a local address, verify its reachability first.
     if (EXPLICIT_API_URL.includes("localhost") || EXPLICIT_API_URL.includes("127.0.0.1")) {

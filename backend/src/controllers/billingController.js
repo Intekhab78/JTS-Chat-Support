@@ -152,6 +152,7 @@ export const createRazorpaySubscriptionOrder = asyncHandler(async (req, res, nex
     currency: "INR",
     receipt: `sub_${Date.now()}`,
     notes: {
+      website_source: "JTS Chat Support",
       userId: req.user._id.toString(),
       plan
     }
@@ -167,7 +168,7 @@ export const createRazorpaySubscriptionOrder = asyncHandler(async (req, res, nex
 });
 
 export const verifyRazorpaySubscriptionPayment = asyncHandler(async (req, res, next) => {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, plan } = req.body;
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, plan, billingPeriod } = req.body;
 
   const keySecret = env.razorpayKeySecret || process.env.RAZORPAY_KEY_SECRET;
   if (!keySecret) {
@@ -190,6 +191,12 @@ export const verifyRazorpaySubscriptionPayment = asyncHandler(async (req, res, n
   }
 
   user.subscription = buildSubscription(plan, { status: "active" });
+  
+  const days = billingPeriod === "annual" ? 365 : 30;
+  const expiryDate = new Date();
+  expiryDate.setDate(expiryDate.getDate() + days);
+  user.subscription.expiresAt = expiryDate;
+
   await user.save();
 
   res.json({

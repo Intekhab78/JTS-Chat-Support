@@ -40,6 +40,7 @@ import CrmSalesOrdersView from "./CrmSalesOrdersView.jsx";
 import CrmFinanceDashboard from "./CrmFinanceDashboard.jsx";
 import CrmSubscriptionsView from "./CrmSubscriptionsView.jsx";
 import CrmInvoicesView from "./CrmInvoicesView.jsx";
+import CrmPaymentsLedgerView from "./CrmPaymentsLedgerView.jsx";
 import CrmOmnichannelInbox from "./CrmOmnichannelInbox.jsx";
 import CannedResponsesManager from "./CannedResponsesManager.jsx";
 import CrmHelpdeskView from "./CrmHelpdeskView.jsx";
@@ -95,6 +96,7 @@ const crmGroups = [
       { id: "finance", label: "Finance", icon: BarChart3 },
       { id: "subscriptions", label: "Subscriptions", icon: Repeat },
       { id: "invoices", label: "Invoices", icon: Receipt },
+      { id: "payments-ledger", label: "Payments Ledger", icon: CreditCard },
     ]
   },
   {
@@ -1409,6 +1411,10 @@ export default function CrmContainer({
 
       {workspaceTab === "invoices" && (
         <CrmInvoicesView websiteId={websiteId} />
+      )}
+
+      {workspaceTab === "payments-ledger" && (
+        <CrmPaymentsLedgerView websiteId={websiteId} />
       )}
 
       {workspaceTab === "inbox" && (

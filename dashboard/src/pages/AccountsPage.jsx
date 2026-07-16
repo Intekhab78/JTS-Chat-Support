@@ -348,7 +348,7 @@ export default function AccountsPage() {
               <p className="text-sm font-black uppercase tracking-widest">No active client subscriptions found</p>
             </div>
           ) : subscriptions.map(client => (
-            <div key={client._id} className="premium-card relative overflow-hidden group">
+            <div key={client._id} className="premium-card p-6 relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50/50 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110" />
               <div className="flex items-start justify-between relative z-10 mb-6">
                 <div>
@@ -434,7 +434,7 @@ export default function AccountsPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Revenue Chart Placeholder */}
-          <div className="lg:col-span-2 premium-card">
+          <div className="lg:col-span-2 premium-card p-6 sm:p-8">
             <div className="flex items-center justify-between mb-8">
               <div>
                 <h3 className="heading-md">Revenue vs Expense</h3>
@@ -465,7 +465,7 @@ export default function AccountsPage() {
           </div>
 
           {/* Recent Activity */}
-          <div className="premium-card">
+          <div className="premium-card p-6 sm:p-8">
             <h3 className="heading-md mb-6">Ledger Feed</h3>
             <div className="space-y-6">
               {ledgerEntries.slice(0, 6).map((entry, i) => (

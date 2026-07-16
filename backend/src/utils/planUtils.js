@@ -37,28 +37,41 @@ export function buildSubscription(plan = "pro", overrides = {}) {
 
 export function resolveSubscriptionForUser(user) {
   if (user?.role === "admin") {
-    return buildSubscription("pro");
+    return {
+      ...buildSubscription("pro"),
+      expiresAt: null
+    };
   }
 
   const subscription = user?.subscription || {};
   const plan = normalizePlan(subscription.plan || "pro");
   const definition = PLAN_DEFINITIONS[plan];
 
+  let status = subscription.status || "active";
+  if (subscription.expiresAt && new Date(subscription.expiresAt) < new Date()) {
+    status = "expired";
+  }
+
   return {
     plan,
-    status: subscription.status || "active",
+    status,
     enabledModules: Array.isArray(subscription.enabledModules) && subscription.enabledModules.length
       ? subscription.enabledModules
       : [...definition.enabledModules],
     limits: {
       ...definition.limits,
       ...(subscription.limits || {})
-    }
+    },
+    expiresAt: subscription.expiresAt || null
   };
 }
 
 export function hasModuleAccess(subscription, moduleName) {
   if (!subscription) return false;
-  if (subscription.status === "suspended" || subscription.status === "expired") return false;
+  let status = subscription.status || "active";
+  if (subscription.expiresAt && new Date(subscription.expiresAt) < new Date()) {
+    status = "expired";
+  }
+  if (status === "suspended" || status === "expired") return false;
   return Array.isArray(subscription.enabledModules) && subscription.enabledModules.includes(moduleName);
 }

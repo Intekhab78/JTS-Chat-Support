@@ -24,7 +24,8 @@ const subscriptionSchema = new mongoose.Schema({
     type: [String],
     default: ["chat", "tickets", "crm", "shortcuts", "reports", "security"]
   },
-  limits: { type: planLimitsSchema, default: () => ({}) }
+  limits: { type: planLimitsSchema, default: () => ({}) },
+  expiresAt: { type: Date, default: null }
 }, { _id: false });
 
 const userSchema = new mongoose.Schema(

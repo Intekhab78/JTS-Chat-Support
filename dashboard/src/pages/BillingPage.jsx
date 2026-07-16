@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { CreditCard, Zap, Shield, Crown, AlertTriangle, ExternalLink, ArrowUpRight } from "lucide-react";
 import { api } from "../api/client.js";
 import PricingPage from "./PricingPage.jsx";
@@ -12,6 +12,14 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [billingPeriod, setBillingPeriod] = useState("monthly"); // "monthly" | "annual"
+
+  const expiresAt = data?.subscription?.expiresAt;
+  const isExpiringSoon = useMemo(() => {
+    if (!expiresAt) return false;
+    const diffTime = new Date(expiresAt) - new Date();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays >= 0 && diffDays <= 7;
+  }, [expiresAt]);
 
   const fetchStatus = async () => {
     try {
@@ -46,6 +54,7 @@ export default function BillingPage() {
 
   const isExpired = data?.subscription?.status === "expired" || data?.subscription?.status === "suspended";
 
+
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-700">
       {isExpired && (
@@ -72,6 +81,28 @@ export default function BillingPage() {
         </div>
       )}
 
+      {!isExpired && isExpiringSoon && (
+        <div className="border-2 p-6 rounded-[24px] flex items-center gap-6 shadow-xl bg-amber-50 border-amber-200 shadow-amber-500/5 animate-pulse">
+           <div className="w-12 h-12 text-white rounded-xl flex items-center justify-center bg-amber-500">
+              <AlertTriangle size={24} />
+           </div>
+           <div className="flex-1">
+              <h3 className="text-xs font-black uppercase tracking-tight text-amber-900">
+                Warning: Subscription Expiring Soon!
+              </h3>
+              <p className="text-[10px] font-bold leading-relaxed max-w-xl mt-0.5 text-amber-700">
+                Your JTS Chat Support subscription is expiring on {new Date(expiresAt).toLocaleDateString()}. Please renew now to maintain uninterrupted access.
+              </p>
+           </div>
+           <button 
+             onClick={() => window.scrollTo({ top: 400, behavior: 'smooth' })} 
+             className="px-6 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg bg-amber-600 hover:bg-amber-700 text-white shadow-amber-200 transition-all font-black text-[9px]"
+           >
+             Renew Now
+           </button>
+        </div>
+      )}
+
       {/* Main Grid: Subscription Info */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
          {/* Column 1: Current Plan */}
@@ -81,33 +112,41 @@ export default function BillingPage() {
             <div className="relative z-10 space-y-6">
                <div className="flex items-center justify-between">
                   <div className="p-3 bg-white/10 rounded-xl backdrop-blur-xl border border-white/10"><Shield size={18} className="text-indigo-400" /></div>
-                  {data?.subscription?.plan && (
-                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                      isExpired ? 'bg-rose-500/20 text-rose-400 border-rose-500/20' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/20'
-                    }`}>
-                      {data?.subscription?.status || 'Active'}
-                    </span>
-                  )}
-               </div>
+                   {data?.subscription?.plan && (
+                     <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                       isExpired ? 'bg-rose-500/20 text-rose-400 border-rose-500/20' : 
+                       isExpiringSoon ? 'bg-amber-500/20 text-amber-400 border-amber-500/20 animate-pulse' :
+                       'bg-emerald-500/20 text-emerald-400 border-emerald-500/20'
+                     }`}>
+                       {isExpired ? 'Expired' : isExpiringSoon ? 'Expiring Soon' : (data?.subscription?.status || 'Active')}
+                     </span>
+                   )}
+                </div>
 
-               <div>
-                  <p className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.3em] mb-1">{data?.subscription?.plan ? "Active Plan" : "Account Status"}</p>
-                  <h4 className="text-2xl font-black tracking-tight flex items-end gap-2 uppercase">
-                    {data?.subscription?.plan || "Awaiting Plan"}
-                    <span className="text-[10px] font-bold text-white/40 mb-1">Tier</span>
-                  </h4>
-               </div>
+                <div>
+                   <p className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.3em] mb-1">{data?.subscription?.plan ? "Active Plan" : "Account Status"}</p>
+                   <h4 className="text-2xl font-black tracking-tight flex items-end gap-2 uppercase">
+                     {data?.subscription?.plan || "Awaiting Plan"}
+                     <span className="text-[10px] font-bold text-white/40 mb-1">Tier</span>
+                   </h4>
+                </div>
 
-               <div className="grid grid-cols-2 gap-4 border-t border-white/5 pt-6">
-                  <div className="space-y-0.5">
-                     <p className="text-[8px] font-black text-white/30 uppercase tracking-widest">Websites</p>
-                     <p className="text-xs font-bold">{data?.subscription?.limits?.websites || 0} Domains</p>
-                  </div>
-                  <div className="space-y-0.5">
-                     <p className="text-[8px] font-black text-white/30 uppercase tracking-widest">Personnel</p>
-                     <p className="text-xs font-bold">{data?.subscription?.limits?.agents || 0} Seats</p>
-                  </div>
-               </div>
+                <div className="grid grid-cols-3 gap-4 border-t border-white/5 pt-6">
+                   <div className="space-y-0.5">
+                      <p className="text-[8px] font-black text-white/30 uppercase tracking-widest">Websites</p>
+                      <p className="text-xs font-bold text-white">{data?.subscription?.limits?.websites || 0} Domains</p>
+                   </div>
+                   <div className="space-y-0.5">
+                      <p className="text-[8px] font-black text-white/30 uppercase tracking-widest">Personnel</p>
+                      <p className="text-xs font-bold text-white">{data?.subscription?.limits?.agents || 0} Seats</p>
+                   </div>
+                   <div className="space-y-0.5">
+                      <p className="text-[8px] font-black text-white/30 uppercase tracking-widest">Valid Until</p>
+                      <p className={`text-xs font-bold ${isExpiringSoon ? 'text-rose-400 font-extrabold' : 'text-white'}`}>
+                        {expiresAt ? new Date(expiresAt).toLocaleDateString() : "Never"}
+                      </p>
+                   </div>
+                </div>
             </div>
          </div>
 
@@ -126,7 +165,7 @@ export default function BillingPage() {
                )}
             </div>
             
-          {!isExpired && (
+          {!isExpired && data?.stripeCustomerId && (
              <div className="mt-8 flex items-center justify-between p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-100 dark:border-white/10">
                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Standard maintenance inclusive • Pro-rata billing active</p>
                 <button

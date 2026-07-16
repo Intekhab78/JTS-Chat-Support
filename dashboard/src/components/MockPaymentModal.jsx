@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { X, CheckCircle, Loader2 } from "lucide-react";
 import { api } from "../api/client.js";
 
-export default function MockPaymentModal({ isOpen, onClose, plan, onStatusUpdate }) {
+export default function MockPaymentModal({ isOpen, onClose, plan, billingPeriod, onStatusUpdate }) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
@@ -64,7 +64,8 @@ export default function MockPaymentModal({ isOpen, onClose, plan, onStatusUpdate
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
-                plan: plan.id
+                plan: plan.id,
+                billingPeriod
               })
             });
 

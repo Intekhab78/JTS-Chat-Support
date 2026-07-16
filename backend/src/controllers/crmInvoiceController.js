@@ -270,6 +270,7 @@ export const createRazorpayOrder = asyncHandler(async (req, res) => {
     currency: invoice.currency || "INR",
     receipt: invoice.invoiceId,
     notes: {
+      website_source: "JTS Chat Support",
       invoiceId: invoice.invoiceId
     }
   });

@@ -29,11 +29,18 @@ export async function handleRazorpayWebhook(req, res) {
     console.log(`[Razorpay Webhook] Received event: ${event}`);
 
     if (event === "payment.captured") {
-      const paymentEntity = payload?.payment?.entity;
-      const notes = paymentEntity?.notes || {};
-      const invoiceId = notes.invoiceId || notes.invoice_id;
+       const paymentEntity = payload?.payment?.entity;
+       const notes = paymentEntity?.notes || {};
 
-      if (invoiceId) {
+       // Ignore webhooks from other projects (e.g. Gym)
+       if (notes.website_source && notes.website_source !== "JTS Chat Support") {
+         console.log(`[Razorpay Webhook] Ignored payment for other website/source: ${notes.website_source}`);
+         return res.status(200).json({ status: "ignored", message: "Not matching website source" });
+       }
+
+       const invoiceId = notes.invoiceId || notes.invoice_id;
+
+       if (invoiceId) {
         const invoice = await Invoice.findOne({ invoiceId });
         if (invoice && invoice.status !== "paid") {
           invoice.status = "paid";

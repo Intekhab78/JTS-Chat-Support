@@ -115,6 +115,7 @@ export default function PricingPage({ currentPlan, isExpired, billingPeriod = "m
           isOpen={modalOpen}
           onClose={() => setModalOpen(false)}
           plan={selectedPlan}
+          billingPeriod={billingPeriod}
           onStatusUpdate={() => window.location.reload()}
         />
       )}
