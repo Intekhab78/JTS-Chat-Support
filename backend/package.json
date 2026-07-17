@@ -12,7 +12,8 @@
     "seed": "node src/scripts/seed.js",
     "check": "node -e \"import('./src/app.js').then(() => console.log('backend app import ok')).catch((err) => { console.error(err); process.exit(1); })\"",
     "test": "node scripts/run-health-tests.mjs",
-    "db:migrate": "node scripts/migrate.js"
+    "db:migrate": "node scripts/migrate.js",
+    "db:clean": "node scripts/cleanDb.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -3,8 +3,8 @@ import mongoose from 'mongoose';
 
 dotenv.config();
 
-const sourceUri = process.env.SOURCE_MONGO_URI || 'mongodb://127.0.0.1:27017/chat-support';
-const targetUri = process.env.TARGET_MONGO_URI || 'mongodb+srv://chatAI:bawsfL1sbUHjKTVt@cluster0.ehduwnn.mongodb.net/chat-support';
+const sourceUri = process.env.SOURCE_MONGO_URI || 'mongodb+srv://chatAI:bawsfL1sbUHjKTVt@cluster0.ehduwnn.mongodb.net/chat-support?retryWrites=true&w=majority';
+const targetUri = process.env.TARGET_MONGO_URI || 'mongodb://127.0.0.1:27017/chat-support';
 
 async function migrate() {
   if (!sourceUri || !targetUri) {
