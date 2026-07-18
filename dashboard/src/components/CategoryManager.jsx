@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Plus, Trash2, Edit2, Check, X, Layers, Tag } from "lucide-react";
 import { api } from "../api/client.js";
 import PaginationControls from "./PaginationControls.jsx";
@@ -6,6 +7,7 @@ import { getPaginationMeta } from "../utils/pagination.js";
 
 export default function CategoryManager({ websiteId }) {
   const [categories, setCategories] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [isAdding, setIsAdding] = useState(false);
@@ -22,8 +24,12 @@ export default function CategoryManager({ websiteId }) {
     if (!websiteId) return;
     setLoading(true);
     try {
-      const data = await api(`/api/categories?websiteId=${websiteId}`);
-      setCategories(data);
+      const [categoriesData, departmentsData] = await Promise.all([
+        api(`/api/categories?websiteId=${websiteId}`),
+        api(`/api/departments?websiteId=${websiteId}`)
+      ]);
+      setCategories(categoriesData);
+      setDepartments(departmentsData);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -137,66 +143,84 @@ export default function CategoryManager({ websiteId }) {
         </button>
       </div>
 
-      {isAdding && (
-        <form onSubmit={handleSubmit} className="premium-card p-10 bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5 animate-in zoom-in-95 duration-500">
-          <div className="space-y-8">
-            <div className="space-y-3">
-              <label className="small-label dark:text-slate-400">Department</label>
-              <input
-                value={formData.department}
-                onChange={e => setFormData({ ...formData, department: e.target.value.toLowerCase() })}
-                className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-6 py-4 text-xs font-black focus:border-indigo-500/50 outline-none transition-all dark:text-white"
-                placeholder="e.g. technical / billing / sales"
-                required
-              />
-            </div>
-
-            <div className="space-y-3">
-              <label className="small-label dark:text-slate-400">Primary Category Name</label>
-              <input
-                value={formData.name}
-                onChange={e => setFormData({ ...formData, name: e.target.value })}
-                className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-6 py-4 text-xs font-black focus:border-indigo-500/50 outline-none transition-all dark:text-white"
-                placeholder="e.g. Technical Support"
-                required
-              />
-            </div>
-
-            <div className="space-y-4">
-              <label className="small-label dark:text-slate-400">Sub-Categories</label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {formData.subcategories.map((sub, idx) => (
-                  <div key={idx} className="flex gap-2">
-                    <input
-                      value={sub}
-                      onChange={e => handleSubChange(idx, e.target.value)}
-                      className="flex-1 bg-slate-50 dark:bg-black/10 border border-slate-100 dark:border-white/5 rounded-xl px-5 py-3 text-[11px] font-bold outline-none focus:border-indigo-500/30 dark:text-slate-300"
-                      placeholder={`Subcategory ${idx + 1}`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveSub(idx)}
-                      className="p-3 text-slate-300 hover:text-red-500 transition-colors"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={handleAddSub}
-                className="w-full py-4 border-2 border-dashed border-slate-100 dark:border-white/5 rounded-2xl text-[10px] font-black text-slate-400 hover:border-indigo-200 hover:text-indigo-500 transition-all uppercase tracking-widest"
-              >
-                + Add Sub-tier
+      {isAdding && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => { setIsAdding(false); setEditingId(null); }} />
+          <div className="relative bg-white dark:bg-slate-900 rounded-[32px] w-full max-w-2xl max-h-[90vh] overflow-y-auto p-8 shadow-2xl border border-slate-100 dark:border-white/5 animate-in zoom-in-95 duration-300">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                {editingId ? "Edit Category" : "Add Category"}
+              </h3>
+              <button type="button" onClick={() => { setIsAdding(false); setEditingId(null); }} className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 transition-all">
+                <X size={18} />
               </button>
             </div>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-3">
+                <label className="small-label dark:text-slate-400">Department</label>
+                <select
+                  value={formData.department}
+                  onChange={e => setFormData({ ...formData, department: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-6 py-4 text-xs font-black focus:border-indigo-500/50 outline-none transition-all dark:text-white"
+                  required
+                >
+                  <option value="general">general</option>
+                  {departments.map(dept => (
+                    <option key={dept._id} value={dept.name}>
+                      {dept.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <button type="submit" className="w-full bg-slate-900 dark:bg-indigo-600 text-white font-black text-[10px] uppercase tracking-[0.2em] py-5 rounded-2xl hover:bg-black transition-all shadow-xl flex items-center justify-center gap-3">
-              <Check size={18} /> {editingId ? "Update Taxonomy" : "Save Category"}
-            </button>
+              <div className="space-y-3">
+                <label className="small-label dark:text-slate-400">Primary Category Name</label>
+                <input
+                  value={formData.name}
+                  onChange={e => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-6 py-4 text-xs font-black focus:border-indigo-500/50 outline-none transition-all dark:text-white"
+                  placeholder="e.g. Technical Support"
+                  required
+                />
+              </div>
+
+              <div className="space-y-4">
+                <label className="small-label dark:text-slate-400">Sub-Categories</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {formData.subcategories.map((sub, idx) => (
+                    <div key={idx} className="flex gap-2">
+                      <input
+                        value={sub}
+                        onChange={e => handleSubChange(idx, e.target.value)}
+                        className="flex-1 bg-slate-50 dark:bg-black/10 border border-slate-100 dark:border-white/5 rounded-xl px-5 py-3 text-[11px] font-bold outline-none focus:border-indigo-500/30 dark:text-slate-300"
+                        placeholder={`Subcategory ${idx + 1}`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSub(idx)}
+                        className="p-3 text-slate-300 hover:text-red-500 transition-colors"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddSub}
+                  className="w-full py-4 border-2 border-dashed border-slate-100 dark:border-white/5 rounded-2xl text-[10px] font-black text-slate-400 hover:border-indigo-200 hover:text-indigo-500 transition-all uppercase tracking-widest"
+                >
+                  + Add Sub-tier
+                </button>
+              </div>
+
+              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-[0.2em] py-5 rounded-2xl transition-all shadow-xl flex items-center justify-center gap-3">
+                <Check size={18} /> {editingId ? "Update Category" : "Save Category"}
+              </button>
+            </form>
           </div>
-        </form>
+        </div>,
+        document.body
       )}
 
       {error && (

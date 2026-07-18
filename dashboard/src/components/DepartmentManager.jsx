@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Layers, Users, Tag, Plus, Edit2, Power, RotateCcw, Save, X } from "lucide-react";
 import { api } from "../api/client.js";
 
@@ -215,80 +216,94 @@ export default function DepartmentManager({ websiteId }) {
         </button>
       </div>
 
-      {showForm ? (
-        <form onSubmit={submitForm} className="premium-card p-6 bg-white border border-slate-100 space-y-5">
-          <div className="space-y-2">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Department Name</label>
-            <input
-              value={formName}
-              onChange={(e) => setFormName(e.target.value)}
-              placeholder="technical / billing / sales"
-              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Categories</label>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              {categories.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {categories.map((category) => {
-                    const isSelected = selectedCategoryIds.includes(category._id);
-                    const currentDepartment = normalizeDepartmentName(category.department || "general");
-                    const targetDepartment = normalizeDepartmentName(formName || editingDepartment?.key || "");
-                    return (
-                      <button
-                        key={category._id}
-                        type="button"
-                        onClick={() => toggleCategorySelection(category._id)}
-                        className={`px-3 py-2 rounded-xl border text-[10px] font-black transition-all ${
-                          isSelected
-                            ? "border-indigo-600 bg-indigo-600 text-white shadow-lg shadow-indigo-200"
-                            : "border-slate-200 bg-white text-slate-500 hover:border-indigo-200 hover:bg-indigo-50/40"
-                        }`}
-                      >
-                        <span className="block">{category.name}</span>
-                        <span className={`block mt-1 text-[8px] font-black uppercase tracking-widest ${
-                          isSelected
-                            ? "text-indigo-100"
-                            : currentDepartment === targetDepartment
-                              ? "text-emerald-500"
-                              : "text-slate-300"
-                        }`}>
-                          {currentDepartment === targetDepartment ? "Current department" : currentDepartment}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-[10px] font-bold text-slate-400">No categories available for this website yet.</p>
-              )}
+      {showForm && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-300" onClick={resetForm} />
+          <div className="relative bg-white rounded-[32px] w-full max-w-2xl max-h-[90vh] overflow-y-auto p-8 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-300">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">
+                {editingDepartment ? "Edit Department" : "Add Department"}
+              </h3>
+              <button type="button" onClick={resetForm} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-50 transition-all">
+                <X size={18} />
+              </button>
             </div>
-            <p className="text-[10px] font-bold text-slate-400">
-              Select the categories that should belong to this department.
-            </p>
+            <form onSubmit={submitForm} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Department Name</label>
+                <input
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  placeholder="technical / billing / sales"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Categories</label>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  {categories.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {categories.map((category) => {
+                        const isSelected = selectedCategoryIds.includes(category._id);
+                        const currentDepartment = normalizeDepartmentName(category.department || "general");
+                        const targetDepartment = normalizeDepartmentName(formName || editingDepartment?.key || "");
+                        return (
+                          <button
+                            key={category._id}
+                            type="button"
+                            onClick={() => toggleCategorySelection(category._id)}
+                            className={`px-3 py-2 rounded-xl border text-[10px] font-black transition-all ${
+                              isSelected
+                                ? "border-indigo-600 bg-indigo-600 text-white shadow-lg shadow-indigo-200"
+                                : "border-slate-200 bg-white text-slate-500 hover:border-indigo-200 hover:bg-indigo-50/40"
+                            }`}
+                          >
+                            <span className="block">{category.name}</span>
+                            <span className={`block mt-1 text-[8px] font-black uppercase tracking-widest ${
+                              isSelected
+                                ? "text-indigo-100"
+                                : currentDepartment === targetDepartment
+                                  ? "text-emerald-500"
+                                  : "text-slate-300"
+                            }`}>
+                              {currentDepartment === targetDepartment ? "Current department" : currentDepartment}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] font-bold text-slate-400">No categories available for this website yet.</p>
+                  )}
+                </div>
+                <p className="text-[10px] font-bold text-slate-400">
+                  Select the categories that should belong to this department.
+                </p>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="flex-1 px-5 py-3.5 rounded-2xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-2"
+                >
+                  <X size={13} />
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex-1 px-5 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-2 disabled:opacity-50 transition-all"
+                >
+                  <Save size={13} />
+                  {editingDepartment ? "Update Department" : "Create Department"}
+                </button>
+              </div>
+            </form>
           </div>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={resetForm}
-              className="px-5 py-3 rounded-2xl border border-slate-200 text-slate-500 font-black text-[10px] uppercase tracking-[0.2em] flex items-center gap-2"
-            >
-              <X size={13} />
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black text-[10px] uppercase tracking-[0.2em] flex items-center gap-2 disabled:opacity-50"
-            >
-              <Save size={13} />
-              {editingDepartment ? "Update Department" : "Create Department"}
-            </button>
-          </div>
-        </form>
-      ) : null}
+        </div>,
+        document.body
+      )}
 
       {error ? (
         <div className="p-4 bg-red-50 text-red-600 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-red-100">

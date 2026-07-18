@@ -141,7 +141,7 @@ function BoardCard({ customer, canManagePipeline, onOpenCustomer, draggedCustome
         setDropTargetStatus("");
       }}
       onClick={() => onOpenCustomer(customer)}
-      className={`rounded-[22px] border bg-white p-4 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer group relative overflow-hidden ${
+      className={`rounded-[22px] border bg-white p-4 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer group relative ${
         draggedCustomerId === customer._id ? "border-indigo-300 opacity-70 scale-[0.98]" :
         isStale ? "border-amber-200" :
         "border-slate-200"
