@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { uploadAttachment, initVisitorSession, submitSessionFeedback, getWidgetConfig, submitBotStatus } from "../controllers/chatController.js";
-import { getWidgetScript, submitWidgetLead, submitWidgetTicket, executeWidgetAction } from "../controllers/widgetController.js";
+import { getWidgetScript, submitWidgetLead, submitWidgetTicket, executeWidgetAction, generateWidgetAiResponse } from "../controllers/widgetController.js";
 import { requireWebsiteApiKey } from "../middleware/apiKey.js";
 import { upload } from "../utils/multerConfig.js";
 
@@ -15,5 +15,6 @@ router.post("/api/widget/upload", requireWebsiteApiKey, upload.single("attachmen
 router.post("/api/widget/lead", requireWebsiteApiKey, submitWidgetLead);
 router.post("/api/widget/ticket", requireWebsiteApiKey, submitWidgetTicket);
 router.post("/api/widget/action", requireWebsiteApiKey, executeWidgetAction);
+router.post("/api/widget/ai-response", requireWebsiteApiKey, generateWidgetAiResponse);
 
 export default router;

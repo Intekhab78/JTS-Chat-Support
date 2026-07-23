@@ -12,6 +12,8 @@
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
     "@stripe/stripe-js": "^9.0.1",
+    "@xyflow/react": "^12.11.2",
+    "dagre": "^0.8.5",
     "date-fns": "^4.1.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
@@ -22,7 +24,8 @@
     "react-router-dom": "^6.26.1",
     "recharts": "2.15.4",
     "socket.io-client": "^4.8.1",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.2",

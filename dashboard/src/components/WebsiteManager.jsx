@@ -257,17 +257,20 @@ export default function WebsiteManager() {
 
   if (buildingFlowWebsite) {
     return (
-      <div className="space-y-10 animate-in fade-in duration-1000">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="heading-xl dark:text-white">Flow Builder</h2>
-            <p className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-2">Configure Bot Routing for <span className="text-indigo-500">{buildingFlowWebsite.websiteName}</span></p>
+      <div className="space-y-3 animate-in fade-in duration-300">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Flow Builder</h2>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 border-l border-slate-200 dark:border-slate-800 pl-3">
+              Configure Bot Routing for <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">{buildingFlowWebsite.websiteName}</span>
+            </span>
           </div>
           <button
             onClick={() => setBuildingFlowWebsite(null)}
-            className="w-14 h-14 rounded-[24px] bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-white/5 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 hover:border-red-100 dark:hover:border-red-500/20 transition-all hover:rotate-90 hover:scale-110 shadow-sm"
+            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all shadow-xs"
+            title="Close Flow Builder"
           >
-            <X size={24} />
+            <X size={18} />
           </button>
         </div>
         <FlowBuilder

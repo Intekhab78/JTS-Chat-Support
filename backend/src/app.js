@@ -28,6 +28,7 @@ import flowRoutes from "./routes/flowRoutes.js";
 import billingRoutes from "./routes/billingRoutes.js";
 import trackingRoutes from "./routes/trackingRoutes.js";
 import roleRoutes from "./routes/roleRoutes.js";
+import helpRoutes from "./routes/helpRoutes.js";
 import inventoryRoutes from "./routes/inventoryRoutes.js";
 import supplierRoutes from "./routes/supplierRoutes.js";
 import procurementRoutes from "./routes/procurementRoutes.js";
@@ -174,6 +175,7 @@ export function createApp() {
   app.use("/api/supplier", supplierRoutes);
   app.use("/api/procurement", procurementRoutes);
   app.use("/api/knowledge-base", knowledgeBaseRoutes);
+  app.use("/api/help", helpRoutes);
 
   app.all("*", (req, res, next) => {
     next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));

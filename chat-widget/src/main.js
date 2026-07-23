@@ -32,6 +32,7 @@ import "./style.css";
   let feedbackSent = false;
   let isResetting = false;
   let activePreData = null;
+  let isEscalatedToAgent = false;
 
   function setLauncherContent(element, icon) {
     element.textContent = icon || "💬";
@@ -66,21 +67,35 @@ import "./style.css";
   function showNewChatButton(ui) {
     ui.statusBar.textContent = "Conversation Closed";
     ui.feedback.innerHTML = `
-      <button class="csw-new-chat-btn" type="button">Start New Chat</button>
+      <button id="csw-start-new-btn" type="button" style="background:#4f46e5;color:white;border:none;padding:10px 16px;border-radius:10px;font-weight:bold;cursor:pointer;width:100%;font-size:13px;box-shadow:0 4px 12px rgba(79,70,229,0.25);">🔄 Start New Chat</button>
     `;
     ui.feedback.classList.add("show");
     ui.form.style.display = "none";
+    const btn = ui.feedback.querySelector("#csw-start-new-btn");
+    if (btn) {
+      btn.onclick = () => handleStartNewChat(ui);
+    }
   }
 
   function handleStartNewChat(ui) {
     localStorage.removeItem(sessionKey);
     localStorage.removeItem(visitorKey);
+    activeSessionId = "";
+    visitorId = "";
+    botPath = [];
+    botSelections = {};
+    contextVariables = {};
+    feedbackSent = false;
+    isEscalatedToAgent = false;
+
     ui.messages.innerHTML = "";
-    ui.prechat.style.display = "block";
-    ui.chatInterface.style.display = "none";
-    ui.statusBar.textContent = "Start New Chat";
+    ui.quickReplies.innerHTML = "";
+    ui.prechat.style.display = "none";
+    ui.chatInterface.style.display = "flex";
+    ui.statusBar.textContent = "Connecting...";
     ui.feedback.classList.remove("show");
     ui.form.style.display = "flex";
+
     boot(ui);
   }
 
@@ -552,6 +567,12 @@ import "./style.css";
       else nodeType = "message";
     }
 
+    if (nodeType === "ai_response") {
+      console.log('[FlowBot] 🤖 AI Response node detected:', nodeKey);
+      handleAiNode(ui, node);
+      return;
+    }
+
     if (nodeType === "condition") {
       console.log('[FlowBot] 🔀 Condition node detected:', nodeKey);
       handleConditionNode(ui, node);
@@ -611,6 +632,36 @@ import "./style.css";
       }
     } else {
       renderBotNode(ui, node.trueNext || node.falseNext);
+    }
+  }
+
+  async function handleAiNode(ui, node) {
+    isEscalatedToAgent = false;
+    await submitBotStatus("in_progress", botPath, botSelections);
+    ui.statusBar.textContent = "Gemini AI thinking...";
+    try {
+      const res = await fetch(`${API_BASE}/api/widget/ai-response`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+        body: JSON.stringify({
+          sessionId: activeSessionId,
+          prompt: node.prompt || "Hello! How can I help you?",
+          context: contextVariables
+        })
+      });
+      const data = await res.json();
+      const aiText = data.text || "Hello! I am your AI assistant powered by Google Gemini. How can I assist you today?";
+
+      appendMessage(ui, "agent", aiText, null, null, "Gemini AI Assistant 🤖", true);
+      ui.statusBar.textContent = "Connected to AI";
+
+      // Enable text input so visitor can continue conversation with AI
+      ui.form.style.display = "flex";
+      ui.quickReplies.innerHTML = "";
+    } catch (err) {
+      console.error("AI node execution failed:", err);
+      appendMessage(ui, "agent", "Hello! I am your AI assistant powered by Google Gemini. How can I assist you today?", null, null, "Gemini AI Assistant 🤖", true);
+      ui.form.style.display = "flex";
     }
   }
 
@@ -691,7 +742,12 @@ import "./style.css";
         appendMessage(ui, "visitor", opt.text, null, null, "You", false);
         botPath.push(opt.text);
         botSelections[nodeKey] = opt.text;
-        if (!opt.next || !latestConfig.botFlow.nodes[opt.next]) {
+        const isClose = (opt.text || "").toLowerCase().includes("close") || (opt.text || "").toLowerCase().includes("exit") || (opt.text || "").toLowerCase().includes("end");
+        if (!opt.next || isClose) {
+          handleBotResolution(ui);
+          return;
+        }
+        if (!latestConfig.botFlow.nodes[opt.next]) {
           console.error('[FlowBot] ❌ Broken link! next node not found:', opt.next,
             '| Available:', Object.keys(latestConfig.botFlow.nodes));
           renderFlowError(ui, 'Flow options failed to load. The next step could not be found.');
@@ -784,6 +840,28 @@ import "./style.css";
 
       contextVariables = { ...contextVariables, ...formData };
       await submitBotStatus("in_progress", botPath, { ...botSelections, [nodeKey]: "Form Submitted" });
+
+      // Extract resolved Lead details (name, email, phone, requirement) from submitted form fields
+      let resolvedName = formData.name || formData.full_name || formData.your_name || formData.visitor_name;
+      let resolvedEmail = formData.email || formData.work_email || formData.your_email;
+      let resolvedPhone = formData.phone || formData.mobile || formData.phone_number;
+      let resolvedReq = formData.requirement || formData.your_requirement || formData.your_requiremnt || formData.issue || formData.description || Object.values(formData).join(", ");
+
+      try {
+        await fetch(`${API_BASE}/api/widget/lead`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+          body: JSON.stringify({
+            name: resolvedName,
+            email: resolvedEmail,
+            phone: resolvedPhone,
+            requirement: resolvedReq,
+            sessionId: activeSessionId
+          })
+        });
+      } catch (err) {
+        console.error("Failed to sync CRM lead details from chatbot form:", err);
+      }
 
       if (node.next) {
         renderBotNode(ui, node.next);
@@ -953,6 +1031,7 @@ import "./style.css";
   }
 
   async function handleBotEscalation(ui, department = "general") {
+    isEscalatedToAgent = true;
     ui.quickReplies.innerHTML = "";
     appendMessage(ui, "agent", `Connecting you to the ${department} department... Please wait.`, null, null, "System", false);
 
@@ -1060,7 +1139,8 @@ import "./style.css";
       // 5b. Bot Flow Initialization
       // Only run the bot if botEnabled AND there is a valid flow with nodes configured
       const hasBotFlow = config.botEnabled && config.botFlow && config.botFlow.nodes && Object.keys(config.botFlow.nodes).length > 0;
-      if (hasBotFlow && (!data.messages || data.messages.length === 0) && data.botStatus !== "escalated" && data.session?.status !== "closed") {
+      const isEscalated = isEscalatedToAgent || data.botStatus === "escalated" || data.session?.botStatus === "escalated";
+      if (hasBotFlow && (!data.messages || data.messages.length === 0) && !isEscalated && data.session?.status !== "closed") {
         ui.form.style.display = "none";
         renderBotNode(ui, "root");
       } else {
@@ -1199,7 +1279,17 @@ import "./style.css";
       ui.closeBtn.onclick = (e) => {
         e.stopPropagation();
         if (confirm("Are you sure you want to end this chat?")) {
-          socket.emit("visitor:close-session", { sessionId: activeSessionId });
+          if (socket) socket.emit("visitor:close-session", { sessionId: activeSessionId });
+          ui.quickReplies.innerHTML = "";
+          ui.form.style.display = "none";
+          ui.statusBar.textContent = "Chat Closed";
+          if (!feedbackSent) {
+            resetFeedbackUI(ui);
+            ui.feedback.classList.add("show");
+            appendMessage(ui, "agent", "This conversation has ended. We'd love to hear your feedback! ⭐", null, null, "System", false);
+          } else {
+            showNewChatButton(ui);
+          }
         }
       };
 

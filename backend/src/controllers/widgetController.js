@@ -61,22 +61,39 @@ export const submitWidgetLead = asyncHandler(async (req, res) => {
   resolvedName = resolvedName || "Anonymous Visitor";
   resolvedEmail = resolvedEmail ? String(resolvedEmail).trim().toLowerCase() : "";
 
-  const customer = await Customer.create({
-    crn: await generateCRN(),
-    name: resolvedName,
-    email: resolvedEmail,
-    phone: resolvedPhone || null,
-    companyName,
-    budget: Number(budget || 0),
-    requirement,
-    websiteId,
-    recordType: "lead",
-    leadSource: "widget",
-    pipelineStage: "new",
-    stageEnteredAt: new Date()
-  });
+  let customer = null;
+  if (sessionId) {
+    const session = await ChatSession.findOne({ sessionId });
+    if (session && session.customerId) {
+      customer = await Customer.findById(session.customerId);
+    }
+  }
 
-  await autoAssignLeadOwner(customer, { reason: "widget_lead_submission" });
+  if (customer) {
+    if (resolvedName && resolvedName !== "Anonymous Visitor") customer.name = resolvedName;
+    if (resolvedEmail) customer.email = resolvedEmail;
+    if (resolvedPhone) customer.phone = resolvedPhone;
+    if (companyName) customer.companyName = companyName;
+    if (budget) customer.budget = Number(budget);
+    if (requirement) customer.requirement = requirement;
+    await customer.save();
+  } else {
+    customer = await Customer.create({
+      crn: await generateCRN(),
+      name: resolvedName,
+      email: resolvedEmail,
+      phone: resolvedPhone || null,
+      companyName,
+      budget: Number(budget || 0),
+      requirement,
+      websiteId,
+      recordType: "lead",
+      leadSource: "widget",
+      pipelineStage: "new",
+      stageEnteredAt: new Date()
+    });
+    await autoAssignLeadOwner(customer, { reason: "widget_lead_submission" });
+  }
 
   if (sessionId) {
     const session = await ChatSession.findOne({ sessionId });
@@ -330,4 +347,45 @@ export const executeWidgetAction = asyncHandler(async (req, res) => {
   }
 
   return res.json({ success: true, message: "Action executed", actionType });
+});
+
+export const generateWidgetAiResponse = asyncHandler(async (req, res) => {
+  const { sessionId, prompt, context } = req.body;
+  const website = req.website;
+  const userPrompt = prompt || context?.prompt || "Hello! How can you help me today?";
+
+  if (sessionId) {
+    const session = await ChatSession.findOne({ sessionId });
+    if (session) {
+      session.assignedAgent = null;
+      session.botStatus = "in_progress";
+      await session.save();
+    }
+  }
+
+  const { AiProviderManager } = await import("../services/aiProviderManager.js");
+  const provider = AiProviderManager.getProvider("gemini");
+
+  const systemInstruction = `You are a professional customer support AI assistant for ${website?.name || "our company"}. Answer visitor queries politely, clearly, and accurately.`;
+  const fullPrompt = `${systemInstruction}\n\nVisitor Message: ${userPrompt}`;
+
+  try {
+    const result = await provider.generateCompletion({
+      prompt: fullPrompt,
+      temperature: 0.7,
+      maxTokens: 500
+    });
+
+    res.json({
+      success: true,
+      text: result.text,
+      provider: "Google Gemini AI"
+    });
+  } catch (err) {
+    res.json({
+      success: false,
+      text: "Hello! I am your AI assistant. How can I assist you today?",
+      error: err.message
+    });
+  }
 });

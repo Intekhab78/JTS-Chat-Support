@@ -432,7 +432,7 @@ export function createSocketServer(httpServer) {
           await session.save();
         }
 
-        if (!session.assignedAgent) {
+        if (!session.assignedAgent && (session.botStatus === "escalated" || !session.websiteId?.botEnabled)) {
           const agent = await findAvailableAgent({ managerId: session.websiteId.managerId, websiteId: session.websiteId._id });
           if (agent && !await hasReachedActiveChatLimit(agent._id)) {
             session.assignedAgent = agent._id;
@@ -485,6 +485,45 @@ export function createSocketServer(httpServer) {
 
         if (session.assignedAgent) {
           io.to(`us_${session.assignedAgent._id || session.assignedAgent}`).emit("chat:message", payload);
+        }
+
+        // If no human live agent is assigned, generate real-time AI response using Google Gemini
+        if (!session.assignedAgent && message?.trim()) {
+          try {
+            const { AiProviderManager } = await import("../services/aiProviderManager.js");
+            const aiProvider = AiProviderManager.getProvider("gemini");
+            const websiteObj = await Website.findById(session.websiteId);
+
+            const aiResult = await aiProvider.generateCompletion({
+              prompt: `You are a helpful AI customer support assistant for ${websiteObj?.websiteName || "our company"}. Visitor message: "${message}". Reply concisely and politely.`,
+              temperature: 0.7,
+              maxTokens: 300
+            });
+
+            if (aiResult?.text) {
+              const aiSaved = await addMessage({
+                chatSession: session,
+                sender: "agent",
+                message: aiResult.text,
+                isAi: true
+              });
+
+              const aiPayload = {
+                _id: aiSaved._id,
+                sessionId: session.sessionId,
+                message: aiSaved.message,
+                sender: "agent",
+                senderName: "Gemini AI Assistant 🤖",
+                isAi: true,
+                createdAt: aiSaved.createdAt
+              };
+
+              io.to(session.sessionId).emit("chat:message", aiPayload);
+              io.to(`ws_${session.websiteId._id || session.websiteId}`).emit("chat:new-message", aiPayload);
+            }
+          } catch (aiErr) {
+            console.error("Gemini AI auto-response error:", aiErr);
+          }
         }
 
         // Run intelligence processing in real-time
