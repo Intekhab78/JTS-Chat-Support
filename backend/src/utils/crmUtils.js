@@ -284,6 +284,8 @@ export async function emitCustomerActivity({ actor, websiteId, customerId, type,
   });
 }
 
+import { Quotation } from "../models/Quotation.js";
+
 export async function buildCustomerPayload(customerId) {
   const customer = await Customer.findById(customerId)
     .populate("ownerId", "name email role")
@@ -297,7 +299,7 @@ export async function buildCustomerPayload(customerId) {
 
   const visitor = await Visitor.findOne({ customerId: customer._id }).select("visitorId");
 
-  const [tasks, activity] = await Promise.all([
+  const [tasks, activity, quotations] = await Promise.all([
     FollowUpTask.find({ customerId: customer._id })
       .populate("ownerId", "name email role")
       .populate("createdBy", "name email role")
@@ -309,8 +311,9 @@ export async function buildCustomerPayload(customerId) {
       entityId: customer._id,
       visitorId: visitor?.visitorId || null,
       limit: 100
-    })
+    }),
+    Quotation.find({ customerId: customer._id }).select("_id quoteNumber status total createdAt").sort({ createdAt: -1 })
   ]);
 
-  return { customer, tasks, activity };
+  return { customer, tasks, activity, quotations, hasQuotation: (quotations && quotations.length > 0) };
 }

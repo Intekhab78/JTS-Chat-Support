@@ -297,8 +297,7 @@ export const createPurchaseOrder = asyncHandler(async (req, res, next) => {
     });
   }
 
-  // Calculate totals from validated items
-  const total = parsedItems.reduce((acc, item) => acc + item.total, 0);
+  const createdById = req.user?._id || req.user?.id || req.user?.userId || null;
 
   const po = new PurchaseOrder({
     poNumber: `PO-${Date.now()}`,
@@ -311,10 +310,10 @@ export const createPurchaseOrder = asyncHandler(async (req, res, next) => {
     expectedDeliveryDate,
     crmCustomerId,
     status: "sent", // Assuming sending immediately
-    createdBy: req.user._id
+    createdBy: createdById
   });
 
-  await addPOHistory(po, "sent", req.user._id, "Order created and issued to supplier.");
+  await addPOHistory(po, "sent", createdById, "Order created and issued to supplier.");
   await po.save();
 
   res.status(201).json(po);

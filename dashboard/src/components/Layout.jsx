@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { api } from "../api/client.js";
 import { useSocket } from "../context/SocketContext.jsx";
+import { useWebsite } from "../context/WebsiteContext.jsx";
 import GlobalSearch from "./CrmSystem/GlobalSearch.jsx";
 import { hasPermission } from "../utils/permissions.js";
 import { PERMISSIONS } from "../constants/domain.js";
@@ -286,6 +287,7 @@ function SidebarContent({ links, collapsed, onNavigate, user, isDarkMode, setIsD
 export default function Layout({ title, subtitle, children, menuItems = [] }) {
   const { user, logout } = useAuth();
   const socket = useSocket();
+  const { websites, selectedWebsiteId, setSelectedWebsiteId } = useWebsite();
 
   // Desktop: collapsed/expanded sidebar
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -624,8 +626,27 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
             </div>
           </div>
 
-          {/* Right: notification bell + avatar */}
+          {/* Right: global website selector + notification bell + avatar */}
           <div className="flex items-center gap-3 shrink-0">
+
+            {/* Global Ecosystem Website Filter Selector */}
+            {websites && websites.length > 0 && (
+              <div className="flex items-center gap-2 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-3 py-1.5 rounded-2xl shrink-0 shadow-sm">
+                <Globe size={15} className="text-indigo-500 shrink-0" />
+                <select
+                  value={selectedWebsiteId}
+                  onChange={(e) => setSelectedWebsiteId(e.target.value)}
+                  className="bg-transparent text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 outline-none cursor-pointer pr-1 max-w-[150px] sm:max-w-[220px] truncate"
+                >
+                  <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-bold">ALL ECOSYSTEM ASSETS</option>
+                  {websites.map((w) => (
+                    <option key={w._id} value={w._id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-bold">
+                      {w.websiteName || w.domain}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Notifications */}
             <div className="relative">

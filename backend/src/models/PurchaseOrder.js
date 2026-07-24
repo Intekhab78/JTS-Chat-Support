@@ -51,7 +51,7 @@ const purchaseOrderSchema = new mongoose.Schema(
     terms: { type: String, trim: true, default: "" },
     stockReceived: { type: Boolean, default: false },
     invoiceUrl: { type: String, default: null },
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     crmCustomerId: { type: mongoose.Schema.Types.ObjectId, ref: "Customer", default: null, index: true }
   },
   { timestamps: true }

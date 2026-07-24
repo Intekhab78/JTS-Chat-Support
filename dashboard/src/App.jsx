@@ -4,19 +4,42 @@ import { useAuth } from "./context/AuthContext.jsx";
 import SessionWarningModal from "./components/SessionWarningModal.jsx";
 import { normalizeRole } from "./utils/roles.js";
 
-const LandingPage = lazy(() => import("./pages/LandingPage.jsx"));
-const LoginPage = lazy(() => import("./pages/LoginPage.jsx"));
-const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage.jsx"));
-const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage.jsx"));
-const ClientPage = lazy(() => import("./pages/ClientPage.jsx"));
-const AgentPage = lazy(() => import("./pages/AgentPage.jsx"));
-const PurchasePage = lazy(() => import("./pages/PurchasePage.jsx"));
-const TicketStatusPage = lazy(() => import("./pages/TicketStatusPage.jsx"));
-const ManagerPage = lazy(() => import("./pages/ManagerPage.jsx"));
-const SalesPage = lazy(() => import("./pages/SalesPage.jsx"));
-const SupplierPage = lazy(() => import("./pages/SupplierPage.jsx"));
-const AccountsPage = lazy(() => import("./pages/AccountsPage.jsx"));
-const CustomerPortalPage = lazy(() => import("./pages/CustomerPortalPage.jsx"));
+// Auto-retry dynamic page imports if chunk loading fails due to browser cache or new build deployment
+function lazyWithRetry(componentImport) {
+  return lazy(async () => {
+    const pageHasBeenRefreshed = JSON.parse(
+      window.sessionStorage.getItem("retry_page_refresh") || "false"
+    );
+
+    try {
+      const component = await componentImport();
+      window.sessionStorage.setItem("retry_page_refresh", "false");
+      return component;
+    } catch (error) {
+      if (!pageHasBeenRefreshed) {
+        console.warn("[LazyRetry] Dynamic chunk import failed. Auto-refreshing to load new build manifest...", error);
+        window.sessionStorage.setItem("retry_page_refresh", "true");
+        window.location.reload();
+        return new Promise(() => {}); // Pause until reload completes
+      }
+      throw error;
+    }
+  });
+}
+
+const LandingPage = lazyWithRetry(() => import("./pages/LandingPage.jsx"));
+const LoginPage = lazyWithRetry(() => import("./pages/LoginPage.jsx"));
+const ForgotPasswordPage = lazyWithRetry(() => import("./pages/ForgotPasswordPage.jsx"));
+const ResetPasswordPage = lazyWithRetry(() => import("./pages/ResetPasswordPage.jsx"));
+const ClientPage = lazyWithRetry(() => import("./pages/ClientPage.jsx"));
+const AgentPage = lazyWithRetry(() => import("./pages/AgentPage.jsx"));
+const PurchasePage = lazyWithRetry(() => import("./pages/PurchasePage.jsx"));
+const TicketStatusPage = lazyWithRetry(() => import("./pages/TicketStatusPage.jsx"));
+const ManagerPage = lazyWithRetry(() => import("./pages/ManagerPage.jsx"));
+const SalesPage = lazyWithRetry(() => import("./pages/SalesPage.jsx"));
+const SupplierPage = lazyWithRetry(() => import("./pages/SupplierPage.jsx"));
+const AccountsPage = lazyWithRetry(() => import("./pages/AccountsPage.jsx"));
+const CustomerPortalPage = lazyWithRetry(() => import("./pages/CustomerPortalPage.jsx"));
 
 function destinationForRole(role) {
   if (String(role || "").trim().toLowerCase() === "purchase") return "/purchase";

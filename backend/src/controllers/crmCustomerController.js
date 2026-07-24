@@ -26,7 +26,8 @@ import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
 import {
   autoAssignLeadOwner,
   ensureFirstTouchTask,
-  sendCrmLifecycleEmail
+  sendCrmLifecycleEmail,
+  sendCrmStageChangeEmail
 } from "../services/automationService.js";
 import {
   calculateWinProbability,
@@ -592,6 +593,7 @@ export const updateCustomer = asyncHandler(async (req, res) => {
   await customer.save();
 
   if (previousState.pipelineStage !== customer.pipelineStage) {
+    await sendCrmStageChangeEmail(customer, previousState.pipelineStage, customer.pipelineStage);
     await logCrmActivity({
       websiteId: customer.websiteId,
       type: "stage_changed",

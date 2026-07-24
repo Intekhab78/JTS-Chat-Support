@@ -10,22 +10,21 @@ import StatCard from "../components/StatCard.jsx";
 import EnterpriseReportsCenter from "../components/EnterpriseReportsCenter.jsx";
 import { api } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
+import { useWebsite } from "../context/WebsiteContext.jsx";
 
 export default function AccountsPage() {
   const { user } = useAuth();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { websites, selectedWebsiteId, setSelectedWebsiteId } = useWebsite();
+  const [searchParams] = useSearchParams();
   const tab = searchParams.get("tab") || "overview";
 
   const [invoices, setInvoices] = useState([]);
   const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
-  const [websites, setWebsites] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [pdfLoading, setPdfLoading] = useState({});
   const [invoiceSearch, setInvoiceSearch] = useState("");
-
-  const [selectedWebsiteId, setSelectedWebsiteId] = useState("");
   const [reportRange, setReportRange] = useState({ preset: "7d" });
 
   const [financials, setFinancials] = useState({

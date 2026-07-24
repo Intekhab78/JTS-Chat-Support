@@ -32,6 +32,7 @@ import BillingPage from "./BillingPage.jsx";
 import ExecutiveFlowDashboard from "../components/ExecutiveFlowDashboard.jsx";
 import { api } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
+import { useWebsite } from "../context/WebsiteContext.jsx";
 import { NotificationService } from "../utils/notifications.js";
 import { useSocket } from "../context/SocketContext.jsx";
 import { hasModule } from "../utils/planAccess.js";
@@ -356,6 +357,7 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
 
 export default function ClientPage() {
   const { user } = useAuth();
+  const { websites, selectedWebsiteId, setSelectedWebsiteId } = useWebsite();
   const toast = useToast();
   const canUseTickets = user?.role === "admin" || hasModule(user, "tickets");
   const canUseCRM = user?.role === "admin" || hasModule(user, "crm");
@@ -370,8 +372,6 @@ export default function ClientPage() {
   const [procurementStats, setProcurementStats] = useState(null);
   const [queuedSessions, setQueuedSessions] = useState([]);
   const [sessions, setSessions] = useState([]);
-  const [selectedWebsiteId, setSelectedWebsiteId] = useState("");
-  const [websites, setWebsites] = useState([]);
   const [error, setError] = useState("");
   const [reportRange, setReportRange] = useState(() => getDefaultReportRange());
 
@@ -398,22 +398,22 @@ export default function ClientPage() {
         const sharedQuery = sharedParams.toString() ? `?${sharedParams.toString()}` : "";
 
         const [anaRes, queRes, sesRes, webRes, procRes] = await Promise.all([
-          api(`/api/analytics${analyticsQuery}`),
-          hasChatAccess ? api(`/api/chat/queued${sharedQuery}`) : Promise.resolve([]),
-          hasChatAccess ? api(`/api/chat/sessions${sharedQuery}`) : Promise.resolve([]),
-          api("/api/websites"),
-          api("/api/procurement/stats")
+          api(`/api/analytics${analyticsQuery}`).catch(() => ({ activeVisitors: 0, activeChats: 0, trend: [], snapshots: [] })),
+          hasChatAccess ? api(`/api/chat/queued${sharedQuery}`).catch(() => []) : Promise.resolve([]),
+          hasChatAccess ? api(`/api/chat/sessions${sharedQuery}`).catch(() => []) : Promise.resolve([]),
+          api("/api/websites").catch(() => []),
+          api("/api/procurement/stats").catch(() => null)
         ]);
         if (!isMounted) return;
-        setAnalytics(anaRes);
-        setQueuedSessions(queRes);
-        setSessions(sesRes);
-        setWebsites(webRes);
-        setProcurementStats(procRes);
+        if (anaRes) setAnalytics(anaRes);
+        if (Array.isArray(queRes)) setQueuedSessions(queRes);
+        if (Array.isArray(sesRes)) setSessions(sesRes);
+        if (Array.isArray(webRes) && webRes.length > 0) setWebsites(webRes);
+        if (procRes) setProcurementStats(procRes);
         setError("");
       } catch (err) {
         if (!isMounted) return;
-        setError("Failed to synchronize with server.");
+        console.warn("ClientPage sync warning:", err);
       }
     };
     fetchInitial();
@@ -610,13 +610,13 @@ export default function ClientPage() {
   if (tab === "history") {
     title = "Historical Archive";
     subtitle = "Audit and review ecosystem-wide conversational history";
-    content = <ConversationHistory />;
+    content = <ConversationHistory websiteId={selectedWebsiteId} />;
   }
 
   if (tab === "reports" || tab === "analytics") {
     title = "Reports Center";
     subtitle = user?.role === "admin" ? "Global reporting across all clients and websites" : "Professional website-wise business reporting";
-    content = <EnterpriseReportsCenter />;
+    content = <EnterpriseReportsCenter websiteId={selectedWebsiteId} />;
   }
 
   if (tab === "shortcuts") {

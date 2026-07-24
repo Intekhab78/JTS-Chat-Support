@@ -433,11 +433,11 @@ export default function AgentPage() {
     { label: "Performance", href: "/agent" },
     { label: "Active Queue", href: "/agent?tab=chats" },
   ];
-  
+
   if (hasPermission(user, PERMISSIONS.TICKET_VIEW)) {
     menuItems.push({ label: "Tickets", href: "/agent?tab=tickets" });
   }
-  
+
   if (hasPermission(user, PERMISSIONS.CRM_VIEW)) {
     menuItems.push({ label: "CRM", href: "/agent?tab=crm" });
   }
@@ -577,10 +577,24 @@ export default function AgentPage() {
                   )}
                   <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${(session.archivedAt || isLegacyTrashSession(session))
                     ? 'bg-red-50 text-red-600 border-red-100'
-                    : session.status === 'active' ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                      : session.status === 'queued' ? 'bg-amber-50 text-amber-600 border-amber-100'
-                        : 'bg-slate-50 text-slate-400 border-slate-100'
-                    }`}>{(session.archivedAt || isLegacyTrashSession(session)) ? "trash" : session.status}</span>
+                    : session.status === 'queued'
+                      ? 'bg-amber-50 text-amber-600 border-amber-100'
+                      : session.status === 'closed'
+                        ? 'bg-slate-50 text-slate-400 border-slate-100'
+                        : session.visitorId?.isOnline
+                          ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                          : 'bg-slate-100 text-slate-500 border-slate-200'
+                    }`}>
+                    {(session.archivedAt || isLegacyTrashSession(session))
+                      ? "Trash"
+                      : session.status === 'queued'
+                        ? "Queued"
+                        : session.status === 'closed'
+                          ? "Closed"
+                          : session.visitorId?.isOnline
+                            ? "Active"
+                            : "Offline"}
+                  </span>
                 </div>
                 <span className="text-[9px] text-slate-400 font-bold tracking-widest uppercase block truncate">
                   {session.visitorId?.visitorId}
@@ -795,17 +809,17 @@ export default function AgentPage() {
     tab === "chats" ? "Operation Room" :
       tab === "tickets" ? "Ticket Desk" :
         tab === "crm" ? "CRM Access" :
-        tab === "customer-master" ? "Customer Master Registry" :
-          tab === "settings" ? "Agent Settings" :
-            "Command Center";
+          tab === "customer-master" ? "Customer Master Registry" :
+            tab === "settings" ? "Agent Settings" :
+              "Command Center";
 
   const pageSubtitle =
     tab === "chats" ? "Manage and resolve active visitor streams" :
       tab === "tickets" ? "Create from chats, then view and update support tickets" :
         tab === "crm" ? "View customer pipeline records and current status" :
-      tab === "customer-master" ? "Manage and refine the elite customer master database" :
-          tab === "settings" ? "Manage your system identity" :
-            "High-level performance metrics";
+          tab === "customer-master" ? "Manage and refine the elite customer master database" :
+            tab === "settings" ? "Manage your system identity" :
+              "High-level performance metrics";
 
   return (
     <Layout title={pageTitle} subtitle={pageSubtitle} menuItems={menuItems}>

@@ -212,5 +212,102 @@ export const FLOW_TEMPLATES = [
         position: { x: 450, y: 350 }
       }
     }
+  },
+  {
+    id: "multi_tier_services",
+    name: "Multi-Tier Services & Sub-Services Catalog",
+    category: "Services & Sales",
+    description: "Hierarchical multi-level decision tree flow where visitors click Services -> select Sub-Services -> fill form or talk to agent.",
+    icon: "Layers",
+    color: "from-indigo-500 to-cyan-600",
+    nodes: {
+      root: {
+        type: "message",
+        message: "Hi! 👋 Welcome to JTS Support. How can we help you today?",
+        options: [
+          { text: "Services Catalog", next: "services_main" },
+          { text: "Support", next: "support_branch" },
+          { text: "Talk to AI Agent", next: "ai_agent" }
+        ],
+        position: { x: 100, y: 150 }
+      },
+      services_main: {
+        type: "message",
+        message: "Which of our professional services are you interested in?",
+        options: [
+          { text: "Web & App Development", next: "sub_dev_services" },
+          { text: "Cloud & Infrastructure", next: "sub_cloud_services" },
+          { text: "Digital Marketing & SEO", next: "sub_marketing_services" }
+        ],
+        position: { x: 450, y: 100 }
+      },
+      sub_dev_services: {
+        type: "message",
+        message: "Web & App Development Services:\nPlease select the specific solution you need:",
+        options: [
+          { text: "Custom Web Application", next: "service_form" },
+          { text: "Mobile App (iOS / Android)", next: "service_form" },
+          { text: "E-Commerce Store", next: "service_form" },
+          { text: "⬅ Back to All Services", next: "services_main" }
+        ],
+        position: { x: 800, y: 50 }
+      },
+      sub_cloud_services: {
+        type: "message",
+        message: "Cloud & Infrastructure Services:\nPlease select your requirement:",
+        options: [
+          { text: "VPS / Server Migration", next: "service_form" },
+          { text: "DevOps & CI/CD Pipeline", next: "service_form" },
+          { text: "Security & Firewall Audit", next: "service_form" },
+          { text: "⬅ Back to All Services", next: "services_main" }
+        ],
+        position: { x: 800, y: 280 }
+      },
+      sub_marketing_services: {
+        type: "message",
+        message: "Digital Marketing Services:\nPlease select your campaign goal:",
+        options: [
+          { text: "SEO & Google Ranking", next: "service_form" },
+          { text: "Social Media Ads (PPC)", next: "service_form" },
+          { text: "⬅ Back to All Services", next: "services_main" }
+        ],
+        position: { x: 800, y: 510 }
+      },
+      service_form: {
+        type: "form",
+        message: "Awesome! Please share your contact details so our service team can prepare a custom quote.",
+        fields: [
+          { name: "full_name", type: "text", label: "Full Name", required: true },
+          { name: "phone", type: "tel", label: "Phone Number", required: true },
+          { name: "requirements", type: "textarea", label: "Project Details", required: false }
+        ],
+        next: "service_lead_action",
+        position: { x: 1200, y: 250 }
+      },
+      service_lead_action: {
+        type: "action",
+        actionType: "create_lead",
+        next: "service_thankyou",
+        position: { x: 1550, y: 250 }
+      },
+      service_thankyou: {
+        type: "message",
+        message: "Thank you! 🎉 Our service specialist will contact you within 15 minutes with complete details.",
+        isSolution: true,
+        position: { x: 1900, y: 250 }
+      },
+      support_branch: {
+        type: "message",
+        message: "For technical support, our team is ready to assist you.",
+        isSolution: true,
+        position: { x: 450, y: 400 }
+      },
+      ai_agent: {
+        type: "ai_response",
+        prompt: "Assist visitors with instant AI answers.",
+        aiModel: "gpt-4o-mini",
+        position: { x: 450, y: 600 }
+      }
+    }
   }
 ];

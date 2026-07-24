@@ -21,18 +21,19 @@ import EnterpriseReportsCenter from "../components/EnterpriseReportsCenter.jsx";
 import { hasPermission } from "../utils/permissions.js";
 import { PERMISSIONS } from "../constants/domain.js";
 
+import { useWebsite } from "../context/WebsiteContext.jsx";
+
 export default function ManagerPage() {
   const { user } = useAuth();
   const socket = useSocket();
+  const { websites, selectedWebsiteId, setSelectedWebsiteId } = useWebsite();
   const [analytics, setAnalytics] = useState(null);
-  const [websites, setWebsites] = useState([]);
   const [agents, setAgents] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [streamsPage, setStreamsPage] = useState(1);
   const [websitesPage, setWebsitesPage] = useState(1);
   const [agentsPage, setAgentsPage] = useState(1);
   const [selectedAgent, setSelectedAgent] = useState(null);
-  const [selectedWebsiteId, setSelectedWebsiteId] = useState("");
   const [reportRange, setReportRange] = useState({ preset: "7d" });
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get("tab") || "overview";

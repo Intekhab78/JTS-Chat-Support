@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
+import { useWebsite } from "../context/WebsiteContext.jsx";
 import { api } from "../api/client.js";
 import CRMManager from "../components/CRMManager.jsx";
 import InsightsPanel from "../components/InsightsPanel.jsx";
@@ -338,30 +339,17 @@ function GlobalNotesPanel() {
 }
 
 
+
 export default function SalesPage() {
   const { user } = useAuth();
+  const { websites, selectedWebsiteId, setSelectedWebsiteId } = useWebsite();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "pipeline";
   const [initialLeadData, setInitialLeadData] = useState(null);
   const [highlightLeadId, setHighlightLeadId] = useState(null);
   const canUseCRM = hasModule(user, "crm");
   const canUseReports = hasModule(user, "reports");
-  const [websites, setWebsites] = useState([]);
-  const [selectedWebsiteId, setSelectedWebsiteId] = useState("");
   const [inventorySubTab, setInventorySubTab] = useState("master");
-
-  useEffect(() => {
-    async function loadWebsites() {
-      try {
-        const data = await api("/api/websites");
-        const list = Array.isArray(data) ? data : [];
-        setWebsites(list);
-      } catch (err) {
-        console.error("Failed to load websites", err);
-      }
-    }
-    loadWebsites();
-  }, []);
 
   const handleConvertLead = (session) => {
     setInitialLeadData({

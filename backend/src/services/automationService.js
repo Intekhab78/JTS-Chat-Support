@@ -171,6 +171,68 @@ export async function sendCrmLifecycleEmail(customer, type) {
   });
 }
 
+export async function sendCrmStageChangeEmail(customer, previousStage, newStage) {
+  if (!customer?.email || previousStage === newStage) return;
+
+  try {
+    const website = await Website.findById(customer.websiteId);
+    const websiteName = website?.websiteName || "JTS Support";
+
+    const stageTitles = {
+      new: "New Lead",
+      contacted: "Contacted",
+      qualified: "Qualified",
+      proposal: "Proposal Sent",
+      negotiation: "Negotiation",
+      won: "Deal Won 🎉",
+      lost: "Closed / Lost"
+    };
+
+    const formattedOld = stageTitles[previousStage] || previousStage || "Initial";
+    const formattedNew = stageTitles[newStage] || newStage || "Updated";
+
+    const subject = `Update on your inquiry with ${websiteName}: Status set to ${formattedNew}`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
+        <div style="text-align: center; padding-bottom: 20px; border-bottom: 1px solid #f1f5f9;">
+          <h2 style="color: #4f46e5; margin: 0; font-size: 22px; font-weight: 800;">${websiteName}</h2>
+          <p style="color: #64748b; font-size: 12px; margin-top: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">CRM Stage Update Notification</p>
+        </div>
+
+        <div style="padding: 20px 0;">
+          <h3 style="color: #0f172a; margin-top: 0; font-size: 16px;">Hello ${customer.name || "Customer"},</h3>
+          <p style="font-size: 14px; color: #334155; line-height: 1.6;">
+            We wanted to let you know that your inquiry status regarding <b>${customer.requirement || "our products & services"}</b> has been updated.
+          </p>
+          
+          <div style="background-color: #f8fafc; padding: 18px 24px; border-left: 4px solid #6366f1; border-radius: 12px; margin: 20px 0;">
+            <p style="margin: 0; font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 800; letter-spacing: 1px;">New Deal Stage</p>
+            <p style="margin: 6px 0 0 0; font-size: 18px; font-weight: 900; color: #4f46e5;">${formattedNew}</p>
+          </div>
+
+          <p style="font-size: 14px; color: #475569; line-height: 1.6;">
+            Our team is actively processing your request. If you have any questions or need to share additional details, please reply directly to this email.
+          </p>
+        </div>
+
+        <div style="border-top: 1px solid #f1f5f9; padding-top: 20px; text-align: center; color: #94a3b8; font-size: 12px;">
+          <p style="margin: 0;">Best Regards,<br/><b>${websiteName} Support Team</b></p>
+        </div>
+      </div>
+    `;
+
+    await sendEmail({
+      to: customer.email,
+      subject,
+      html
+    });
+
+    console.log(`[Automation] Stage change email sent to ${customer.email} (${previousStage} -> ${newStage})`);
+  } catch (err) {
+    console.error(`[Automation] Failed to send stage change email to ${customer.email}:`, err.message);
+  }
+}
+
 export async function autoAssignLeadOwner(customer, { assignedBy = null, reason = "auto_assign_round_robin", notify = true } = {}) {
   if (!customer || customer.ownerId) return null;
 

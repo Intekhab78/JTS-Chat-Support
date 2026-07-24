@@ -138,3 +138,25 @@ export async function getWebsite(req, res) {
   if (!website) return res.status(404).json({ message: "Website not found" });
   return res.json({ ...website.toObject(), embedScript: buildEmbedScript(website.apiKey) });
 }
+
+export async function deleteWebsite(req, res) {
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const role = normalizeRole(req.user.role);
+  if (role !== "admin" && !ownedWebsiteIds.map(id => id.toString()).includes(req.params.id)) {
+    return res.status(403).json({ message: "Access denied" });
+  }
+  const website = await Website.findByIdAndDelete(req.params.id);
+  if (!website) return res.status(404).json({ message: "Website not found" });
+
+  await logAuditEvent({
+    actor: req.user,
+    action: "website.deleted",
+    entityType: "website",
+    entityId: website._id,
+    websiteId: website._id,
+    metadata: { websiteName: website.websiteName, domain: website.domain },
+    ipAddress: req.ip
+  });
+
+  return res.json({ message: "Website deleted successfully", _id: website._id });
+}

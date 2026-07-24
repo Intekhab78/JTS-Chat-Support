@@ -544,7 +544,7 @@ export async function restoreChatSession(req, res) {
 
 export async function submitSessionFeedback(req, res) {
   const { sessionId, satisfactionStatus, rating, comment } = req.body;
-  
+
   let status = satisfactionStatus;
   if (rating !== undefined) {
     const parsedRating = Number(rating);

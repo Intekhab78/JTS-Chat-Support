@@ -284,12 +284,27 @@ export default function CrmDrawer({
                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Special Actions</p>
                 <div className="flex flex-col gap-1.5">
                   {selectedCustomer?.pipelineStage === "won" && !selectedCustomer?.isLocked ? (
-                    <button
-                      onClick={() => onGenerateCode(selectedCustomer._id)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
-                    >
-                      <Zap size={10} className="fill-white" /> Generate Code
-                    </button>
+                    (() => {
+                      const hasQuote = Boolean(
+                        (customerDetails?.quotations && customerDetails.quotations.length > 0) ||
+                        customerDetails?.hasQuotation ||
+                        selectedCustomer?.hasQuotation
+                      );
+                      return (
+                        <button
+                          onClick={() => hasQuote && onGenerateCode(selectedCustomer._id)}
+                          disabled={!hasQuote}
+                          title={!hasQuote ? "A Digital Quotation must be created under Quotes tab before generating code" : "Generate code and start purchase workflow"}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                            hasQuote
+                              ? "bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-100 cursor-pointer"
+                              : "bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-60"
+                          }`}
+                        >
+                          <Zap size={10} className={hasQuote ? "fill-white" : "fill-slate-400"} /> Generate Code
+                        </button>
+                      );
+                    })()
                   ) : selectedCustomer?.isLocked ? (
                     <div className="text-[9px] font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 inline-block">
                       Code: <span className="font-black text-indigo-600 ml-1">{selectedCustomer.generatedCode}</span>

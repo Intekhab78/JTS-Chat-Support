@@ -42,17 +42,17 @@ const linkify = (text = "") => {
   });
 };
 
-export default function ChatPanel({ 
-  session, 
-  messages, 
-  onSend, 
-  onTyping, 
-  isTyping, 
-  disabled, 
+export default function ChatPanel({
+  session,
+  messages,
+  onSend,
+  onTyping,
+  isTyping,
+  disabled,
   readonly,
-  onConvertToTicket, 
-  onConvertToLead, 
-  onIntelClick, 
+  onConvertToTicket,
+  onConvertToLead,
+  onIntelClick,
   canUseShortcuts = true,
   viewers = [],
   typingAgent = null,
@@ -83,7 +83,7 @@ export default function ChatPanel({
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setLocalViewers(prev => 
+      setLocalViewers(prev =>
         prev.map(v => ({
           ...v,
           viewingTimeSec: typeof v.viewingTimeSec === 'number' ? v.viewingTimeSec + 1 : 1
@@ -211,7 +211,7 @@ export default function ChatPanel({
     const newValue = before + placeholder + after;
     setDraft(newValue);
     setShowVariablePicker(false);
-    
+
     setTimeout(() => {
       textarea.focus();
       textarea.selectionStart = textarea.selectionEnd = start + placeholder.length;
@@ -336,11 +336,10 @@ export default function ChatPanel({
   const missingVars = checkMissingVariables();
 
   return (
-    <section className={`bg-white dark:bg-slate-900/90 flex flex-col h-[700px] rounded-3xl border shadow-[0_20px_50px_rgba(0,0,0,0.05)] overflow-hidden relative animate-in fade-in slide-in-from-bottom-2 duration-500 transition-all duration-500 ${
-      session.sentimentLabel === 'negative'
-        ? 'border-rose-500/30 dark:border-rose-500/20 shadow-[0_0_30px_rgba(239,68,68,0.05)]'
-        : 'border-slate-100 dark:border-white/5'
-    }`}>
+    <section className={`bg-white dark:bg-slate-900/90 flex flex-col h-[700px] rounded-3xl border shadow-[0_20px_50px_rgba(0,0,0,0.05)] overflow-hidden relative animate-in fade-in slide-in-from-bottom-2 duration-500 transition-all duration-500 ${session.sentimentLabel === 'negative'
+      ? 'border-rose-500/30 dark:border-rose-500/20 shadow-[0_0_30px_rgba(239,68,68,0.05)]'
+      : 'border-slate-100 dark:border-white/5'
+      }`}>
 
       {/* ── Header with Premium Visitor Intel ── */}
       <div className="px-5 md:px-8 py-4 md:py-5 border-b border-slate-50 dark:border-white/5 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl shrink-0 sticky top-0 z-10 transition-colors">
@@ -360,13 +359,12 @@ export default function ChatPanel({
                   <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{getRelativeStatus()}</span>
                 </div>
                 {session.sentimentLabel && (
-                  <div className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[9px] font-black uppercase tracking-widest shadow-sm transition-all ${
-                    session.sentimentLabel === "positive"
-                      ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20"
-                      : session.sentimentLabel === "negative"
+                  <div className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[9px] font-black uppercase tracking-widest shadow-sm transition-all ${session.sentimentLabel === "positive"
+                    ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20"
+                    : session.sentimentLabel === "negative"
                       ? "bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-500/20 animate-pulse"
                       : "bg-slate-50 dark:bg-white/5 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-white/5"
-                  }`} title={`Sentiment score: ${session.sentimentScore?.toFixed(2) || 0}`}>
+                    }`} title={`Sentiment score: ${session.sentimentScore?.toFixed(2) || 0}`}>
                     <span>{moodEmoji}</span>
                     <span>{session.sentimentLabel}</span>
                   </div>
@@ -448,11 +446,10 @@ export default function ChatPanel({
 
             <button
               onClick={() => setShowSidebar(!showSidebar)}
-              className={`p-3 border rounded-2xl flex items-center gap-2 transition-all shadow-sm group text-[10px] font-black uppercase tracking-widest ${
-                showSidebar 
-                  ? "bg-indigo-600 text-white border-indigo-600" 
-                  : "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-500/20 hover:bg-indigo-100 dark:hover:bg-indigo-500/20"
-              }`}
+              className={`p-3 border rounded-2xl flex items-center gap-2 transition-all shadow-sm group text-[10px] font-black uppercase tracking-widest ${showSidebar
+                ? "bg-indigo-600 text-white border-indigo-600"
+                : "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-500/20 hover:bg-indigo-100 dark:hover:bg-indigo-500/20"
+                }`}
               title="Toggle Intelligence Sidebar"
             >
               <Sparkles size={14} className="group-hover:scale-110 transition-transform" />
@@ -479,11 +476,21 @@ export default function ChatPanel({
                 <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Convert to Ticket</span>
               </button>
             ) : null}
-            <span className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-sm border ${session.status === "queued"
+            <span className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-sm border ${session.status === "queued"
               ? "bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-500/20"
-              : "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20"
+              : session.status === "closed"
+                ? "bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-white/10"
+                : visitor?.isOnline
+                  ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-white/10"
               }`}>
-              {session.status}
+              {session.status === "queued"
+                ? "Queued"
+                : session.status === "closed"
+                  ? "Closed"
+                  : visitor?.isOnline
+                    ? "Active (Online)"
+                    : "Offline"}
             </span>
           </div>
         </div>
@@ -491,10 +498,10 @@ export default function ChatPanel({
 
       {/* ── Main Chat/Sidebar Split View ── */}
       <div className="flex flex-1 overflow-hidden min-h-0">
-        
+
         {/* Left Workspace (Chat messages, typing, input box) */}
         <div className="flex-1 flex flex-col min-h-0 min-w-0 border-r border-slate-50 dark:border-white/5 relative">
-          
+
           {/* Messages Zone */}
           <div
             ref={viewportRef}
@@ -782,14 +789,13 @@ export default function ChatPanel({
                 <span>{sentimentPercentage}%</span>
               </div>
               <div className="w-full bg-slate-100 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
-                <div 
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    session.sentimentLabel === "positive" || session.sentimentLabel === "satisfied"
-                      ? "bg-emerald-500"
-                      : session.sentimentLabel === "concerned" || session.sentimentLabel === "frustrated"
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${session.sentimentLabel === "positive" || session.sentimentLabel === "satisfied"
+                    ? "bg-emerald-500"
+                    : session.sentimentLabel === "concerned" || session.sentimentLabel === "frustrated"
                       ? "bg-rose-500 animate-pulse"
                       : "bg-amber-500"
-                  }`}
+                    }`}
                   style={{ width: `${sentimentPercentage}%` }}
                 />
               </div>
@@ -832,7 +838,7 @@ export default function ChatPanel({
             <div className="p-4 bg-indigo-50/30 dark:bg-indigo-950/20 border border-indigo-100/50 dark:border-indigo-500/10 rounded-2xl">
               <span className="text-[8px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em] block mb-2">Visitor Navigation Brief</span>
               <p className="text-[10px] font-bold text-slate-600 dark:text-slate-300 leading-relaxed">
-                Visited {session.botMetadata?.path?.length || 1} flow nodes. 
+                Visited {session.botMetadata?.path?.length || 1} flow nodes.
                 {session.botMetadata?.dropOffNode ? ` Last active node before stall: "${session.botMetadata.dropOffNode}".` : ""}
                 {session.botMetadata?.conversions?.length > 0 ? " This customer achieved active conversions." : ""}
               </p>

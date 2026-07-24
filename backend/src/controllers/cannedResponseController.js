@@ -65,23 +65,30 @@ export async function createCannedResponse(req, res) {
 
   const existing = await CannedResponse.findOne({ managerId, shortcut: normalizedShortcut });
   if (existing) {
-    return res.status(409).json({ message: "Shortcut already exists" });
+    return res.status(409).json({ message: `Shortcut '/${normalizedShortcut}' already exists.` });
   }
 
-  const response = await CannedResponse.create({
-    shortcut: normalizedShortcut,
-    content,
-    managerId,
-    tenantId,
-    visibility
-  });
+  try {
+    const response = await CannedResponse.create({
+      shortcut: normalizedShortcut,
+      content,
+      managerId,
+      tenantId,
+      visibility
+    });
 
-  return res.status(201).json({
-    ...response.toObject(),
-    visibility: response.visibility || visibility,
-    scopeLabel: visibility === "personal" ? "Private" : "Shared",
-    isOwnedByCurrentUser: true
-  });
+    return res.status(201).json({
+      ...response.toObject(),
+      visibility: response.visibility || visibility,
+      scopeLabel: visibility === "personal" ? "Private" : "Shared",
+      isOwnedByCurrentUser: true
+    });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ message: `Shortcut '/${normalizedShortcut}' already exists.` });
+    }
+    throw err;
+  }
 }
 
 export async function deleteCannedResponse(req, res) {

@@ -114,6 +114,18 @@ export default function WebsiteManager() {
     });
   };
 
+  const handleDeleteWebsite = async (website) => {
+    if (!window.confirm(`Are you sure you want to delete "${website.websiteName || website.domain}"? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      await api(`/api/websites/${website._id}`, { method: "DELETE" });
+      fetchWebsites();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   const handleEdit = (website) => {
     setEditingId(website._id);
     setFormData({
@@ -626,9 +638,9 @@ export default function WebsiteManager() {
                 </button>
                 <button
                   type="button"
-                  disabled
-                  title="Website deletion is not available from this screen yet."
-                  className="p-3 bg-red-50 dark:bg-red-500/5 text-red-400 rounded-2xl transition-all shadow-sm border border-red-100 dark:border-red-500/10 cursor-not-allowed opacity-60"
+                  onClick={() => handleDeleteWebsite(website)}
+                  title="Delete Website"
+                  className="p-3 bg-red-50 hover:bg-red-600 dark:bg-red-500/10 dark:hover:bg-red-600 text-red-500 hover:text-white rounded-2xl transition-all shadow-sm border border-red-200 dark:border-red-500/20 hover:scale-105 active:scale-95 cursor-pointer"
                 >
                   <Trash2 size={16} />
                 </button>

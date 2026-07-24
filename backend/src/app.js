@@ -108,16 +108,18 @@ export function createApp() {
     app.use(morgan("dev"));
   }
 
-  app.set("trust proxy", true);
-
+  // -------------------------------------------------------------
+  // Enterprise High-Scale Rate Limiter Configuration
+  // Designed for 5,000+ concurrent agents/visitors without IP blocks
+  // -------------------------------------------------------------
   const authLimiter = rateLimit({
-    max: 30,
+    max: 1000, // High ceiling per minute per account
     windowMs: 1 * 60 * 1000,
-    message: { status: "error", message: "Too many login attempts. Please try again in 1 minute." },
+    message: { status: "error", message: "Too many login attempts for this account. Please try again in 1 minute." },
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req) => {
-      // Partition rate limiting by the login email input or Client IP
+      // Partition rate limiting per account (email + IP) so 5000 users behind the same corporate office NAT/VPN never block each other
       const email = req.body && typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
       const forwardedFor = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
       const ip = forwardedFor || req.ip || req.socket?.remoteAddress || "";
@@ -125,12 +127,21 @@ export function createApp() {
     },
     skip: (req) => process.env.NODE_ENV === "development" || isLocalRequest(req)
   });
+
   const generalLimiter = rateLimit({
-    max: 1000,
-    windowMs: 60 * 60 * 1000,
-    message: { status: "error", message: "Too many requests from this IP, please try again in an hour!" },
-    skip: (req) => process.env.NODE_ENV === "development" || isLocalRequest(req)
+    max: 500000, // Unlimited capacity for enterprise traffic
+    windowMs: 15 * 60 * 1000,
+    message: { status: "error", message: "Too many requests. Please slow down." },
+    skip: (req) => {
+      // Completely skip rate limiting for authenticated dashboard users, widget traffic, sockets, and health endpoints
+      if (process.env.NODE_ENV === "development" || isLocalRequest(req)) return true;
+      if (req.headers.authorization || req.headers["x-api-key"] || req.path.startsWith("/api/widget/") || req.path.startsWith("/api/notifications") || req.path.startsWith("/api/health") || req.path.startsWith("/api/chat")) {
+        return true;
+      }
+      return false;
+    }
   });
+
   app.use("/api/auth/login", authLimiter);
   app.use("/api/auth/forgot-password", authLimiter);
   app.use("/api/auth/reset-password", authLimiter);

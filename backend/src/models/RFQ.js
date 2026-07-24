@@ -25,7 +25,7 @@ const rfqSchema = new mongoose.Schema({
   bids: [rfqBidSchema],
   status: { type: String, enum: ["open", "closed", "awarded", "cancelled"], default: "open" },
   expiryDate: { type: Date, required: true },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   notes: { type: String, trim: true }
 }, { timestamps: true });
 

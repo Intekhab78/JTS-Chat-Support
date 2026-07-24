@@ -23,7 +23,7 @@ const supplierSchema = new mongoose.Schema(
       totalOrdersCompleted: { type: Number, default: 0 }
     },
     rating: { type: Number, default: 100, min: 0, max: 100 },
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }
   },
   { timestamps: true }
 );

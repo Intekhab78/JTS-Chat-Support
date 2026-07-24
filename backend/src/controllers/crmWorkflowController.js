@@ -31,6 +31,7 @@ export const postWin = asyncHandler(async (req, res) => {
 
   if (customer.pipelineStage === "won") return res.json(await buildCustomerPayload(customer._id));
 
+  const previousStage = customer.pipelineStage;
   customer.pipelineStage = "won";
   customer.status = "won";
   customer.dealStage = "won";
@@ -38,6 +39,8 @@ export const postWin = asyncHandler(async (req, res) => {
   customer.probability = 100;
   customer.stageEnteredAt = new Date();
   await customer.save();
+
+  await sendCrmStageChangeEmail(customer, previousStage, "won");
 
   // Create onboarding follow-up tasks
   const onboardingTitles = ["Send welcome email", "Schedule onboarding call", "Create customer account"];
@@ -92,6 +95,8 @@ export const unlockLead = asyncHandler(async (req, res) => {
   res.json(await buildCustomerPayload(customer._id));
 });
 
+import { Quotation } from "../models/Quotation.js";
+
 export const generateLeadCode = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
   const customer = await Customer.findById(req.params.id);
@@ -103,6 +108,12 @@ export const generateLeadCode = asyncHandler(async (req, res) => {
   }
 
   if (customer.isLocked) return res.json(customer);
+
+  // Require at least 1 digital quotation before code generation
+  const quoteCount = await Quotation.countDocuments({ customerId: customer._id });
+  if (quoteCount === 0) {
+    throw new AppError("A Digital Quotation must be created before generating code for this deal.", 400);
+  }
 
   const code = `WON-${customer.crn}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
   customer.isLocked = true;

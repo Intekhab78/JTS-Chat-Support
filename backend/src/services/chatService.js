@@ -163,7 +163,7 @@ export async function findOrCreateSession({ website, visitor, currentPage = "", 
       message: `New chat session started`,
       user: visitor.name || "Anonymous Visitor"
     });
-  } catch (err) {}
+  } catch (err) { }
 
   return ChatSession.findById(session._id).populate("assignedAgent", "name email isOnline");
 }
