@@ -700,7 +700,7 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
 
                     {/* Filter pills */}
                     <div className="px-5 py-3 flex flex-wrap gap-1.5 border-b border-slate-50 dark:border-white/5">
-                      {["all", "new_chat", "new_ticket", "inventory_low_stock", "crm_follow_up_due", "sla_breach"].map(type => (
+                      {["all", "unattended_client_alert", "vat_filing_due", "corporate_tax_due", "trade_license_expiring", "crm_follow_up_due"].map(type => (
                         <button
                           key={type}
                           onClick={() => setNotificationFilter(type)}

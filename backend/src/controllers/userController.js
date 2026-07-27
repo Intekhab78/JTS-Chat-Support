@@ -164,12 +164,16 @@ export const listAgents = asyncHandler(async (req, res) => {
     .sort({ createdAt: -1 });
 
   const { ChatSession } = await import("../models/ChatSession.js");
-  const enhancedAgents = await Promise.all(agents.map(async (agent) => {
-    const activeChats = await ChatSession.countDocuments({ 
-      assignedAgent: agent._id, 
-      status: "active" 
-    });
-    return { ...agent.toObject(), activeChats };
+  const agentIds = agents.map(a => a._id);
+  const activeChatCounts = await ChatSession.aggregate([
+    { $match: { assignedAgent: { $in: agentIds }, status: "active" } },
+    { $group: { _id: "$assignedAgent", count: { $sum: 1 } } }
+  ]);
+  const activeChatMap = new Map(activeChatCounts.map(item => [item._id.toString(), item.count]));
+
+  const enhancedAgents = agents.map((agent) => ({
+    ...agent.toObject(),
+    activeChats: activeChatMap.get(agent._id.toString()) || 0
   }));
 
   return res.json(enhancedAgents);

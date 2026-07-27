@@ -6,9 +6,9 @@ const router = Router();
 
 router.use(requireAuth);
 
-// Everyone (including agents, sales, etc.) can list and get website details
-router.get("/", requireRole("admin", "client", "manager", "sales", "accounts", "customer", "purchase", "agent"), listWebsites);
-router.get("/:id", requireRole("admin", "client", "manager", "sales", "accounts", "customer", "purchase", "agent"), getWebsite);
+// Everyone (including agents, sales, tax consultants, management, etc.) can list and get website details
+router.get("/", listWebsites);
+router.get("/:id", getWebsite);
 
 // Only managers/clients/admins can create, update or delete websites
 router.post("/", requireRole("admin", "client", "manager"), createWebsite);

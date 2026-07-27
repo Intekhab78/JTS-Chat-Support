@@ -39,16 +39,27 @@ export default function CrmLeadModal({
         </div>
 
         <form onSubmit={onSubmit} className="p-8 space-y-10 overflow-y-auto flex-1 custom-scrollbar">
-          {/* Identity Section */}
+          {/* Section 1: Basic Information */}
           <div className="space-y-5">
-            <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.4em] flex items-center gap-2">Identity & Reach</p>
+            <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.4em] flex items-center gap-2">
+              Section 1 • Basic Information
+            </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Full Name</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Company / Organization Name</label>
                 <input
-                  value={form.name}
+                  value={form.companyName || ""}
+                  onChange={(e) => setForm(prev => ({ ...prev, companyName: e.target.value }))}
+                  placeholder="e.g. Al Reza Global LLC"
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Owner / Contact Name</label>
+                <input
+                  value={form.name || ""}
                   onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g. Siddharth Malhotra"
+                  placeholder="e.g. Sheikh Mohammed"
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
                 />
               </div>
@@ -56,9 +67,9 @@ export default function CrmLeadModal({
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Email Address</label>
                 <input
                   type="email"
-                  value={form.email}
+                  value={form.email || ""}
                   onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
-                  placeholder="siddharth@company.com"
+                  placeholder="contact@alreza.ae"
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 disabled:opacity-50"
                   disabled={!!editLeadId}
                 />
@@ -66,34 +77,156 @@ export default function CrmLeadModal({
               <div className="space-y-1.5">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Phone Number</label>
                 <input
-                  value={form.phone}
+                  value={form.phone || ""}
                   onChange={(e) => setForm(prev => ({ ...prev, phone: e.target.value }))}
-                  placeholder="+91 91234 56789"
+                  placeholder="+971 50 123 4567"
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Section 2: Compliance Information */}
+          <div className="space-y-5 pt-4 border-t border-slate-100">
+            <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.4em] flex items-center gap-2">
+              Section 2 • Compliance Information
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Organization</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">TRN (15-digit Tax No)</label>
                 <input
-                  value={form.companyName}
-                  onChange={(e) => setForm(prev => ({ ...prev, companyName: e.target.value }))}
-                  placeholder="Zen Global"
+                  value={form.trn || ""}
+                  onChange={(e) => setForm(prev => ({ ...prev, trn: e.target.value }))}
+                  placeholder="100023456700003"
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Website</label>
-                <select
-                  value={form.websiteId}
-                  onChange={(e) => setForm(prev => ({ ...prev, websiteId: e.target.value }))}
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Trade License Number</label>
+                <input
+                  value={form.tradeLicenseNumber || ""}
+                  onChange={(e) => setForm(prev => ({ ...prev, tradeLicenseNumber: e.target.value }))}
+                  placeholder="CN-1049281"
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
-                  disabled={!!editLeadId}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Trade License Expiry</label>
+                <input
+                  type="date"
+                  value={form.tradeLicenseExpiryDate ? String(form.tradeLicenseExpiryDate).split("T")[0] : ""}
+                  onChange={(e) => setForm(prev => ({ ...prev, tradeLicenseExpiryDate: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3: Services & Consultant */}
+          <div className="space-y-5 pt-4 border-t border-slate-100">
+            <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.4em] flex items-center gap-2">
+              Section 3 • Services & Consultant
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Service Type</label>
+                <select
+                  value={form.serviceType || "Corporate Tax Registration"}
+                  onChange={(e) => setForm(prev => ({ ...prev, serviceType: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
                 >
-                  <option value="">Select website...</option>
-                  {websites.map(w => (
-                    <option key={w._id} value={w._id}>{w.websiteName}</option>
+                  <option value="Corporate Tax Registration">Corporate Tax Registration</option>
+                  <option value="Corporate Tax Filing">Corporate Tax Filing</option>
+                  <option value="VAT Registration">VAT Registration</option>
+                  <option value="VAT Filing">VAT Filing</option>
+                  <option value="Trade License Renewal">Trade License Renewal</option>
+                  <option value="PRO Services">PRO Services</option>
+                  <option value="Other Services">Other Services</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Assigned Consultant</label>
+                <select
+                  value={form.ownerId || ""}
+                  onChange={(e) => setForm(prev => ({ ...prev, ownerId: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 disabled:opacity-50"
+                  disabled={!canAssignOwners}
+                >
+                  <option value="">Unassigned</option>
+                  {teamMembers.map(m => (
+                    <option key={m._id} value={m._id}>{m.name} ({m.role})</option>
                   ))}
                 </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 4: Status */}
+          <div className="space-y-5 pt-4 border-t border-slate-100">
+            <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.4em] flex items-center gap-2">
+              Section 4 • Work & Payment Status
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Work Status</label>
+                <select
+                  value={form.workStatus || "Pending"}
+                  onChange={(e) => setForm(prev => ({ ...prev, workStatus: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Completed">Completed</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Payment Status</label>
+                <select
+                  value={form.paymentStatus || "Pending"}
+                  onChange={(e) => setForm(prev => ({ ...prev, paymentStatus: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="Partial">Partial</option>
+                  <option value="Paid">Paid</option>
+                  <option value="Overdue">Overdue</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 5: Compliance Dates */}
+          <div className="space-y-5 pt-4 border-t border-slate-100">
+            <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.4em] flex items-center gap-2">
+              Section 5 • Compliance & Follow-up Schedule
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">VAT Due Date</label>
+                <input
+                  type="date"
+                  value={form.vatFilingDueDate ? String(form.vatFilingDueDate).split("T")[0] : ""}
+                  onChange={(e) => setForm(prev => ({ ...prev, vatFilingDueDate: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Corporate Tax Due Date</label>
+                <input
+                  type="date"
+                  value={form.corporateTaxDueDate ? String(form.corporateTaxDueDate).split("T")[0] : ""}
+                  onChange={(e) => setForm(prev => ({ ...prev, corporateTaxDueDate: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Next Follow-up Date</label>
+                <input
+                  type="date"
+                  value={form.nextFollowUpAt ? String(form.nextFollowUpAt).split("T")[0] : ""}
+                  onChange={(e) => setForm(prev => ({ ...prev, nextFollowUpAt: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
+                />
               </div>
             </div>
           </div>
@@ -267,12 +400,107 @@ export default function CrmLeadModal({
                     className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 appearance-none"
                   >
                     <option value="">Unassigned</option>
-                    {teamMembers.filter(m => ["sales", "manager"].includes(m.role)).map(m => (
+                    {teamMembers.filter(m => ["sales", "manager", "tax_consultant"].includes(m.role)).map(m => (
                       <option key={m._id} value={m._id}>{m.name} ({m.role})</option>
                     ))}
                   </select>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* UAE Compliance & Licensing Section */}
+          <div className="space-y-5">
+            <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.4em] flex items-center gap-2">
+              UAE Compliance & Licensing Details
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">TRN (Tax Registration Number)</label>
+                <input
+                  value={form.trn || ""}
+                  onChange={(e) => setForm(prev => ({ ...prev, trn: e.target.value }))}
+                  placeholder="e.g. 100023456700003"
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Trade License Number</label>
+                <input
+                  value={form.tradeLicenseNumber || ""}
+                  onChange={(e) => setForm(prev => ({ ...prev, tradeLicenseNumber: e.target.value }))}
+                  placeholder="e.g. CN-1049281"
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Trade License Expiry Date</label>
+                <input
+                  type="date"
+                  value={form.tradeLicenseExpiryDate ? String(form.tradeLicenseExpiryDate).split("T")[0] : ""}
+                  onChange={(e) => setForm(prev => ({ ...prev, tradeLicenseExpiryDate: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Service Type</label>
+                <select
+                  value={form.serviceType || "Corporate Tax Registration"}
+                  onChange={(e) => setForm(prev => ({ ...prev, serviceType: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
+                >
+                  <option value="Corporate Tax Registration">Corporate Tax Registration</option>
+                  <option value="Corporate Tax Filing">Corporate Tax Filing</option>
+                  <option value="VAT Registration">VAT Registration</option>
+                  <option value="VAT Filing">VAT Filing</option>
+                  <option value="Trade License Renewal">Trade License Renewal</option>
+                  <option value="PRO Services">PRO Services</option>
+                  <option value="Other Services">Other Services</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Work Status</label>
+                <select
+                  value={form.workStatus || "Pending"}
+                  onChange={(e) => setForm(prev => ({ ...prev, workStatus: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Completed">Completed</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Payment Status</label>
+                <select
+                  value={form.paymentStatus || "Pending"}
+                  onChange={(e) => setForm(prev => ({ ...prev, paymentStatus: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="Partial">Partial</option>
+                  <option value="Paid">Paid</option>
+                  <option value="Overdue">Overdue</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">VAT Filing Due Date</label>
+                <input
+                  type="date"
+                  value={form.vatFilingDueDate ? String(form.vatFilingDueDate).split("T")[0] : ""}
+                  onChange={(e) => setForm(prev => ({ ...prev, vatFilingDueDate: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Corporate Tax Due Date</label>
+                <input
+                  type="date"
+                  value={form.corporateTaxDueDate ? String(form.corporateTaxDueDate).split("T")[0] : ""}
+                  onChange={(e) => setForm(prev => ({ ...prev, corporateTaxDueDate: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
+                />
+              </div>
             </div>
           </div>
 

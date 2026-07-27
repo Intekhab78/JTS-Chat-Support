@@ -42,7 +42,9 @@ const AccountsPage = lazyWithRetry(() => import("./pages/AccountsPage.jsx"));
 const CustomerPortalPage = lazyWithRetry(() => import("./pages/CustomerPortalPage.jsx"));
 
 function destinationForRole(role) {
-  if (String(role || "").trim().toLowerCase() === "purchase") return "/purchase";
+  const rawRole = String(role || "").trim().toLowerCase();
+  if (rawRole === "purchase") return "/purchase";
+  if (rawRole === "tax_consultant" || rawRole === "management") return "/client";
   const normalizedRole = normalizeRole(role);
   if (normalizedRole === "customer") return "/customer-portal";
   if (normalizedRole === "accounts") return "/accounts";
@@ -52,7 +54,7 @@ function destinationForRole(role) {
   if (normalizedRole === "admin") return "/admin";
   if (normalizedRole === "client") return "/client";
   if (normalizedRole === "supplier") return "/supplier";
-  return "/agent";
+  return "/client";
 }
 
 function ProtectedRoute({ children, allowedRoles }) {
@@ -98,7 +100,7 @@ export default function App() {
           <Route path="/ticket-status/:ticketId" element={<TicketStatusPage />} />
           <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><ClientPage /></ProtectedRoute>} />
           <Route path="/manager" element={<ProtectedRoute allowedRoles={["manager"]}><ManagerPage /></ProtectedRoute>} />
-          <Route path="/client" element={<ProtectedRoute allowedRoles={["client"]}><ClientPage /></ProtectedRoute>} />
+          <Route path="/client" element={<ProtectedRoute allowedRoles={["client", "manager", "tax_consultant", "management"]}><ClientPage /></ProtectedRoute>} />
           <Route path="/purchase" element={<ProtectedRoute allowedRoles={["purchase"]}><PurchasePage /></ProtectedRoute>} />
           <Route path="/supplier" element={<ProtectedRoute allowedRoles={["supplier"]}><SupplierPage /></ProtectedRoute>} />
           <Route path="/sales" element={<ProtectedRoute allowedRoles={["sales"]}><SalesPage /></ProtectedRoute>} />

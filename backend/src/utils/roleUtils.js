@@ -4,7 +4,7 @@
 import { Website } from "../models/Website.js";
 
 const OWNER_ROLES = new Set(["admin", "client", "manager"]);
-const PERSONNEL_BASE_ROLES = new Set(["agent", "sales", "purchase", "user", "supplier", "accounts"]);
+const PERSONNEL_BASE_ROLES = new Set(["agent", "sales", "purchase", "user", "supplier", "accounts", "tax_consultant"]);
 
 /**
  * Normalises legacy aliases (e.g., user or sales to agent).
@@ -24,6 +24,19 @@ export function normalizeRole(role) {
 export function isPersonnelRole(role) {
   const normalized = String(role || "").trim().toLowerCase();
   return Boolean(normalized) && !OWNER_ROLES.has(normalized);
+}
+
+/**
+ * Row Level Security (RLS) filter generator:
+ * - Tax Consultant / Sales: Returns { ownerId: user._id }
+ * - Admin / Manager: Returns {} (All records)
+ */
+export function getOwnershipQuery(user) {
+  const role = normalizeRole(user?.role);
+  if (role === "tax_consultant" || role === "sales") {
+    return { ownerId: user._id };
+  }
+  return {};
 }
 
 function sanitizeWebsiteIds(ids = []) {

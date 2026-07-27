@@ -11,10 +11,20 @@ import {
 import { forgotPassword, resetPassword } from "../controllers/passwordResetController.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 
+import rateLimit from "express-rate-limit";
+
 const router = Router();
 
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { message: "Too many login attempts from this IP, please try again after 15 minutes." },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 router.post("/register", register);
-router.post("/login", login);
+router.post("/login", loginLimiter, login);
 router.post("/refresh", requireAuth, refresh);
 router.get("/me", requireAuth, me);
 router.post("/agents/register", requireAuth, requireRole("admin", "client"), register);

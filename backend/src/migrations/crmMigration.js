@@ -3,6 +3,7 @@ import { Customer } from "../models/Customer.js";
 import { Company } from "../models/Company.js";
 import { Contact } from "../models/Contact.js";
 import { Pipeline } from "../models/Pipeline.js";
+import { Role } from "../models/Role.js";
 
 function splitName(fullName = "") {
   const parts = fullName.trim().split(/\s+/);
@@ -11,8 +12,94 @@ function splitName(fullName = "") {
   return { firstName, lastName };
 }
 
+const DEFAULT_ROLES = [
+  {
+    name: "admin",
+    description: "Super Administrator with complete access to all modules, settings, and multi-tenant configurations.",
+    permissions: [
+      "crm.view", "crm.create", "crm.update", "crm.archive", "crm.delete", "crm.assign", "crm.merge",
+      "ticket.view", "ticket.create", "ticket.update", "ticket.delete", "ticket.comment",
+      "chat.view", "chat.transfer", "chat.note", "chat.history", "chat.archive",
+      "accounts.view", "invoice.manage", "billing.view",
+      "reports.view", "audit.view", "settings.manage", "role.manage"
+    ]
+  },
+  {
+    name: "manager",
+    description: "Full operational manager with CRM, Ticketing, Chat, Accounting, and Reporting access.",
+    permissions: [
+      "crm.view", "crm.create", "crm.update", "crm.archive", "crm.assign", "crm.merge",
+      "ticket.view", "ticket.create", "ticket.update", "ticket.comment",
+      "chat.view", "chat.transfer", "chat.note", "chat.history",
+      "accounts.view", "invoice.manage", "billing.view", "reports.view", "audit.view"
+    ]
+  },
+  {
+    name: "tax_consultant",
+    description: "Tax Consultant handling assigned clients for VAT, Corporate Tax, and Trade License compliance.",
+    permissions: [
+      "crm.view", "crm.create", "crm.update", "crm.assign",
+      "ticket.view", "ticket.create", "ticket.comment",
+      "chat.view", "chat.note", "reports.view"
+    ]
+  },
+  {
+    name: "sales",
+    description: "Responsible for managing leads, creating prospects, and updating CRM sales records.",
+    permissions: [
+      "crm.view", "crm.create", "crm.update", "crm.assign", "crm.merge",
+      "ticket.view", "ticket.create", "chat.view", "chat.note"
+    ]
+  },
+  {
+    name: "agent",
+    description: "Frontline support agent for managing tickets and communicating with customers via live chat.",
+    permissions: [
+      "ticket.view", "ticket.create", "ticket.update", "ticket.comment",
+      "chat.view", "chat.transfer", "chat.note", "chat.history", "crm.view"
+    ]
+  },
+  {
+    name: "accounts",
+    description: "Handles accounting, invoicing, billing dashboards, and ledger review.",
+    permissions: [
+      "accounts.view", "invoice.manage", "billing.view", "crm.view", "reports.view"
+    ]
+  },
+  {
+    name: "purchase",
+    description: "Manages purchase requests, tracks ticketing pipelines, and vendor status.",
+    permissions: [
+      "ticket.view", "ticket.create", "accounts.view", "billing.view"
+    ]
+  },
+  {
+    name: "management",
+    description: "Executive management with company-wide read-only visibility into reports, dashboards, and audit logs.",
+    permissions: [
+      "crm.view", "ticket.view", "chat.view", "accounts.view", "reports.view", "audit.view"
+    ]
+  },
+  {
+    name: "user",
+    description: "End client self-service portal user for document downloads, invoice payments, and support inquiries.",
+    permissions: [
+      "ticket.view", "ticket.create", "ticket.comment", "accounts.view", "billing.view"
+    ]
+  }
+];
+
 export async function runCrmMigration() {
   console.log("[Migration] Starting JTS CRM Enterprise Migration...");
+
+  // Seed default Roles if missing
+  for (const defRole of DEFAULT_ROLES) {
+    const existing = await Role.findOne({ name: defRole.name });
+    if (!existing) {
+      console.log(`[Migration] Seeding role: ${defRole.name}`);
+      await Role.create(defRole);
+    }
+  }
 
   // 1. Ensure Default Pipelines exist for all Websites
   const customers = await Customer.find({});

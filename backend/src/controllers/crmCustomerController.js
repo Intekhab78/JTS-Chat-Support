@@ -93,33 +93,74 @@ export const listCustomers = asyncHandler(async (req, res) => {
   if (req.query.ownerId) query.ownerId = req.query.ownerId;
   if (includeArchived !== "true") query.archivedAt = null;
 
+  // UAE Compliance Specific Query Filters
+  if (req.query.serviceType) query.serviceType = req.query.serviceType;
+  if (req.query.workStatus) query.workStatus = req.query.workStatus;
+  if (req.query.paymentStatus) query.paymentStatus = req.query.paymentStatus;
+  if (req.query.vatFilingPeriod) query.vatFilingPeriod = req.query.vatFilingPeriod;
+
+  if (req.query.tradeLicenseExpiringDays) {
+    const days = parseInt(req.query.tradeLicenseExpiringDays, 10);
+    const targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() + days);
+    query.tradeLicenseExpiryDate = { $gte: new Date(), $lte: targetDate };
+  }
+
+  // Quick Filter Chips Engine
+  const now = new Date();
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  let startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  let endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
+
+  if (req.query.quickFilter) {
+    switch (req.query.quickFilter) {
+      case "vat_due_today":
+        query.vatFilingDueDate = { $gte: startOfToday, $lte: endOfToday };
+        break;
+      case "ct_due":
+        query.corporateTaxDueDate = { $ne: null };
+        break;
+      case "tl_expiring": {
+        const d30 = new Date();
+        d30.setDate(d30.getDate() + 30);
+        query.tradeLicenseExpiryDate = { $gte: now, $lte: d30 };
+        break;
+      }
+      case "payment_pending":
+        query.paymentStatus = "Pending";
+        break;
+      case "completed_clients":
+        query.workStatus = "Completed";
+        break;
+      case "pending_clients":
+        query.workStatus = "Pending";
+        break;
+      default:
+        break;
+    }
+  }
+
+  // Date Range Filtering
+  if (req.query.startDate || req.query.endDate) {
+    query.createdAt = {};
+    if (req.query.startDate) query.createdAt.$gte = new Date(req.query.startDate);
+    if (req.query.endDate) query.createdAt.$lte = new Date(req.query.endDate);
+  }
+
   if (search) {
     query.$or = [
       { name: new RegExp(search, "i") },
       { email: new RegExp(search, "i") },
       { crn: new RegExp(search, "i") },
       { phone: new RegExp(search, "i") },
-      { companyName: new RegExp(search, "i") }
+      { companyName: new RegExp(search, "i") },
+      { trn: new RegExp(search, "i") },
+      { tradeLicenseNumber: new RegExp(search, "i") },
+      { serviceType: new RegExp(search, "i") }
     ];
   }
-
-  // Sales can see ALL leads in their website scope (not just ownerId-assigned ones)
-  // They can use view=my_leads to filter to their own leads
-  // if (req.user.role === "sales") query.ownerId = req.user._id;  ← removed: too restrictive
-
-  if (req.user.role === "purchase") {
-    query.pipelineStage = "won";
-    query.isLocked = true;
-    query.recordType = "customer";
-  }
-
-  const now = new Date();
-  let startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  let endOfToday = new Date();
-  endOfToday.setHours(23, 59, 59, 999);
-  let sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
   if (view === "my_leads") {
     query.ownerId = req.user._id;
@@ -458,7 +499,10 @@ export const createCustomer = asyncHandler(async (req, res) => {
     name, email, phone, companyName, recordType, leadStatus, dealStage,
     leadSource, leadValue, budget, requirement, timeline, interestLevel,
     leadCategory, probability, expectedCloseDate, decisionMaker, websiteId,
-    status, pipelineStage, priority, ownerId, tags, notes, sessionId
+    status, pipelineStage, priority, ownerId, tags, notes, sessionId,
+    // UAE Compliance Fields
+    trn, tradeLicenseNumber, tradeLicenseExpiryDate, serviceType, workStatus,
+    paymentStatus, vatFilingPeriod, vatFilingDueDate, corporateTaxDueDate
   } = req.body;
 
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
@@ -483,6 +527,10 @@ export const createCustomer = asyncHandler(async (req, res) => {
 
   validateLifecycleTransition({ recordType: "lead", leadStatus: lifecycle.leadStatus, dealStage: null }, lifecycle, true);
 
+  if (trn && String(trn).trim() !== "" && !/^\d{15}$/.test(String(trn).trim())) {
+    throw new AppError("Tax Registration Number (TRN) must be a 15-digit number", 400);
+  }
+
   let resolvedOwnerId = (req.user.role === "sales") ? req.user._id : (ownerId || null);
 
   const customer = await Customer.create({
@@ -501,7 +549,18 @@ export const createCustomer = asyncHandler(async (req, res) => {
     status: lifecycle.status, pipelineStage: lifecycle.pipelineStage,
     stageEnteredAt: new Date(), ownerId: resolvedOwnerId, ownerAssignedAt: resolvedOwnerId ? new Date() : null,
     priority: priority || "medium", tags: Array.isArray(tags) ? tags : [], sourceDetails,
-    internalNotes: notes ? [{ text: String(notes).trim(), authorName: req.user.name, createdAt: new Date() }] : []
+    internalNotes: notes ? [{ text: String(notes).trim(), authorName: req.user.name, createdAt: new Date() }] : [],
+    // UAE Compliance CRM Fields
+    trn: String(trn || "").trim(),
+    tradeLicenseNumber: String(tradeLicenseNumber || "").trim(),
+    tradeLicenseExpiryDate: tradeLicenseExpiryDate ? new Date(tradeLicenseExpiryDate) : null,
+    serviceType: serviceType || "Corporate Tax Registration",
+    workStatus: workStatus || "Pending",
+    paymentStatus: paymentStatus || "Pending",
+    vatFilingPeriod: String(vatFilingPeriod || "").trim(),
+    vatFilingDueDate: vatFilingDueDate ? new Date(vatFilingDueDate) : null,
+    corporateTaxDueDate: corporateTaxDueDate ? new Date(corporateTaxDueDate) : null,
+    lastFollowUpActivityAt: new Date()
   });
 
   await logCrmActivity({
@@ -563,7 +622,7 @@ export const updateCustomer = asyncHandler(async (req, res) => {
   const updates = req.body;
   const previousState = customer.toObject();
 
-  // Allowed fields for direct update — covers all Edit Lead form fields
+  // Allowed fields for direct update — covers all Edit Lead & Compliance form fields
   const ALLOWED_FIELDS = [
     "name", "phone", "email", "companyName",
     "leadValue", "budget", "priority", "tags",
@@ -571,13 +630,22 @@ export const updateCustomer = asyncHandler(async (req, res) => {
     "decisionMaker", "expectedCloseDate", "lostReason",
     "territory", "industry", "competitor", "campaign",
     "leadSource", "notes", "probability",
-    "nextFollowUpAt", "lastFollowUpAt"
+    "nextFollowUpAt", "lastFollowUpAt",
+    // UAE Compliance Fields
+    "trn", "tradeLicenseNumber", "tradeLicenseExpiryDate",
+    "serviceType", "workStatus", "paymentStatus",
+    "vatFilingPeriod", "vatFilingDueDate", "corporateTaxDueDate",
+    "lastFollowUpActivityAt"
   ];
   Object.keys(updates).forEach(key => {
     if (ALLOWED_FIELDS.includes(key)) {
       customer[key] = updates[key];
     }
   });
+
+  if (customer.trn && String(customer.trn).trim() !== "" && !/^\d{15}$/.test(String(customer.trn).trim())) {
+    throw new AppError("Tax Registration Number (TRN) must be a 15-digit number", 400);
+  }
 
   if (updates.pipelineStage) {
     const nextLifecycle = deriveLifecycleFields({
@@ -589,6 +657,10 @@ export const updateCustomer = asyncHandler(async (req, res) => {
     customer.recordType = nextLifecycle.recordType;
     customer.status = nextLifecycle.status;
   }
+
+  // Update last activity timestamp and reset escalation tier on user activity
+  customer.lastFollowUpActivityAt = new Date();
+  customer.lastEscalationLevel = 0;
 
   await customer.save();
 
@@ -602,12 +674,47 @@ export const updateCustomer = asyncHandler(async (req, res) => {
       customerId: customer._id,
       ownerId: req.user._id
     });
-  } else {
+  }
+
+  if (previousState.workStatus !== customer.workStatus) {
     await logCrmActivity({
       websiteId: customer.websiteId,
-      type: "lead_updated",
-      title: "Lead Updated",
-      description: `Lead profile details for ${customer.name} updated.`,
+      type: "work_status_changed",
+      title: "Work Status Updated",
+      description: `Compliance work status changed from "${previousState.workStatus || 'Pending'}" to "${customer.workStatus}".`,
+      customerId: customer._id,
+      ownerId: req.user._id
+    });
+  }
+
+  if (previousState.paymentStatus !== customer.paymentStatus) {
+    await logCrmActivity({
+      websiteId: customer.websiteId,
+      type: "payment_status_changed",
+      title: "Payment Status Updated",
+      description: `Payment status changed from "${previousState.paymentStatus || 'Pending'}" to "${customer.paymentStatus}".`,
+      customerId: customer._id,
+      ownerId: req.user._id
+    });
+  }
+
+  if (previousState.trn !== customer.trn || previousState.tradeLicenseNumber !== customer.tradeLicenseNumber) {
+    await logCrmActivity({
+      websiteId: customer.websiteId,
+      type: "compliance_updated",
+      title: "Compliance Profile Updated",
+      description: `TRN or Trade License details updated for ${customer.name}.`,
+      customerId: customer._id,
+      ownerId: req.user._id
+    });
+  }
+
+  if (String(previousState.ownerId || "") !== String(customer.ownerId || "")) {
+    await logCrmActivity({
+      websiteId: customer.websiteId,
+      type: "consultant_reassigned",
+      title: "Consultant Reassigned",
+      description: `Assigned consultant updated for ${customer.name}.`,
       customerId: customer._id,
       ownerId: req.user._id
     });
@@ -1071,5 +1178,113 @@ export const importCustomers = asyncHandler(async (req, res) => {
     skipped: skippedCount,
     skippedDetails
   });
+});
+
+/**
+ * Enterprise Service Management Controllers
+ */
+export const addCustomerService = asyncHandler(async (req, res) => {
+  const customer = await Customer.findById(req.params.id);
+  if (!customer) throw new AppError("Customer not found", 404);
+
+  const {
+    serviceName,
+    serviceCategory,
+    assignedConsultant,
+    workStatus,
+    priority,
+    startDate,
+    dueDate,
+    paymentStatus,
+    remarks
+  } = req.body;
+
+  if (!serviceName) throw new AppError("Service Name is required", 400);
+
+  const newService = {
+    serviceName,
+    serviceCategory: serviceCategory || "Compliance",
+    assignedConsultant: assignedConsultant || req.user._id,
+    workStatus: workStatus || "Pending",
+    priority: priority || "Medium",
+    startDate: startDate ? new Date(startDate) : new Date(),
+    dueDate: dueDate ? new Date(dueDate) : null,
+    paymentStatus: paymentStatus || "Pending",
+    remarks: remarks || "",
+    createdBy: req.user._id,
+    updatedBy: req.user._id
+  };
+
+  customer.services.push(newService);
+  await customer.save();
+
+  await logCrmActivity({
+    websiteId: customer.websiteId,
+    type: "service_added",
+    title: "New Service Provisioned",
+    description: `Added "${serviceName}" service for client ${customer.name}.`,
+    customerId: customer._id,
+    ownerId: req.user._id
+  });
+
+  res.status(201).json(customer.services[customer.services.length - 1]);
+});
+
+export const updateCustomerService = asyncHandler(async (req, res) => {
+  const customer = await Customer.findById(req.params.id);
+  if (!customer) throw new AppError("Customer not found", 404);
+
+  const service = customer.services.id(req.params.serviceId);
+  if (!service) throw new AppError("Service entry not found", 404);
+
+  const {
+    serviceName,
+    serviceCategory,
+    assignedConsultant,
+    workStatus,
+    priority,
+    startDate,
+    dueDate,
+    completionDate,
+    paymentStatus,
+    remarks,
+    isArchived
+  } = req.body;
+
+  if (serviceName) service.serviceName = serviceName;
+  if (serviceCategory) service.serviceCategory = serviceCategory;
+  if (assignedConsultant) service.assignedConsultant = assignedConsultant;
+  if (workStatus) service.workStatus = workStatus;
+  if (priority) service.priority = priority;
+  if (startDate) service.startDate = new Date(startDate);
+  if (dueDate) service.dueDate = new Date(dueDate);
+  if (completionDate) service.completionDate = new Date(completionDate);
+  if (paymentStatus) service.paymentStatus = paymentStatus;
+  if (remarks !== undefined) service.remarks = remarks;
+  if (isArchived !== undefined) service.isArchived = isArchived;
+  service.updatedBy = req.user._id;
+
+  await customer.save();
+
+  await logCrmActivity({
+    websiteId: customer.websiteId,
+    type: "service_updated",
+    title: "Service Lifecycle Updated",
+    description: `Updated "${service.serviceName}" service parameters.`,
+    customerId: customer._id,
+    ownerId: req.user._id
+  });
+
+  res.json(service);
+});
+
+export const deleteCustomerService = asyncHandler(async (req, res) => {
+  const customer = await Customer.findById(req.params.id);
+  if (!customer) throw new AppError("Customer not found", 404);
+
+  customer.services.pull(req.params.serviceId);
+  await customer.save();
+
+  res.json({ success: true, message: "Service removed successfully" });
 });
 

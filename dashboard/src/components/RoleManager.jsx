@@ -137,6 +137,16 @@ export default function RoleManager() {
     setIsModalOpen(true);
   };
 
+  const handleDeleteRole = async (roleId, roleName) => {
+    if (!window.confirm(`Are you sure you want to delete the role "${roleName.toUpperCase()}"?`)) return;
+    try {
+      await api(`/api/roles/${roleId}`, { method: "DELETE" });
+      loadRoles();
+    } catch (err) {
+      alert(err.message || "Failed to delete role");
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -201,12 +211,22 @@ export default function RoleManager() {
               <div className="w-16 h-16 rounded-3xl bg-slate-50 group-hover:bg-indigo-50 flex items-center justify-center transition-all duration-500 group-hover:rotate-6 shadow-sm">
                 <Lock className="text-slate-300 group-hover:text-indigo-600" size={28} />
               </div>
-              <button 
-                onClick={() => openModal(role)}
-                className="bg-slate-50 hover:bg-indigo-600 text-slate-400 hover:text-white p-3 rounded-xl transition-all shadow-sm group-hover:shadow-indigo-100"
-              >
-                <Edit3 size={16} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => openModal(role)}
+                  title="Edit Role"
+                  className="bg-slate-50 hover:bg-indigo-600 text-slate-400 hover:text-white p-3 rounded-xl transition-all shadow-sm group-hover:shadow-indigo-100"
+                >
+                  <Edit3 size={16} />
+                </button>
+                <button 
+                  onClick={() => handleDeleteRole(role._id, role.name)}
+                  title="Delete Role"
+                  className="bg-slate-50 hover:bg-rose-600 text-slate-400 hover:text-white p-3 rounded-xl transition-all shadow-sm hover:shadow-rose-100"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
 
             <div className="space-y-4">

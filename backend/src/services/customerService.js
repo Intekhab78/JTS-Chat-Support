@@ -58,7 +58,17 @@ export const getOrCreateCustomer = async (data) => {
       ownerId: toObjectId(data.ownerId),   // always ObjectId, never string
       archivedAt: null,          // explicit null so CRM archived filter works correctly
       lastInteraction: new Date(),
-      lastActivity: new Date()
+      lastActivity: new Date(),
+      trn: data.trn || "",
+      tradeLicenseNumber: data.tradeLicenseNumber || "",
+      tradeLicenseExpiryDate: data.tradeLicenseExpiryDate || null,
+      serviceType: data.serviceType || "Corporate Tax Registration",
+      workStatus: data.workStatus || "Pending",
+      paymentStatus: data.paymentStatus || "Pending",
+      vatFilingPeriod: data.vatFilingPeriod || "",
+      vatFilingDueDate: data.vatFilingDueDate || null,
+      corporateTaxDueDate: data.corporateTaxDueDate || null,
+      lastFollowUpActivityAt: data.lastFollowUpActivityAt || new Date()
     });
     await customer.save();
     await incrementCustomers(websiteId);
@@ -76,6 +86,15 @@ export const getOrCreateCustomer = async (data) => {
     if (phone && !customer.phone) {
       customer.phone = phone;
     }
+    if (data.trn) customer.trn = data.trn;
+    if (data.tradeLicenseNumber) customer.tradeLicenseNumber = data.tradeLicenseNumber;
+    if (data.tradeLicenseExpiryDate) customer.tradeLicenseExpiryDate = data.tradeLicenseExpiryDate;
+    if (data.serviceType) customer.serviceType = data.serviceType;
+    if (data.workStatus) customer.workStatus = data.workStatus;
+    if (data.paymentStatus) customer.paymentStatus = data.paymentStatus;
+    if (data.vatFilingDueDate) customer.vatFilingDueDate = data.vatFilingDueDate;
+    if (data.corporateTaxDueDate) customer.corporateTaxDueDate = data.corporateTaxDueDate;
+
     // Set ownerId if not set and one is provided — always store as ObjectId
     if (data.ownerId && !customer.ownerId) {
       customer.ownerId = toObjectId(data.ownerId);

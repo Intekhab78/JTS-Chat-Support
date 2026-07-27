@@ -122,25 +122,41 @@ export default function CrmTableView({
                               </div>
                             )}
                           </div>
-                          <p className="text-[10px] text-slate-400 font-bold truncate">{c.email}</p>
-                          {c.requirement && (
-                            <p className="text-[9px] text-indigo-500 font-bold truncate mt-0.5" title={c.requirement}>
-                              {c.requirement}
-                            </p>
-                          )}
+                          <p className="text-[10px] text-slate-400 font-bold truncate">{c.email} {c.companyName ? `• ${c.companyName}` : ""}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                            {c.trn && (
+                              <span className="text-[8px] font-mono font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                TRN: {c.trn}
+                              </span>
+                            )}
+                            {c.serviceType && (
+                              <span className="text-[8px] font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
+                                {c.serviceType}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-5" onClick={() => openCustomer(c)}>
                       <div>
                         <p className="text-[11px] font-black text-slate-900 uppercase tracking-widest">{c.pipelineStage}</p>
-                        <span className={`px-2 py-0.5 mt-1 inline-block rounded text-[8px] font-black uppercase tracking-widest border ${c.status === "customer" ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
-                          c.status === "lead" ? "bg-sky-50 text-sky-600 border-sky-100" :
-                            c.status === "prospect" ? "bg-indigo-50 text-indigo-600 border-indigo-100" :
-                              "bg-slate-100 text-slate-400 border-slate-200"
+                        <div className="flex items-center gap-1 mt-1">
+                          <span className={`px-2 py-0.5 inline-block rounded text-[8px] font-black uppercase tracking-widest border ${c.status === "customer" ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
+                            c.status === "lead" ? "bg-sky-50 text-sky-600 border-sky-100" :
+                              c.status === "prospect" ? "bg-indigo-50 text-indigo-600 border-indigo-100" :
+                                "bg-slate-100 text-slate-400 border-slate-200"
+                            }`}>
+                            {c.status}
+                          </span>
+                          <span className={`px-1.5 py-0.5 inline-block rounded text-[8px] font-black uppercase tracking-widest border ${
+                            c.workStatus === "Completed" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                            c.workStatus === "In Progress" ? "bg-sky-50 text-sky-700 border-sky-200" :
+                            "bg-amber-50 text-amber-700 border-amber-200"
                           }`}>
-                          {c.status}
-                        </span>
+                            {c.workStatus || "Pending"}
+                          </span>
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-5" onClick={() => openCustomer(c)}>

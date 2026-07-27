@@ -5,7 +5,10 @@ import {
   CRM_LOST_REASONS,
   CRM_PIPELINE_STAGES,
   CRM_RECORD_TYPES,
-  CRM_STATUSES
+  CRM_STATUSES,
+  UAE_PAYMENT_STATUSES,
+  UAE_SERVICES,
+  UAE_WORK_STATUSES
 } from "../constants/domain.js";
 
 const customerAssignmentHistorySchema = new mongoose.Schema({
@@ -14,6 +17,58 @@ const customerAssignmentHistorySchema = new mongoose.Schema({
   reason: { type: String, trim: true, default: "" },
   assignedAt: { type: Date, default: Date.now }
 }, { _id: false });
+
+const customerServiceSchema = new mongoose.Schema(
+  {
+    serviceName: {
+      type: String,
+      enum: [
+        "Corporate Tax Registration",
+        "Corporate Tax Filing",
+        "VAT Registration",
+        "VAT Filing",
+        "Trade License Renewal",
+        "PRO Services",
+        "Other Services"
+      ],
+      required: true
+    },
+    serviceCategory: { type: String, default: "Compliance" },
+    assignedConsultant: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    workStatus: {
+      type: String,
+      enum: [
+        "Pending",
+        "Waiting for Documents",
+        "Documents Received",
+        "In Progress",
+        "Under Review",
+        "Government Submitted",
+        "Completed",
+        "Cancelled"
+      ],
+      default: "Pending"
+    },
+    priority: {
+      type: String,
+      enum: ["Low", "Medium", "High", "Critical"],
+      default: "Medium"
+    },
+    startDate: { type: Date, default: Date.now },
+    dueDate: { type: Date, default: null },
+    completionDate: { type: Date, default: null },
+    paymentStatus: {
+      type: String,
+      enum: ["Pending", "Partial", "Paid", "Overdue"],
+      default: "Pending"
+    },
+    remarks: { type: String, default: "" },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    isArchived: { type: Boolean, default: false }
+  },
+  { timestamps: true }
+);
 
 const customerStageHistorySchema = new mongoose.Schema({
   fromStage: { type: String, enum: [...CRM_STATUSES], default: "new" },
@@ -172,7 +227,43 @@ const customerSchema = new mongoose.Schema(
     scoreHistory: [{
       score: { type: Number, required: true },
       recordedAt: { type: Date, default: Date.now }
-    }]
+    }],
+    // UAE Compliance CRM Extensions (Al Reza Global)
+    trn: { type: String, trim: true, default: "", index: true },
+    tradeLicenseNumber: { type: String, trim: true, default: "", index: true },
+    tradeLicenseExpiryDate: { type: Date, default: null, index: true },
+    serviceType: {
+      type: String,
+      enum: [...UAE_SERVICES, ""],
+      default: "Corporate Tax Registration",
+      index: true
+    },
+    workStatus: {
+      type: String,
+      enum: [...UAE_WORK_STATUSES, ""],
+      default: "Pending",
+      index: true
+    },
+    paymentStatus: {
+      type: String,
+      enum: [...UAE_PAYMENT_STATUSES, ""],
+      default: "Pending",
+      index: true
+    },
+    vatFilingPeriod: { type: String, trim: true, default: "", index: true },
+    vatFilingDueDate: { type: Date, default: null, index: true },
+    corporateTaxDueDate: { type: Date, default: null, index: true },
+    lastFollowUpActivityAt: { type: Date, default: Date.now, index: true },
+    lastEscalationLevel: { type: Number, default: 0, index: true },
+    lastEscalatedAt: { type: Date, default: null },
+    inactivityReminderHistory: [{
+      level: Number,
+      notifiedRole: String,
+      notifiedUserIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+      message: String,
+      sentAt: { type: Date, default: Date.now }
+    }],
+    services: [customerServiceSchema]
   },
   { timestamps: true }
 );
@@ -181,15 +272,25 @@ const customerSchema = new mongoose.Schema(
 customerSchema.index({ email: 1, websiteId: 1 });
 customerSchema.index({ phone: 1, websiteId: 1 });
 customerSchema.index({ companyName: 1, websiteId: 1 });
+customerSchema.index({ trn: 1, websiteId: 1 });
+customerSchema.index({ tradeLicenseNumber: 1, websiteId: 1 });
 
-// Performance indexes for common CRM query patterns
+// Performance indexes for common CRM & Compliance query patterns
 customerSchema.index({ ownerId: 1, archivedAt: 1, pipelineStage: 1 }); // "my leads" + auto-assign
 customerSchema.index({ pipelineStage: 1, updatedAt: 1, websiteId: 1 }); // "won this month" view
 customerSchema.index({ nextFollowUpAt: 1, websiteId: 1 });              // "no follow-up" view
 customerSchema.index({ recordType: 1, leadStatus: 1, dealStage: 1, websiteId: 1 });
+customerSchema.index({ tradeLicenseExpiryDate: 1, websiteId: 1 });
+customerSchema.index({ vatFilingDueDate: 1, websiteId: 1 });
+customerSchema.index({ corporateTaxDueDate: 1, websiteId: 1 });
+customerSchema.index({ lastFollowUpActivityAt: 1, websiteId: 1 });
 
 customerSchema.pre('validate', function (next) {
-  const fieldsToSanitize = ["name", "email", "phone", "companyName", "requirement", "timeline", "leadSource", "pipelineStage", "leadStatus", "dealStage"];
+  const fieldsToSanitize = [
+    "name", "email", "phone", "companyName", "requirement", "timeline",
+    "leadSource", "pipelineStage", "leadStatus", "dealStage",
+    "trn", "tradeLicenseNumber", "serviceType", "workStatus", "paymentStatus"
+  ];
   const invalidStrings = ["undefined", "null", "none", "nan"];
 
   fieldsToSanitize.forEach(field => {
@@ -245,5 +346,17 @@ customerSchema.pre('validate', function (next) {
 
   next();
 });
+
+customerSchema.index({ websiteId: 1, archivedAt: 1, serviceType: 1 });
+customerSchema.index({ websiteId: 1, trn: 1 });
+customerSchema.index({ websiteId: 1, tradeLicenseExpiryDate: 1 });
+customerSchema.index({ websiteId: 1, corporateTaxDueDate: 1 });
+customerSchema.index({ websiteId: 1, vatFilingDueDate: 1 });
+
+// High-Cardinality Performance Compound Indexes
+customerSchema.index({ websiteId: 1, isArchived: 1, createdAt: -1 });
+customerSchema.index({ websiteId: 1, ownerId: 1, status: 1 });
+customerSchema.index({ "services.workStatus": 1, "services.dueDate": 1 });
+customerSchema.index({ websiteId: 1, tradeLicenseExpiry: 1 });
 
 export const Customer = mongoose.model("Customer", customerSchema);

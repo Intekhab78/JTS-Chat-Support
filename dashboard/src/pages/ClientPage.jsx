@@ -30,6 +30,29 @@ import InventoryManager from "../components/InventoryManager.jsx";
 import CustomerManager from "../components/CustomerManager.jsx";
 import BillingPage from "./BillingPage.jsx";
 import ExecutiveFlowDashboard from "../components/ExecutiveFlowDashboard.jsx";
+import VatFilingDashboard from "../components/CrmSystem/VatFilingDashboard.jsx";
+import CorporateTaxDashboard from "../components/CrmSystem/CorporateTaxDashboard.jsx";
+import TradeLicenseDashboard from "../components/CrmSystem/TradeLicenseDashboard.jsx";
+import ComplianceReportsHub from "../components/CrmSystem/ComplianceReportsHub.jsx";
+import RiskRegisterManager from "../components/RiskRegisterManager.jsx";
+import SaaSFinancialCenter from "../components/SaaSFinancialCenter.jsx";
+import SlaManagementCenter from "../components/SlaManagementCenter.jsx";
+import ObservabilityPlatform from "../components/ObservabilityPlatform.jsx";
+import LoadTestCenter from "../components/LoadTestCenter.jsx";
+import ReleaseManagementCenter from "../components/ReleaseManagementCenter.jsx";
+import DeveloperPortalCenter from "../components/DeveloperPortalCenter.jsx";
+import ProductManagementCenter from "../components/ProductManagementCenter.jsx";
+import AiAutomationCenter from "../components/AiAutomationCenter.jsx";
+import ComplianceGovernanceCenter from "../components/ComplianceGovernanceCenter.jsx";
+import MobileReadinessCenter from "../components/MobileReadinessCenter.jsx";
+import EnterpriseIntegrationCenter from "../components/EnterpriseIntegrationCenter.jsx";
+import NoCodeWorkflowCenter from "../components/NoCodeWorkflowCenter.jsx";
+import AppMarketplaceCenter from "../components/AppMarketplaceCenter.jsx";
+import LowCodeStudioCenter from "../components/LowCodeStudioCenter.jsx";
+import CustomCrmModuleCenter from "../components/CustomCrmModuleCenter.jsx";
+import EnterpriseBiCenter from "../components/EnterpriseBiCenter.jsx";
+import MultiOrganizationCenter from "../components/MultiOrganizationCenter.jsx";
+import MissionControlCenter from "../components/MissionControlCenter.jsx";
 import { api } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useWebsite } from "../context/WebsiteContext.jsx";
@@ -408,7 +431,6 @@ export default function ClientPage() {
         if (anaRes) setAnalytics(anaRes);
         if (Array.isArray(queRes)) setQueuedSessions(queRes);
         if (Array.isArray(sesRes)) setSessions(sesRes);
-        if (Array.isArray(webRes) && webRes.length > 0) setWebsites(webRes);
         if (procRes) setProcurementStats(procRes);
         setError("");
       } catch (err) {
@@ -547,6 +569,31 @@ export default function ClientPage() {
       });
       if (canUseCRM) menuItems.push({ label: "CRM", href: "/client?tab=crm" });
       menuItems.push({ label: "Customer Master", href: "/client?tab=inventory-customer" });
+      menuItems.push({ label: "VAT Compliance", href: "/client?tab=vat-compliance" });
+      menuItems.push({ label: "Corporate Tax", href: "/client?tab=corporate-tax" });
+      menuItems.push({ label: "Trade License", href: "/client?tab=trade-license" });
+      menuItems.push({ label: "Compliance Reports", href: "/client?tab=compliance-reports" });
+      menuItems.push({ label: "Risk Register", href: "/client?tab=risk-register" });
+      menuItems.push({ label: "SLA & SLO Center", href: "/client?tab=sla-center" });
+      menuItems.push({ label: "Observability Center", href: "/client?tab=observability" });
+      menuItems.push({ label: "Load & Capacity Center", href: "/client?tab=load-testing" });
+      menuItems.push({ label: "Release Center", href: "/client?tab=release-management" });
+      menuItems.push({ label: "Developer Portal", href: "/client?tab=developer-portal" });
+      menuItems.push({ label: "Product & Roadmap", href: "/client?tab=product-management" });
+      menuItems.push({ label: "AI & Automation Center", href: "/client?tab=ai-automation" });
+      menuItems.push({ label: "Compliance Governance", href: "/client?tab=compliance-governance" });
+      menuItems.push({ label: "Mobile Center", href: "/client?tab=mobile-readiness" });
+      menuItems.push({ label: "Integration Hub", href: "/client?tab=enterprise-integrations" });
+      menuItems.push({ label: "Workflow Builder", href: "/client?tab=workflow-builder" });
+      menuItems.push({ label: "App Marketplace", href: "/client?tab=app-marketplace" });
+      menuItems.push({ label: "Low-Code Studio", href: "/client?tab=lowcode-studio" });
+      menuItems.push({ label: "Custom Modules", href: "/client?tab=custom-crm-modules" });
+      menuItems.push({ label: "Enterprise BI", href: "/client?tab=enterprise-bi" });
+      menuItems.push({ label: "Multi-Org Center", href: "/client?tab=multi-organization" });
+      menuItems.push({ label: "Mission Control", href: "/client?tab=mission-control" });
+      if (user?.role === "admin" || user?.role === "client" || user?.role === "accounts") {
+        menuItems.push({ label: "Financial Center", href: "/client?tab=financial-analytics" });
+      }
     }
 
     if (hasPermission(user, PERMISSIONS.CHAT_VIEW) && canUseShortcuts) {
@@ -721,6 +768,144 @@ export default function ClientPage() {
     content = <CustomerManager websiteId={selectedWebsiteId} />;
   }
 
+  if (tab === "vat-compliance") {
+    title = "VAT Compliance Management";
+    subtitle = "Track and process monthly and quarterly VAT return filings";
+    content = <VatFilingDashboard websiteId={selectedWebsiteId} />;
+  }
+
+  if (tab === "corporate-tax") {
+    title = "Corporate Tax Compliance";
+    subtitle = "Monitor Corporate Tax filing deadlines and live countdown timers";
+    content = <CorporateTaxDashboard websiteId={selectedWebsiteId} />;
+  }
+
+  if (tab === "trade-license") {
+    title = "Trade License Renewal Hub";
+    subtitle = "5-tier color-coded alert bucket monitoring to prevent state DED fines";
+    content = <TradeLicenseDashboard websiteId={selectedWebsiteId} />;
+  }
+
+  if (tab === "compliance-reports") {
+    title = "Compliance Reports Hub";
+    subtitle = "Export PDF, Excel, and CSV compliance intelligence reports";
+    content = <ComplianceReportsHub websiteId={selectedWebsiteId} />;
+  }
+
+  if (tab === "risk-register") {
+    title = "Enterprise Risk Register";
+    subtitle = "CTO & Compliance Risk Governance, Heat Matrices & Mitigation Controls";
+    content = <RiskRegisterManager websiteId={selectedWebsiteId} />;
+  }
+
+  if (tab === "financial-analytics") {
+    title = "SaaS Financial Analytics & Cost Center";
+    subtitle = "Super Admin & Business Owner Revenue, MRR/ARR, Unit Economics & Cost Profitability Controls";
+    content = <SaaSFinancialCenter />;
+  }
+
+  if (tab === "sla-center") {
+    title = "Enterprise SLA / SLO Management Center";
+    subtitle = "Service Level Commitments, Warning Alerts & Automatic Breach Escalation Controls";
+    content = <SlaManagementCenter websiteId={selectedWebsiteId} />;
+  }
+
+  if (tab === "observability") {
+    title = "Enterprise Observability & Telemetry Center";
+    subtitle = "Real-Time System Metrics, Distributed Audit Logs & Smart Alert Rules";
+    content = <ObservabilityPlatform />;
+  }
+
+  if (tab === "load-testing") {
+    title = "Load Testing & Capacity Planning Center";
+    subtitle = "Synthetic In-App Micro-Benchmarks, Stress Simulations & Infrastructure Scaling Recommendations";
+    content = <LoadTestCenter />;
+  }
+
+  if (tab === "release-management") {
+    title = "Production Readiness & Release Management Center";
+    subtitle = "Go-Live Pre-Flight Checklists, Multi-Stage Approval Workflows, Smoke Testing & Rollback Safety Controls";
+    content = <ReleaseManagementCenter />;
+  }
+
+  if (tab === "developer-portal") {
+    title = "Developer Portal & Engineering Hub";
+    subtitle = "API Reference, Mongoose Schemas Explorer, Code Standards & Engineering Telemetry";
+    content = <DeveloperPortalCenter />;
+  }
+
+  if (tab === "product-management") {
+    title = "Product Management & Strategic Roadmap Center";
+    subtitle = "Vision Milestones, Feature Backlog Kanban, Voting Portal & Feature Flag Control Center";
+    content = <ProductManagementCenter />;
+  }
+
+  if (tab === "ai-automation") {
+    title = "AI Readiness, Automation & Knowledge Center";
+    subtitle = "Provider Abstraction Layer, Prompt Library, Workflow Rule Engine & Document Intelligence Interfaces";
+    content = <AiAutomationCenter />;
+  }
+
+  if (tab === "compliance-governance") {
+    title = "Enterprise Compliance & Governance Center";
+    subtitle = "Global Compliance Frameworks (GDPR, UAE PDPL, SOC 2, ISO 27001), DSAR Data Subject Portal & Retention Rules";
+    content = <ComplianceGovernanceCenter />;
+  }
+
+  if (tab === "mobile-readiness") {
+    title = "Mobile Readiness & PWA Architecture Center";
+    subtitle = "Progressive Web App (PWA), Offline Caching & Sync Queue, Biometrics & Native Hardware Hooks";
+    content = <MobileReadinessCenter />;
+  }
+
+  if (tab === "enterprise-integrations") {
+    title = "Enterprise Integration Hub & Connector Catalog";
+    subtitle = "Third-Party SaaS Connectors, OAuth 2.0 Management, Inbound/Outbound Webhooks & ERP Architecture";
+    content = <EnterpriseIntegrationCenter />;
+  }
+
+  if (tab === "workflow-builder") {
+    title = "No-Code Workflow & Automation Builder";
+    subtitle = "Visual Drag-and-Drop Canvas, Event Triggers, Condition Nodes & Multi-Channel Action Handlers";
+    content = <NoCodeWorkflowCenter />;
+  }
+
+  if (tab === "app-marketplace") {
+    title = "Enterprise App Marketplace & Plugin Architecture";
+    subtitle = "Sandboxed Extension SDK, Plugin Engine Lifecycle & Marketplace Ecosystem";
+    content = <AppMarketplaceCenter />;
+  }
+
+  if (tab === "lowcode-studio") {
+    title = "Low-Code Visual Studio & Layout Builder";
+    subtitle = "Drag & Drop Form Builder, Dashboard Creator, Component Palette & Live Multi-Device Viewport";
+    content = <LowCodeStudioCenter />;
+  }
+
+  if (tab === "custom-crm-modules") {
+    title = "Custom CRM Module & REST API Code Generator";
+    subtitle = "Build Custom Tables, Auto-Generate REST APIs, Role-Based Access Control & Navigation Items";
+    content = <CustomCrmModuleCenter />;
+  }
+
+  if (tab === "enterprise-bi") {
+    title = "Enterprise Business Intelligence & Executive Cockpit";
+    subtitle = "Revenue Forecasting, Cohort Analysis, Heatmaps, Sales Funnel & Scheduled Executive Digests";
+    content = <EnterpriseBiCenter />;
+  }
+
+  if (tab === "multi-organization") {
+    title = "Multi-Organization & Holding Group Platform";
+    subtitle = "Holding Companies, Regional Subsidiaries, Shared Resource Policies & Consolidated Billing";
+    content = <MultiOrganizationCenter />;
+  }
+
+  if (tab === "mission-control") {
+    title = "Enterprise Mission Control Center";
+    subtitle = "Master System Telemetry, Real-Time Service Health, Live Command Palette & Executive AI Insights";
+    content = <MissionControlCenter />;
+  }
+
   if (tab === "security") {
     title = "Security Center";
     subtitle = "Two-factor authentication, audit logs, and webhook delivery visibility";
@@ -798,7 +983,7 @@ export default function ClientPage() {
   }
 
   // Handle other tabs generically for now
-  if (!["overview", "chats", "websites", "agents", "clients", "reports", "tickets", "shortcuts", "history", "categories", "departments", "crm", "security", "billing", "subscriptions", "roles", "inventory-customer", "flow-analytics", "help-center", "inventory", "inventory-master", "inventory-stock-in", "inventory-stock-out", "inventory-adjustment", "inventory-history", "inventory-category", "inventory-subcategory", "inventory-brand", "inventory-size", "inventory-color", "inventory-unit", "inventory-supplier"].includes(tab)) {
+  if (!["overview", "chats", "websites", "agents", "clients", "reports", "tickets", "shortcuts", "history", "categories", "departments", "crm", "security", "billing", "subscriptions", "roles", "inventory-customer", "flow-analytics", "help-center", "inventory", "inventory-master", "inventory-stock-in", "inventory-stock-out", "inventory-adjustment", "inventory-history", "inventory-category", "inventory-subcategory", "inventory-brand", "inventory-size", "inventory-color", "inventory-unit", "inventory-supplier", "vat-compliance", "corporate-tax", "trade-license", "compliance-reports", "risk-register", "financial-analytics", "sla-center", "observability", "load-testing", "release-management", "developer-portal", "product-management", "ai-automation", "compliance-governance", "mobile-readiness", "enterprise-integrations", "workflow-builder", "app-marketplace", "lowcode-studio", "custom-crm-modules", "enterprise-bi", "multi-organization", "mission-control"].includes(tab)) {
     content = (
       <div className="bg-white p-24 rounded-[40px] border border-slate-200/60 shadow-sm text-center">
         <div className="max-w-xs mx-auto space-y-4">

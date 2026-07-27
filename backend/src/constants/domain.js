@@ -6,7 +6,9 @@ export const ROLES = Object.freeze({
   SALES: "sales",
   PURCHASE: "purchase",
   ACCOUNTS: "accounts",
-  USER: "user"
+  USER: "user",
+  TAX_CONSULTANT: "tax_consultant",
+  MANAGEMENT: "management"
 });
 
 export const ROLE_VALUES = Object.freeze(Object.values(ROLES));
@@ -75,7 +77,35 @@ export const NOTIFICATION_TYPES = Object.freeze([
   "procurement_invoice_uploaded",
   "inventory_low_stock",
   "chat_transferred",
-  "activity_alert"
+  "activity_alert",
+  "vat_filing_due",
+  "corporate_tax_due",
+  "trade_license_expiring",
+  "overdue_compliance",
+  "unattended_client_alert"
+]);
+
+export const UAE_SERVICES = Object.freeze([
+  "Corporate Tax Registration",
+  "Corporate Tax Filing",
+  "VAT Registration",
+  "VAT Filing",
+  "Trade License Renewal",
+  "PRO Services",
+  "Other Services"
+]);
+
+export const UAE_WORK_STATUSES = Object.freeze([
+  "Pending",
+  "In Progress",
+  "Completed"
+]);
+
+export const UAE_PAYMENT_STATUSES = Object.freeze([
+  "Pending",
+  "Partial",
+  "Paid",
+  "Overdue"
 ]);
 
 export const ACTIVITY_ENTITY_TYPES = Object.freeze([

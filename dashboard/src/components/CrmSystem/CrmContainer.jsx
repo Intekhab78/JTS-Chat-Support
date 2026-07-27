@@ -6,7 +6,7 @@ import {
   Package, FileText, ShoppingCart, BarChart3, Repeat, Receipt,
   Inbox, MessageSquare, LifeBuoy, Award, GitFork, History,
   Cpu, BarChart2, ShieldAlert, Terminal, Sparkles, CreditCard,
-  Calendar, Video, Target, Mail
+  Calendar, Video, Target, Mail, FileCheck, Calculator
 } from "lucide-react";
 import MagicCelebration from "./MagicCelebration.jsx";
 
@@ -58,6 +58,10 @@ import MeetingPlatformsManager from "./MeetingPlatformsManager.jsx";
 import CrmSalesTargets from "./CrmSalesTargets.jsx";
 import CrmActivityFeed from "./CrmActivityFeed.jsx";
 import CrmTasksView from "./CrmTasksView.jsx";
+import VatFilingDashboard from "./VatFilingDashboard.jsx";
+import CorporateTaxDashboard from "./CorporateTaxDashboard.jsx";
+import TradeLicenseDashboard from "./TradeLicenseDashboard.jsx";
+import ComplianceReportsHub from "./ComplianceReportsHub.jsx";
 
 const crmGroups = [
   {
@@ -97,6 +101,17 @@ const crmGroups = [
       { id: "subscriptions", label: "Subscriptions", icon: Repeat },
       { id: "invoices", label: "Invoices", icon: Receipt },
       { id: "payments-ledger", label: "Payments Ledger", icon: CreditCard },
+    ]
+  },
+  {
+    id: "compliance",
+    label: "Compliance Suite",
+    icon: Shield,
+    items: [
+      { id: "vat-dashboard", label: "VAT Filing", icon: FileCheck },
+      { id: "ct-dashboard", label: "Corporate Tax", icon: Calculator },
+      { id: "tl-dashboard", label: "Trade License Expiry", icon: ShieldAlert },
+      { id: "compliance-reports", label: "Compliance Reports", icon: FileText },
     ]
   },
   {
@@ -152,12 +167,13 @@ export default function CrmContainer({
   const { user } = useAuth();
   const socket = useSocket();
 
-  // -- Permissions --
-  const isSales = user?.role === "sales";
-  const canEditCRM = hasPermission(user, PERMISSIONS.CRM_UPDATE);
-  const canAssignOwners = hasPermission(user, PERMISSIONS.CRM_ASSIGN_OWNER);
-  const canManagePipeline = hasPermission(user, PERMISSIONS.CRM_UPDATE);
-  const canCreateLead = hasPermission(user, PERMISSIONS.CRM_CREATE);
+  // -- Role & RBAC Flags --
+  const isSales = user?.role === "sales" || user?.role === "tax_consultant";
+  const isManagement = user?.role === "management";
+  const canEditCRM = hasPermission(user, PERMISSIONS.CRM_UPDATE) && !isManagement;
+  const canAssignOwners = hasPermission(user, PERMISSIONS.CRM_ASSIGN_OWNER) && !isManagement;
+  const canManagePipeline = hasPermission(user, PERMISSIONS.CRM_UPDATE) && !isManagement;
+  const canCreateLead = hasPermission(user, PERMISSIONS.CRM_CREATE) && !isManagement;
   const isManager = user?.role === "manager";
 
   // -- Pipeline Stage Persistence --
@@ -175,7 +191,7 @@ export default function CrmContainer({
   const [viewMode, setViewMode] = useState("board");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [leadView, setLeadView] = useState(isSales ? "my_leads" : "all");
+  const [leadView, setLeadView] = useState((isSales || user?.role === "tax_consultant") ? "my_leads" : "all");
   const [recordCategoryTab, setRecordCategoryTab] = useState("all");
   const [workspaceTab, setWorkspaceTab] = useState("dashboard");
   const activeGroup = crmGroups.find(group => group.items.some(item => item.id === workspaceTab)) || crmGroups[0];
@@ -187,6 +203,10 @@ export default function CrmContainer({
   const [sourceFilter, setSourceFilter] = useState("");
   const [healthFilter, setHealthFilter] = useState("");
   const [stageFilter, setStageFilter] = useState("");
+  const [serviceTypeFilter, setServiceTypeFilter] = useState("");
+  const [workStatusFilter, setWorkStatusFilter] = useState("");
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
+  const [quickFilter, setQuickFilter] = useState("");
 
   // -- Drawer & Selection --
   const [showDrawer, setShowDrawer] = useState(false);
@@ -220,7 +240,11 @@ export default function CrmContainer({
     requirement: "", timeline: "", interestLevel: "warm", leadCategory: "warm",
     probability: "", expectedCloseDate: "", decisionMaker: "", lostReason: "",
     websiteId: websiteId || "", status: "new", pipelineStage: "new",
-    priority: "medium", ownerId: "", tags: "", notes: "", sessionId: ""
+    priority: "medium", ownerId: "", tags: "", notes: "", sessionId: "",
+    // UAE Compliance Fields
+    trn: "", tradeLicenseNumber: "", tradeLicenseExpiryDate: "",
+    serviceType: "Corporate Tax Registration", workStatus: "Pending", paymentStatus: "Pending",
+    vatFilingPeriod: "", vatFilingDueDate: "", corporateTaxDueDate: ""
   });
 
   // -- Notifications --
@@ -303,6 +327,10 @@ export default function CrmContainer({
         leadSource: sourceFilter,
         healthStatus: healthFilter,
         pipelineStage: stageFilter,
+        serviceType: serviceTypeFilter,
+        workStatus: workStatusFilter,
+        paymentStatus: paymentStatusFilter,
+        quickFilter,
         range: activeRange
       };
 
@@ -736,7 +764,17 @@ export default function CrmContainer({
       ownerId: initData.ownerId || user?._id || "",
       tags: "",
       notes: initData.notes || "",
-      sessionId: initData.sessionId || ""
+      sessionId: initData.sessionId || "",
+      // UAE Compliance Fields
+      trn: initData.trn || "",
+      tradeLicenseNumber: initData.tradeLicenseNumber || "",
+      tradeLicenseExpiryDate: initData.tradeLicenseExpiryDate ? String(initData.tradeLicenseExpiryDate).substring(0, 10) : "",
+      serviceType: initData.serviceType || "Corporate Tax Registration",
+      workStatus: initData.workStatus || "Pending",
+      paymentStatus: initData.paymentStatus || "Pending",
+      vatFilingPeriod: initData.vatFilingPeriod || "",
+      vatFilingDueDate: initData.vatFilingDueDate ? String(initData.vatFilingDueDate).substring(0, 10) : "",
+      corporateTaxDueDate: initData.corporateTaxDueDate ? String(initData.corporateTaxDueDate).substring(0, 10) : ""
     });
     setShowCreateLead(true);
   };
@@ -772,6 +810,16 @@ export default function CrmContainer({
       tags: target.tags ? target.tags.join(", ") : "",
       notes: "",
       sessionId: target.sessionId || "",
+      // UAE Compliance Fields
+      trn: target.trn || "",
+      tradeLicenseNumber: target.tradeLicenseNumber || "",
+      tradeLicenseExpiryDate: target.tradeLicenseExpiryDate ? String(target.tradeLicenseExpiryDate).substring(0, 10) : "",
+      serviceType: target.serviceType || "Corporate Tax Registration",
+      workStatus: target.workStatus || "Pending",
+      paymentStatus: target.paymentStatus || "Pending",
+      vatFilingPeriod: target.vatFilingPeriod || "",
+      vatFilingDueDate: target.vatFilingDueDate ? String(target.vatFilingDueDate).substring(0, 10) : "",
+      corporateTaxDueDate: target.corporateTaxDueDate ? String(target.corporateTaxDueDate).substring(0, 10) : "",
       ...forceOverrides
     });
     setEditLeadId(target._id);
@@ -1273,10 +1321,11 @@ export default function CrmContainer({
                   <input
                     value={search}
                     onChange={(e) => handleSearchChange(e.target.value)}
-                    placeholder="Search pipeline…"
+                    placeholder="Search Company, Owner, TRN, License No, Service Scope…"
                     className="w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 py-3 text-xs font-bold text-slate-700 outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-500/5 placeholder:text-slate-300"
                   />
                 </div>
+
                 <div className="flex items-center rounded-2xl border border-slate-200 bg-slate-50 p-1.5">
                   <button onClick={() => setViewMode("board")} className={`rounded-xl px-4 py-2 text-[10px] font-black uppercase ${viewMode === "board" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500"}`}>Board</button>
                   <button onClick={() => setViewMode("list")} className={`rounded-xl px-4 py-2 text-[10px] font-black uppercase ${viewMode === "list" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500"}`}>List</button>
@@ -1301,6 +1350,48 @@ export default function CrmContainer({
                       <Plus size={14} /> New Lead
                     </button>
                   </>
+                )}
+              </div>
+
+              {/* Quick Filter Chips Bar */}
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 mr-1">Quick Filters:</span>
+                {[
+                  { key: "vat_due_today", label: "VAT Due Today" },
+                  { key: "ct_due", label: "Corporate Tax Due" },
+                  { key: "tl_expiring", label: "License Expiring" },
+                  { key: "payment_pending", label: "Payment Pending" },
+                  { key: "completed_clients", label: "Completed Clients" },
+                  { key: "pending_clients", label: "Pending Clients" }
+                ].map(chip => {
+                  const isActive = quickFilter === chip.key;
+                  return (
+                    <button
+                      key={chip.key}
+                      onClick={() => setQuickFilter(isActive ? "" : chip.key)}
+                      className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all border ${
+                        isActive
+                          ? "bg-indigo-600 text-white border-indigo-700 shadow-sm"
+                          : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      {chip.label}
+                    </button>
+                  );
+                })}
+                {(quickFilter || search || serviceTypeFilter || workStatusFilter || paymentStatusFilter) && (
+                  <button
+                    onClick={() => {
+                      setQuickFilter("");
+                      setSearch("");
+                      setServiceTypeFilter("");
+                      setWorkStatusFilter("");
+                      setPaymentStatusFilter("");
+                    }}
+                    className="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider text-rose-500 hover:bg-rose-50 transition-all"
+                  >
+                    Reset Filters
+                  </button>
                 )}
                 {canManagePipeline && (
                   <button onClick={() => setShowStageEditor(true)} className="inline-flex items-center gap-2 rounded-2xl bg-white border border-slate-200 px-4 py-3 text-[10px] font-black uppercase text-slate-700 hover:bg-slate-50 transition-all">
@@ -1415,6 +1506,22 @@ export default function CrmContainer({
 
       {workspaceTab === "payments-ledger" && (
         <CrmPaymentsLedgerView websiteId={websiteId} />
+      )}
+
+      {workspaceTab === "vat-dashboard" && (
+        <VatFilingDashboard websiteId={websiteId} teamMembers={teamMembers} onOpenCustomer={(c) => setActiveCustomer360Id(c._id)} />
+      )}
+
+      {workspaceTab === "ct-dashboard" && (
+        <CorporateTaxDashboard websiteId={websiteId} teamMembers={teamMembers} onOpenCustomer={(c) => setActiveCustomer360Id(c._id)} />
+      )}
+
+      {workspaceTab === "tl-dashboard" && (
+        <TradeLicenseDashboard websiteId={websiteId} teamMembers={teamMembers} onOpenCustomer={(c) => setActiveCustomer360Id(c._id)} />
+      )}
+
+      {workspaceTab === "compliance-reports" && (
+        <ComplianceReportsHub websiteId={websiteId} teamMembers={teamMembers} />
       )}
 
       {workspaceTab === "inbox" && (

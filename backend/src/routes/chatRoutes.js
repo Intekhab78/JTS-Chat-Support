@@ -12,23 +12,23 @@ import { upload } from "../utils/multerConfig.js";
 const router = Router();
 
 router.get("/admin/sessions", requireAuth, requireRole("admin"), listManagerSessions);
-router.get("/client/sessions", requireAuth, requireRole("admin", "client"), listManagerSessions);
-router.get("/agent/sessions", requireAuth, requireRole("agent", "sales", "user"), listAgentSessions);
+router.get("/client/sessions", requireAuth, requireRole("admin", "client", "manager", "management"), listManagerSessions);
+router.get("/agent/sessions", requireAuth, requireRole("agent", "sales", "user", "tax_consultant", "management", "manager", "accounts", "purchase"), listAgentSessions);
 router.get("/sessions", requireAuth, async (req, res, next) => {
   try {
     const role = req.user.role;
-    if (role === "admin" || role === "client" || role === "manager") return await listManagerSessions(req, res, next);
+    if (role === "admin" || role === "client" || role === "manager" || role === "management") return await listManagerSessions(req, res, next);
     if (role === "sales") return await listSalesSessions(req, res, next);
     return await listAgentSessions(req, res, next);
   } catch (err) {
     next(err);
   }
 });
-router.get("/queued", requireAuth, requireRole("admin", "client"), listQueuedSessions);
-router.get("/history", requireAuth, requireRole("admin", "client", "manager"), getChatHistory);
+router.get("/queued", requireAuth, listQueuedSessions);
+router.get("/history", requireAuth, getChatHistory);
 router.get("/sessions/:sessionId/messages", requireAuth, getSessionMessages);
 router.get("/sessions/:sessionId/activity", requireAuth, getSessionActivity);
-router.patch("/sessions/:sessionId/accept", requireAuth, requireRole("admin", "client", "agent", "sales", "user"), acceptChatSession);
+router.patch("/sessions/:sessionId/accept", requireAuth, acceptChatSession);
 router.patch("/sessions/:sessionId/close", requireAuth, closeChatSession);
 router.patch("/sessions/:sessionId/archive", requireAuth, archiveChatSession);
 router.patch("/sessions/:sessionId/restore", requireAuth, restoreChatSession);

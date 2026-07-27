@@ -10,6 +10,8 @@ import {
 } from "./reminderSchedulerService.js";
 import { User } from "../models/User.js";
 import { sendEmail, getEmailTemplate } from "./emailService.js";
+import { checkUnattendedClientsAndEscalate } from "./complianceInactivityService.js";
+import { runDatabaseBackup } from "./backupService.js";
 
 export const startCronJobs = () => {
 
@@ -61,10 +63,16 @@ export const startCronJobs = () => {
     checkSubscriptionRenewalReminders();
   });
 
-  // 8. JTS Workspace Expiry Reminders — fires daily at 8:00 AM (7 days before expiresAt)
+  // 9. Compliance Unattended Client Escalation Check — fires daily at 8:00 AM
   cron.schedule("0 8 * * *", () => {
-    console.log("[Cron] Running JTS Workspace Expiry Reminder check...");
-    checkWorkspaceSubscriptionExpirations();
+    console.log("[Cron] Running Compliance Unattended Client Escalation check...");
+    checkUnattendedClientsAndEscalate();
+  });
+
+  // 10. Enterprise Automated Backup Job — fires daily at midnight (00:00 AM)
+  cron.schedule("0 0 * * *", () => {
+    console.log("[Cron] Running Automated Enterprise Backup snapshot...");
+    runDatabaseBackup({ type: "daily" });
   });
 
   console.log("[Cron] ✅ All reminder cron jobs registered:");
@@ -75,6 +83,8 @@ export const startCronJobs = () => {
   console.log("  • Daily @ 8 AM  → PO Delivery Reminders");
   console.log("  • Mon-Fri @ 9AM → Stale Deal Alerts");
   console.log("  • Daily @ 8 AM  → JTS Workspace Expiry Alerts");
+  console.log("  • Daily @ 8 AM  → Compliance Unattended Client Escalation Alerts");
+  console.log("  • Daily @ 0 AM  → Enterprise Automated Backup Snapshots");
 };
 
 export async function checkWorkspaceSubscriptionExpirations() {

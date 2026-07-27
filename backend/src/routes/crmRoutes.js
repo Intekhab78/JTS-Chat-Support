@@ -56,11 +56,12 @@ import adminRoutes from "./crmAdminRoutes.js";
 import integrationRoutes from "./crmIntegrationRoutes.js";
 import meetingPlatformRoutes from "./meetingPlatformRoutes.js";
 import salesTargetRoutes from "./crmSalesTargetRoutes.js";
+import complianceRoutes from "./crmComplianceRoutes.js";
 
 const router = Router();
 
-// All CRM routes require auth + at minimum sales/manager/agent/accounts access
-router.use(requireAuth, requireRole("admin", "client", "manager", "agent", "sales", "purchase", "accounts"));
+// All CRM routes require auth + at minimum sales/manager/agent/accounts/tax_consultant/management access
+router.use(requireAuth, requireRole("admin", "client", "manager", "agent", "sales", "purchase", "accounts", "tax_consultant", "management"));
 router.use(attachOwnedWebsiteIds);
 router.use(attachTenantSubscription);
 router.use(requirePlanFeature("crm"));
@@ -99,6 +100,7 @@ router.use("/documents", documentRoutes);
 router.use("/reminders", reminderRoutes);
 router.use("/meeting-platforms", meetingPlatformRoutes);
 router.use("/sales-targets", salesTargetRoutes);
+router.use("/compliance", complianceRoutes);
 
 // Analytics & Reports (Move above /:id to avoid shadowing)
 router.get("/reports", requireRole("admin", "client", "manager"), analyticsController.getCrmReports);
@@ -165,6 +167,11 @@ router.get("/employees", customerController.getEmployees);
 router.get("/:id/portal-access", requireRole("admin", "client", "manager", "agent", "sales"), customerController.getPortalAccessStatus);
 router.post("/:id/portal-access", requireRole("admin", "client", "manager", "agent", "sales"), customerController.grantPortalAccess);
 router.delete("/:id/portal-access", requireRole("admin", "client", "manager", "agent", "sales"), customerController.revokePortalAccess);
+
+// Enterprise Service Management
+router.post("/:id/services", requireRole("admin", "client", "manager", "sales", "tax_consultant"), customerController.addCustomerService);
+router.put("/:id/services/:serviceId", requireRole("admin", "client", "manager", "sales", "tax_consultant"), customerController.updateCustomerService);
+router.delete("/:id/services/:serviceId", requireRole("admin", "client", "manager", "sales", "tax_consultant"), customerController.deleteCustomerService);
 
 // Parameterized Routes (Keep at bottom to avoid shadowing)
 router.get("/:id", customerController.getCustomerProfile);

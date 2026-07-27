@@ -2,9 +2,10 @@ import React, { useState, useEffect } from "react";
 import {
   Plus, Search, Edit2, Trash2, Save, X, User, Mail, Phone,
   Building2, Calendar, ShieldCheck, MapPin, Briefcase,
-  DollarSign, Hash, Layers, Info, CheckCircle2, Clock
+  DollarSign, Hash, Layers, Info, CheckCircle2, Clock, Eye
 } from "lucide-react";
 import { api } from "../api/client";
+import Customer360View from "./CrmSystem/Customer360View.jsx";
 
 const getDisplayTerritory = (item) => {
   if (item.territory && item.territory.trim() !== "") return item.territory;
@@ -45,6 +46,7 @@ export default function CustomerManager({ websiteId }) {
 
   const [portalAccess, setPortalAccess] = useState({ active: false, email: "" });
   const [portalLoading, setPortalLoading] = useState(false);
+  const [selectedCustomerFor360, setSelectedCustomerFor360] = useState(null);
 
   async function loadData() {
     setLoading(true);
@@ -290,14 +292,14 @@ export default function CustomerManager({ websiteId }) {
                 </tr>
               ) : filteredItems.map((item) => (
                 <tr key={item._id} className="hover:bg-indigo-50/30 transition-all duration-300 group">
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 cursor-pointer" onClick={() => setSelectedCustomerFor360(item._id)}>
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-2xl bg-slate-950 flex items-center justify-center text-white text-sm font-black shadow-lg shadow-slate-200 group-hover:scale-105 transition-transform duration-500 relative overflow-hidden shrink-0">
                         <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                         {item.name?.charAt(0).toUpperCase() || "C"}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-black text-slate-900 truncate tracking-tight">{item.name}</p>
+                        <p className="text-sm font-black text-slate-900 truncate tracking-tight hover:text-indigo-600 transition-colors">{item.name}</p>
                         <div className="flex items-center gap-1.5 mt-0.5">
                           <Building2 size={10} className="text-slate-300" />
                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest truncate">{item.companyName || "Private Account"}</p>
@@ -346,9 +348,18 @@ export default function CustomerManager({ websiteId }) {
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
                       <button
+                        onClick={() => setSelectedCustomerFor360(item._id)}
+                        className="w-8 h-8 flex items-center justify-center rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+                        title="View 360° Profile & Vault"
+                        aria-label="View 360 Degree Customer Profile"
+                      >
+                        <Eye size={14} />
+                      </button>
+                      <button
                         onClick={() => openDrawer(item)}
                         className="w-8 h-8 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-all"
                         title="Edit"
+                        aria-label="Edit Customer Record"
                       >
                         <Edit2 size={14} />
                       </button>
@@ -356,6 +367,7 @@ export default function CustomerManager({ websiteId }) {
                         onClick={() => handleDelete(item._id)}
                         className="w-8 h-8 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-rose-600 hover:border-rose-200 transition-all"
                         title="Purge"
+                        aria-label="Delete Customer Record"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -603,6 +615,14 @@ export default function CustomerManager({ websiteId }) {
             </div>
           </div>
         </>
+      )}
+
+      {selectedCustomerFor360 && (
+        <Customer360View
+          customerId={selectedCustomerFor360}
+          websiteId={websiteId}
+          onClose={() => setSelectedCustomerFor360(null)}
+        />
       )}
     </div>
   );
