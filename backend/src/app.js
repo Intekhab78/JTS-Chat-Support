@@ -63,7 +63,7 @@ const __dirname = path.dirname(__filename);
 
 export function createApp() {
   const app = express();
-  app.set("trust proxy", 1);
+  app.set("trust proxy", true);
   const publicCorsPaths = [
     "/chat-widget.js",
     "/api/widget/",
@@ -138,6 +138,7 @@ export function createApp() {
     message: { status: "error", message: "Too many login attempts for this account. Please try again in 1 minute." },
     standardHeaders: true,
     legacyHeaders: false,
+    validate: { xForwardedForHeader: false },
     keyGenerator: (req) => {
       // Partition rate limiting per account (email + IP) so 5000 users behind the same corporate office NAT/VPN never block each other
       const email = req.body && typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
@@ -152,6 +153,7 @@ export function createApp() {
     max: 500000, // Unlimited capacity for enterprise traffic
     windowMs: 15 * 60 * 1000,
     message: { status: "error", message: "Too many requests. Please slow down." },
+    validate: { xForwardedForHeader: false },
     skip: (req) => {
       // Completely skip rate limiting for authenticated dashboard users, widget traffic, sockets, and health endpoints
       if (process.env.NODE_ENV === "development" || isLocalRequest(req)) return true;
