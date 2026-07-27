@@ -1,5 +1,5 @@
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
 
@@ -42,9 +42,9 @@ export const exportToPDF = (data, filename, title = "Report") => {
 
   // AutoTable
   const keys = Object.keys(data[0]);
-  const rows = data.map(obj => keys.map(k => obj[k]));
+  const rows = data.map(obj => keys.map(k => (obj[k] !== undefined && obj[k] !== null ? String(obj[k]) : "")));
   
-  doc.autoTable({
+  autoTable(doc, {
     startY: 40,
     head: [keys.map(k => k.toUpperCase())],
     body: rows,

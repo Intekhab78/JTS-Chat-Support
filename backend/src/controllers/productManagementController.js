@@ -4,11 +4,89 @@ import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { logAuditEvent } from "../services/auditService.js";
 
+const SEED_FEATURES = [
+  {
+    title: "UAE FTA E-Invoicing XML & QR Engine",
+    description: "Full compliance with Phase 2 UAE Federal Tax Authority structured e-invoicing standards and QR code signatures.",
+    module: "VAT Compliance",
+    category: "compliance",
+    priority: "critical",
+    businessValue: "critical",
+    status: "released",
+    isFeatureFlagEnabled: true,
+    featureFlagKey: "fta_e_invoicing_v2",
+    targetVersion: "v1.0.0",
+    votesCount: 42
+  },
+  {
+    title: "AI Auto-Classification for Corporate Tax Deductions",
+    description: "LLM-powered engine to categorize deductible vs non-deductible commercial expenses under UAE CT law.",
+    module: "Corporate Tax",
+    category: "ai",
+    priority: "high",
+    businessValue: "high",
+    status: "in_progress",
+    isFeatureFlagEnabled: true,
+    featureFlagKey: "ct_ai_categorizer",
+    targetVersion: "v1.2.0",
+    votesCount: 38
+  },
+  {
+    title: "Automated Trade License Renewal Escalation Workflow",
+    description: "5-tier automated SMS & Email reminder workflow triggered at 60, 30, and 15 days before license expiry.",
+    module: "Trade License",
+    category: "automation",
+    priority: "high",
+    businessValue: "high",
+    status: "testing",
+    isFeatureFlagEnabled: false,
+    featureFlagKey: "trade_license_auto_reminder",
+    targetVersion: "v1.2.0",
+    votesCount: 29
+  },
+  {
+    title: "Omnichannel WhatsApp & Live Chat Ticketing Sync",
+    description: "Seamless synchronization between visitor live chats, WhatsApp Business API, and internal CRM tickets.",
+    module: "Omnichannel Inbox",
+    category: "core",
+    priority: "high",
+    businessValue: "medium",
+    status: "planned",
+    isFeatureFlagEnabled: false,
+    featureFlagKey: "whatsapp_omnichannel_sync",
+    targetVersion: "v1.3.0",
+    votesCount: 19
+  },
+  {
+    title: "Real-time SLA Penalty & SLO Health Dashboard",
+    description: "Visual metrics and breach warnings for Enterprise customer service level agreements.",
+    module: "SLA Management",
+    category: "analytics",
+    priority: "medium",
+    businessValue: "medium",
+    status: "backlog",
+    isFeatureFlagEnabled: false,
+    featureFlagKey: "enterprise_sla_telemetry",
+    targetVersion: "v1.4.0",
+    votesCount: 15
+  }
+];
+
 export const getProductOverview = asyncHandler(async (req, res) => {
-  const features = await ProductFeature.find({})
+  let features = await ProductFeature.find({})
     .populate("ownerId", "name email")
     .populate("createdBy", "name email")
     .sort({ createdAt: -1 });
+
+  if (features.length === 0) {
+    const userId = req.user?._id || null;
+    const seedDocs = SEED_FEATURES.map(sf => ({ ...sf, ownerId: userId, createdBy: userId }));
+    await ProductFeature.insertMany(seedDocs);
+    features = await ProductFeature.find({})
+      .populate("ownerId", "name email")
+      .populate("createdBy", "name email")
+      .sort({ createdAt: -1 });
+  }
 
   const backlogCount = features.filter(f => f.status === "backlog").length;
   const plannedCount = features.filter(f => f.status === "planned").length;
@@ -134,4 +212,13 @@ export const voteFeature = asyncHandler(async (req, res) => {
   });
 
   return res.json(feature);
+});
+
+export const deleteFeature = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const feature = await ProductFeature.findByIdAndDelete(id);
+  if (!feature) {
+    throw new AppError("Product feature not found", 404);
+  }
+  return res.json({ message: "Feature deleted successfully" });
 });

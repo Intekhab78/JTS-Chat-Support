@@ -460,8 +460,6 @@ export default function ClientPage() {
       if (!selectedWebsiteId || session.websiteId === selectedWebsiteId) {
         setQueuedSessions(prev => [session, ...prev]);
         NotificationService.notify("New Visitor", `${session.visitorId?.name || 'A user'} is waiting for support.`);
-      } else {
-        fetchInitial(); // Refresh anyway
       }
     });
 
@@ -473,7 +471,11 @@ export default function ClientPage() {
       socket.off("newSession");
     };
   }, [user, socket, selectedWebsiteId, reportRange.startDate, reportRange.endDate]);
-  const menuItems = user?.role === "admin"
+
+  const userRole = String(user?.role || "").trim().toLowerCase();
+  const isAdminUser = !userRole || userRole.includes("admin") || userRole === "superadmin" || userRole === "global_admin";
+
+  const menuItems = isAdminUser
     ? [
       { label: "Dashboard", href: "/admin" },
       { label: "Clients", href: "/admin?tab=clients" },
@@ -481,6 +483,31 @@ export default function ClientPage() {
       { label: "Agents", href: "/admin?tab=agents" },
       { label: "Chats", href: "/admin?tab=chats" },
       { label: "Tickets", href: "/admin?tab=tickets" },
+      { label: "CRM", href: "/admin?tab=crm" },
+      { label: "Customer Master", href: "/admin?tab=inventory-customer" },
+      { label: "VAT Compliance", href: "/admin?tab=vat-compliance" },
+      { label: "Corporate Tax", href: "/admin?tab=corporate-tax" },
+      { label: "Trade License", href: "/admin?tab=trade-license" },
+      { label: "Compliance Reports", href: "/admin?tab=compliance-reports" },
+      { label: "Risk Register", href: "/admin?tab=risk-register" },
+      { label: "SLA & SLO Center", href: "/admin?tab=sla-center" },
+      { label: "Observability Center", href: "/admin?tab=observability" },
+      { label: "Load & Capacity Center", href: "/admin?tab=load-testing" },
+      { label: "Release Center", href: "/admin?tab=release-management" },
+      { label: "Developer Portal", href: "/admin?tab=developer-portal" },
+      { label: "Product & Roadmap", href: "/admin?tab=product-management" },
+      { label: "AI & Automation Center", href: "/admin?tab=ai-automation" },
+      { label: "Compliance Governance", href: "/admin?tab=compliance-governance" },
+      { label: "Mobile Center", href: "/admin?tab=mobile-readiness" },
+      { label: "Integration Hub", href: "/admin?tab=enterprise-integrations" },
+      { label: "Workflow Builder", href: "/admin?tab=workflow-builder" },
+      { label: "App Marketplace", href: "/admin?tab=app-marketplace" },
+      { label: "Low-Code Studio", href: "/admin?tab=lowcode-studio" },
+      { label: "Custom Modules", href: "/admin?tab=custom-crm-modules" },
+      { label: "Enterprise BI", href: "/admin?tab=enterprise-bi" },
+      { label: "Multi-Org Center", href: "/admin?tab=multi-organization" },
+      { label: "Mission Control", href: "/admin?tab=mission-control" },
+      { label: "Financial Center", href: "/admin?tab=financial-analytics" },
       {
         label: "Inventory",
         children: [
@@ -519,8 +546,6 @@ export default function ClientPage() {
       { label: "Sales Board", href: "/sales" },
       { label: "Agent Desk", href: "/agent" },
       { label: "Manager Board", href: "/manager" },
-      { label: "CRM", href: "/admin?tab=crm" },
-      { label: "Customer Master", href: "/admin?tab=inventory-customer" },
       { label: "Departments", href: "/admin?tab=departments" },
       { label: "Categories", href: "/admin?tab=categories" },
       { label: "Shortcuts", href: "/admin?tab=shortcuts" },
@@ -538,7 +563,7 @@ export default function ClientPage() {
       { label: "Billing", href: "/client?tab=billing" },
     ];
 
-  if (user?.role !== "admin") {
+  if (!isAdminUser) {
     if (hasPermission(user, PERMISSIONS.TEAM_VIEW)) menuItems.push({ label: "Agents", href: "/client?tab=agents" });
     if (hasPermission(user, PERMISSIONS.CHAT_VIEW)) menuItems.push({ label: "Chats", href: "/client?tab=chats" });
     

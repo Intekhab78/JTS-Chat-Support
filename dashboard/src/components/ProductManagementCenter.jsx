@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   Compass, ThumbsUp, ToggleLeft, ToggleRight, Plus, RefreshCw, X, CheckCircle2,
-  AlertTriangle, Layers, Target, Flag, Sparkles, Filter, Users, ArrowUpRight
+  AlertTriangle, Layers, Target, Flag, Sparkles, Filter, Users, ArrowUpRight, ArrowRight, Trash2
 } from "lucide-react";
 import { api } from "../api/client.js";
 
@@ -28,7 +28,8 @@ export default function ProductManagementCenter() {
     category: "core",
     priority: "high",
     businessValue: "high",
-    targetVersion: "v1.1.0"
+    status: "planned",
+    targetVersion: "v1.2.0"
   });
 
   const fetchData = async () => {
@@ -61,7 +62,7 @@ export default function ProductManagementCenter() {
       setShowModal(false);
       fetchData();
     } catch (err) {
-      alert(err.message);
+      alert(err.message || "Failed to create feature");
     }
   };
 
@@ -71,6 +72,31 @@ export default function ProductManagementCenter() {
       fetchData();
     } catch (err) {
       alert(err.message);
+    }
+  };
+
+  const handleMoveStatus = async (id, currentStatus) => {
+    const statusOrder = ["backlog", "planned", "in_progress", "testing", "released"];
+    const currIdx = statusOrder.indexOf(currentStatus);
+    const nextStatus = statusOrder[(currIdx + 1) % statusOrder.length];
+    try {
+      await api(`/api/product-management/features/${id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: nextStatus })
+      });
+      fetchData();
+    } catch (err) {
+      alert(err.message || "Failed to update feature status");
+    }
+  };
+
+  const handleDeleteFeature = async (id, title) => {
+    if (!confirm(`Are you sure you want to delete feature "${title}"?`)) return;
+    try {
+      await api(`/api/product-management/features/${id}`, { method: "DELETE" });
+      fetchData();
+    } catch (err) {
+      alert(err.message || "Failed to delete feature");
     }
   };
 
@@ -195,29 +221,49 @@ export default function ProductManagementCenter() {
           {STATUS_COLUMNS.map((col) => {
             const colFeatures = features.filter(f => f.status === col.key);
             return (
-              <div key={col.key} className="bg-slate-50 p-4 rounded-3xl border border-slate-200/80 space-y-3 shrink-0 min-w-[240px]">
+              <div key={col.key} className="bg-slate-50 p-4 rounded-3xl border border-slate-200/80 space-y-3 shrink-0 min-w-[250px]">
                 <div className="flex items-center justify-between border-b pb-2 border-slate-200">
                   <span className="text-xs font-black uppercase text-slate-900">{col.label}</span>
                   <span className="text-[10px] font-black bg-white px-2 py-0.5 rounded-full border text-slate-600">{colFeatures.length}</span>
                 </div>
 
                 <div className="space-y-3">
-                  {colFeatures.map((feat) => (
-                    <div key={feat._id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-2 hover:shadow-md transition-shadow">
+                  {colFeatures.length === 0 ? (
+                    <div className="p-4 text-center border border-dashed border-slate-200 rounded-2xl">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">No Features</p>
+                    </div>
+                  ) : colFeatures.map((feat) => (
+                    <div key={feat._id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-2.5 hover:shadow-md transition-shadow">
                       <div className="flex items-center justify-between">
                         <span className="text-[8px] font-black uppercase bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded">{feat.category}</span>
-                        <button
-                          onClick={() => handleVote(feat._id)}
-                          className="flex items-center gap-1 text-[10px] font-black text-slate-500 hover:text-indigo-600 transition-colors"
-                        >
-                          <ThumbsUp size={12} /> {feat.votesCount}
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => handleVote(feat._id)}
+                            className="flex items-center gap-1 text-[10px] font-black text-slate-500 hover:text-indigo-600 transition-colors"
+                          >
+                            <ThumbsUp size={12} /> {feat.votesCount || 0}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteFeature(feat._id, feat.title)}
+                            className="p-1 text-slate-300 hover:text-rose-600 transition-colors"
+                            title="Delete Feature"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
                       </div>
                       <h4 className="text-xs font-black text-slate-900 leading-tight">{feat.title}</h4>
-                      <p className="text-[10px] text-slate-500 font-bold line-clamp-2">{feat.description || "Feature enhancement for enterprise workflow."}</p>
+                      <p className="text-[10px] text-slate-500 font-bold line-clamp-2">{feat.description || "Enterprise SaaS feature enhancement."}</p>
+                      
                       <div className="flex items-center justify-between text-[9px] font-bold text-slate-400 pt-2 border-t border-slate-100">
-                        <span>Target: {feat.targetVersion}</span>
-                        <span className="capitalize">{feat.priority}</span>
+                        <span>Target: {feat.targetVersion || "v1.2.0"}</span>
+                        <button
+                          onClick={() => handleMoveStatus(feat._id, feat.status)}
+                          className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-black uppercase tracking-wider"
+                          title="Advance to Next Stage"
+                        >
+                          Next <ArrowRight size={10} />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -277,7 +323,7 @@ export default function ProductManagementCenter() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Add Feature Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowModal(false)} />
@@ -316,9 +362,27 @@ export default function ProductManagementCenter() {
                     <option value="finance">Finance & Billing</option>
                     <option value="observability">Observability</option>
                     <option value="governance">Governance</option>
+                    <option value="ai">AI Automation</option>
                   </select>
                 </div>
 
+                <div>
+                  <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Initial Status</label>
+                  <select
+                    value={form.status}
+                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 outline-none"
+                  >
+                    <option value="backlog">Backlog</option>
+                    <option value="planned">Planned</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="testing">QA & Testing</option>
+                    <option value="released">Released</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Target Version</label>
                   <input
@@ -327,6 +391,19 @@ export default function ProductManagementCenter() {
                     placeholder="e.g. v1.2.0"
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none font-mono"
                   />
+                </div>
+                <div>
+                  <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Priority</label>
+                  <select
+                    value={form.priority}
+                    onChange={(e) => setForm({ ...form, priority: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 outline-none"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
                 </div>
               </div>
 

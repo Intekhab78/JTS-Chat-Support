@@ -92,17 +92,26 @@ export const listSlaPolicies = asyncHandler(async (req, res) => {
 export const createSlaPolicy = asyncHandler(async (req, res) => {
   const { websiteId, name, description, priority, customerType, serviceType, responseTimeTargetHours, resolutionTimeTargetHours, warningThresholdPercent, escalationThresholdPercent, businessHoursOnly, status } = req.body;
 
-  if (!websiteId || !name) {
-    throw new AppError("Website and policy name are required", 400);
+  if (!name) {
+    throw new AppError("Policy name is required", 400);
   }
 
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
-  if (!ownedWebsiteIds.map(id => id.toString()).includes(websiteId)) {
+  let targetWebsiteId = websiteId;
+  if (!targetWebsiteId) {
+    targetWebsiteId = ownedWebsiteIds[0] ? ownedWebsiteIds[0].toString() : null;
+  }
+
+  if (!targetWebsiteId) {
+    throw new AppError("A valid website scope is required to create SLA policies", 400);
+  }
+
+  if (!ownedWebsiteIds.map(id => id.toString()).includes(targetWebsiteId.toString())) {
     throw new AppError("Unauthorized access to website scope", 403);
   }
 
   const policy = await SlaPolicy.create({
-    websiteId,
+    websiteId: targetWebsiteId,
     name,
     description: description || "",
     priority: priority || "Medium",
