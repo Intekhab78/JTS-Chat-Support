@@ -13,6 +13,7 @@ import { getSocketServer } from "../sockets/index.js";
 import { createDraftFromLowStock } from "../services/purchaseOrderService.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
+import { broadcastDataChange } from "../services/dataSyncService.js";
 
 function normalizeText(value = "") {
   return String(value || "").trim();
@@ -235,6 +236,7 @@ export const createInventoryItem = asyncHandler(async (req, res) => {
     .populate("unitId", "name")
     .populate("supplierId", "companyName");
 
+  broadcastDataChange({ entity: "inventory", action: "created", websiteId, data: { id: item._id } });
   res.status(201).json(populatedItem);
 });
 
@@ -286,6 +288,8 @@ export const updateInventoryItem = asyncHandler(async (req, res) => {
     .populate("colorId", "name")
     .populate("unitId", "name")
     .populate("supplierId", "companyName");
+
+  broadcastDataChange({ entity: "inventory", action: "updated", websiteId: item.websiteId, data: { id: item._id } });
 
   res.json(populatedItem);
 });

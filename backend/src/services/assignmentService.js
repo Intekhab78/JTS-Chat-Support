@@ -11,14 +11,20 @@ function normalizeCategory(value) {
  * Optimized Assignment Service
  * Picks the agent with the lowest workload using a single batch query.
  */
-export async function findAvailableAgent({ managerId, websiteId, category = "", roles = ["agent"] }) {
+export async function findAvailableAgent({ managerId, websiteId, category = "", roles = ["agent", "sales"] }) {
   const normalizedCategory = normalizeCategory(category);
+  
+  // Flexible website filter: match specific website ID OR empty/unrestricted websiteIds
+  const websiteFilter = websiteId
+    ? { $or: [{ websiteIds: websiteId }, { websiteIds: { $size: 0 } }, { websiteIds: { $exists: false } }] }
+    : {};
+
   const baseQuery = {
-    role: { $in: roles },
-    managerId,
-    websiteIds: websiteId,
+    role: { $in: ["agent", "sales"] },
     isOnline: true,
-    isAvailable: true
+    isAvailable: { $ne: false },
+    ...(managerId ? { managerId } : {}),
+    ...websiteFilter
   };
 
   // 1. Get all online and available agents for this website in one go

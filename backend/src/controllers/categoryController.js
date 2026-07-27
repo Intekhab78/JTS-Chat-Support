@@ -1,5 +1,6 @@
 import { Category } from "../models/Category.js";
 import { Website } from "../models/Website.js";
+import { broadcastDataChange } from "../services/dataSyncService.js";
 
 export const getCategories = async (req, res) => {
   try {
@@ -51,6 +52,7 @@ export const createCategory = async (req, res) => {
     });
 
     await category.save();
+    broadcastDataChange({ entity: "category", action: "created", websiteId, data: { id: category._id } });
     res.status(201).json(category);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -75,6 +77,7 @@ export const updateCategory = async (req, res) => {
     if (subcategories) category.subcategories = subcategories;
 
     await category.save();
+    broadcastDataChange({ entity: "category", action: "updated", websiteId: category.websiteId, data: { id: category._id } });
     res.json(category);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -92,7 +95,9 @@ export const deleteCategory = async (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
+    const websiteId = category.websiteId;
     await Category.findByIdAndDelete(id);
+    broadcastDataChange({ entity: "category", action: "deleted", websiteId, data: { id } });
     res.json({ message: "Category deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });

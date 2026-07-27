@@ -455,6 +455,7 @@ export default function ClientPage() {
 
     socket.on("sessionUpdate", handleSessionUpdate);
     socket.on("stats:update", handleSessionUpdate);
+    socket.on("data:change", handleSessionUpdate);
     socket.on("newSession", (session) => {
       // Only notify if it belongs to current filter
       if (!selectedWebsiteId || session.websiteId === selectedWebsiteId) {
@@ -468,6 +469,8 @@ export default function ClientPage() {
       socket.off("connect");
       socket.off("connect_error");
       socket.off("sessionUpdate", handleSessionUpdate);
+      socket.off("stats:update", handleSessionUpdate);
+      socket.off("data:change", handleSessionUpdate);
       socket.off("newSession");
     };
   }, [user, socket, selectedWebsiteId, reportRange.startDate, reportRange.endDate]);
@@ -670,7 +673,7 @@ export default function ClientPage() {
   if (tab === "agents") {
     title = "Personnel Command";
     subtitle = "Manage security cleared support personnel";
-    content = <AgentManager />;
+    content = <AgentManager websiteId={selectedWebsiteId} />;
   }
 
   if (tab === "tickets") {

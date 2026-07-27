@@ -3,7 +3,7 @@ import { useSocket } from "../../context/SocketContext.jsx";
 import { createPortal } from "react-dom";
 import {
   X, PlusCircle, Mail, Ticket as TicketIcon, MessageCircle,
-  Tag, Clock, FileText, Zap, Calendar, Shield, Archive, Trash2, UserCheck, Edit2
+  Tag, Clock, FileText, Zap, Calendar, Shield, Archive, Trash2, UserCheck, Edit2, ReceiptText
 } from "lucide-react";
 
 import ActivityTimeline from "../ActivityTimeline.jsx";
@@ -21,6 +21,7 @@ import TasksTab from "./DrawerTabs/TasksTab.jsx";
 import ActionsTab from "./DrawerTabs/ActionsTab.jsx";
 import EmailTab from "./DrawerTabs/EmailTab.jsx";
 import HistoryTimelineTab from "./DrawerTabs/HistoryTimelineTab.jsx";
+import CRMInvoiceTab from "./CrmInvoiceTab.jsx";
 
 export default function CrmDrawer({
   showDrawer,
@@ -337,9 +338,10 @@ export default function CrmDrawer({
               { key: "notes", label: "Notes", icon: Tag, badge: customerDetails?.customer?.internalNotes?.length },
               { key: "tasks", label: "Tasks", icon: Clock, badge: customerDetails?.tasks?.length },
               { key: "quotes", label: "Quotes", icon: FileText },
+              { key: "invoices", label: "Invoices", icon: ReceiptText },
               { key: "journey", label: "Journey", icon: Zap },
               { key: "activity", label: "Timeline", icon: Calendar },
-              { key: "history", label: "Audit Log", icon: Shield }, // New Audit Tab
+              { key: "history", label: "Audit Log", icon: Shield },
               { key: "actions", label: "Actions", icon: Zap }
             ].map((t) => (
               <button
@@ -408,6 +410,13 @@ export default function CrmDrawer({
                     customer={selectedCustomer}
                     websiteId={selectedCustomer?.websiteId?._id || selectedCustomer?.websiteId}
                     onPostWin={onPostWin}
+                    onConverted={() => setDrawerTab("invoices")}
+                  />
+                )}
+                {drawerTab === "invoices" && (
+                  <CRMInvoiceTab
+                    customer={selectedCustomer}
+                    websiteId={selectedCustomer?.websiteId?._id || selectedCustomer?.websiteId}
                   />
                 )}
                 {drawerTab === "journey" && (

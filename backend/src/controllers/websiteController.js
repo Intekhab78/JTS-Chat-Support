@@ -8,6 +8,7 @@ import { User } from "../models/User.js";
 import { resolveSubscriptionForUser } from "../utils/planUtils.js";
 import { autoSeedWebsiteData } from "../services/websiteSetupService.js";
 import { getSocketServer } from "../sockets/index.js";
+import { broadcastDataChange } from "../services/dataSyncService.js";
 
 function buildEmbedScript(apiKey) {
   return `<script>\n  (function(){\n    var s = document.createElement("script");\n    s.src = "${env.widgetPublicUrl}";\n    s.setAttribute("data-api-key", "${apiKey}");\n    document.body.appendChild(s);\n  })();\n</script>`;
@@ -63,6 +64,7 @@ export async function createWebsite(req, res) {
     metadata: { websiteName: website.websiteName, domain: website.domain },
     ipAddress: req.ip
   });
+  broadcastDataChange({ entity: "website", action: "created", websiteId: website._id, data: { id: website._id } });
   const enriched = { ...website.toObject(), embedScript: buildEmbedScript(website.apiKey) };
   return res.status(201).json(enriched);
 }
@@ -111,6 +113,7 @@ export async function updateWebsite(req, res) {
     },
     ipAddress: req.ip
   });
+  broadcastDataChange({ entity: "website", action: "updated", websiteId: website._id, data: { id: website._id } });
   return res.json({ ...website.toObject(), embedScript: buildEmbedScript(website.apiKey) });
 }
 
@@ -158,5 +161,6 @@ export async function deleteWebsite(req, res) {
     ipAddress: req.ip
   });
 
+  broadcastDataChange({ entity: "website", action: "deleted", websiteId: website._id, data: { id: website._id } });
   return res.json({ message: "Website deleted successfully", _id: website._id });
 }

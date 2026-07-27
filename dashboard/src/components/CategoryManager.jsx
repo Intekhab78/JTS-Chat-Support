@@ -4,6 +4,7 @@ import { Plus, Trash2, Edit2, Check, X, Layers, Tag } from "lucide-react";
 import { api } from "../api/client.js";
 import PaginationControls from "./PaginationControls.jsx";
 import { getPaginationMeta } from "../utils/pagination.js";
+import { useDataSync } from "../hooks/useDataSync.js";
 
 export default function CategoryManager({ websiteId }) {
   const [categories, setCategories] = useState([]);
@@ -40,6 +41,12 @@ export default function CategoryManager({ websiteId }) {
   useEffect(() => {
     fetchCategories();
   }, [websiteId]);
+
+  useDataSync({
+    entities: ["category", "department", "master"],
+    websiteId,
+    onSync: () => fetchCategories()
+  });
 
   useEffect(() => {
     setPage(1);

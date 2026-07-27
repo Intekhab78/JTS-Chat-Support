@@ -9,6 +9,7 @@ import { Unit } from "../models/Unit.js";
 import { Supplier } from "../models/Supplier.js";
 import { User } from "../models/User.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
+import { broadcastDataChange } from "../services/dataSyncService.js";
 
 const models = {
   size: Size,
@@ -206,6 +207,8 @@ export const updateMaster = asyncHandler(async (req, res) => {
   }
 
   await item.save();
+  broadcastDataChange({ entity: type, action: "updated", websiteId: item.websiteId, data: { id: item._id } });
+  broadcastDataChange({ entity: "master", action: "updated", websiteId: item.websiteId, data: { id: item._id } });
   res.json(item);
 });
 
@@ -220,10 +223,15 @@ export const deleteMaster = asyncHandler(async (req, res) => {
   if (type === "supplier") {
     await User.deleteMany({ supplierId: item._id });
     await item.deleteOne();
+    broadcastDataChange({ entity: "supplier", action: "deleted", data: { id } });
+    broadcastDataChange({ entity: "master", action: "deleted", data: { id } });
     return res.status(204).send();
   }
 
   await assertWebsiteAccess(req.user, item.websiteId);
+  const websiteId = item.websiteId;
   await item.deleteOne();
+  broadcastDataChange({ entity: type, action: "deleted", websiteId, data: { id } });
+  broadcastDataChange({ entity: "master", action: "deleted", websiteId, data: { id } });
   res.status(204).send();
 });

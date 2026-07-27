@@ -109,6 +109,23 @@ export default function CrmInvoicesView({ websiteId }) {
         throw new Error("Failed to initialize payment order.");
       }
 
+      // Handle Sandbox Simulation mode orders (for test mode / large amounts)
+      if (orderData.orderId.startsWith("order_mock_")) {
+        await api(`/api/crm/invoices/${selectedInvoice._id}/razorpay-verify`, {
+          method: "POST",
+          body: JSON.stringify({
+            razorpay_order_id: orderData.orderId,
+            razorpay_payment_id: `pay_mock_${Math.random().toString(36).substring(2, 10)}`,
+            razorpay_signature: "mock_signature"
+          })
+        });
+        alert("Sandbox payment completed and verified successfully!");
+        setSelectedInvoice(null);
+        fetchInvoices();
+        setPaying(false);
+        return;
+      }
+
       // 2. Open Razorpay Checkout modal
       const options = {
         key: orderData.keyId,

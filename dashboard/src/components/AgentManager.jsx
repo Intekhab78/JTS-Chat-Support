@@ -3,8 +3,9 @@ import { UserPlus, Mail, Shield, Activity, Search, Trash2, Settings, BarChart2 }
 import { api } from "../api/client.js";
 import PaginationControls from "./PaginationControls.jsx";
 import { getPaginationMeta } from "../utils/pagination.js";
+import { useDataSync } from "../hooks/useDataSync.js";
 
-export default function AgentManager() {
+export default function AgentManager({ websiteId = "" }) {
   const [agents, setAgents] = useState([]);
   const [websites, setWebsites] = useState([]);
   const [categoryOptions, setCategoryOptions] = useState([]);
@@ -39,8 +40,9 @@ export default function AgentManager() {
 
   const fetchAgents = async () => {
     try {
+      const url = websiteId ? `/api/users/agents?websiteId=${websiteId}` : "/api/users/agents";
       const [agentData, websiteData, roleData] = await Promise.all([
-        api("/api/users/agents"),
+        api(url),
         api("/api/websites"),
         api("/api/roles")
       ]);
@@ -56,7 +58,13 @@ export default function AgentManager() {
 
   useEffect(() => {
     fetchAgents();
-  }, []);
+  }, [websiteId]);
+
+  useDataSync({
+    entities: ["user", "agent"],
+    websiteId,
+    onSync: () => fetchAgents()
+  });
 
   useEffect(() => {
     async function loadCategoriesForWebsites() {

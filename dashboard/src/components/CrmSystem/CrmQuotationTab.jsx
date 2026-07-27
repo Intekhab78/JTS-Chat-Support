@@ -312,7 +312,7 @@ function QuoteForm({ initial, onSubmit, onCancel, submitting, websiteId, custome
   );
 }
 
-export default function CRMQuotationTab({ customer, websiteId, onPostWin }) {
+export default function CRMQuotationTab({ customer, websiteId, onPostWin, onConverted }) {
   const { user } = useAuth();
   const isManager = ["admin", "client", "manager"].includes(user?.role);
 
@@ -325,6 +325,8 @@ export default function CRMQuotationTab({ customer, websiteId, onPostWin }) {
   const [confirmDeleteId, setConfirmDeleteId] = useState("");
   const [error, setError] = useState("");
   const [expandedQuoteId, setExpandedQuoteId] = useState(null);
+  const [convertingId, setConvertingId] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
   useEffect(() => { fetchQuotes(); }, [customer?._id]);
 
@@ -438,12 +440,23 @@ export default function CRMQuotationTab({ customer, websiteId, onPostWin }) {
   };
 
   const convertToSalesOrder = async (id) => {
+    if (!window.confirm("Convert this quotation to a Sales Order and Invoice? This action cannot be undone.")) return;
+    setConvertingId(id);
     setError("");
+    setSuccessMsg("");
     try {
-      await api(`/api/crm/salesorders/convert/${id}`, { method: "POST" });
+      const result = await api(`/api/crm/salesorders/convert/${id}`, { method: "POST" });
       fetchQuotes();
+      const msg = `✅ Sales Order ${result.orderNumber || ""} created! Invoice generated — switching to Invoices tab…`;
+      setSuccessMsg(msg);
+      // Auto-switch to Invoices tab after a short delay
+      if (onConverted) {
+        setTimeout(() => onConverted(), 1500);
+      }
     } catch (err) {
       setError(err.message || "Failed to convert to Sales Order");
+    } finally {
+      setConvertingId("");
     }
   };
 
@@ -473,6 +486,15 @@ export default function CRMQuotationTab({ customer, websiteId, onPostWin }) {
           <AlertCircle size={14} />
           {error}
           <button onClick={() => setError("")} className="ml-auto"><X size={12} /></button>
+        </div>
+      )}
+
+      {/* Convert to Order Success Banner */}
+      {successMsg && (
+        <div className="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-[10px] font-black text-emerald-700 uppercase tracking-widest animate-in fade-in slide-in-from-top-2 duration-300">
+          <CheckCircle size={14} />
+          {successMsg}
+          <button onClick={() => setSuccessMsg("")} className="ml-auto"><X size={12} /></button>
         </div>
       )}
 
@@ -685,9 +707,18 @@ export default function CRMQuotationTab({ customer, websiteId, onPostWin }) {
                       ><CheckCircle size={10} /> Mark Won</button>
                     )}
                     {quote.status === "accepted" && (
-                      <button onClick={() => convertToSalesOrder(quote._id)}
-                        className="flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-100 bg-emerald-600 text-white text-[8px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-sm"
-                      ><ShoppingCart size={10} /> Convert to Order</button>
+                      <button
+                        onClick={() => convertToSalesOrder(quote._id)}
+                        disabled={convertingId === quote._id}
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-100 bg-emerald-600 text-white text-[8px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-sm disabled:opacity-60"
+                      >
+                        {convertingId === quote._id ? (
+                          <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                          <ShoppingCart size={10} />
+                        )}
+                        {convertingId === quote._id ? "Converting…" : "Convert to Order"}
+                      </button>
                     )}
                     {quote.status === "pending_approval" && isManager && (
                       <>

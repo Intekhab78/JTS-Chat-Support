@@ -153,7 +153,9 @@ export const listAgents = asyncHandler(async (req, res) => {
     ? buildPersonnelFilter()
     : buildPersonnelFilter({ managerId: parentId });
 
-  if (req.user.role === "manager" && Array.isArray(req.user.websiteIds) && req.user.websiteIds.length > 0) {
+  if (req.query.websiteId) {
+    filter.websiteIds = req.query.websiteId;
+  } else if (req.user.role === "manager" && Array.isArray(req.user.websiteIds) && req.user.websiteIds.length > 0) {
     filter.websiteIds = { $in: req.user.websiteIds };
   }
 
@@ -184,13 +186,13 @@ export const listClients = asyncHandler(async (req, res) => {
     return res.status(403).json({ message: "Admin access required" });
   }
   const clients = await User.find({ role: "client" }).select("-password").sort({ createdAt: -1 });
-  
+
   const enhancedClients = await Promise.all(clients.map(async (client) => {
-     const websiteCount = await Website.countDocuments({ managerId: client._id });
-     const agentCount = await User.countDocuments({ role: "agent", managerId: client._id });
-     return { ...client.toObject(), websiteCount, agentCount, subscription: resolveSubscriptionForUser(client) };
+    const websiteCount = await Website.countDocuments({ managerId: client._id });
+    const agentCount = await User.countDocuments({ role: "agent", managerId: client._id });
+    return { ...client.toObject(), websiteCount, agentCount, subscription: resolveSubscriptionForUser(client) };
   }));
-  
+
   return res.json(enhancedClients);
 });
 
@@ -241,7 +243,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
   });
 
   const parsed = schema.parse(req.body);
-  
+
   if (parsed.email !== req.user.email) {
     await ensureUniqueEmail(parsed.email, req.user._id);
   }
@@ -254,14 +256,14 @@ export const updateProfile = asyncHandler(async (req, res) => {
   }
 
   await req.user.save();
-  
+
   const updatedUser = req.user.toObject();
   delete updatedUser.password;
   const tenant = req.user.role === "client" || req.user.role === "admin"
     ? req.user
     : await User.findById(req.user.managerId).select("subscription role");
   updatedUser.subscription = resolveSubscriptionForUser(tenant || req.user);
-  
+
   return res.json(updatedUser);
 });
 
@@ -271,10 +273,10 @@ export const updateDashboardPreferences = asyncHandler(async (req, res) => {
   });
 
   const { dashboardPreferences } = schema.parse(req.body);
-  
+
   req.user.dashboardPreferences = { ...req.user.dashboardPreferences, ...dashboardPreferences };
   await req.user.save();
-  
+
   return res.json({ dashboardPreferences: req.user.dashboardPreferences });
 });
 
@@ -341,7 +343,7 @@ export const adminResetPassword = asyncHandler(async (req, res) => {
 
   // Generate a random secure password if none is provided
   const generatedPassword = newPassword || Math.random().toString(36).substring(2, 10) + "Jts@1";
-  
+
   // Hash the password
   targetUser.password = await bcrypt.hash(generatedPassword, 12);
   await targetUser.save();

@@ -32,6 +32,18 @@ export const createFollowUpTask = asyncHandler(async (req, res) => {
 
 export const getMyFollowUpTasks = asyncHandler(async (req, res) => {
   const query = {};
+
+  // Website scoping
+  if (req.query.websiteId) {
+    query.websiteId = req.query.websiteId;
+  } else {
+    // Scope to websites the user owns/belongs to
+    const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+    if (ownedWebsiteIds.length > 0) {
+      query.websiteId = { $in: ownedWebsiteIds };
+    }
+  }
+
   if (req.query.customerId) {
     query.customerId = req.query.customerId;
   } else {

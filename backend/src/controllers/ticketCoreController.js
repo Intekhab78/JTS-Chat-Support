@@ -23,6 +23,7 @@ import { calculateTicketHeatScore, getTicketNBA } from "../services/intelligence
 import { normalizeRole } from "../utils/roleUtils.js";
 import { notifyAssignedAgent, notifyVisitorOfTicketUpdate } from "../services/ticketService.js";
 import { getSocketServer } from "../sockets/index.js";
+import { broadcastDataChange } from "../services/dataSyncService.js";
 
 export const getTickets = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.TICKET_VIEW);
@@ -208,6 +209,7 @@ export const updateTicket = asyncHandler(async (req, res) => {
         user: req.user.name
       });
     }
+    broadcastDataChange({ entity: "ticket", action: "updated", websiteId: ticket.websiteId, data: { id: ticket._id } });
   } catch (err) {
     console.error("Socket emit failed", err);
   }
@@ -220,7 +222,9 @@ export const deleteTicket = asyncHandler(async (req, res) => {
   if (!["admin", "client", "manager"].includes(role)) throw new AppError("Only managers can delete tickets", 403);
   const ticket = await findScopedTicketById(req.params.id, req.user);
   if (!ticket) throw new AppError("Ticket not found", 404);
+  const websiteId = ticket.websiteId;
   await ticket.deleteOne();
+  broadcastDataChange({ entity: "ticket", action: "deleted", websiteId, data: { id: req.params.id } });
   res.json({ success: true });
 });
 
@@ -229,6 +233,7 @@ export const bulkUpdateTickets = asyncHandler(async (req, res) => {
   const { ticketIds, updates } = req.body;
   const filter = await buildTicketScopeFilter(req.user);
   const result = await Ticket.updateMany({ _id: { $in: ticketIds }, ...filter }, { $set: updates });
+  broadcastDataChange({ entity: "ticket", action: "updated" });
   res.json({ success: true, count: result.modifiedCount });
 });
 
@@ -238,6 +243,7 @@ export const bulkDeleteTickets = asyncHandler(async (req, res) => {
   const { ticketIds } = req.body;
   const filter = await buildTicketScopeFilter(req.user);
   const result = await Ticket.deleteMany({ _id: { $in: ticketIds }, ...filter });
+  broadcastDataChange({ entity: "ticket", action: "deleted" });
   res.json({ success: true, count: result.deletedCount });
 });
 

@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { api } from "../api/client";
 import Customer360View from "./CrmSystem/Customer360View.jsx";
+import { useDataSync } from "../hooks/useDataSync.js";
 
 const getDisplayTerritory = (item) => {
   if (item.territory && item.territory.trim() !== "") return item.territory;
@@ -64,6 +65,12 @@ export default function CustomerManager({ websiteId }) {
   useEffect(() => {
     loadData();
   }, [websiteId]);
+
+  useDataSync({
+    entities: ["customer", "crm"],
+    websiteId,
+    onSync: () => loadData()
+  });
 
   async function handleSubmit(event) {
     event.preventDefault();

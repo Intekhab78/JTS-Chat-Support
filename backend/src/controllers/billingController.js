@@ -74,8 +74,20 @@ export const adminGetAllSubscriptions = asyncHandler(async (req, res, next) => {
   if (role !== "admin" && role !== "accounts") {
     return next(new AppError("Access denied", 403));
   }
-  const users = await User.find({ role: "client" }).select("name email subscription stripeSubscriptionId");
-  res.json(users);
+
+  // Admin sees all clients
+  if (role === "admin") {
+    const users = await User.find({ role: "client" }).select("name email subscription stripeSubscriptionId");
+    return res.json(users);
+  }
+
+  // Accounts user sees only their own client's subscription (their managerId)
+  if (role === "accounts") {
+    const clientId = req.user.managerId;
+    if (!clientId) return res.json([]);
+    const client = await User.findById(clientId).select("name email subscription stripeSubscriptionId");
+    return res.json(client ? [client] : []);
+  }
 });
 export const getSubscriptionStatus = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id);

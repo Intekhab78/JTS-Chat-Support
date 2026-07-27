@@ -82,7 +82,9 @@ export default function CustomerPortalDashboard({ data, loading, onTabChange }) 
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-extrabold text-slate-800">₹{invoice.totalAmount}</span>
-                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${invoice.paymentStatus === "paid" ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>{invoice.paymentStatus}</span>
+                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${(invoice.status === "paid" || invoice.paymentStatus === "paid") ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-rose-50 text-rose-600 border border-rose-100"}`}>
+                      {(invoice.status === "paid" || invoice.paymentStatus === "paid") ? "PAID" : (invoice.paymentStatus || invoice.status || "PENDING")}
+                    </span>
                   </div>
                 </div>
               ))

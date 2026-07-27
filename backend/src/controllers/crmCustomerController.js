@@ -52,6 +52,7 @@ import {
 } from "../utils/crmUtils.js";
 import { SALES_ALLOWED_STATUS_TRANSITIONS } from "../constants/domain.js";
 import { getSocketServer } from "../sockets/index.js";
+import { broadcastDataChange } from "../services/dataSyncService.js";
 
 export const listCustomers = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_VIEW);
@@ -603,6 +604,8 @@ export const createCustomer = asyncHandler(async (req, res) => {
       websiteId: resolvedWebsiteId,
       recordType: customer.recordType
     });
+    broadcastDataChange({ entity: "customer", action: "created", websiteId: resolvedWebsiteId, data: { id: customer._id } });
+    broadcastDataChange({ entity: "crm", action: "created", websiteId: resolvedWebsiteId, data: { id: customer._id } });
   } catch (err) {
     console.error("Socket emit failed", err);
   }
@@ -738,6 +741,9 @@ export const updateCustomer = asyncHandler(async (req, res) => {
     pipelineStage: customer.pipelineStage
   });
 
+  broadcastDataChange({ entity: "customer", action: "updated", websiteId: customer.websiteId, data: { id: customer._id } });
+  broadcastDataChange({ entity: "crm", action: "updated", websiteId: customer.websiteId, data: { id: customer._id } });
+
   res.json(customer);
 });
 
@@ -752,6 +758,9 @@ export const deleteCustomer = asyncHandler(async (req, res) => {
   }
 
   await Customer.deleteOne({ _id: customer._id });
+  broadcastDataChange({ entity: "customer", action: "deleted", websiteId: customer.websiteId, data: { id: customer._id } });
+  broadcastDataChange({ entity: "crm", action: "deleted", websiteId: customer.websiteId, data: { id: customer._id } });
+
   res.json({ success: true, message: "Lead deleted permanently" });
 });
 

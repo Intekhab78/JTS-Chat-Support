@@ -5,6 +5,7 @@ import PaginationControls from "./PaginationControls.jsx";
 import { getPaginationMeta } from "../utils/pagination.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useToast } from "../context/ToastContext.jsx";
+import { useDataSync } from "../hooks/useDataSync.js";
 
 export default function CannedResponseManager() {
   const { user } = useAuth();
@@ -40,6 +41,11 @@ export default function CannedResponseManager() {
   useEffect(() => {
     loadResponses();
   }, []);
+
+  useDataSync({
+    entities: ["shortcut"],
+    onSync: () => loadResponses()
+  });
 
   async function handleCreate(e) {
     e.preventDefault();

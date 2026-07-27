@@ -16,7 +16,7 @@ import { useSocket } from "../../context/SocketContext.jsx";
 import { hasPermission } from "../../utils/permissions.js";
 import { PERMISSIONS } from "../../constants/domain.js";
 import { downloadCSV } from "../../utils/exportUtils.js";
-import { apiCache } from "../../utils/cache.js";
+import { useDataSync } from "../../hooks/useDataSync.js";
 
 import CrmPipelineBar from "./CrmPipelineBar.jsx";
 import CrmBoardView from "./CrmBoardView.jsx";
@@ -167,6 +167,21 @@ export default function CrmContainer({
   const { user } = useAuth();
   const socket = useSocket();
 
+  // -- Simple in-memory API cache (persists across renders, cleared on unmount) --
+  const apiCacheRef = useRef(new Map());
+  const apiCache = {
+    get: (key) => {
+      const entry = apiCacheRef.current.get(key);
+      if (!entry) return null;
+      if (Date.now() > entry.expiresAt) { apiCacheRef.current.delete(key); return null; }
+      return entry.value;
+    },
+    set: (key, value, ttlMs = 5 * 60 * 1000) => {
+      apiCacheRef.current.set(key, { value, expiresAt: Date.now() + ttlMs });
+    },
+    delete: (key) => apiCacheRef.current.delete(key)
+  };
+
   // -- Role & RBAC Flags --
   const isSales = user?.role === "sales" || user?.role === "tax_consultant";
   const isManagement = user?.role === "management";
@@ -273,8 +288,8 @@ export default function CrmContainer({
   }, [statusFilter, websiteId, leadView, recordCategoryTab, sourceFilter, healthFilter, stageFilter, activeRange]);
 
   useEffect(() => {
-    if (canAssignOwners) fetchTeamMembers();
-  }, [canAssignOwners]);
+    fetchTeamMembers();
+  }, [websiteId]);
 
   useEffect(() => {
     fetchWebsites();
@@ -306,6 +321,12 @@ export default function CrmContainer({
       socket.off("lead:created", handleLeadCreated);
     };
   }, [socket, websiteId]);
+
+  useDataSync({
+    entities: ["customer", "crm"],
+    websiteId,
+    onSync: () => fetchCustomers()
+  });
 
   useEffect(() => {
     if (!actionMessage.text) return;
@@ -350,7 +371,7 @@ export default function CrmContainer({
   };
 
   const fetchTeamMembers = async () => {
-    const cacheKey = "team_members";
+    const cacheKey = `team_members_${websiteId || "all"}`;
     const cached = apiCache.get(cacheKey);
     if (cached) {
       setTeamMembers(Array.isArray(cached) ? cached : []);
@@ -358,7 +379,8 @@ export default function CrmContainer({
     }
 
     try {
-      const data = await api("/api/users/agents");
+      const url = websiteId ? `/api/users/agents?websiteId=${websiteId}` : "/api/users/agents";
+      const data = await api(url);
       const teamData = Array.isArray(data) ? data : [];
       setTeamMembers(teamData);
       apiCache.set(cacheKey, teamData, 10 * 60 * 1000); // Cache for 10 minutes
@@ -779,10 +801,20 @@ export default function CrmContainer({
     setShowCreateLead(true);
   };
 
-  const onOpenEditLead = (overrideCustomer = null, forceOverrides = {}) => {
+  const onOpenEditLead = async (overrideCustomer = null, forceOverrides = {}) => {
     const isEvent = overrideCustomer && (typeof overrideCustomer.preventDefault === "function" || overrideCustomer.nativeEvent);
-    const target = (isEvent ? null : overrideCustomer) || selectedCustomer;
-    if (!target) return;
+    const rawTarget = (isEvent ? null : overrideCustomer) || selectedCustomer;
+    if (!rawTarget?._id) return;
+
+    // Fetch fresh full data so all fields (compliance dates, nextFollowUpAt etc.) are pre-filled
+    let target = rawTarget;
+    try {
+      const fresh = await api(`/api/crm/${rawTarget._id}`);
+      target = fresh?.customer || fresh || rawTarget;
+    } catch {
+      target = rawTarget;
+    }
+
     setCreateLeadForm({
       name: target.name || "",
       email: target.email || "",
@@ -799,7 +831,7 @@ export default function CrmContainer({
       interestLevel: target.interestLevel || "warm",
       leadCategory: target.leadCategory || "warm",
       probability: target.probability || "",
-      expectedCloseDate: target.expectedCloseDate ? target.expectedCloseDate.substring(0, 10) : "",
+      expectedCloseDate: target.expectedCloseDate ? String(target.expectedCloseDate).substring(0, 10) : "",
       decisionMaker: target.decisionMaker || "",
       lostReason: target.lostReason || "",
       websiteId: target.websiteId?._id || target.websiteId || websiteId || "",
@@ -820,6 +852,7 @@ export default function CrmContainer({
       vatFilingPeriod: target.vatFilingPeriod || "",
       vatFilingDueDate: target.vatFilingDueDate ? String(target.vatFilingDueDate).substring(0, 10) : "",
       corporateTaxDueDate: target.corporateTaxDueDate ? String(target.corporateTaxDueDate).substring(0, 10) : "",
+      nextFollowUpAt: target.nextFollowUpAt ? String(target.nextFollowUpAt).substring(0, 10) : "",
       ...forceOverrides
     });
     setEditLeadId(target._id);
@@ -1585,7 +1618,7 @@ export default function CrmContainer({
       )}
 
       {workspaceTab === "tasks" && (
-        <CrmTasksView onOpenCustomer={openCustomer} />
+        <CrmTasksView onOpenCustomer={openCustomer} websiteId={websiteId} />
       )}
 
       {/* ── Overlays ── */}

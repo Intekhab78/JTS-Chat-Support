@@ -1,4 +1,5 @@
 import { CannedResponse } from "../models/CannedResponse.js";
+import { broadcastDataChange } from "../services/dataSyncService.js";
 
 function getTenantId(user) {
   if (user.role === "admin" || user.role === "client") return user._id;
@@ -77,6 +78,8 @@ export async function createCannedResponse(req, res) {
       visibility
     });
 
+    broadcastDataChange({ entity: "shortcut", action: "created", data: { id: response._id } });
+
     return res.status(201).json({
       ...response.toObject(),
       visibility: response.visibility || visibility,
@@ -98,27 +101,28 @@ export async function deleteCannedResponse(req, res) {
 
   if (canManageSharedShortcuts(req.user)) {
     filters.push({
-      _id: req.params.id,
       managerId: tenantId,
       $or: [{ visibility: "shared" }, { visibility: { $exists: false } }]
     });
   }
 
   if (canManagePersonalShortcuts(req.user)) {
-    filters.push({
-      _id: req.params.id,
-      managerId: req.user._id,
-      visibility: "personal"
-    });
+    filters.push({ managerId: req.user._id, visibility: "personal" });
   }
 
-  if (!filters.length) {
+  if (filters.length === 0) {
     return res.status(403).json({ message: "Access denied" });
   }
 
-  const response = await CannedResponse.findOneAndDelete({ $or: filters });
+  const response = await CannedResponse.findOneAndDelete({
+    _id: req.params.id,
+    $or: filters
+  });
+
   if (!response) {
-    return res.status(404).json({ message: "Response not found" });
+    return res.status(404).json({ message: "Canned response not found" });
   }
-  return res.json({ success: true });
+
+  broadcastDataChange({ entity: "shortcut", action: "deleted", data: { id: req.params.id } });
+  return res.json({ message: "Canned response deleted" });
 }

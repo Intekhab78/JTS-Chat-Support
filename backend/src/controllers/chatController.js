@@ -244,11 +244,7 @@ export async function listAgentSessions(req, res) {
   const sessions = await populateSession(ChatSession.find({
     $or: [
       { assignedAgent: req.user._id },
-      {
-        websiteId: { $in: websiteIds },
-        status: "queued",
-        assignedAgent: null
-      }
+      { websiteId: { $in: websiteIds } }
     ]
   }).sort({ lastMessageAt: -1, createdAt: -1 }).limit(100));
   return res.json(sessions);
@@ -260,11 +256,7 @@ export async function listSalesSessions(req, res) {
   const sessions = await populateSession(ChatSession.find({
     $or: [
       { assignedAgent: req.user._id },
-      {
-        websiteId: { $in: websiteIds },
-        status: "queued",
-        assignedAgent: null
-      }
+      { websiteId: { $in: websiteIds } }
     ]
   }).sort({ lastMessageAt: -1, createdAt: -1 }).limit(100));
   return res.json(sessions);

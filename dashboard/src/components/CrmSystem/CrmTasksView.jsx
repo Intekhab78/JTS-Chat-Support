@@ -3,7 +3,7 @@ import { CheckCircle2, Clock, AlertTriangle, Search, Trash2, Calendar, User, Eye
 import { api } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 
-export default function CrmTasksView({ onOpenCustomer }) {
+export default function CrmTasksView({ onOpenCustomer, websiteId }) {
   const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -18,7 +18,7 @@ export default function CrmTasksView({ onOpenCustomer }) {
 
   useEffect(() => {
     fetchTasks();
-  }, [statusFilter, ownerFilter]);
+  }, [statusFilter, ownerFilter, websiteId]);
 
   useEffect(() => {
     if (isManager) {
@@ -31,6 +31,7 @@ export default function CrmTasksView({ onOpenCustomer }) {
     setError("");
     try {
       let url = `/api/crm/tasks/my?all=true`;
+      if (websiteId) url += `&websiteId=${websiteId}`;
       if (statusFilter === "pending") {
         url += `&status=pending`;
       } else if (statusFilter === "completed") {

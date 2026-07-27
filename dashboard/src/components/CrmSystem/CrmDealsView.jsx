@@ -4,6 +4,8 @@ import { api } from "../../api/client.js";
 import ConfirmModal from "../ConfirmModal.jsx";
 
 const DEFAULT_STAGES = [
+  { key: "new", label: "New Lead", color: "bg-violet-50 text-violet-600 border-violet-100" },
+  { key: "contacted", label: "Contacted", color: "bg-sky-50 text-sky-600 border-sky-100" },
   { key: "qualified", label: "Qualified", color: "bg-indigo-50 text-indigo-600 border-indigo-100" },
   { key: "proposal", label: "Proposal", color: "bg-amber-50 text-amber-600 border-amber-100" },
   { key: "negotiation", label: "Negotiation", color: "bg-orange-50 text-orange-600 border-orange-100" },
@@ -38,6 +40,8 @@ export default function CrmDealsView({ websiteId }) {
   });
 
   const activeStages = pipelines[0]?.stages?.length ? pipelines[0].stages : DEFAULT_STAGES;
+
+
 
   const fetchDeals = async () => {
     setLoading(true);
@@ -303,10 +307,11 @@ export default function CrmDealsView({ websiteId }) {
                       key={deal._id}
                       draggable
                       onDragStart={(e) => onDragStart(e, deal._id)}
-                      className="p-4 bg-white border border-slate-150 rounded-[20px] shadow-sm hover:shadow-md cursor-grab active:cursor-grabbing transition-all space-y-3.5"
+                      onClick={() => handleOpenEdit(deal)}
+                      className="p-4 bg-white border border-slate-150 rounded-[20px] shadow-sm hover:shadow-md cursor-pointer transition-all space-y-3.5"
                     >
                       <div>
-                        <h6 className="text-xs font-black text-slate-900 leading-tight">{deal.dealName}</h6>
+                        <h6 className="text-xs font-black text-slate-900 leading-tight hover:text-indigo-600 transition-colors">{deal.dealName}</h6>
                         {deal.companyId?.companyName && <p className="text-[9px] font-black text-slate-400 mt-1 uppercase tracking-wider">{deal.companyId.companyName}</p>}
                       </div>
                       <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
@@ -315,7 +320,7 @@ export default function CrmDealsView({ websiteId }) {
                       </div>
                       <div className="flex justify-between items-center pt-2 border-t border-slate-50">
                         <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase ${deal.priority === "high" ? "bg-red-50 text-red-500" : "bg-slate-100 text-slate-500"}`}>{deal.priority}</span>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                            <button onClick={() => handleOpenEdit(deal)} className="p-1 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-lg transition-all"><Edit3 size={11} /></button>
                            <button onClick={() => confirmDelete(deal._id)} className="p-1 bg-red-50 hover:bg-red-100 text-red-400 rounded-lg transition-all"><Trash2 size={11} /></button>
                         </div>

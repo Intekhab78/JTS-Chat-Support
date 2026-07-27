@@ -82,6 +82,23 @@ export default function CustomerPortalInvoices() {
         throw new Error("Failed to initialize Razorpay checkout order.");
       }
 
+      // Handle Sandbox Simulation mode orders (for test mode / large amounts)
+      if (orderData.orderId.startsWith("order_mock_")) {
+        await api(`/api/crm/customer-portal/invoices/${paymentModal.invoice._id}/razorpay-verify`, {
+          method: "POST",
+          body: JSON.stringify({
+            razorpay_order_id: orderData.orderId,
+            razorpay_payment_id: `pay_mock_${Math.random().toString(36).substring(2, 10)}`,
+            razorpay_signature: "mock_signature"
+          })
+        });
+        toast.success("Sandbox payment completed and verified successfully!");
+        setPaymentModal({ show: false, invoice: null });
+        fetchInvoices();
+        setProcessing(false);
+        return;
+      }
+
       const options = {
         key: orderData.keyId,
         amount: orderData.amount,
@@ -163,11 +180,13 @@ export default function CustomerPortalInvoices() {
                 <div className="flex items-center gap-4 w-full md:w-auto justify-end">
                   <div className="text-right">
                     <p className="text-xs font-extrabold text-slate-800">₹{invoice.totalAmount || invoice.total || 0}</p>
-                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${invoice.paymentStatus === "paid" ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>{invoice.paymentStatus}</span>
+                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${(invoice.status === "paid" || invoice.paymentStatus === "paid") ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-rose-50 text-rose-600 border border-rose-100"}`}>
+                      {(invoice.status === "paid" || invoice.paymentStatus === "paid") ? "PAID" : (invoice.paymentStatus || invoice.status || "PENDING")}
+                    </span>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {invoice.paymentStatus !== "paid" && invoice.status !== "cancelled" && invoice.status !== "void" && (
+                    {invoice.status !== "paid" && invoice.paymentStatus !== "paid" && invoice.status !== "cancelled" && invoice.status !== "void" && (
                       <button
                         onClick={() => setPaymentModal({ show: true, invoice })}
                         className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all"

@@ -22,13 +22,14 @@ router.get("/agent", requireAuth, requireRole("agent", "sales", "user", "tax_con
 router.get("/export/csv", requireAuth, requireRole("admin", "client", "manager", "accounts"), attachTenantSubscription, requirePlanFeature("reports"), exportAnalyticsCSV);
 
 // Enterprise Reporting Endpoints
-router.get("/enterprise/executive", requireAuth, requireRole("admin", "client", "manager"), getExecutiveSummary);
-router.get("/enterprise/leads", requireAuth, requireRole("admin", "client", "manager", "sales"), getLeadAnalytics);
-router.get("/enterprise/tickets", requireAuth, requireRole("admin", "client", "manager"), getTicketAnalytics);
+router.get("/enterprise/executive", requireAuth, requireRole("admin", "client", "manager", "accounts"), getExecutiveSummary);
+router.get("/enterprise/leads", requireAuth, requireRole("admin", "client", "manager", "sales", "accounts"), getLeadAnalytics);
+router.get("/enterprise/tickets", requireAuth, requireRole("admin", "client", "manager", "accounts"), getTicketAnalytics);
 router.get("/enterprise/revenue", requireAuth, requireRole("admin", "client", "manager", "accounts"), getRevenueAnalytics);
-router.get("/enterprise/agents", requireAuth, requireRole("admin", "client", "manager"), getAgentPerformanceAnalytics);
-router.get("/enterprise/websites", requireAuth, requireRole("admin", "client", "manager"), getWebsiteAnalytics);
-router.get("/enterprise/customers", requireAuth, requireRole("admin", "client", "manager"), getCustomerInsightsAnalytics);
-router.get("/enterprise/ai-insights", requireAuth, requireRole("admin", "client", "manager"), getAiInsightsAnalytics);
+router.get("/enterprise/agents", requireAuth, requireRole("admin", "client", "manager", "accounts"), getAgentPerformanceAnalytics);
+router.get("/enterprise/websites", requireAuth, requireRole("admin", "client", "manager", "accounts"), getWebsiteAnalytics);
+router.get("/enterprise/customers", requireAuth, requireRole("admin", "client", "manager", "accounts"), getCustomerInsightsAnalytics);
+router.get("/enterprise/ai-insights", requireAuth, requireRole("admin", "client", "manager", "accounts"), getAiInsightsAnalytics);
+
 
 export default router;

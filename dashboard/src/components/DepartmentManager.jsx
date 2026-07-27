@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Layers, Users, Tag, Plus, Edit2, Power, RotateCcw, Save, X } from "lucide-react";
 import { api } from "../api/client.js";
+import { useDataSync } from "../hooks/useDataSync.js";
 
 function normalizeDepartmentName(value) {
   return String(value || "").trim().toLowerCase();
@@ -38,17 +39,17 @@ export default function DepartmentManager({ websiteId }) {
     }
     setLoading(true);
     try {
-      const [categoryData, peopleData, departmentData] = await Promise.all([
+      const [cats, users, deps] = await Promise.all([
         api(`/api/categories?websiteId=${websiteId}`),
-        api("/api/users/agents"),
+        api(`/api/users/agents?websiteId=${websiteId}`),
         api(`/api/departments?websiteId=${websiteId}`)
       ]);
-      setCategories(Array.isArray(categoryData) ? categoryData : []);
-      setPeople(Array.isArray(peopleData) ? peopleData : []);
-      setDepartmentRecords(Array.isArray(departmentData) ? departmentData : []);
+      setCategories(cats || []);
+      setPeople(users || []);
+      setDepartmentRecords(deps || []);
       setError("");
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Failed to load department structure.");
     } finally {
       setLoading(false);
     }
@@ -57,6 +58,12 @@ export default function DepartmentManager({ websiteId }) {
   useEffect(() => {
     load();
   }, [websiteId]);
+
+  useDataSync({
+    entities: ["department", "category", "user"],
+    websiteId,
+    onSync: () => load()
+  });
 
   const departments = useMemo(() => {
     const grouped = new Map();

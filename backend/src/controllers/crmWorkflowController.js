@@ -7,7 +7,7 @@ import AppError from "../utils/AppError.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
 import { incrementCustomers, addWonRevenue, recordConversionTime } from "../services/analyticsService.js";
-import { sendCrmLifecycleEmail, autoAssignLeadOwner } from "../services/automationService.js";
+import { sendCrmLifecycleEmail, sendCrmStageChangeEmail, autoAssignLeadOwner } from "../services/automationService.js";
 import { executeWorkflowBackground } from "../services/workflowExecutor.js";
 import {
   createAndEmitCrmNotification,
@@ -40,7 +40,11 @@ export const postWin = asyncHandler(async (req, res) => {
   customer.stageEnteredAt = new Date();
   await customer.save();
 
-  await sendCrmStageChangeEmail(customer, previousStage, "won");
+  try {
+    await sendCrmStageChangeEmail(customer, previousStage, "won");
+  } catch (emailErr) {
+    console.error("Failed to send stage change email:", emailErr);
+  }
 
   // Create onboarding follow-up tasks
   const onboardingTitles = ["Send welcome email", "Schedule onboarding call", "Create customer account"];

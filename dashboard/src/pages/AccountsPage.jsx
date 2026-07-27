@@ -44,19 +44,18 @@ export default function AccountsPage() {
         if (reportRange.startDate) params.set("startDate", reportRange.startDate);
         if (reportRange.endDate) params.set("endDate", reportRange.endDate);
 
-        const [invData, poData, subData, webData, anyData] = await Promise.all([
+        const [invData, poData, subData, anyData] = await Promise.all([
           api("/api/crm/invoices").catch(() => []),
           api("/api/procurement/orders").catch(() => []),
           api("/api/billing/admin/all").catch(() => []),
-          api("/api/websites").catch(() => []),
           api(`/api/analytics?${params.toString()}`).catch(() => null)
         ]);
 
         setInvoices(invData);
         setPurchaseOrders(poData);
         setSubscriptions(subData);
-        setWebsites(webData);
         setAnalytics(anyData);
+
 
         // Calculate basic stats
         const pending = invData.filter(i => i.status === "pending").length;

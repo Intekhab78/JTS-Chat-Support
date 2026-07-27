@@ -4,6 +4,7 @@ import { User } from "../models/User.js";
 import { Website } from "../models/Website.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
+import { broadcastDataChange } from "../services/dataSyncService.js";
 
 function normalizeDepartmentName(value) {
   return String(value || "").trim().toLowerCase();
@@ -47,6 +48,7 @@ export const createDepartment = asyncHandler(async (req, res) => {
     isActive: true
   });
 
+  broadcastDataChange({ entity: "department", action: "created", websiteId, data: { id: department._id } });
   res.status(201).json(department);
 });
 
@@ -79,6 +81,7 @@ export const updateDepartment = asyncHandler(async (req, res) => {
   }
 
   await department.save();
+  broadcastDataChange({ entity: "department", action: "updated", websiteId: department.websiteId, data: { id: department._id } });
   res.json(department);
 });
 
@@ -90,5 +93,6 @@ export const toggleDepartment = asyncHandler(async (req, res) => {
 
   department.isActive = !department.isActive;
   await department.save();
+  broadcastDataChange({ entity: "department", action: "updated", websiteId: department.websiteId, data: { id: department._id } });
   res.json(department);
 });
