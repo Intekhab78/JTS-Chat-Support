@@ -77,10 +77,16 @@ export const updateFollowUpTask = asyncHandler(async (req, res) => {
     throw new AppError("Access denied", 403);
   }
 
-  if (req.body.status === "completed") {
-    task.status = "completed";
-    task.completedAt = new Date();
-    task.completedBy = req.user._id;
+  if (req.body.title) task.title = req.body.title;
+  if (req.body.type) task.type = req.body.type;
+  if (req.body.dueAt) task.dueAt = new Date(req.body.dueAt);
+  if (req.body.ownerId) task.ownerId = req.body.ownerId;
+  if (req.body.status) {
+    task.status = req.body.status;
+    if (req.body.status === "completed") {
+      task.completedAt = new Date();
+      task.completedBy = req.user._id;
+    }
   }
   await task.save();
   res.json(task);
