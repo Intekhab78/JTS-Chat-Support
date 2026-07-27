@@ -56,7 +56,7 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
   const [meetingForm, setMeetingForm] = useState({ title: "", startAt: "", endAt: "", agenda: "", location: "" });
 
   const [showDocForm, setShowDocForm] = useState(false);
-  const [docForm, setDocForm] = useState({ name: "", category: "nda", fileUrl: "" });
+  const [docForm, setDocForm] = useState({ name: "", category: "Trade License", fileUrl: "" });
 
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [serviceForm, setServiceForm] = useState({
@@ -1151,31 +1151,90 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
       {showDocForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowDocForm(false)} />
-          <form onSubmit={handleUploadDoc} className="relative w-full max-w-sm bg-white rounded-[32px] p-8 shadow-2xl space-y-6">
-            <div className="flex justify-between items-center">
-              <h3 className="text-base font-black text-slate-900">Upload Document</h3>
+          <form onSubmit={handleUploadDoc} className="relative w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl space-y-5">
+            <div className="flex justify-between items-center border-b pb-4 border-slate-100">
+              <div>
+                <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">Upload UAE Compliance Document</h3>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Trade License, Emirates ID, VAT, Corporate Tax, Ejari, NDA etc.</p>
+              </div>
               <button type="button" onClick={() => setShowDocForm(false)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl"><X size={16} /></button>
             </div>
+            
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Document Name</label>
-              <input required value={docForm.name} onChange={(e) => setDocForm({ ...docForm, name: e.target.value })} className="w-full bg-slate-50 rounded-xl border border-slate-200/50 px-4 py-3 text-xs font-bold" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Category</label>
-              <select value={docForm.category} onChange={(e) => setDocForm({ ...docForm, category: e.target.value })} className="w-full bg-slate-50 rounded-xl border border-slate-200/50 px-4 py-3 text-xs font-bold">
-                <option value="contract">Contract</option>
-                <option value="gst">GST</option>
-                <option value="pan">PAN</option>
-                <option value="proposal">Proposal</option>
-                <option value="nda">NDA</option>
-                <option value="other">Other</option>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Document Category (UAE Standard)</label>
+              <select 
+                value={docForm.category} 
+                onChange={(e) => {
+                  const cat = e.target.value;
+                  setDocForm(prev => ({ 
+                    ...prev, 
+                    category: cat,
+                    name: prev.name || cat
+                  }));
+                }} 
+                className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:border-indigo-500"
+              >
+                <option value="Trade License">Trade License</option>
+                <option value="Emirates ID">Emirates ID</option>
+                <option value="Passport Copy">Passport Copy</option>
+                <option value="VAT / TRN Certificate">VAT / TRN Certificate</option>
+                <option value="Corporate Tax Certificate">Corporate Tax Registration</option>
+                <option value="MOA / AOA">MOA / AOA (Company Memorandum)</option>
+                <option value="Establishment Card">Establishment / Computer Card</option>
+                <option value="Tenancy Contract / Ejari">Tenancy Contract / Ejari</option>
+                <option value="NDA / Non-Disclosure Agreement">NDA / Non-Disclosure Agreement</option>
+                <option value="Power of Attorney">Power of Attorney (POA)</option>
+                <option value="Financial Audit Report">Financial Audit Report</option>
+                <option value="Proposal / Contract">Proposal / Contract Agreement</option>
+                <option value="Other Compliance Document">Other Compliance Document</option>
               </select>
             </div>
+
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">File URL</label>
-              <input required value={docForm.fileUrl} onChange={(e) => setDocForm({ ...docForm, fileUrl: e.target.value })} className="w-full bg-slate-50 rounded-xl border border-slate-200/50 px-4 py-3 text-xs font-bold" />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Document Name / Title</label>
+              <input 
+                required 
+                placeholder="e.g. Trade License 2026 - Al Reza Global"
+                value={docForm.name} 
+                onChange={(e) => setDocForm({ ...docForm, name: e.target.value })} 
+                className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-4 py-3 text-xs font-bold outline-none focus:border-indigo-500" 
+              />
             </div>
-            <button type="submit" className="w-full py-4 bg-slate-950 text-white rounded-2xl text-xs font-black uppercase flex items-center justify-center gap-2"><Check size={16} /> Save Document</button>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Choose File from Device</label>
+              <input
+                type="file"
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (file) {
+                    const fakeUrl = URL.createObjectURL(file);
+                    setDocForm(prev => ({
+                      ...prev,
+                      name: prev.name || file.name,
+                      fileUrl: fakeUrl,
+                      filename: file.name
+                    }));
+                  }
+                }}
+                className="w-full text-xs font-bold text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100 cursor-pointer"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Or File URL / Storage Path</label>
+              <input 
+                required 
+                placeholder="https://... or choose file above"
+                value={docForm.fileUrl} 
+                onChange={(e) => setDocForm({ ...docForm, fileUrl: e.target.value })} 
+                className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-4 py-3 text-xs font-bold outline-none focus:border-indigo-500" 
+              />
+            </div>
+
+            <button type="submit" className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 transition-all">
+              <Check size={16} /> Save Compliance Document
+            </button>
           </form>
         </div>
       )}

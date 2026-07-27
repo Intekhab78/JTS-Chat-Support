@@ -12,6 +12,8 @@ const router = Router();
 
 router.use(requireAuth);
 
+router.get("/", getCustomerDocuments);
+router.post("/", uploadCustomerDocument);
 router.get("/customer/:customerId", getCustomerDocuments);
 router.post("/customer/:customerId", uploadCustomerDocument);
 router.post("/:documentId/version", replaceDocumentVersion);

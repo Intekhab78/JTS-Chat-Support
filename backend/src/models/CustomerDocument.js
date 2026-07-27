@@ -55,8 +55,10 @@ const customerDocumentSchema = new mongoose.Schema({
   category: {
     type: String,
     enum: [
-      "Trade License", "VAT Certificate", "Corporate Tax Certificate", "TRN Certificate",
-      "Passport", "Emirates ID", "Visa", "MOA", "POA", "Invoice", "Receipt",
+      "Trade License", "VAT Certificate", "VAT / TRN Certificate", "Corporate Tax Certificate", "TRN Certificate",
+      "Passport", "Passport Copy", "Emirates ID", "Visa", "MOA", "MOA / AOA", "POA", "Power of Attorney", "Invoice", "Receipt",
+      "Establishment Card", "Tenancy Contract / Ejari", "NDA", "NDA / Non-Disclosure Agreement",
+      "Financial Audit Report", "Proposal / Contract", "Other Compliance Document",
       "Government Letter", "Compliance Report", "Bank Document", "Other"
     ],
     default: "Other",

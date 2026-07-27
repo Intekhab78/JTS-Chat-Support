@@ -13,8 +13,12 @@ import { logCrmActivity } from "../services/activityLoggerService.js";
  */
 export const getCustomerDocuments = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_VIEW);
-  const { customerId } = req.params;
+  const customerId = req.params.customerId || req.query.customerId;
   const { category, status, search } = req.query;
+
+  if (!customerId) {
+    throw new AppError("Customer ID is required", 400);
+  }
 
   const customer = await Customer.findById(customerId);
   if (!customer) {
@@ -53,34 +57,52 @@ export const getCustomerDocuments = asyncHandler(async (req, res) => {
  */
 export const uploadCustomerDocument = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
-  const { customerId } = req.params;
-  const { documentName, category, description, fileUrl, filename, fileType, fileSize, serviceId } = req.body;
+  const customerId = req.params.customerId || req.body.customerId;
+  const { documentName, name, category, description, fileUrl, filename, fileType, fileSize, serviceId } = req.body;
+
+  if (!customerId) {
+    throw new AppError("Customer ID is required", 400);
+  }
 
   const customer = await Customer.findById(customerId);
   if (!customer) {
     throw new AppError("Customer not found", 404);
   }
 
-  if (!fileUrl || !filename) {
-    throw new AppError("File URL and filename are required", 400);
+  const resolvedName = documentName || name || filename || "Untitled Document";
+  const resolvedFileUrl = fileUrl || filename || "https://example.com/document.pdf";
+  const resolvedFilename = filename || name || resolvedName;
+
+  const validCategories = [
+    "Trade License", "VAT Certificate", "VAT / TRN Certificate", "Corporate Tax Certificate", "TRN Certificate",
+    "Passport", "Passport Copy", "Emirates ID", "Visa", "MOA", "MOA / AOA", "POA", "Power of Attorney", "Invoice", "Receipt",
+    "Establishment Card", "Tenancy Contract / Ejari", "NDA", "NDA / Non-Disclosure Agreement",
+    "Financial Audit Report", "Proposal / Contract", "Other Compliance Document",
+    "Government Letter", "Compliance Report", "Bank Document", "Other"
+  ];
+  let resolvedCategory = category || "Trade License";
+  if (resolvedCategory.toLowerCase() === "nda") resolvedCategory = "NDA / Non-Disclosure Agreement";
+  if (!validCategories.includes(resolvedCategory)) {
+    const match = validCategories.find(c => c.toLowerCase() === resolvedCategory.toLowerCase());
+    resolvedCategory = match || "Other Compliance Document";
   }
 
   const doc = await CustomerDocument.create({
     customer: customerId,
     serviceId: serviceId || null,
-    documentName: documentName || filename,
-    category: category || "Other",
+    documentName: resolvedName,
+    category: resolvedCategory,
     description: description || "",
-    fileUrl,
-    filename,
-    fileType: fileType || "",
+    fileUrl: resolvedFileUrl,
+    filename: resolvedFilename,
+    fileType: fileType || "application/pdf",
     fileSize: fileSize || 0,
     versionNumber: 1,
     versionHistory: [{
       versionNumber: 1,
-      fileUrl,
-      filename,
-      fileType: fileType || "",
+      fileUrl: resolvedFileUrl,
+      filename: resolvedFilename,
+      fileType: fileType || "application/pdf",
       fileSize: fileSize || 0,
       uploadedBy: req.user._id,
       changeNotes: "Initial Upload",
