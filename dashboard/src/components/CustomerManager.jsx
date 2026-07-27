@@ -188,7 +188,13 @@ export default function CustomerManager({ websiteId }) {
     setShowDrawer(true);
   };
 
+  const [hideAnonymous, setHideAnonymous] = useState(false);
+
   const filteredItems = items.filter(item => {
+    if (hideAnonymous) {
+      const isAnon = item.name?.toLowerCase().includes("anonymous") || item.email?.toLowerCase().includes("anon-visitor");
+      if (isAnon) return false;
+    }
     if (!search) return true;
     const query = search.toLowerCase();
     return (
@@ -230,7 +236,7 @@ export default function CustomerManager({ websiteId }) {
           <h3 className="text-2xl font-black tracking-tight text-slate-900 uppercase">Customer Master Registry</h3>
         </div>
 
-        <div className="flex flex-1 max-w-sm mx-6">
+        <div className="flex items-center gap-3 flex-1 max-w-md mx-6">
           <div className="relative w-full group">
             <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors">
               <Search size={16} />
@@ -243,6 +249,19 @@ export default function CustomerManager({ websiteId }) {
               className="w-full bg-white border border-slate-200 rounded-[22px] pl-14 pr-5 py-3 text-[11px] font-bold outline-none focus:border-indigo-500 transition-all"
             />
           </div>
+
+          <button
+            type="button"
+            onClick={() => setHideAnonymous(prev => !prev)}
+            className={`px-4 py-3 rounded-[22px] border text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${
+              hideAnonymous 
+                ? "bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-500/20" 
+                : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+            }`}
+            title="Toggle Anonymous Visitors"
+          >
+            {hideAnonymous ? "Verified Only" : "Show All"}
+          </button>
         </div>
 
         <button

@@ -93,6 +93,11 @@ export const listCustomers = asyncHandler(async (req, res) => {
   if (req.query.ownerId) query.ownerId = req.query.ownerId;
   if (includeArchived !== "true") query.archivedAt = null;
 
+  if (req.query.includeAnonymous !== "true") {
+    query.name = { $ne: "Anonymous Visitor" };
+    query.email = { $not: /@anonymous\.local$/i };
+  }
+
   // UAE Compliance Specific Query Filters
   if (req.query.serviceType) query.serviceType = req.query.serviceType;
   if (req.query.workStatus) query.workStatus = req.query.workStatus;

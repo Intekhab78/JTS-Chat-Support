@@ -499,9 +499,11 @@ export default function AgentPage() {
     { key: "trash", label: "Trash", count: trashSessions.length, dot: "bg-red-400" },
   ];
 
+  const [mobileView, setMobileView] = useState("queue");
+
   const content = tab === "chats" ? (
-    <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-[700px] animate-in slide-in-from-bottom-4 duration-700">
-      <div className="lg:col-span-4 premium-card overflow-hidden flex flex-col p-0 border-none shadow-2xl">
+    <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[700px] lg:h-[750px] animate-in slide-in-from-bottom-4 duration-700">
+      <div className={`lg:col-span-4 premium-card overflow-hidden flex flex-col p-0 border-none shadow-2xl ${mobileView === "chat" ? "hidden lg:flex" : "flex"}`}>
         <div className="p-6 border-b border-slate-50 flex items-center justify-between">
           <div className="flex flex-col gap-0.5">
             <h3 className="heading-md">My Chats</h3>
@@ -558,7 +560,7 @@ export default function AgentPage() {
           ) : paginatedVisibleSessions.pageItems.map((session) => (
             <div
               key={session._id}
-              onClick={() => setSelectedSessionId(session.sessionId)}
+              onClick={() => { setSelectedSessionId(session.sessionId); setMobileView("chat"); }}
               className={`p-4 rounded-2xl border transition-all cursor-pointer relative overflow-hidden group ${selectedSessionId === session.sessionId
                 ? "bg-white border-indigo-200 shadow-xl translate-x-1"
                 : "bg-white border-slate-100 hover:border-slate-200"
@@ -622,7 +624,19 @@ export default function AgentPage() {
         )}
       </div>
 
-      <div className="lg:col-span-8 flex flex-col gap-8">
+      <div className={`lg:col-span-8 flex flex-col gap-6 ${mobileView === "queue" ? "hidden lg:flex" : "flex"}`}>
+        <div className="lg:hidden flex items-center justify-between bg-white border border-slate-100 rounded-2xl px-4 py-2 shadow-sm">
+          <button
+            type="button"
+            onClick={() => setMobileView("queue")}
+            className="px-3.5 py-1.5 rounded-xl bg-indigo-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-md shadow-indigo-500/20"
+          >
+            ← Back to Active Queue ({sessions.length})
+          </button>
+          <span className="text-[10px] font-black uppercase text-slate-500">
+            {selectedSession?.websiteId?.websiteName || "Active Chat"}
+          </span>
+        </div>
         <ChatPanel
           session={selectedSession}
           messages={messages}

@@ -52,13 +52,18 @@ export const submitWidgetLead = asyncHandler(async (req, res) => {
   if (sessionId && (!resolvedName || !resolvedEmail || !resolvedPhone)) {
     const session = await ChatSession.findOne({ sessionId }).populate("visitorId");
     if (session && session.visitorId) {
-      if (!resolvedName) resolvedName = session.visitorId.name;
-      if (!resolvedEmail) resolvedEmail = session.visitorId.email;
+      if (!resolvedName && session.visitorId.name !== "Anonymous Visitor") resolvedName = session.visitorId.name;
+      if (!resolvedEmail && !session.visitorId.email?.endsWith("@anonymous.local")) resolvedEmail = session.visitorId.email;
       if (!resolvedPhone) resolvedPhone = session.visitorId.phone;
     }
   }
 
-  resolvedName = resolvedName || "Anonymous Visitor";
+  const isAnonymous = (!resolvedName || resolvedName === "Anonymous Visitor") && (!resolvedEmail || resolvedEmail.endsWith("@anonymous.local")) && !resolvedPhone;
+  if (isAnonymous) {
+    return res.status(200).json({ success: true, message: "Visitor is anonymous. Contact info required for CRM record creation." });
+  }
+
+  resolvedName = resolvedName || "New Lead";
   resolvedEmail = resolvedEmail ? String(resolvedEmail).trim().toLowerCase() : "";
 
   let customer = null;
@@ -71,7 +76,7 @@ export const submitWidgetLead = asyncHandler(async (req, res) => {
 
   if (customer) {
     if (resolvedName && resolvedName !== "Anonymous Visitor") customer.name = resolvedName;
-    if (resolvedEmail) customer.email = resolvedEmail;
+    if (resolvedEmail && !resolvedEmail.endsWith("@anonymous.local")) customer.email = resolvedEmail;
     if (resolvedPhone) customer.phone = resolvedPhone;
     if (companyName) customer.companyName = companyName;
     if (budget) customer.budget = Number(budget);
