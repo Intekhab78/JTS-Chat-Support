@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { useState, useEffect, useCallback } from "react";
 import {
   LayoutDashboard, Users, Globe, Headphones, MessageSquare, BarChart, ChevronLeft,
-  ChevronRight, LogOut, Sun, Moon, Bell, Ticket, AlertTriangle, Clock, Menu, X,
+  ChevronRight, LogOut, Sun, Moon, Bell, Ticket, AlertTriangle, AlertCircle, Clock, Menu, X,
   Package, Contact, CreditCard, ShieldCheck, ExternalLink, Search, Command, ChevronDown,
   FileText, ShieldAlert, FileSpreadsheet, Building2, Sparkles, Activity, Cpu, Layers,
   Compass, Smartphone, Network, GitBranch, ShoppingBag, Boxes, Database, PieChart,
