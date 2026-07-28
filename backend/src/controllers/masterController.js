@@ -7,6 +7,7 @@ import { InventorySubcategory } from "../models/InventorySubcategory.js";
 import { Brand } from "../models/Brand.js";
 import { Unit } from "../models/Unit.js";
 import { Supplier } from "../models/Supplier.js";
+import { TaxMaster } from "../models/TaxMaster.js";
 import { User } from "../models/User.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import { broadcastDataChange } from "../services/dataSyncService.js";
@@ -18,7 +19,8 @@ const models = {
   subcategory: InventorySubcategory,
   brand: Brand,
   unit: Unit,
-  supplier: Supplier
+  supplier: Supplier,
+  tax: TaxMaster
 };
 
 async function getAccessibleWebsiteIds(user) {
@@ -152,6 +154,11 @@ export const createMaster = asyncHandler(async (req, res) => {
   if (type === "subcategory") {
     payload.categoryId = req.body.categoryId;
   }
+  if (type === "tax") {
+    payload.rate = Number(req.body.rate || req.body.taxRate || 0);
+    payload.taxCode = req.body.taxCode || "";
+    payload.description = req.body.description || "";
+  }
 
   const item = await Model.create(payload);
   res.status(201).json(item);
@@ -204,6 +211,12 @@ export const updateMaster = asyncHandler(async (req, res) => {
 
   if (type === "subcategory" && req.body.categoryId) {
     item.categoryId = req.body.categoryId;
+  }
+
+  if (type === "tax") {
+    if (req.body.rate !== undefined) item.rate = Number(req.body.rate);
+    if (req.body.taxCode !== undefined) item.taxCode = req.body.taxCode;
+    if (req.body.description !== undefined) item.description = req.body.description;
   }
 
   await item.save();

@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { User } from "../models/User.js";
 import { Role } from "../models/Role.js";
 import { Website } from "../models/Website.js";
+import { Customer } from "../models/Customer.js";
 import AppError from "../utils/AppError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { normalizeRole } from "../utils/roleUtils.js";
@@ -18,9 +19,15 @@ const createUserSchema = z.object({
 });
 
 async function ensureUniqueEmail(email, currentUserId = null) {
-  const existing = await User.findOne({ email });
-  if (existing && String(existing._id) !== String(currentUserId || "")) {
-    throw new AppError("Email already in use", 409);
+  const normalized = email ? String(email).trim().toLowerCase() : "";
+  if (!normalized) return;
+  const existingUser = await User.findOne({ email: normalized });
+  if (existingUser && String(existingUser._id) !== String(currentUserId || "")) {
+    throw new AppError("A user account with this email already exists", 409);
+  }
+  const existingCustomer = await Customer.findOne({ email: normalized });
+  if (existingCustomer) {
+    throw new AppError("A customer or lead profile with this email already exists", 409);
   }
 }
 

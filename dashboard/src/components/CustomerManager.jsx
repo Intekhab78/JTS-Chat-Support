@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   Plus, Search, Edit2, Trash2, Save, X, User, Mail, Phone,
   Building2, Calendar, ShieldCheck, MapPin, Briefcase,
-  DollarSign, Hash, Layers, Info, CheckCircle2, Clock, Eye
+  DollarSign, Hash, Layers, Info, CheckCircle2, Clock, Eye, AlertCircle
 } from "lucide-react";
 import { api } from "../api/client";
 import Customer360View from "./CrmSystem/Customer360View.jsx";
@@ -150,6 +150,8 @@ export default function CustomerManager({ websiteId }) {
   };
 
   const openDrawer = async (item = null) => {
+    setError("");
+    setSuccess("");
     if (item) {
       setEditingId(item._id);
       setForm({
@@ -438,6 +440,13 @@ export default function CustomerManager({ websiteId }) {
 
             {/* Drawer Body - Scrollable Form */}
             <form id="customerDetailForm" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-8 py-8 space-y-8 custom-scrollbar">
+
+              {error && (
+                <div className="p-4 bg-rose-50 border-2 border-rose-200 rounded-2xl text-rose-700 font-bold text-xs flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                  <AlertCircle className="w-5 h-5 shrink-0 text-rose-500" />
+                  <span>{error}</span>
+                </div>
+              )}
 
               {/* Section: Core Identity */}
               <section className="space-y-4">

@@ -37,6 +37,19 @@ export default function CrmProductsView({ websiteId }) {
     }
   };
 
+  const [taxMasters, setTaxMasters] = useState([]);
+
+  useEffect(() => {
+    if (!websiteId) return;
+    api(`/api/inventory/masters/tax?websiteId=${websiteId}`)
+      .then(res => {
+        if (Array.isArray(res) && res.length > 0) {
+          setTaxMasters(res);
+        }
+      })
+      .catch(() => {});
+  }, [websiteId]);
+
   useEffect(() => {
     fetchData();
   }, [websiteId, search]);
@@ -201,8 +214,27 @@ export default function CrmProductsView({ websiteId }) {
                 <input type="number" required value={productForm.price} onChange={(e) => setProductForm({ ...productForm, price: Number(e.target.value) })} className="w-full bg-slate-50 border px-4 py-3 rounded-xl text-xs font-bold" />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Tax Rate (%)</label>
-                <input type="number" required value={productForm.taxRate} onChange={(e) => setProductForm({ ...productForm, taxRate: Number(e.target.value) })} className="w-full bg-slate-50 border px-4 py-3 rounded-xl text-xs font-bold" />
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">VAT Rate (%)</label>
+                <select
+                  value={productForm.taxRate !== undefined ? productForm.taxRate : 5}
+                  onChange={(e) => setProductForm({ ...productForm, taxRate: Number(e.target.value) })}
+                  className="w-full bg-slate-50 border px-4 py-3 rounded-xl text-xs font-bold outline-none"
+                >
+                  {taxMasters.length > 0 ? (
+                    taxMasters.map(tm => (
+                      <option key={tm._id} value={tm.rate !== undefined ? tm.rate : tm.taxRate}>
+                        {tm.name} ({tm.rate !== undefined ? tm.rate : tm.taxRate}%)
+                      </option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="5">Standard Rate (5% VAT)</option>
+                      <option value="0">Zero Rated (0% VAT)</option>
+                      <option value="0">Exempt (0% VAT)</option>
+                      <option value="9">Corporate Tax (9%)</option>
+                    </>
+                  )}
+                </select>
               </div>
             </div>
             <button type="submit" className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-black uppercase">Create Product</button>

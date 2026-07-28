@@ -925,6 +925,10 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
           {forcedTab === "inventory-supplier" ? (
             <MasterManager type="supplier" websiteId={websiteId} title="Inventory Master" label="Supplier" />
           ) : null}
+
+          {forcedTab === "inventory-vat" || forcedTab === "vat" || forcedTab === "inventory-tax" || forcedTab === "tax" ? (
+            <MasterManager type="tax" websiteId={websiteId} title="Inventory Master" label="VAT Rate" />
+          ) : null}
         </div>
       </div>
     </div>

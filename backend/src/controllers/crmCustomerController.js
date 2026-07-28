@@ -520,8 +520,11 @@ export const createCustomer = asyncHandler(async (req, res) => {
 
   const normalizedEmail = email ? String(email).trim().toLowerCase() : "";
   if (normalizedEmail) {
-    const existing = await Customer.findOne({ websiteId: resolvedWebsiteId, email: normalizedEmail });
-    if (existing) throw new AppError("A lead with this email already exists", 409);
+    const existingCust = await Customer.findOne({ websiteId: resolvedWebsiteId, email: normalizedEmail });
+    if (existingCust) throw new AppError("A customer or lead with this email already exists on this website", 409);
+
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    if (existingUser) throw new AppError("A user account with this email already exists", 409);
   }
 
   const duplicateCandidates = await findDuplicateCandidates({ email: normalizedEmail, phone, companyName, websiteId: resolvedWebsiteId });
@@ -650,6 +653,19 @@ export const updateCustomer = asyncHandler(async (req, res) => {
       customer[key] = updates[key];
     }
   });
+
+  if (updates.email && updates.email.trim().toLowerCase() !== previousState.email?.toLowerCase()) {
+    const newEmail = updates.email.trim().toLowerCase();
+    const existingCust = await Customer.findOne({
+      websiteId: customer.websiteId,
+      email: newEmail,
+      _id: { $ne: customer._id }
+    });
+    if (existingCust) throw new AppError("A customer or lead with this email already exists on this website", 409);
+
+    const existingUser = await User.findOne({ email: newEmail });
+    if (existingUser) throw new AppError("A user account with this email already exists", 409);
+  }
 
   if (customer.trn && String(customer.trn).trim() !== "" && !/^\d{15}$/.test(String(customer.trn).trim())) {
     throw new AppError("Tax Registration Number (TRN) must be a 15-digit number", 400);

@@ -81,6 +81,7 @@ const iconMap = {
   "Color Master": Palette,
   "Unit Master": Scale,
   "Supplier Master": Truck,
+  "VAT Master": Receipt,
   "Stock In": ArrowDownRight,
   "Stock Out": ArrowUpRight,
   "Adjustment": Sliders,
@@ -519,6 +520,7 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
         { label: "Color Master", href: "/admin?tab=inventory-color" },
         { label: "Unit Master", href: "/admin?tab=inventory-unit" },
         { label: "Supplier Master", href: "/admin?tab=inventory-supplier" },
+        { label: "VAT Master", href: "/admin?tab=inventory-vat" },
         { label: "Stock In", href: "/admin?tab=inventory-stock-in" },
         { label: "Stock Out", href: "/admin?tab=inventory-stock-out" },
         { label: "Adjustment", href: "/admin?tab=inventory-adjustment" }
@@ -558,7 +560,27 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
     { label: "Role Master", href: "/admin?tab=roles" }
   ];
 
-  const links = (menuItems && menuItems.length > 0) ? menuItems : (role === "admin" ? adminMenuItems : fallback);
+  const userRole = (user?.role || role || "").toLowerCase();
+  const allowedVatRoles = ["admin", "client", "sales", "manager", "management", "purchase"];
+  const isVatAllowed = allowedVatRoles.includes(userRole);
+
+  const rawLinks = (menuItems && menuItems.length > 0) ? menuItems : (role === "admin" ? adminMenuItems : fallback);
+
+  const links = rawLinks.map(item => {
+    if (item.children && Array.isArray(item.children)) {
+      return {
+        ...item,
+        children: item.children.filter(child => {
+          if (child.label === "VAT Master" || child.label === "Tax Master" || child.href?.includes("inventory-vat") || child.href?.includes("inventory-tax")) {
+            return isVatAllowed;
+          }
+          return true;
+        })
+      };
+    }
+    return item;
+  });
+
   const sidebarProps = { links, user, isDarkMode, setIsDarkMode, logout };
 
   return (

@@ -45,19 +45,19 @@ function QuoteForm({ initial, onSubmit, onCancel, submitting, websiteId, custome
       const qty = Number(item.quantity || 1);
       const unitPrice = Number(item.price || 0);
       const itemSub = qty * unitPrice;
-      
+
       const discountPct = Number(item.discount || 0);
       const itemDiscountVal = (discountPct / 100) * itemSub;
       const taxableValue = itemSub - itemDiscountVal;
-      
+
       const taxRate = Number(item.taxRate || 18);
       const itemTax = (taxRate / 100) * taxableValue;
       const itemTotal = taxableValue + itemTax;
-      
+
       subtotal += itemSub;
       totalTax += itemTax;
       totalItemDiscounts += itemDiscountVal;
-      
+
       return {
         ...item,
         quantity: qty,
@@ -84,6 +84,20 @@ function QuoteForm({ initial, onSubmit, onCancel, submitting, websiteId, custome
       total: Math.round(grandTotal * 100) / 100
     };
   };
+
+  const [taxMasters, setTaxMasters] = useState([]);
+  const activeWebsiteId = websiteId || customer?.websiteId;
+
+  useEffect(() => {
+    if (!activeWebsiteId) return;
+    api(`/api/inventory/masters/tax?websiteId=${activeWebsiteId}`)
+      .then(res => {
+        if (Array.isArray(res) && res.length > 0) {
+          setTaxMasters(res);
+        }
+      })
+      .catch(() => { });
+  }, [activeWebsiteId]);
 
   const updateItem = (idx, patch) => {
     const items = [...form.items];
@@ -131,7 +145,7 @@ function QuoteForm({ initial, onSubmit, onCancel, submitting, websiteId, custome
           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Line Items</p>
           {form.items.map((item, idx) => (
             <div key={idx} className="grid grid-cols-12 gap-3 items-end bg-slate-50/50 p-4 rounded-2xl border border-slate-100/50">
-              <div className="col-span-4">
+              <div className="col-span-3">
                 <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Item Description</label>
                 <ItemAutocomplete
                   value={item.description}
@@ -166,18 +180,33 @@ function QuoteForm({ initial, onSubmit, onCancel, submitting, websiteId, custome
                   placeholder="Disc %"
                 />
               </div>
-              <div className="col-span-1">
-                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Tax</label>
+              <div className="col-span-2">
+                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">VAT (%)</label>
                 <select
-                  value={item.taxRate || 18}
+                  value={item.taxRate !== undefined ? item.taxRate : 5}
                   onChange={e => updateItem(idx, { taxRate: Number(e.target.value) })}
-                  className="w-full bg-white border border-slate-100 rounded-lg px-1 py-2 text-[10px] font-bold outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-2 py-2 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer shadow-sm"
+                  title="Select VAT Rate"
                 >
-                  <option value="0">0%</option>
-                  <option value="5">5%</option>
-                  <option value="12">12%</option>
-                  <option value="18">18%</option>
-                  <option value="28">28%</option>
+                  {taxMasters.length > 0 ? (
+                    taxMasters.map(tm => {
+                      const r = tm.rate !== undefined ? tm.rate : tm.taxRate;
+                      return (
+                        <option key={tm._id} value={r} title={tm.name}>
+                          {r}% {tm.name}
+                        </option>
+                      );
+                    })
+                  ) : (
+                    <>
+                      <option value="5">5% VAT - Standard Rate</option>
+                      <option value="0">0% VAT - Zero Rated</option>
+                      <option value="0">0% VAT - Exempt</option>
+                      <option value="0">0% VAT - Out of Scope</option>
+                      <option value="5">5% VAT - Reverse Charge</option>
+                      <option value="9">9% CT - Corporate Tax</option>
+                    </>
+                  )}
                 </select>
               </div>
               <div className="col-span-1 flex items-center justify-center pb-2">
@@ -635,15 +664,14 @@ export default function CRMQuotationTab({ customer, websiteId, onPostWin, onConv
               >
                 {/* Left: Icon + Info */}
                 <div className="flex items-center gap-4 min-w-0">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    quote.status === "accepted" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${quote.status === "accepted" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
                     quote.status === "pending_approval" ? "bg-amber-50 text-amber-600 border border-amber-100 animate-pulse" :
-                    quote.status === "denied" ? "bg-rose-50 text-rose-600 border border-rose-100" :
-                    "bg-slate-50 text-slate-400 border border-slate-100"
-                  }`}>
+                      quote.status === "denied" ? "bg-rose-50 text-rose-600 border border-rose-100" :
+                        "bg-slate-50 text-slate-400 border border-slate-100"
+                    }`}>
                     {quote.status === "accepted" ? <CheckCircle size={18} /> :
-                     quote.status === "pending_approval" ? <Shield size={18} /> :
-                     <FileText size={18} />}
+                      quote.status === "pending_approval" ? <Shield size={18} /> :
+                        <FileText size={18} />}
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">

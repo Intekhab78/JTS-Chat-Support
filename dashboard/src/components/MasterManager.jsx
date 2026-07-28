@@ -12,7 +12,7 @@ export default function MasterManager({ type, websiteId, title, label }) {
   const [success, setSuccess] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState("");
-  const [form, setForm] = useState({ name: "", categoryId: "", isActive: true });
+  const [form, setForm] = useState({ name: "", categoryId: "", rate: 0, taxCode: "", description: "", isActive: true });
 
   async function loadData() {
     if (!websiteId) return;
@@ -52,7 +52,7 @@ export default function MasterManager({ type, websiteId, title, label }) {
       }
       setShowForm(false);
       setEditingId("");
-      setForm({ name: "", categoryId: "", isActive: true });
+      setForm({ name: "", categoryId: "", rate: 0, taxCode: "", description: "", isActive: true });
       await loadData();
     } catch (err) {
       setError(err.message || "Failed to save.");
@@ -94,7 +94,7 @@ export default function MasterManager({ type, websiteId, title, label }) {
           onClick={() => {
             setShowForm(!showForm);
             setEditingId("");
-            setForm({ name: "", categoryId: "", isActive: true });
+            setForm({ name: "", categoryId: "", rate: 0, taxCode: "", description: "", isActive: true });
           }}
           className="rounded-[24px] bg-slate-900 px-6 py-3 text-white font-black text-[10px] uppercase tracking-[0.22em] shadow-xl flex items-center gap-2 transition-all hover:-translate-y-0.5"
         >
@@ -108,7 +108,7 @@ export default function MasterManager({ type, websiteId, title, label }) {
         onClose={() => {
           setShowForm(false);
           setEditingId("");
-          setForm({ name: "", categoryId: "", isActive: true });
+          setForm({ name: "", categoryId: "", rate: 0, taxCode: "", description: "", isActive: true });
         }}
         title={editingId ? `Edit ${label}` : `Add New ${label}`}
         onSubmit={handleSubmit}
@@ -141,6 +141,46 @@ export default function MasterManager({ type, websiteId, title, label }) {
               </select>
             </label>
           )}
+
+          {type === "tax" && (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <label className="space-y-2 block">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">VAT Rate (%)</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={form.rate}
+                    onChange={(e) => setForm({ ...form, rate: Number(e.target.value) })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:border-indigo-500"
+                    placeholder="e.g. 5"
+                    required
+                  />
+                </label>
+                <label className="space-y-2 block">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">VAT Code / Identifier</span>
+                  <input
+                    value={form.taxCode}
+                    onChange={(e) => setForm({ ...form, taxCode: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:border-indigo-500"
+                    placeholder="e.g. VAT5"
+                  />
+                </label>
+              </div>
+              <label className="space-y-2 block">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Description / UAE FTA Rule Note</span>
+                <input
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:border-indigo-500"
+                  placeholder="e.g. Standard 5% UAE VAT rate applicable for domestic supplies"
+                />
+              </label>
+            </>
+          )}
+
           <div className="flex items-center gap-3 pt-2">
             <label className="inline-flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 cursor-pointer">
               <input 
@@ -159,8 +199,10 @@ export default function MasterManager({ type, websiteId, title, label }) {
           <table className="w-full table-fixed min-w-[700px]">
             <thead className="bg-slate-50">
               <tr className="text-left">
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.24em] text-slate-400 w-[35%]">Name</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.24em] text-slate-400 w-[30%]">Name</th>
                 {type === "subcategory" && <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Main Category</th>}
+                {type === "tax" && <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">VAT Rate (%)</th>}
+                {type === "tax" && <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">VAT Code</th>}
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Created Date</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Status</th>
                 <th className="px-6 py-4 text-right text-[10px] font-black uppercase tracking-[0.24em] text-slate-400 w-32">Actions</th>
@@ -168,20 +210,32 @@ export default function MasterManager({ type, websiteId, title, label }) {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={type === "subcategory" ? 5 : 4} className="py-10 text-center text-[10px] font-black uppercase tracking-widest text-slate-300">Loading...</td></tr>
+                <tr><td colSpan={type === "subcategory" || type === "tax" ? 6 : 4} className="py-10 text-center text-[10px] font-black uppercase tracking-widest text-slate-300">Loading...</td></tr>
               ) : items.length === 0 ? (
-                <tr><td colSpan={type === "subcategory" ? 5 : 4} className="py-10 text-center text-[10px] font-black uppercase tracking-widest text-slate-300"><EmptyState /></td></tr>
+                <tr><td colSpan={type === "subcategory" || type === "tax" ? 6 : 4} className="py-10 text-center text-[10px] font-black uppercase tracking-widest text-slate-300"><EmptyState /></td></tr>
               ) : items.map((item) => (
                 <tr key={item._id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-4">
                     <p className="text-sm font-black text-slate-900">{item.name}</p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">ID: {item._id.slice(-6)}</p>
+                    {item.description ? <p className="text-[10px] font-bold text-slate-400 truncate max-w-xs">{item.description}</p> : null}
                   </td>
                   {type === "subcategory" && (
                     <td className="px-6 py-4">
                       <span className="inline-flex rounded-lg bg-indigo-50 px-2 py-1 text-[10px] font-black text-indigo-600 border border-indigo-100">
                         {categories.find(c => c._id === item.categoryId)?.name || "Unknown"}
                       </span>
+                    </td>
+                  )}
+                  {type === "tax" && (
+                    <td className="px-6 py-4">
+                      <span className="inline-flex rounded-lg bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700 border border-emerald-200">
+                        {item.rate !== undefined ? item.rate : (item.taxRate || 0)}%
+                      </span>
+                    </td>
+                  )}
+                  {type === "tax" && (
+                    <td className="px-6 py-4 text-xs font-bold text-slate-600">
+                      {item.taxCode || "-"}
                     </td>
                   )}
                   <td className="px-6 py-4 text-[11px] font-bold text-slate-500">
@@ -197,7 +251,7 @@ export default function MasterManager({ type, websiteId, title, label }) {
                       <button
                         onClick={() => {
                           setEditingId(item._id);
-                          setForm({ name: item.name, categoryId: item.categoryId || "", isActive: item.isActive !== false });
+                          setForm({ name: item.name, categoryId: item.categoryId || "", rate: item.rate !== undefined ? item.rate : (item.taxRate || 0), taxCode: item.taxCode || "", description: item.description || "", isActive: item.isActive !== false });
                           setShowForm(true);
                         }}
                         className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"

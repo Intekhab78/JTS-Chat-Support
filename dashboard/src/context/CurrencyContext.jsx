@@ -12,14 +12,16 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { api } from "../api/client.js";
+import { useWebsite } from "./WebsiteContext.jsx";
 import { DEFAULT_CURRENCY_SETTINGS } from "../constants/currencies.js";
 import { formatCurrency as _format, formatCurrencyCompact as _compact, getCurrencySymbol as _sym } from "../utils/currencyFormatter.js";
 
 const CurrencyContext = createContext(null);
 
 export function CurrencyProvider({ children }) {
+  const { selectedWebsite, selectedWebsiteId } = useWebsite();
+
   const [currencySettings, setCurrencySettings] = useState(() => {
-    // Hydrate from localStorage on first render to avoid flash of wrong currency
     try {
       const saved = localStorage.getItem("__currencySettings");
       if (saved) {
@@ -34,45 +36,33 @@ export function CurrencyProvider({ children }) {
   const applySettings = useCallback((settings) => {
     const merged = { ...DEFAULT_CURRENCY_SETTINGS, ...settings };
     setCurrencySettings(merged);
-    // Make available to standalone formatter
     if (typeof window !== "undefined") window.__currencySettings = merged;
     try {
       localStorage.setItem("__currencySettings", JSON.stringify(merged));
     } catch { /* ignore */ }
   }, []);
 
-  const refreshCurrency = useCallback(async () => {
+  // Sync currency automatically when selected website or its currencySettings change
+  useEffect(() => {
+    if (selectedWebsite?.currencySettings) {
+      applySettings(selectedWebsite.currencySettings);
+    }
+  }, [selectedWebsite, selectedWebsiteId, applySettings]);
+
+  const refreshCurrency = useCallback(async (targetWebsiteId) => {
     try {
       const token = localStorage.getItem("dashboard_token");
       if (!token) return;
       const websites = await api("/api/websites");
-      const first = Array.isArray(websites) ? websites[0] : null;
-      if (first?.currencySettings) {
-        applySettings(first.currencySettings);
+      const activeId = targetWebsiteId || selectedWebsiteId || localStorage.getItem("jts_selected_website_id");
+      const target = websites.find(w => w._id === activeId) || websites[0];
+      if (target?.currencySettings) {
+        applySettings(target.currencySettings);
       }
     } catch {
-      /* silently fail — keeps using cached / default settings */
+      /* silently fail */
     }
-  }, [applySettings]);
-
-  // Load on mount (after auth token is available)
-  useEffect(() => {
-    const token = localStorage.getItem("dashboard_token");
-    if (token) {
-      refreshCurrency();
-    }
-  }, [refreshCurrency]);
-
-  // Re-fetch when the user logs in (token added to localStorage)
-  useEffect(() => {
-    function onStorage(e) {
-      if (e.key === "dashboard_token" && e.newValue) {
-        refreshCurrency();
-      }
-    }
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, [refreshCurrency]);
+  }, [selectedWebsiteId, applySettings]);
 
   // Convenience wrappers that always use latest settings
   const formatCurrency   = useCallback((amount) => _format(amount), [currencySettings]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -98,7 +88,6 @@ export function CurrencyProvider({ children }) {
 export function useCurrency() {
   const ctx = useContext(CurrencyContext);
   if (!ctx) {
-    // Graceful fallback — won't crash if used outside provider
     return {
       currencySettings:  DEFAULT_CURRENCY_SETTINGS,
       currencySymbol:    "₹",

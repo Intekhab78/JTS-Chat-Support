@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { User } from "../models/User.js";
 import { Role } from "../models/Role.js";
+import { Customer } from "../models/Customer.js";
 import { createSendToken } from "../utils/jwt.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
@@ -69,9 +70,14 @@ export const register = asyncHandler(async (req, res, next) => {
   const requestedRole = result.data.role || "client";
   const role = normalizeRole(requestedRole);
 
-  const existing = await User.findOne({ email });
-  if (existing) {
-    return next(new AppError("Email already registered", 409));
+  const normalizedEmail = email.trim().toLowerCase();
+  const existingUser = await User.findOne({ email: normalizedEmail });
+  if (existingUser) {
+    return next(new AppError("Email is already registered as a user account", 409));
+  }
+  const existingCustomer = await Customer.findOne({ email: normalizedEmail });
+  if (existingCustomer) {
+    return next(new AppError("Email is already registered as a CRM customer/lead", 409));
   }
 
   let managerId = null;

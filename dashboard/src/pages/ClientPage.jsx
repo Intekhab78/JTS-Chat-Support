@@ -590,6 +590,7 @@ export default function ClientPage() {
           { label: "Color Master", href: "/client?tab=inventory-color" },
           { label: "Unit Master", href: "/client?tab=inventory-unit" },
           { label: "Supplier Master", href: "/client?tab=inventory-supplier" },
+          { label: "VAT Master", href: "/client?tab=inventory-vat" },
           { label: "Stock In", href: "/client?tab=inventory-stock-in" },
           { label: "Stock Out", href: "/client?tab=inventory-stock-out" },
           { label: "Adjustment", href: "/client?tab=inventory-adjustment" }
@@ -782,6 +783,12 @@ export default function ClientPage() {
     title = "Inventory Supplier Master";
     subtitle = "Manage preferred item suppliers";
     content = <InventoryManager websiteId={selectedWebsiteId} activeTab="inventory-supplier" />;
+  }
+
+  if (tab === "inventory-vat" || tab === "inventory-tax") {
+    title = "Inventory VAT Master";
+    subtitle = "Manage UAE FTA VAT rates, 5% standard rate, zero rated, and exempt slabs";
+    content = <InventoryManager websiteId={selectedWebsiteId} activeTab="inventory-vat" />;
   }
 
   if (tab === "crm") {
@@ -1011,7 +1018,7 @@ export default function ClientPage() {
   }
 
   // Handle other tabs generically for now
-  if (!["overview", "chats", "websites", "agents", "clients", "reports", "tickets", "shortcuts", "history", "categories", "departments", "crm", "security", "billing", "subscriptions", "roles", "inventory-customer", "flow-analytics", "help-center", "inventory", "inventory-master", "inventory-stock-in", "inventory-stock-out", "inventory-adjustment", "inventory-history", "inventory-category", "inventory-subcategory", "inventory-brand", "inventory-size", "inventory-color", "inventory-unit", "inventory-supplier", "vat-compliance", "corporate-tax", "trade-license", "compliance-reports", "risk-register", "financial-analytics", "sla-center", "observability", "load-testing", "release-management", "developer-portal", "product-management", "ai-automation", "compliance-governance", "mobile-readiness", "enterprise-integrations", "workflow-builder", "app-marketplace", "lowcode-studio", "custom-crm-modules", "enterprise-bi", "multi-organization", "mission-control"].includes(tab)) {
+  if (!["overview", "chats", "websites", "agents", "clients", "reports", "tickets", "shortcuts", "history", "categories", "departments", "crm", "security", "billing", "subscriptions", "roles", "inventory-customer", "flow-analytics", "help-center", "inventory", "inventory-master", "inventory-stock-in", "inventory-stock-out", "inventory-adjustment", "inventory-history", "inventory-category", "inventory-subcategory", "inventory-brand", "inventory-size", "inventory-color", "inventory-unit", "inventory-supplier", "inventory-vat", "inventory-tax", "vat-compliance", "corporate-tax", "trade-license", "compliance-reports", "risk-register", "financial-analytics", "sla-center", "observability", "load-testing", "release-management", "developer-portal", "product-management", "ai-automation", "compliance-governance", "mobile-readiness", "enterprise-integrations", "workflow-builder", "app-marketplace", "lowcode-studio", "custom-crm-modules", "enterprise-bi", "multi-organization", "mission-control"].includes(tab)) {
     content = (
       <div className="bg-white p-24 rounded-[40px] border border-slate-200/60 shadow-sm text-center">
         <div className="max-w-xs mx-auto space-y-4">

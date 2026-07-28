@@ -32,8 +32,8 @@ router.get("/movements", requireAuth, requireRole("admin", "client", "manager", 
 router.get("/masters/:type", requireAuth, requireRole("admin", "client", "manager", "sales", "purchase"), listMasters);
 
 // WRITE access (Mutations)
-// Allowed for admin, client, purchase
-const requireWriteAccess = requireRole("admin", "client", "purchase");
+// Allowed for admin, client, manager, sales, purchase
+const requireWriteAccess = requireRole("admin", "client", "manager", "sales", "purchase");
 
 router.post("/items", requireAuth, requireWriteAccess, createInventoryItem);
 router.patch("/items/:id", requireAuth, requireWriteAccess, updateInventoryItem);

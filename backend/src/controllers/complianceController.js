@@ -47,7 +47,7 @@ export const getVatComplianceStats = asyncHandler(async (req, res) => {
   }
 
   // Role scoping: Tax Consultants can only see assigned clients
-  if (req.user.role === "tax_consultant") {
+  if (["tax_consultant", "sales", "agent"].includes(req.user.role)) {
     query.ownerId = req.user._id;
   }
 
@@ -165,7 +165,7 @@ export const getCorporateTaxStats = asyncHandler(async (req, res) => {
     ];
   }
 
-  if (req.user.role === "tax_consultant") {
+  if (["tax_consultant", "sales", "agent"].includes(req.user.role)) {
     query.ownerId = req.user._id;
   }
 
@@ -279,7 +279,7 @@ export const getTradeLicenseStats = asyncHandler(async (req, res) => {
     ];
   }
 
-  if (req.user.role === "tax_consultant") {
+  if (["tax_consultant", "sales", "agent"].includes(req.user.role)) {
     query.ownerId = req.user._id;
   }
 
@@ -422,7 +422,7 @@ export const getUnifiedComplianceOverview = asyncHandler(async (req, res) => {
   }
 
   if (consultantId) query.ownerId = consultantId;
-  if (req.user.role === "tax_consultant") query.ownerId = req.user._id;
+  if (["tax_consultant", "sales", "agent"].includes(req.user.role)) query.ownerId = req.user._id;
 
   const customers = await Customer.find(query)
     .populate("ownerId", "name email role")
@@ -569,7 +569,7 @@ export const getComplianceReportData = asyncHandler(async (req, res) => {
   if (consultantId) query.ownerId = consultantId;
   if (serviceType) query.serviceType = serviceType;
 
-  if (req.user.role === "tax_consultant") {
+  if (["tax_consultant", "sales", "agent"].includes(req.user.role)) {
     query.ownerId = req.user._id;
   }
 
