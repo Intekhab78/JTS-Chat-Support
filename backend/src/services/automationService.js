@@ -7,7 +7,7 @@ import { createNotification } from "./notificationService.js";
 import { createActivityEvent } from "./activityService.js";
 import { env } from "../config/env.js";
 import { CRM_PIPELINE_STAGES } from "../constants/domain.js";
-import { sendEmail } from "./emailService.js";
+import { sendEmail, getEmailTemplate } from "./emailService.js";
 
 // Normalize a pipelineStage value to a valid enum — maps legacy values and silently
 // corrects any invalid/stale data that may have existed before schema migrations.
@@ -384,6 +384,21 @@ export async function processCrmAutomation() {
       message: `${task.customerId?.name || "Lead"}: ${task.title}`,
       link: "/sales?tab=tasks"
     });
+
+    const ownerUser = await User.findById(task.ownerId).select("email name");
+    if (ownerUser?.email) {
+      await sendEmail({
+        to: ownerUser.email,
+        subject: `Follow-up Reminder: ${task.title}`,
+        html: getEmailTemplate(
+          "Follow-up Task Due",
+          `Hello ${ownerUser.name || "Consultant"},\n\nYour follow-up task for <strong>${task.customerId?.name || "Client"}</strong> is due now:\n\nTitle: ${task.title}\nDue Date: ${new Date(task.dueAt).toLocaleString()}`,
+          "View Task Console",
+          `${env.APP_URL || "http://localhost:5173"}/sales?tab=tasks`
+        )
+      });
+    }
+
     task.notified = true;
     await task.save();
   }
@@ -394,7 +409,7 @@ export async function processCrmAutomation() {
     dueAt: { $lte: new Date(Date.now() - 24 * 60 * 60 * 1000) }, // 24 hours overdue
     ownerId: { $ne: null },
     escalated: { $ne: true }
-  }).populate("ownerId", "managerId").populate("customerId", "name").limit(50);
+  }).populate("ownerId", "name email managerId").populate("customerId", "name").limit(50);
 
   for (const task of overdueTasks) {
     if (!task.ownerId) continue;
@@ -407,6 +422,20 @@ export async function processCrmAutomation() {
         message: `Task for ${task.customerId?.name || "Lead"} assigned to ${task.ownerId.name || 'Agent'} is overdue.`,
         link: "/client?tab=crm"
       });
+
+      const managerUser = await User.findById(managerId).select("email name");
+      if (managerUser?.email) {
+        await sendEmail({
+          to: managerUser.email,
+          subject: `Overdue Task Escalation: ${task.customerId?.name || "Client"}`,
+          html: getEmailTemplate(
+            "Overdue Task Escalation Alert",
+            `Hello ${managerUser.name || "Manager"},\n\nA follow-up task assigned to <strong>${task.ownerId.name || "Consultant"}</strong> for client <strong>${task.customerId?.name || "Client"}</strong> is overdue by 24+ hours.\n\nTask: ${task.title}`,
+            "Open Management Console",
+            `${env.APP_URL || "http://localhost:5173"}/client?tab=crm`
+          )
+        });
+      }
     }
     task.escalated = true;
     await task.save();
