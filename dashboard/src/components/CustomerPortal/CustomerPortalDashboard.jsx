@@ -4,9 +4,11 @@ import {
   Calendar, ArrowRight, ShieldCheck, AlertCircle, Clock
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { useCurrency } from "../../context/CurrencyContext.jsx";
 
 export default function CustomerPortalDashboard({ data, loading, onTabChange }) {
   const { user } = useAuth();
+  const { formatCurrency } = useCurrency();
   if (loading) {
     return <p className="text-center py-20 text-slate-400 text-xs font-black uppercase">Loading portal dashboard...</p>;
   }
@@ -81,7 +83,7 @@ export default function CustomerPortalDashboard({ data, loading, onTabChange }) 
                     <span className="text-[9px] font-bold text-slate-400 ml-2">📅 {new Date(invoice.dueDate).toLocaleDateString()}</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="font-extrabold text-slate-800">₹{invoice.totalAmount}</span>
+                    <span className="font-extrabold text-slate-800">{formatCurrency(invoice.totalAmount)}</span>
                     <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${(invoice.status === "paid" || invoice.paymentStatus === "paid") ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-rose-50 text-rose-600 border border-rose-100"}`}>
                       {(invoice.status === "paid" || invoice.paymentStatus === "paid") ? "PAID" : (invoice.paymentStatus || invoice.status || "PENDING")}
                     </span>

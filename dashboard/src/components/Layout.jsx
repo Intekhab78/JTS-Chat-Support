@@ -10,7 +10,7 @@ import {
   Building, Radio, DollarSign, Award, Box, FolderTree, GitCommit, Tag, Ruler, Palette,
   Scale, Truck, ArrowDownRight, ArrowUpRight, Sliders, ShoppingCart, LayoutGrid, FilePlus,
   Landmark, BarChart2, BookOpen, Receipt, TrendingUp, BrainCircuit, Target, UserPlus,
-  Briefcase, Grid, Zap, GitMerge, Lock, HelpCircle, UserCheck, FileCheck, Code2
+  Briefcase, Grid, Zap, GitMerge, Lock, HelpCircle, UserCheck, FileCheck, Code2, RefreshCw
 } from "lucide-react";
 import { api } from "../api/client.js";
 import { useSocket } from "../context/SocketContext.jsx";
@@ -74,14 +74,22 @@ const iconMap = {
 
   "Inventory": Package,
   "Item Master": Box,
+  "Categories": FolderTree,
   "Category Master": FolderTree,
+  "Subcategories": GitCommit,
   "Subcategory Master": GitCommit,
+  "Brands": Tag,
   "Brand Master": Tag,
+  "Sizes": Ruler,
   "Size Master": Ruler,
+  "Colors": Palette,
   "Color Master": Palette,
+  "Units": Scale,
   "Unit Master": Scale,
+  "Suppliers": Truck,
   "Supplier Master": Truck,
   "VAT Master": Receipt,
+  "Stock Movement": RefreshCw,
   "Stock In": ArrowDownRight,
   "Stock Out": ArrowUpRight,
   "Adjustment": Sliders,
@@ -103,7 +111,6 @@ const iconMap = {
   "Agent Desk": UserPlus,
   "Manager Board": Briefcase,
   "Departments": Building,
-  "Categories": Grid,
   "Shortcuts": Zap,
   "Reports": BarChart,
   "Flow Analytics": GitMerge,
@@ -163,7 +170,7 @@ function SidebarNavItem({ item, collapsed, onNavigate, currentPath, expandedMenu
   const children = Array.isArray(item.children) ? item.children : [];
   const hasChildren = children.length > 0;
   const childActive = hasChildren && children.some((child) => child.href === currentPath);
-  const isExpanded = Boolean(expandedMenus[item.label]);
+  const isExpanded = expandedMenus[item.label] !== undefined ? Boolean(expandedMenus[item.label]) : (childActive || Boolean(expandedMenus[item.label]));
 
   if (!hasChildren) {
     return <SideNavLink item={item} collapsed={collapsed} onNavigate={onNavigate} isChild={isChild} />;

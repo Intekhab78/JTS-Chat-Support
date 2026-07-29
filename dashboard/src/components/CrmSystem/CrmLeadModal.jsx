@@ -2,6 +2,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { getCurrencySymbol } from "../../utils/currencyFormatter.js";
+import SearchableCustomerSelect from "../SearchableCustomerSelect.jsx";
 
 export default function CrmLeadModal({
   show,
@@ -23,7 +24,7 @@ export default function CrmLeadModal({
         className="fixed inset-0 bg-slate-950/20 backdrop-blur-sm z-99 animate-in fade-in duration-300"
         onClick={onClose}
       />
-      <div className="fixed inset-y-0 right-0 w-full max-w-full md:w-170 bg-white border-l border-slate-200 z-100 shadow-[0_0_60px_rgba(0,0,0,0.2)] flex flex-col animate-in slide-in-from-right duration-500">
+      <div className="fixed inset-y-0 right-0 w-full max-w-full md:w-210 bg-white border-l border-slate-200 z-100 shadow-[0_0_60px_rgba(0,0,0,0.2)] flex flex-col animate-in slide-in-from-right duration-500">
         <div className="px-6 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div>
             <h3 className="text-sm font-black uppercase tracking-[0.25em] text-slate-900">{editLeadId ? "Refine Lead" : "Inject Lead"}</h3>
@@ -45,24 +46,40 @@ export default function CrmLeadModal({
               Section 1 • Basic Information
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Company / Organization Name</label>
-                <input
-                  value={form.companyName || ""}
-                  onChange={(e) => setForm(prev => ({ ...prev, companyName: e.target.value }))}
-                  placeholder="e.g. Al Reza Global LLC"
-                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Owner / Contact Name</label>
-                <input
-                  value={form.name || ""}
-                  onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g. Sheikh Mohammed"
-                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
-                />
-              </div>
+              <SearchableCustomerSelect
+                label="Company / Organization Name"
+                mode="company"
+                value={form.companyName || ""}
+                websiteId={form.websiteId}
+                placeholder="e.g. Al Reza Global LLC"
+                onChange={(val) => setForm(prev => ({ ...prev, companyName: val }))}
+                onSelectEntity={(item) => setForm(prev => ({
+                  ...prev,
+                  companyName: item.companyName || item.name,
+                  name: item.name || prev.name,
+                  email: item.email || prev.email,
+                  phone: item.phone || prev.phone,
+                  trn: item.trn || prev.trn,
+                  tradeLicenseNumber: item.tradeLicenseNumber || prev.tradeLicenseNumber
+                }))}
+              />
+              <SearchableCustomerSelect
+                label="Owner / Contact Name"
+                mode="customer"
+                value={form.name || ""}
+                websiteId={form.websiteId}
+                placeholder="e.g. Sheikh Mohammed"
+                onChange={(val) => setForm(prev => ({ ...prev, name: val }))}
+                onSelectEntity={(item) => setForm(prev => ({
+                  ...prev,
+                  name: item.name || prev.name,
+                  companyName: item.companyName || prev.companyName,
+                  email: item.email || prev.email,
+                  phone: item.phone || prev.phone,
+                  trn: item.trn || prev.trn,
+                  tradeLicenseNumber: item.tradeLicenseNumber || prev.tradeLicenseNumber
+                }))}
+              />
               <div className="space-y-1.5">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Email Address</label>
                 <input

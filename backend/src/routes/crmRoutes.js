@@ -123,6 +123,7 @@ router.post("/invoices/:id/razorpay-order", requireRole("admin", "client", "mana
 router.post("/invoices/:id/razorpay-verify", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), invoiceController.verifyRazorpayPayment);
 
 // Core Customer/Lead Routes
+router.get("/customers", customerController.listCustomers);
 router.get("/", customerController.listCustomers);
 router.post("/", requireRole("admin", "client", "manager", "sales"), validate(createCustomerSchema), customerController.createCustomer);
 router.post("/import", requireRole("admin", "client", "manager", "sales"), upload.single("file"), customerController.importCustomers);

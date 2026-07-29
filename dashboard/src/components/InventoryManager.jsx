@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Boxes, Eye, Edit2, Trash2, Plus, X, Save, ArrowDownToLine, ArrowUpFromLine, RefreshCw, SlidersHorizontal, Package, MoreHorizontal } from "lucide-react";
+import { Boxes, Eye, Edit2, Trash2, Plus, X, Save, ArrowDownToLine, ArrowUpFromLine, RefreshCw, SlidersHorizontal, Package, MoreHorizontal, Search } from "lucide-react";
 import { api } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import MasterManager from "./MasterManager.jsx";
@@ -73,8 +73,8 @@ function EmptyInventoryState() {
 
 export default function InventoryManager({ websiteId, activeTab: forcedTab = "master", readOnly = false }) {
   const { user } = useAuth();
-  const canEditMaster = ["admin", "client", "purchase"].includes(user?.role);
-  const canPostMovements = ["admin", "client", "purchase"].includes(user?.role);
+  const canEditMaster = ["admin", "client", "purchase", "manager", "sales"].includes(user?.role);
+  const canPostMovements = ["admin", "client", "purchase", "manager", "sales"].includes(user?.role);
 
   const [items, setItems] = useState([]);
   const [movements, setMovements] = useState([]);
@@ -105,11 +105,16 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
   const [autoGenSku, setAutoGenSku] = useState(false);
   const [skuSuffix, setSkuSuffix] = useState(() => Math.floor(1000 + Math.random() * 9000));
   const [showViewDrawer, setShowViewDrawer] = useState(false);
+  const [movementSearch, setMovementSearch] = useState("");
+  const [movementTypeFilter, setMovementTypeFilter] = useState("all");
 
   const selectedItem = useMemo(() => items.find((item) => item._id === selectedItemId) || null, [items, selectedItemId]);
   const lowStockCount = useMemo(() => items.filter((item) => Number(item.quantity || 0) <= Number(item.reorderLevel || 0)).length, [items]);
   const activeItemCount = useMemo(() => items.filter((item) => item.isActive !== false).length, [items]);
   const inventoryValue = useMemo(() => items.reduce((sum, item) => sum + (Number(item.unitCost || 0) * Number(item.quantity || 0)), 0), [items]);
+  const movementInCount = useMemo(() => movements.filter(m => m.type === "in").length, [movements]);
+  const movementOutCount = useMemo(() => movements.filter(m => m.type === "out").length, [movements]);
+  const movementAdjustCount = useMemo(() => movements.filter(m => m.type === "adjust").length, [movements]);
 
   async function loadData() {
     if (!websiteId) {
@@ -130,7 +135,7 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
         api(`/api/inventory/masters/size?websiteId=${websiteId}`),
         api(`/api/inventory/masters/color?websiteId=${websiteId}`),
         api(`/api/inventory/masters/unit?websiteId=${websiteId}`),
-        api("/api/procurement/suppliers")
+        api("/api/procurement/suppliers").catch(() => [])
       ]);
       const nextItems = Array.isArray(itemData) ? itemData : [];
       setItems(nextItems);
@@ -381,9 +386,20 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
   }
 
   const filteredHistory = useMemo(() => {
-    if (!selectedItemId) return movements;
-    return movements.filter((movement) => movement.itemId?._id === selectedItemId);
-  }, [movements, selectedItemId]);
+    return movements.filter((movement) => {
+      if (selectedItemId && movement.itemId?._id !== selectedItemId) return false;
+      if (movementTypeFilter !== "all" && movement.type !== movementTypeFilter) return false;
+      if (movementSearch.trim()) {
+        const q = movementSearch.toLowerCase();
+        const itemName = movement.itemId?.name?.toLowerCase() || "";
+        const ref = movement.reference?.toLowerCase() || "";
+        const notes = movement.notes?.toLowerCase() || "";
+        const user = movement.createdBy?.name?.toLowerCase() || "";
+        return itemName.includes(q) || ref.includes(q) || notes.includes(q) || user.includes(q);
+      }
+      return true;
+    });
+  }, [movements, selectedItemId, movementTypeFilter, movementSearch]);
 
   if (!websiteId) return <EmptyInventoryState />;
 
@@ -862,67 +878,175 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
           ) : null}
 
           {forcedTab === "history" ? (
-            <div className="premium-card p-6 bg-white border border-slate-100 rounded-[32px] space-y-6">
-              <div className="space-y-1">
-                <h3 className="heading-md">Movement History</h3>
-                <p className="small-label">All stock in, stock out, and adjustment records for this website.</p>
+            <div className="space-y-6 animate-in fade-in duration-500">
+              {/* Movement KPI Dashboard Banner */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <button
+                  onClick={() => setMovementTypeFilter("all")}
+                  className={`text-left rounded-[28px] border transition-all p-5 shadow-sm ${
+                    movementTypeFilter === "all" ? "bg-slate-900 text-white border-slate-800 shadow-xl" : "bg-white border-slate-200/70 hover:border-slate-300"
+                  }`}
+                >
+                  <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${movementTypeFilter === "all" ? "text-indigo-300" : "text-slate-400"}`}>
+                    Total Movements
+                  </p>
+                  <div className="mt-3 flex items-end justify-between gap-3">
+                    <p className="text-3xl font-black tracking-tight">{movements.length}</p>
+                    <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-xl bg-white/10 text-white">All Records</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setMovementTypeFilter("in")}
+                  className={`text-left rounded-[28px] border transition-all p-5 shadow-sm ${
+                    movementTypeFilter === "in" ? "bg-emerald-600 text-white border-emerald-500 shadow-xl" : "bg-white border-slate-200/70 hover:border-slate-300"
+                  }`}
+                >
+                  <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${movementTypeFilter === "in" ? "text-emerald-100" : "text-emerald-600"}`}>
+                    Stock In
+                  </p>
+                  <div className="mt-3 flex items-end justify-between gap-3">
+                    <p className="text-3xl font-black tracking-tight">{movementInCount}</p>
+                    <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100">Received</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setMovementTypeFilter("out")}
+                  className={`text-left rounded-[28px] border transition-all p-5 shadow-sm ${
+                    movementTypeFilter === "out" ? "bg-rose-600 text-white border-rose-500 shadow-xl" : "bg-white border-slate-200/70 hover:border-slate-300"
+                  }`}
+                >
+                  <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${movementTypeFilter === "out" ? "text-rose-100" : "text-rose-600"}`}>
+                    Stock Out
+                  </p>
+                  <div className="mt-3 flex items-end justify-between gap-3">
+                    <p className="text-3xl font-black tracking-tight">{movementOutCount}</p>
+                    <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-xl bg-rose-50 text-rose-700 border border-rose-100">Dispatched</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setMovementTypeFilter("adjust")}
+                  className={`text-left rounded-[28px] border transition-all p-5 shadow-sm ${
+                    movementTypeFilter === "adjust" ? "bg-amber-500 text-white border-amber-400 shadow-xl" : "bg-white border-slate-200/70 hover:border-slate-300"
+                  }`}
+                >
+                  <p className={`text-[10px] font-black uppercase tracking-[0.24em] ${movementTypeFilter === "adjust" ? "text-amber-100" : "text-amber-600"}`}>
+                    Adjustments
+                  </p>
+                  <div className="mt-3 flex items-end justify-between gap-3">
+                    <p className="text-3xl font-black tracking-tight">{movementAdjustCount}</p>
+                    <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-xl bg-amber-50 text-amber-700 border border-amber-100">Corrections</span>
+                  </div>
+                </button>
               </div>
 
-              <div className="space-y-4">
-                {filteredHistory.map((movement) => (
-                  <article key={movement._id} className="rounded-3xl border border-slate-100 bg-slate-50/70 p-5">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                      <div className="space-y-2 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <MovementBadge type={movement.type} />
-                          <span className="rounded-lg border border-slate-100 bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500">{movement.itemId?.name || "Item removed"}</span>
-                        </div>
-                        <p className="text-[11px] font-black uppercase tracking-tight text-slate-900">Qty {movement.quantity} | Balance {movement.balanceAfter}</p>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{movement.reference || "No reference"}</p>
-                        <p className="text-xs font-bold text-slate-500">{movement.notes || "No notes added."}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">{formatDate(movement.createdAt)}</p>
-                        <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-slate-400">{movement.createdBy?.name || "Unknown user"}</p>
-                      </div>
-                    </div>
-                  </article>
-                ))}
+              {/* Movement Search & Filter Toolbar */}
+              <div className="flex flex-col md:flex-row items-center gap-3 bg-white p-2.5 rounded-[24px] border border-slate-200/80 shadow-sm">
+                <div className="relative flex-1 w-full">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <input
+                    type="text"
+                    value={movementSearch}
+                    onChange={(e) => setMovementSearch(e.target.value)}
+                    placeholder="Search movement history by item name, PO reference, notes, or user..."
+                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-extrabold text-slate-800 placeholder-slate-400 outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 transition-all"
+                  />
+                  {movementSearch && (
+                    <button onClick={() => setMovementSearch("")} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
 
-                {!loading && filteredHistory.length === 0 ? (
-                  <div className="py-20 text-center border-2 border-dashed border-slate-100 rounded-[32px] bg-white">
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">No movement history found</p>
+                <div className="flex items-center gap-2 w-full md:w-auto">
+                  <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200/80 rounded-2xl">
+                    <SlidersHorizontal size={14} className="text-slate-400 shrink-0" />
+                    <select
+                      value={movementTypeFilter}
+                      onChange={(e) => setMovementTypeFilter(e.target.value)}
+                      className="bg-transparent text-xs font-black text-slate-700 outline-none uppercase tracking-wider cursor-pointer"
+                    >
+                      <option value="all">All Movement Types ({movements.length})</option>
+                      <option value="in">Stock In ({movementInCount})</option>
+                      <option value="out">Stock Out ({movementOutCount})</option>
+                      <option value="adjust">Adjustment ({movementAdjustCount})</option>
+                    </select>
                   </div>
-                ) : null}
+                </div>
+              </div>
+
+              <div className="premium-card p-6 bg-white border border-slate-100 rounded-[32px] space-y-6">
+                <div className="space-y-1">
+                  <h3 className="heading-md">Movement History Log</h3>
+                  <p className="small-label">All stock in, stock out, and adjustment records for this website.</p>
+                </div>
+
+                <div className="space-y-4">
+                  {filteredHistory.map((movement) => (
+                    <article key={movement._id} className="rounded-3xl border border-slate-100 bg-slate-50/70 p-5 hover:bg-slate-50 transition-colors">
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="space-y-2 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <MovementBadge type={movement.type} />
+                            <span className="rounded-lg border border-slate-100 bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-700 font-extrabold">{movement.itemId?.name || "Item removed"}</span>
+                          </div>
+                          <p className="text-[11px] font-black uppercase tracking-tight text-slate-900">Qty {movement.quantity} | Balance {movement.balanceAfter}</p>
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{movement.reference || "No reference"}</p>
+                          <p className="text-xs font-bold text-slate-500">{movement.notes || "No notes added."}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{formatDate(movement.createdAt)}</p>
+                          <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-indigo-600">{movement.createdBy?.name || "Unknown user"}</p>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+
+                  {!loading && filteredHistory.length === 0 ? (
+                    <div className="py-20 text-center border-2 border-dashed border-slate-100 rounded-[32px] bg-white space-y-3">
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">No movement records found matching filter</p>
+                      {(movementSearch || movementTypeFilter !== "all") && (
+                        <button
+                          onClick={() => { setMovementSearch(""); setMovementTypeFilter("all"); }}
+                          className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-[10px] font-black rounded-xl uppercase tracking-wider transition-all"
+                        >
+                          Reset Filters
+                        </button>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </div>
           ) : null}
 
-          {forcedTab === "inventory-category" ? (
+          {forcedTab === "inventory-category" || forcedTab === "category" ? (
             <MasterManager type="category" websiteId={websiteId} title="Inventory Master" label="Category" />
           ) : null}
 
-          {forcedTab === "inventory-subcategory" ? (
+          {forcedTab === "inventory-subcategory" || forcedTab === "subcategory" ? (
             <MasterManager type="subcategory" websiteId={websiteId} title="Inventory Master" label="Subcategory" />
           ) : null}
 
-          {forcedTab === "inventory-brand" ? (
+          {forcedTab === "inventory-brand" || forcedTab === "brand" ? (
             <MasterManager type="brand" websiteId={websiteId} title="Inventory Master" label="Brand" />
           ) : null}
 
-          {forcedTab === "inventory-size" ? (
+          {forcedTab === "inventory-size" || forcedTab === "size" ? (
             <MasterManager type="size" websiteId={websiteId} title="Inventory Master" label="Size" />
           ) : null}
 
-          {forcedTab === "inventory-color" ? (
+          {forcedTab === "inventory-color" || forcedTab === "color" ? (
             <MasterManager type="color" websiteId={websiteId} title="Inventory Master" label="Color" />
           ) : null}
 
-          {forcedTab === "inventory-unit" ? (
+          {forcedTab === "inventory-unit" || forcedTab === "unit" ? (
             <MasterManager type="unit" websiteId={websiteId} title="Inventory Master" label="Unit" />
           ) : null}
 
-          {forcedTab === "inventory-supplier" ? (
+          {forcedTab === "inventory-supplier" || forcedTab === "supplier" ? (
             <MasterManager type="supplier" websiteId={websiteId} title="Inventory Master" label="Supplier" />
           ) : null}
 

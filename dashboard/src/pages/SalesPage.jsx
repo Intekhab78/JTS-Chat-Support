@@ -26,13 +26,19 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   SlidersHorizontal,
-  RefreshCw
+  RefreshCw,
+  Boxes,
+  Layers,
+  Tag,
+  Truck,
+  Receipt
 } from "lucide-react";
 import ChatPanel from "../components/ChatPanel.jsx";
 import { hasModule } from "../utils/planAccess.js";
 import CustomerManager from "../components/CustomerManager.jsx";
 import InventoryManager from "../components/InventoryManager.jsx";
 import TicketManager from "../components/TicketManager.jsx";
+import CrmTasksView from "../components/CrmSystem/CrmTasksView.jsx";
 
 function SessionStatusBadge({ status }) {
   const styles = {
@@ -373,7 +379,22 @@ export default function SalesPage() {
     { label: "Tasks", href: "/sales?tab=tasks" },
     { label: "Notes", href: "/sales?tab=notes" },
     { label: "Chats", href: "/sales?tab=chats" },
-    { label: "Inventory", href: "/sales?tab=inventory" },
+    {
+      label: "Inventory",
+      href: "/sales?tab=inventory",
+      children: [
+        { label: "Item Master", href: "/sales?tab=inventory&subtab=master" },
+        { label: "Categories", href: "/sales?tab=inventory&subtab=category" },
+        { label: "Subcategories", href: "/sales?tab=inventory&subtab=subcategory" },
+        { label: "Brands", href: "/sales?tab=inventory&subtab=brand" },
+        { label: "Sizes", href: "/sales?tab=inventory&subtab=size" },
+        { label: "Colors", href: "/sales?tab=inventory&subtab=color" },
+        { label: "Units", href: "/sales?tab=inventory&subtab=unit" },
+        { label: "Suppliers", href: "/sales?tab=inventory&subtab=supplier" },
+        { label: "VAT Master", href: "/sales?tab=inventory&subtab=vat" },
+        { label: "Stock Movement", href: "/sales?tab=inventory&subtab=history" }
+      ]
+    },
     { label: "Tickets", href: "/sales?tab=tickets" },
     ...(canUseReports ? [{ label: "Insights", href: "/sales?tab=insights" }] : []),
     { label: "Customer Master", href: "/sales?tab=customer-master" }
@@ -424,7 +445,8 @@ export default function SalesPage() {
     }
     return (
       <Layout menuItems={menuItems} title="Sales Intelligence" subtitle="Performance metrics and revenue projection">
-         <InsightsPanel onViewLead={handleViewLead} />
+        <WebsiteSelector />
+        <InsightsPanel websiteId={selectedWebsiteId} onViewLead={handleViewLead} />
       </Layout>
     );
   }
@@ -440,7 +462,8 @@ export default function SalesPage() {
   if (activeTab === "tasks") {
     return (
       <Layout menuItems={menuItems} title="My Tasks" subtitle="Follow-ups and scheduled activities">
-        <GlobalTasksPanel />
+        <WebsiteSelector />
+        <CrmTasksView websiteId={selectedWebsiteId} onOpenCustomer={handleViewLead} />
       </Layout>
     );
   }
@@ -463,33 +486,13 @@ export default function SalesPage() {
   }
 
   if (activeTab === "inventory") {
-    const subTabs = [
-      { id: "master", label: "Master Items", icon: Package },
-      { id: "history", label: "History", icon: RefreshCw }
-    ];
+    const subtabParam = searchParams.get("subtab");
+    const currentSubTab = subtabParam || inventorySubTab || "master";
 
     return (
-      <Layout menuItems={menuItems} title="Stock Intelligence" subtitle="Real-time inventory levels and movement history">
+      <Layout menuItems={menuItems} title="Stock Intelligence" subtitle="Real-time inventory levels, sub-masters and movement history">
         <WebsiteSelector />
-        
-        <div className="flex items-center gap-2 mb-8 bg-white/50 backdrop-blur-md p-1.5 rounded-[24px] border border-slate-200 w-fit shadow-sm">
-          {subTabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setInventorySubTab(tab.id)}
-              className={`flex items-center gap-2.5 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all ${
-                inventorySubTab === tab.id 
-                ? "bg-slate-900 text-white shadow-xl shadow-slate-200" 
-                : "text-slate-400 hover:text-slate-600 hover:bg-white/50"
-              }`}
-            >
-              <tab.icon size={14} className={inventorySubTab === tab.id ? "text-indigo-400" : "text-slate-300"} />
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        <InventoryManager websiteId={selectedWebsiteId} activeTab={inventorySubTab} readOnly={true} />
+        <InventoryManager websiteId={selectedWebsiteId} activeTab={currentSubTab} readOnly={false} />
       </Layout>
     );
   }

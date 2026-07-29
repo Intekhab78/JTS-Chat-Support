@@ -90,6 +90,17 @@ export const listCustomers = asyncHandler(async (req, res) => {
   }
 
   if (status) query.status = status;
+  if (pipelineStage && pipelineStage !== "all") {
+    if (pipelineStage === "proposal_sent" || pipelineStage === "proposal") {
+      query.pipelineStage = { $in: ["proposal_sent", "proposal"] };
+    } else if (pipelineStage === "won") {
+      query.pipelineStage = { $in: ["won", "closed_won"] };
+    } else if (pipelineStage === "lost") {
+      query.pipelineStage = { $in: ["lost", "closed_lost"] };
+    } else {
+      query.pipelineStage = pipelineStage;
+    }
+  }
   if (req.query.recordType && req.query.recordType !== "all") query.recordType = req.query.recordType;
   if (req.query.ownerId) query.ownerId = req.query.ownerId;
   if (includeArchived !== "true") query.archivedAt = null;

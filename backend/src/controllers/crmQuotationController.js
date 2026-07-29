@@ -88,6 +88,11 @@ export const createQuotation = asyncHandler(async (req, res) => {
     validUntil: validUntil || new Date(Date.now() + 15 * 24 * 60 * 60 * 1000)
   });
 
+  // Automatically sync customer's leadValue with the quotation total
+  if (totals.total > 0) {
+    await Customer.findByIdAndUpdate(customerId, { leadValue: totals.total });
+  }
+
   // Trigger Notifications
   if (initialStatus === "pending_approval" && req.user.managerId) {
     await createAndEmitCrmNotification({

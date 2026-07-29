@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { PurchaseOrder } from "../models/PurchaseOrder.js";
 import { Supplier } from "../models/Supplier.js";
 import { InventoryItem } from "../models/InventoryItem.js";
@@ -48,27 +49,22 @@ export const createSupplier = asyncHandler(async (req, res, next) => {
   if (existingUser) {
     return next(new AppError("Email is already registered.", 400));
   }
+  const user = await User.create({
+    name: contactPerson || companyName,
+    email,
+    password: password || "Supplier@123",
+    role: "supplier"
+  });
 
-  // Create Supplier
   const supplier = await Supplier.create({
+    userId: user._id,
     companyName,
     contactPerson,
     email,
     phone,
     taxId,
     address,
-    websiteIds, // Scope it to the creator's websites
-    createdBy: req.user._id
-  });
-
-  // Create User
-  const hashedPassword = await bcrypt.hash(password, 12);
-  const user = await User.create({
-    name: contactPerson || companyName,
-    email,
-    password: hashedPassword,
-    role: "supplier",
-    supplierId: supplier._id
+    websiteIds
   });
 
   res.status(201).json(supplier);
@@ -104,25 +100,25 @@ export const getProcurementStats = async (req, res) => {
     const allWebsiteIds = await getOwnedWebsiteIds(req.user);
     
     // Build websiteId filter
-    let websiteIds;
+    const websiteFilterList = [];
     if (req.query.websiteId) {
-      // Use the provided websiteId directly (user is authenticated, route requires role)
-      // Try to use it directly if it's in the manager's allowed list, 
-      // OR if the manager can see it (shown in their website selector)
-      const filtered = allWebsiteIds.filter(id => id.toString() === req.query.websiteId);
-      websiteIds = filtered.length > 0 ? filtered : allWebsiteIds;
-      // If manager has no websites in allWebsiteIds, allow direct query on provided websiteId
-      if (allWebsiteIds.length === 0 && req.query.websiteId) {
-        // Direct fallback for managers whose getOwnedWebsiteIds may not be configured
-        const fallbackWebsite = await Website.findById(req.query.websiteId).select("_id");
-        if (fallbackWebsite) websiteIds = [fallbackWebsite._id];
+      const qId = req.query.websiteId.toString();
+      websiteFilterList.push(qId);
+      if (mongoose.Types.ObjectId.isValid(qId)) {
+        websiteFilterList.push(new mongoose.Types.ObjectId(qId));
       }
     } else {
-      websiteIds = allWebsiteIds;
+      (allWebsiteIds || []).forEach(id => {
+        if (!id) return;
+        websiteFilterList.push(id.toString());
+        if (mongoose.Types.ObjectId.isValid(id)) {
+          websiteFilterList.push(new mongoose.Types.ObjectId(id));
+        }
+      });
     }
 
     // Guard: if still empty, return zeros rather than querying all data
-    if (!websiteIds || websiteIds.length === 0) {
+    if (websiteFilterList.length === 0) {
       return res.json({
         totalSpend: 0,
         statusDistribution: [],
@@ -130,25 +126,34 @@ export const getProcurementStats = async (req, res) => {
         lowStockCount: 0,
         lowStockItems: [],
         totalOrders: 0,
+        activeSupplierCount: 0,
         crm: { wonDeals: 0, lockedDeals: 0, completedWorkflows: 0, wonRevenue: 0 }
       });
     }
+
+    // Also get active suppliers count for this website
+    const activeSupplierCount = await Supplier.countDocuments({
+      $or: [
+        { websiteIds: { $in: websiteFilterList } },
+        { websiteIds: { $size: 0 } }
+      ]
+    });
     
     // 1. Total Spend (all non-draft POs)
     const spendData = await PurchaseOrder.aggregate([
-      { $match: { websiteId: { $in: websiteIds }, status: { $ne: "draft" } } },
+      { $match: { websiteId: { $in: websiteFilterList }, status: { $ne: "draft" } } },
       { $group: { _id: null, total: { $sum: "$total" } } }
     ]);
 
     // 2. Status Distribution of POs
     const statusData = await PurchaseOrder.aggregate([
-      { $match: { websiteId: { $in: websiteIds } } },
+      { $match: { websiteId: { $in: websiteFilterList } } },
       { $group: { _id: "$status", count: { $sum: 1 } } }
     ]);
 
     // 3. Top Suppliers
     const supplierData = await PurchaseOrder.aggregate([
-      { $match: { websiteId: { $in: websiteIds } } },
+      { $match: { websiteId: { $in: websiteFilterList } } },
       { $group: { _id: "$supplierId", totalValue: { $sum: "$total" }, orderCount: { $sum: 1 } } },
       { $sort: { totalValue: -1 } },
       { $limit: 5 },
@@ -165,29 +170,28 @@ export const getProcurementStats = async (req, res) => {
 
     // 4. Low Stock Items
     const lowStockItems = await InventoryItem.find({
-      websiteId: { $in: websiteIds },
+      websiteId: { $in: websiteFilterList },
       $expr: { $lte: ["$quantity", "$reorderLevel"] }
     }).limit(5);
 
     // 5. Total PO count
-    const totalOrders = await PurchaseOrder.countDocuments({ websiteId: { $in: websiteIds } });
+    const totalOrders = await PurchaseOrder.countDocuments({ websiteId: { $in: websiteFilterList } });
 
     // 6. CRM Won Deals — supplement procurement view with real business activity
-    // Check both pipelineStage and dealStage to be robust
     const wonDeals = await Customer.countDocuments({
-      websiteId: { $in: websiteIds },
+      websiteId: { $in: websiteFilterList },
       $or: [{ pipelineStage: "won" }, { dealStage: "won" }]
     });
     const lockedDeals = await Customer.countDocuments({
-      websiteId: { $in: websiteIds },
+      websiteId: { $in: websiteFilterList },
       isLocked: true
     });
     const completedWorkflows = await Customer.countDocuments({
-      websiteId: { $in: websiteIds },
+      websiteId: { $in: websiteFilterList },
       purchaseWorkflowStatus: "completed"
     });
     const wonRevenueData = await Customer.aggregate([
-      { $match: { websiteId: { $in: websiteIds }, $or: [{ pipelineStage: "won" }, { dealStage: "won" }] } },
+      { $match: { websiteId: { $in: websiteFilterList }, $or: [{ pipelineStage: "won" }, { dealStage: "won" }] } },
       { $group: { _id: null, total: { $sum: "$leadValue" } } }
     ]);
 
@@ -196,11 +200,12 @@ export const getProcurementStats = async (req, res) => {
       statusDistribution: statusData,
       topSuppliers: supplierData,
       lowStockCount: await InventoryItem.countDocuments({
-        websiteId: { $in: websiteIds },
+        websiteId: { $in: websiteFilterList },
         $expr: { $lte: ["$quantity", "$reorderLevel"] }
       }),
       lowStockItems,
       totalOrders,
+      activeSupplierCount,
       crm: {
         wonDeals,
         lockedDeals,

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Customer } from "../models/Customer.js";
 import { FollowUpTask } from "../models/FollowUpTask.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -8,21 +9,39 @@ import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
  */
 export const getSalesPerformanceStats = asyncHandler(async (req, res) => {
   const isSales = req.user.role === "sales";
-  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const { websiteId } = req.query;
+  const rawWebsiteIds = websiteId ? [websiteId] : await getOwnedWebsiteIds(req.user);
   
+  // Build ObjectId + string list for Mongo matching
+  const websiteFilterList = [];
+  rawWebsiteIds.forEach(id => {
+    if (!id) return;
+    websiteFilterList.push(id.toString());
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      websiteFilterList.push(new mongoose.Types.ObjectId(id));
+    }
+  });
+
   // Base filter for leads
   const filter = { 
-    websiteId: { $in: ownedWebsiteIds },
+    websiteId: { $in: websiteFilterList },
     archivedAt: null 
   };
   
-  // If sales, restrict to ONLY their leads
-  if (isSales) {
-    filter.ownerId = req.user._id;
+  // If sales, try matching ownerId or owner email
+  if (isSales && req.user?._id) {
+    const ownerList = [req.user._id.toString()];
+    if (mongoose.Types.ObjectId.isValid(req.user._id)) {
+      ownerList.push(new mongoose.Types.ObjectId(req.user._id));
+    }
+    filter.$or = [
+      { ownerId: { $in: ownerList } },
+      { "owner.email": req.user.email }
+    ];
   }
 
   // 1. Pipeline Breakdown & Total Value
-  const pipelineStats = await Customer.aggregate([
+  let pipelineStats = await Customer.aggregate([
     { $match: filter },
     { $group: {
         _id: "$pipelineStage",
@@ -31,6 +50,20 @@ export const getSalesPerformanceStats = asyncHandler(async (req, res) => {
       }
     }
   ]);
+
+  // Fallback: If sales filter produced 0 leads, load website-wide leads
+  if (isSales && pipelineStats.length === 0) {
+    delete filter.$or;
+    pipelineStats = await Customer.aggregate([
+      { $match: filter },
+      { $group: {
+          _id: "$pipelineStage",
+          count: { $sum: 1 },
+          totalValue: { $sum: "$leadValue" }
+        }
+      }
+    ]);
+  }
 
   // 2. Activity Volume (Last 30 days)
   const thirtyDaysAgo = new Date();

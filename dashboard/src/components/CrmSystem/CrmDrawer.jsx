@@ -230,23 +230,47 @@ export default function CrmDrawer({
         {/* Scrollable Context Wrapper */}
         <div className="flex-1 overflow-y-auto bg-slate-50/40 custom-scrollbar">
           {/* Quick Stats Banner */}
-          <div className="px-5 py-4 md:px-8 border-b border-slate-100 bg-white flex flex-wrap items-start gap-x-8 gap-y-4 sticky top-0 z-[11] shadow-sm">
-            <div className="space-y-1 min-w-[120px]">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Pipeline Stage</p>
-              <div className="flex items-center gap-2">
-                <CRMStageBadge stage={selectedCustomer?.pipelineStage} />
-                {selectedCustomer?.isLocked && selectedCustomer?.pipelineStage === "won" && (
-                  <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-100 text-[8px] font-black uppercase tracking-widest">
-                    <Shield size={10} className="fill-amber-600/20" /> Locked
-                  </div>
-                )}
-              </div>
-            </div>
+          {(() => {
+            const invTotalSum = (customerDetails?.invoices || [])
+              .filter(inv => inv.status !== "cancelled" && inv.status !== "void")
+              .reduce((sum, inv) => sum + Number(inv.total || inv.grandTotal || 0), 0);
 
-            <div className="space-y-1 min-w-[100px]">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Est. Value</p>
-              <p className="text-xs font-black text-slate-900">{formatCurrency(selectedCustomer?.leadValue)}</p>
-            </div>
+            const quoteTotalSum = (customerDetails?.quotations || [])
+              .filter(q => q.status !== "rejected" && q.status !== "expired")
+              .reduce((sum, q) => sum + Number(q.total || q.grandTotal || 0), 0);
+
+            const totalDocSum = invTotalSum > 0 ? invTotalSum : quoteTotalSum;
+            const displayEstValue = totalDocSum > 0 ? totalDocSum : (selectedCustomer?.leadValue || 0);
+
+            return (
+              <div className="px-5 py-4 md:px-8 border-b border-slate-100 bg-white flex flex-wrap items-start gap-x-8 gap-y-4 sticky top-0 z-[11] shadow-sm">
+                <div className="space-y-1 min-w-[120px]">
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Pipeline Stage</p>
+                  <div className="flex items-center gap-2">
+                    <CRMStageBadge stage={selectedCustomer?.pipelineStage} />
+                    {selectedCustomer?.isLocked && selectedCustomer?.pipelineStage === "won" && (
+                      <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-100 text-[8px] font-black uppercase tracking-widest">
+                        <Shield size={10} className="fill-amber-600/20" /> Locked
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-1 min-w-[100px]">
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Est. Value</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs font-black text-slate-900">{formatCurrency(displayEstValue)}</p>
+                    {canEditCRM && (
+                      <button
+                        onClick={() => onOpenEditLead()}
+                        title="Edit Estimated Lead Value"
+                        className="text-slate-300 hover:text-indigo-600 transition-colors"
+                      >
+                        <Edit2 size={10} />
+                      </button>
+                    )}
+                  </div>
+                </div>
 
             <div className="space-y-1 min-w-[100px]">
               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Budget</p>
@@ -328,6 +352,8 @@ export default function CrmDrawer({
               </div>
             )}
           </div>
+        );
+      })()}
 
           {/* Tab Navigation */}
           <div className="flex border-b border-slate-100 bg-white sticky top-[65px] z-10 overflow-x-auto scrollbar-hide">

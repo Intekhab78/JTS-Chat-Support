@@ -2,9 +2,11 @@ import React, { useState, useEffect } from "react";
 import { FileText, Download, Check, X, AlertCircle, ShieldCheck } from "lucide-react";
 import { api, API_BASE } from "../../api/client.js";
 import { useToast } from "../../context/ToastContext.jsx";
+import { useCurrency } from "../../context/CurrencyContext.jsx";
 
 export default function CustomerPortalQuotations() {
   const toast = useToast();
+  const { formatCurrency } = useCurrency();
   const [quotations, setQuotations] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -94,7 +96,7 @@ export default function CustomerPortalQuotations() {
 
                 <div className="flex flex-col md:flex-row items-start md:items-center gap-4 w-full md:w-auto justify-end">
                   <div className="text-right">
-                    <p className="text-xs font-extrabold text-slate-800">₹{quote.totalAmount || quote.total || 0}</p>
+                    <p className="text-xs font-extrabold text-slate-800">{formatCurrency(quote.totalAmount || quote.total || 0)}</p>
                     <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${quote.status === "accepted" ? "bg-emerald-50 text-emerald-600" : quote.status === "rejected" ? "bg-rose-50 text-rose-600" : "bg-slate-100 text-slate-600"}`}>{quote.status}</span>
                   </div>
 

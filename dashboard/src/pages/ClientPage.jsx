@@ -56,6 +56,7 @@ import MissionControlCenter from "../components/MissionControlCenter.jsx";
 import { api } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useWebsite } from "../context/WebsiteContext.jsx";
+import { useCurrency } from "../context/CurrencyContext.jsx";
 import { NotificationService } from "../utils/notifications.js";
 import { useSocket } from "../context/SocketContext.jsx";
 import { hasModule } from "../utils/planAccess.js";
@@ -195,7 +196,7 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
     resolutions: s.resolved
   })) || [];
   
-  const formatCurrency = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
+  const { formatCurrency } = useCurrency();
 
   return (
     <div className="space-y-10">
@@ -425,7 +426,7 @@ export default function ClientPage() {
           hasChatAccess ? api(`/api/chat/queued${sharedQuery}`).catch(() => []) : Promise.resolve([]),
           hasChatAccess ? api(`/api/chat/sessions${sharedQuery}`).catch(() => []) : Promise.resolve([]),
           api("/api/websites").catch(() => []),
-          api("/api/procurement/stats").catch(() => null)
+          api(`/api/procurement/stats${sharedQuery}`).catch(() => null)
         ]);
         if (!isMounted) return;
         if (anaRes) setAnalytics(anaRes);

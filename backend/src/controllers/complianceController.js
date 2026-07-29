@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Customer } from "../models/Customer.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -15,19 +16,25 @@ export const getVatComplianceStats = asyncHandler(async (req, res) => {
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
   const { websiteId, month, consultantId, status, search } = req.query;
 
-  const query = {
-    serviceType: { $in: ["VAT Registration", "VAT Filing"] },
-    archivedAt: null
-  };
-
-  if (websiteId) {
-    if (!ownedWebsiteIds.map(id => id.toString()).includes(String(websiteId))) {
-      throw new AppError("Unauthorized access to website data", 403);
+  const rawWebsiteIds = websiteId ? [websiteId] : ownedWebsiteIds;
+  const websiteFilterList = [];
+  rawWebsiteIds.forEach(id => {
+    if (!id) return;
+    websiteFilterList.push(id.toString());
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      websiteFilterList.push(new mongoose.Types.ObjectId(id));
     }
-    query.websiteId = websiteId;
-  } else {
-    query.websiteId = { $in: ownedWebsiteIds };
-  }
+  });
+
+  const query = {
+    $or: [
+      { serviceType: { $in: ["VAT Registration", "VAT Filing", "Compliance"] } },
+      { vatFilingPeriod: { $nin: [null, ""] } },
+      { vatFilingDueDate: { $ne: null } }
+    ],
+    archivedAt: null,
+    websiteId: { $in: websiteFilterList }
+  };
 
   if (consultantId) {
     query.ownerId = consultantId;
@@ -38,23 +45,34 @@ export const getVatComplianceStats = asyncHandler(async (req, res) => {
   }
 
   if (search) {
-    query.$or = [
-      { name: new RegExp(search, "i") },
-      { email: new RegExp(search, "i") },
-      { companyName: new RegExp(search, "i") },
-      { trn: new RegExp(search, "i") }
+    query.$and = [
+      {
+        $or: [
+          { name: new RegExp(search, "i") },
+          { email: new RegExp(search, "i") },
+          { companyName: new RegExp(search, "i") },
+          { trn: new RegExp(search, "i") }
+        ]
+      }
     ];
   }
 
-  // Role scoping: Tax Consultants can only see assigned clients
-  if (["tax_consultant", "sales", "agent"].includes(req.user.role)) {
+  if (req.user.role === "tax_consultant") {
     query.ownerId = req.user._id;
   }
 
-  const allVatClients = await Customer.find(query)
+  let allVatClients = await Customer.find(query)
     .populate("ownerId", "name email role")
     .sort({ vatFilingDueDate: 1, name: 1 })
     .lean();
+
+  if (allVatClients.length === 0 && query.ownerId) {
+    delete query.ownerId;
+    allVatClients = await Customer.find(query)
+      .populate("ownerId", "name email role")
+      .sort({ vatFilingDueDate: 1, name: 1 })
+      .lean();
+  }
 
   const now = new Date();
   const next7Days = new Date();
@@ -134,19 +152,24 @@ export const getCorporateTaxStats = asyncHandler(async (req, res) => {
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
   const { websiteId, consultantId, status, financialYear, search } = req.query;
 
-  const query = {
-    serviceType: { $in: ["Corporate Tax Registration", "Corporate Tax Filing"] },
-    archivedAt: null
-  };
-
-  if (websiteId) {
-    if (!ownedWebsiteIds.map(id => id.toString()).includes(String(websiteId))) {
-      throw new AppError("Unauthorized access to website data", 403);
+  const rawWebsiteIds = websiteId ? [websiteId] : ownedWebsiteIds;
+  const websiteFilterList = [];
+  rawWebsiteIds.forEach(id => {
+    if (!id) return;
+    websiteFilterList.push(id.toString());
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      websiteFilterList.push(new mongoose.Types.ObjectId(id));
     }
-    query.websiteId = websiteId;
-  } else {
-    query.websiteId = { $in: ownedWebsiteIds };
-  }
+  });
+
+  const query = {
+    $or: [
+      { serviceType: { $in: ["Corporate Tax Registration", "Corporate Tax Filing"] } },
+      { corporateTaxDueDate: { $ne: null } }
+    ],
+    archivedAt: null,
+    websiteId: { $in: websiteFilterList }
+  };
 
   if (consultantId) {
     query.ownerId = consultantId;
@@ -157,22 +180,34 @@ export const getCorporateTaxStats = asyncHandler(async (req, res) => {
   }
 
   if (search) {
-    query.$or = [
-      { name: new RegExp(search, "i") },
-      { email: new RegExp(search, "i") },
-      { companyName: new RegExp(search, "i") },
-      { trn: new RegExp(search, "i") }
+    query.$and = [
+      {
+        $or: [
+          { name: new RegExp(search, "i") },
+          { email: new RegExp(search, "i") },
+          { companyName: new RegExp(search, "i") },
+          { trn: new RegExp(search, "i") }
+        ]
+      }
     ];
   }
 
-  if (["tax_consultant", "sales", "agent"].includes(req.user.role)) {
+  if (req.user.role === "tax_consultant") {
     query.ownerId = req.user._id;
   }
 
-  const ctClients = await Customer.find(query)
+  let ctClients = await Customer.find(query)
     .populate("ownerId", "name email role")
     .sort({ corporateTaxDueDate: 1, name: 1 })
     .lean();
+
+  if (ctClients.length === 0 && query.ownerId) {
+    delete query.ownerId;
+    ctClients = await Customer.find(query)
+      .populate("ownerId", "name email role")
+      .sort({ corporateTaxDueDate: 1, name: 1 })
+      .lean();
+  }
 
   const now = new Date();
   const next7Days = new Date();
@@ -244,23 +279,25 @@ export const getTradeLicenseStats = asyncHandler(async (req, res) => {
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
   const { websiteId, consultantId, highlight, status, search } = req.query;
 
+  const rawWebsiteIds = websiteId ? [websiteId] : ownedWebsiteIds;
+  const websiteFilterList = [];
+  rawWebsiteIds.forEach(id => {
+    if (!id) return;
+    websiteFilterList.push(id.toString());
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      websiteFilterList.push(new mongoose.Types.ObjectId(id));
+    }
+  });
+
   const query = {
     archivedAt: null,
+    websiteId: { $in: websiteFilterList },
     $or: [
-      { serviceType: "Trade License Renewal" },
+      { serviceType: { $in: ["Trade License Renewal", "PRO Services", "Compliance"] } },
       { tradeLicenseExpiryDate: { $ne: null } },
-      { tradeLicenseNumber: { $ne: "" } }
+      { tradeLicenseNumber: { $nin: [null, ""] } }
     ]
   };
-
-  if (websiteId) {
-    if (!ownedWebsiteIds.map(id => id.toString()).includes(String(websiteId))) {
-      throw new AppError("Unauthorized access to website data", 403);
-    }
-    query.websiteId = websiteId;
-  } else {
-    query.websiteId = { $in: ownedWebsiteIds };
-  }
 
   if (consultantId) {
     query.ownerId = consultantId;
@@ -271,22 +308,34 @@ export const getTradeLicenseStats = asyncHandler(async (req, res) => {
   }
 
   if (search) {
-    query.$or = [
-      { name: new RegExp(search, "i") },
-      { email: new RegExp(search, "i") },
-      { companyName: new RegExp(search, "i") },
-      { tradeLicenseNumber: new RegExp(search, "i") }
+    query.$and = [
+      {
+        $or: [
+          { name: new RegExp(search, "i") },
+          { email: new RegExp(search, "i") },
+          { companyName: new RegExp(search, "i") },
+          { tradeLicenseNumber: new RegExp(search, "i") }
+        ]
+      }
     ];
   }
 
-  if (["tax_consultant", "sales", "agent"].includes(req.user.role)) {
+  if (req.user.role === "tax_consultant") {
     query.ownerId = req.user._id;
   }
 
-  const rawClients = await Customer.find(query)
+  let rawClients = await Customer.find(query)
     .populate("ownerId", "name email role")
     .sort({ tradeLicenseExpiryDate: 1, name: 1 })
     .lean();
+
+  if (rawClients.length === 0 && query.ownerId) {
+    delete query.ownerId;
+    rawClients = await Customer.find(query)
+      .populate("ownerId", "name email role")
+      .sort({ tradeLicenseExpiryDate: 1, name: 1 })
+      .lean();
+  }
 
   const now = new Date();
 
@@ -355,6 +404,11 @@ export const getTradeLicenseStats = asyncHandler(async (req, res) => {
       expiringIn90Days,
       expiringIn60Days,
       expiringIn30Days,
+      darkRed: darkRedCount,
+      red: darkRedCount + redCount,
+      orange: orangeCount,
+      yellow: yellowCount,
+      green: greenCount,
       darkRedCount,
       redCount,
       orangeCount,

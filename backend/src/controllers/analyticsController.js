@@ -60,7 +60,11 @@ export async function getManagerAnalytics(req, res) {
   }
   
   const websites = await Website.find(websiteFilter).sort({ createdAt: -1 });
-  const websiteIds = websites.map((w) => w._id);
+  const websiteIds = [];
+  websites.forEach((w) => {
+    websiteIds.push(w._id);
+    websiteIds.push(w._id.toString());
+  });
 
   // If role is admin, show all agents. If client/manager, show personnel belonging to the parent client.
   const managerIdForAgents = role === "client" ? req.user._id : req.user.managerId;

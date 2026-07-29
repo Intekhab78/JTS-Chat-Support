@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { api } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { useCurrency } from "../../context/CurrencyContext.jsx";
 
 const PROFILE_TABS = [
   { id: "overview", label: "Overview" },
@@ -28,6 +29,7 @@ const PROFILE_TABS = [
 
 export default function Customer360View({ customerId, websiteId, onClose }) {
   const { user } = useAuth();
+  const { formatCurrency } = useCurrency();
   const isReadOnly = user?.role === "management";
   const [customer, setCustomer] = useState(null);
   const [activeTab, setActiveTab] = useState("overview");
@@ -135,6 +137,30 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
       fetchPortalAccessStatus();
     } catch (err) {
       alert(err.message);
+    }
+  };
+
+  const handleUpdateWorkStatus = async (newStatus) => {
+    try {
+      await api(`/api/crm/customers/${customerId}`, {
+        method: "PUT",
+        body: JSON.stringify({ workStatus: newStatus })
+      });
+      setCustomer(prev => ({ ...prev, workStatus: newStatus }));
+    } catch (err) {
+      alert(err.message || "Failed to update Work Status");
+    }
+  };
+
+  const handleUpdatePaymentStatus = async (newStatus) => {
+    try {
+      await api(`/api/crm/customers/${customerId}`, {
+        method: "PUT",
+        body: JSON.stringify({ paymentStatus: newStatus })
+      });
+      setCustomer(prev => ({ ...prev, paymentStatus: newStatus }));
+    } catch (err) {
+      alert(err.message || "Failed to update Payment Status");
     }
   };
 
@@ -285,7 +311,7 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
           <DollarSign size={16} className="text-emerald-500" />
           <div>
             <p className="text-[8px] font-black uppercase text-slate-400 tracking-wider">Lead Value</p>
-            <p className="text-xs font-extrabold text-indigo-600 mt-0.5">${customer?.leadValue || 0}</p>
+            <p className="text-xs font-extrabold text-indigo-600 mt-0.5">{formatCurrency(customer?.leadValue)}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -343,13 +369,25 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
               <div className="bg-white p-8 border border-slate-200 rounded-[30px] shadow-sm space-y-6">
                 <div className="flex items-center justify-between border-b pb-3 border-slate-100">
                   <h4 className="text-sm font-black text-slate-900 uppercase tracking-wide">UAE Compliance & Licensing Properties</h4>
-                  <span className={`px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest ${
-                    customer?.workStatus === "Completed" ? "bg-emerald-50 text-emerald-600 border border-emerald-200" :
-                    customer?.workStatus === "In Progress" ? "bg-sky-50 text-sky-600 border border-sky-200" :
-                    "bg-amber-50 text-amber-600 border border-amber-200"
-                  }`}>
-                    {customer?.workStatus || "Pending"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] font-black uppercase text-slate-400">Work Status:</span>
+                    <select
+                      value={customer?.workStatus || "Pending"}
+                      onChange={(e) => handleUpdateWorkStatus(e.target.value)}
+                      className={`px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest outline-none cursor-pointer border transition-all ${
+                        customer?.workStatus === "Completed" || customer?.workStatus === "Approved" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
+                        customer?.workStatus === "In Progress" ? "bg-sky-50 text-sky-600 border-sky-200" :
+                        customer?.workStatus === "Under Review" ? "bg-purple-50 text-purple-600 border-purple-200" :
+                        "bg-amber-50 text-amber-600 border-amber-200"
+                      }`}
+                    >
+                      <option value="Pending">Pending</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Under Review">Under Review</option>
+                      <option value="Submitted">Submitted / Filed</option>
+                      <option value="Completed">Completed / Approved</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 text-xs font-bold">
                   <div>
@@ -372,13 +410,20 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                   </div>
                   <div>
                     <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Payment Status</span>
-                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
-                      customer?.paymentStatus === "Paid" ? "bg-emerald-50 text-emerald-600" :
-                      customer?.paymentStatus === "Partial" ? "bg-sky-50 text-sky-600" :
-                      customer?.paymentStatus === "Overdue" ? "bg-rose-50 text-rose-600" : "bg-amber-50 text-amber-600"
-                    }`}>
-                      {customer?.paymentStatus || "Pending"}
-                    </span>
+                    <select
+                      value={customer?.paymentStatus || "Pending"}
+                      onChange={(e) => handleUpdatePaymentStatus(e.target.value)}
+                      className={`px-2.5 py-1 rounded-xl text-[9px] font-black uppercase outline-none cursor-pointer border transition-all ${
+                        customer?.paymentStatus === "Paid" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
+                        customer?.paymentStatus === "Partial" ? "bg-sky-50 text-sky-600 border-sky-200" :
+                        customer?.paymentStatus === "Overdue" ? "bg-rose-50 text-rose-600 border-rose-200" : "bg-amber-50 text-amber-600 border-amber-200"
+                      }`}
+                    >
+                      <option value="Pending">Pending</option>
+                      <option value="Partial">Partial</option>
+                      <option value="Paid">Paid</option>
+                      <option value="Overdue">Overdue</option>
+                    </select>
                   </div>
                   <div>
                     <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">VAT Filing Due</span>
@@ -458,79 +503,108 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
               </button>
             </div>
 
-            {(!customer?.services || customer.services.length === 0) ? (
-              <div className="text-center py-12 space-y-3">
-                <FileText size={32} className="mx-auto text-slate-300" />
-                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">No active services provisioned for this client.</p>
-                <button
-                  onClick={() => handleOpenServiceModal()}
-                  className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1.5"
-                >
-                  <Plus size={12} /> Add First Service
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {customer.services.map((srv) => {
-                  const dueDate = srv.dueDate ? new Date(srv.dueDate) : null;
-                  const now = new Date();
-                  const diffDays = dueDate ? Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24)) : null;
+            {(() => {
+              const explicitServices = customer?.services || [];
+              const derivedServices = [];
 
-                  return (
-                    <div key={srv._id} className="p-6 border border-slate-200 rounded-2xl bg-slate-50/50 hover:bg-white transition-all space-y-4 shadow-sm">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <span className="text-[8px] font-black uppercase tracking-widest text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">{srv.serviceCategory || "Compliance"}</span>
-                          <h5 className="text-sm font-black text-slate-900 mt-1">{srv.serviceName}</h5>
-                        </div>
-                        <span className={`px-2.5 py-1 rounded-xl text-[9px] font-black uppercase border ${
-                          srv.workStatus === "Completed" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
-                          srv.workStatus === "In Progress" ? "bg-sky-50 text-sky-600 border-sky-200" :
-                          srv.workStatus === "Under Review" ? "bg-purple-50 text-purple-600 border-purple-200" :
-                          "bg-amber-50 text-amber-600 border-amber-200"
-                        }`}>
-                          {srv.workStatus || "Pending"}
-                        </span>
-                      </div>
+              if (customer?.serviceType) {
+                const isVat = customer.serviceType.includes("VAT");
+                const isCt = customer.serviceType.includes("Corporate");
+                const isTl = customer.serviceType.includes("Trade");
+                const dueDate = customer.corporateTaxDueDate || customer.vatFilingDueDate || customer.tradeLicenseExpiryDate;
 
-                      <div className="grid grid-cols-2 gap-3 text-xs font-bold pt-2 border-t border-slate-100">
-                        <div>
-                          <span className="text-[8px] font-black uppercase text-slate-400 block">Priority</span>
-                          <span className={`text-[10px] uppercase font-black ${
-                            srv.priority === "Critical" ? "text-rose-600" :
-                            srv.priority === "High" ? "text-amber-600" : "text-slate-700"
-                          }`}>{srv.priority || "Medium"}</span>
-                        </div>
-                        <div>
-                          <span className="text-[8px] font-black uppercase text-slate-400 block">Payment Status</span>
-                          <span className={`text-[10px] uppercase font-black ${
-                            srv.paymentStatus === "Paid" ? "text-emerald-600" :
-                            srv.paymentStatus === "Overdue" ? "text-rose-600" : "text-amber-600"
-                          }`}>{srv.paymentStatus || "Pending"}</span>
-                        </div>
-                        <div>
-                          <span className="text-[8px] font-black uppercase text-slate-400 block">Due Date</span>
-                          <span className="text-[10px] text-slate-700">{dueDate ? dueDate.toLocaleDateString() : "No Due Date"}</span>
-                        </div>
-                        <div>
-                          <span className="text-[8px] font-black uppercase text-slate-400 block">Days Remaining</span>
-                          <span className={`text-[10px] font-black ${
-                            diffDays !== null && diffDays < 0 ? "text-rose-600" :
-                            diffDays !== null && diffDays <= 30 ? "text-amber-600" : "text-emerald-600"
+                derivedServices.push({
+                  _id: `derived-primary-${customer._id}`,
+                  serviceName: customer.serviceType,
+                  serviceCategory: isVat ? "VAT Compliance" : isCt ? "Corporate Tax" : isTl ? "Trade License" : "Compliance",
+                  workStatus: customer.workStatus || "Pending",
+                  paymentStatus: customer.paymentStatus || "Pending",
+                  priority: "High",
+                  dueDate: dueDate,
+                  remarks: customer.vatFilingPeriod ? `Filing Period: ${customer.vatFilingPeriod}${customer.trn ? ` | TRN: ${customer.trn}` : ""}` : (customer.trn ? `TRN: ${customer.trn}` : "Primary Registered Service")
+                });
+              }
+
+              const displayServices = explicitServices.length > 0 ? explicitServices : derivedServices;
+
+              if (displayServices.length === 0) {
+                return (
+                  <div className="text-center py-12 space-y-3">
+                    <FileText size={32} className="mx-auto text-slate-300" />
+                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">No active services provisioned for this client.</p>
+                    <button
+                      onClick={() => handleOpenServiceModal()}
+                      className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1.5"
+                    >
+                      <Plus size={12} /> Add First Service
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {displayServices.map((srv) => {
+                    const dueDate = srv.dueDate ? new Date(srv.dueDate) : null;
+                    const now = new Date();
+                    const diffDays = dueDate ? Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24)) : null;
+
+                    return (
+                      <div key={srv._id} className="p-6 border border-slate-200 rounded-2xl bg-slate-50/50 hover:bg-white transition-all space-y-4 shadow-sm">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <span className="text-[8px] font-black uppercase tracking-widest text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">{srv.serviceCategory || "Compliance"}</span>
+                            <h5 className="text-sm font-black text-slate-900 mt-1">{srv.serviceName}</h5>
+                          </div>
+                          <span className={`px-2.5 py-1 rounded-xl text-[9px] font-black uppercase border ${
+                            srv.workStatus === "Completed" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
+                            srv.workStatus === "In Progress" ? "bg-sky-50 text-sky-600 border-sky-200" :
+                            srv.workStatus === "Under Review" ? "bg-purple-50 text-purple-600 border-purple-200" :
+                            "bg-amber-50 text-amber-600 border-amber-200"
                           }`}>
-                            {diffDays !== null ? (diffDays < 0 ? `${Math.abs(diffDays)}d Overdue` : `${diffDays} days left`) : "N/A"}
+                            {srv.workStatus || "Pending"}
                           </span>
                         </div>
-                      </div>
 
-                      {srv.remarks && (
-                        <p className="text-[10px] text-slate-500 font-bold bg-white p-2.5 rounded-xl border border-slate-100">{srv.remarks}</p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                        <div className="grid grid-cols-2 gap-3 text-xs font-bold pt-2 border-t border-slate-100">
+                          <div>
+                            <span className="text-[8px] font-black uppercase text-slate-400 block">Priority</span>
+                            <span className={`text-[10px] uppercase font-black ${
+                              srv.priority === "Critical" ? "text-rose-600" :
+                              srv.priority === "High" ? "text-amber-600" : "text-slate-700"
+                            }`}>{srv.priority || "Medium"}</span>
+                          </div>
+                          <div>
+                            <span className="text-[8px] font-black uppercase text-slate-400 block">Payment Status</span>
+                            <span className={`text-[10px] uppercase font-black ${
+                              srv.paymentStatus === "Paid" ? "text-emerald-600" :
+                              srv.paymentStatus === "Overdue" ? "text-rose-600" : "text-amber-600"
+                            }`}>{srv.paymentStatus || "Pending"}</span>
+                          </div>
+                          <div>
+                            <span className="text-[8px] font-black uppercase text-slate-400 block">Due Date</span>
+                            <span className="text-[10px] text-slate-700">{dueDate ? dueDate.toLocaleDateString() : "No Due Date"}</span>
+                          </div>
+                          <div>
+                            <span className="text-[8px] font-black uppercase text-slate-400 block">Days Remaining</span>
+                            <span className={`text-[10px] font-black ${
+                              diffDays !== null && diffDays < 0 ? "text-rose-600" :
+                              diffDays !== null && diffDays <= 30 ? "text-amber-600" : "text-emerald-600"
+                            }`}>
+                              {diffDays !== null ? (diffDays < 0 ? `${Math.abs(diffDays)}d Overdue` : `${diffDays} days left`) : "N/A"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {srv.remarks && (
+                          <p className="text-[10px] text-slate-500 font-bold bg-white p-2.5 rounded-xl border border-slate-100">{srv.remarks}</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -1009,7 +1083,7 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                   <div key={inv._id} className="p-4 border border-slate-100 rounded-2xl flex justify-between items-center">
                     <div>
                       <h5 className="text-xs font-black text-slate-800">{inv.invoiceId}</h5>
-                      <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase">Due: {new Date(inv.issuedAt).toLocaleDateString()} • Total: ${inv.total}</p>
+                      <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase">Due: {new Date(inv.issuedAt).toLocaleDateString()} • Total: {formatCurrency(inv.total)}</p>
                     </div>
                     <span className="text-[9px] font-black uppercase text-indigo-500">{inv.status}</span>
                   </div>
@@ -1032,7 +1106,7 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                       <h5 className="text-xs font-black text-slate-800">{pay.paymentNumber}</h5>
                       <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase">Method: {pay.paymentMethod} • Date: {new Date(pay.paymentDate).toLocaleDateString()}</p>
                     </div>
-                    <span className="text-xs font-black text-emerald-600">${pay.amount}</span>
+                    <span className="text-xs font-black text-emerald-600">{formatCurrency(pay.amount)}</span>
                   </div>
                 ))
               )}

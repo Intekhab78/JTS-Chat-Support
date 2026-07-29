@@ -4,6 +4,7 @@ import {
   Plus, Edit3, Trash2, X, Save
 } from "lucide-react";
 import { api } from "../../api/client.js";
+import SearchableCustomerSelect from "../SearchableCustomerSelect.jsx";
 
 export default function VatFilingDashboard({ websiteId, teamMembers = [], onOpenCustomer }) {
   const [data, setData] = useState({ summary: {}, upcomingFilingDates: [], clients: [] });
@@ -357,51 +358,60 @@ export default function VatFilingDashboard({ websiteId, teamMembers = [], onOpen
       {/* Add / Edit VAT Filing Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-[28px] border border-slate-200 shadow-2xl max-w-lg w-full overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-                  <FileText size={20} />
+          <div className="bg-white rounded-[32px] border border-slate-200 shadow-2xl max-w-2xl w-full overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl border border-indigo-100 shadow-sm">
+                  <FileText size={22} />
                 </div>
-                <h3 className="text-base font-black text-slate-900 uppercase tracking-wider">
-                  {editingClient ? "Edit VAT Filing Schedule" : "Add New VAT Filing Record"}
-                </h3>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 uppercase tracking-wider">
+                    {editingClient ? "Edit VAT Filing Schedule" : "Add New VAT Filing Record"}
+                  </h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">UAE Value Added Tax Quarterly & Monthly Return Schedules</p>
+                </div>
               </div>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                className="p-2.5 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-2xl transition-all"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleFormSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleFormSubmit} className="p-8 space-y-6 max-h-[80vh] overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
-                    Company Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.companyName}
-                    onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                    placeholder="e.g. Acme Corp UAE"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500/20"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
-                    Client Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="e.g. John Doe"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500/20"
-                  />
-                </div>
+                <SearchableCustomerSelect
+                  label="Company Name *"
+                  required
+                  mode="company"
+                  value={formData.companyName}
+                  websiteId={websiteId}
+                  placeholder="Search or add company..."
+                  onChange={(val) => setFormData(prev => ({ ...prev, companyName: val }))}
+                  onSelectEntity={(item) => setFormData(prev => ({
+                    ...prev,
+                    companyName: item.companyName || item.name,
+                    name: item.name || prev.name,
+                    email: item.email || prev.email,
+                    trn: item.trn || prev.trn
+                  }))}
+                />
+                <SearchableCustomerSelect
+                  label="Client Name"
+                  mode="customer"
+                  value={formData.name}
+                  websiteId={websiteId}
+                  placeholder="Search or add contact..."
+                  onChange={(val) => setFormData(prev => ({ ...prev, name: val }))}
+                  onSelectEntity={(item) => setFormData(prev => ({
+                    ...prev,
+                    name: item.name || prev.name,
+                    companyName: item.companyName || prev.companyName,
+                    email: item.email || prev.email,
+                    trn: item.trn || prev.trn
+                  }))}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">

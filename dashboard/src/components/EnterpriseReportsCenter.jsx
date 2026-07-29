@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { api } from "../api/client.js";
 import RealTimeActivityCenter from "./RealTimeActivityCenter.jsx";
+import ComplianceReportsHub from "./CrmSystem/ComplianceReportsHub.jsx";
 import { exportToCSV, exportToExcel, exportToPDF } from "../utils/exportUtils.js";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
@@ -1062,6 +1063,7 @@ export default function EnterpriseReportsCenter() {
 
   const tabs = [
     { id: "executive", label: "Executive Summary", icon: LayoutDashboard },
+    { id: "compliance", label: "Compliance Suite Hub", icon: Briefcase },
     { id: "leads", label: "Lead Analytics", icon: Users },
     { id: "tickets", label: "Ticket Analytics", icon: Ticket },
     { id: "agents", label: "Agent Performance", icon: ShieldAlert },
@@ -1078,7 +1080,7 @@ export default function EnterpriseReportsCenter() {
   }, [activeTab, reportRange]);
 
   const handleGlobalExport = (format) => {
-    if (!activeData) {
+    if (!activeData && activeTab !== "compliance") {
       alert("No data available to export. Please wait for the dashboard to finish loading.");
       return;
     }
@@ -1087,25 +1089,25 @@ export default function EnterpriseReportsCenter() {
     // Format the dataset depending on the active tab's shape
     let datasetToExport = [];
     if (activeTab === "executive") {
-      datasetToExport = Object.keys(activeData).map(key => ({
+      datasetToExport = Object.keys(activeData || {}).map(key => ({
         Metric: key.replace(/([A-Z])/g, ' $1').toUpperCase(),
         Value: typeof activeData[key] === 'object' ? activeData[key].value : activeData[key],
         Trend: typeof activeData[key] === 'object' ? `${activeData[key].trend}%` : 'N/A'
       }));
     } else if (activeTab === "leads") {
-      datasetToExport = activeData.leadsOverTime || [];
+      datasetToExport = activeData?.leadsOverTime || [];
     } else if (activeTab === "tickets") {
-      datasetToExport = activeData.ticketsOverTime || [];
+      datasetToExport = activeData?.ticketsOverTime || [];
     } else if (activeTab === "agents") {
-      datasetToExport = activeData.allAgents || activeData.topPerformers || [];
+      datasetToExport = activeData?.allAgents || activeData?.topPerformers || [];
     } else if (activeTab === "websites") {
-      datasetToExport = activeData.websiteComparison || [];
+      datasetToExport = activeData?.websiteComparison || [];
     } else if (activeTab === "customers") {
-      datasetToExport = activeData.growthTrend || [];
+      datasetToExport = activeData?.growthTrend || [];
     } else if (activeTab === "revenue") {
-      datasetToExport = activeData.revenueGrowth || [];
+      datasetToExport = activeData?.revenueGrowth || [];
     } else if (activeTab === "ai") {
-      datasetToExport = activeData.trendingIssues || [];
+      datasetToExport = activeData?.trendingIssues || [];
     } else {
       datasetToExport = Array.isArray(activeData) ? activeData : [activeData];
     }
@@ -1119,8 +1121,8 @@ export default function EnterpriseReportsCenter() {
     <div className="w-full">
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-10">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Enterprise Analytics</h2>
-          <p className="text-sm font-bold text-slate-500 mt-2">Premium SaaS Reporting System</p>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Enterprise Analytics & Business Reports</h2>
+          <p className="text-sm font-bold text-slate-500 mt-2">Comprehensive SaaS, UAE Compliance & Financial Audit Reporting System</p>
         </div>
         <div className="flex items-center gap-3">
           <select
@@ -1141,7 +1143,7 @@ export default function EnterpriseReportsCenter() {
               onClick={() => setExportMenuOpen(!exportMenuOpen)}
               className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-slate-900 text-white text-xs font-bold shadow-md hover:bg-indigo-600 transition-colors"
             >
-              <Download size={14} /> Export Report
+              <Download size={14} /> Export Active View
             </button>
             
             {exportMenuOpen && (
@@ -1180,6 +1182,7 @@ export default function EnterpriseReportsCenter() {
 
       <div className="min-h-[500px]">
         {activeTab === "executive" && <ExecutiveDashboard reportRange={reportRange} onDataLoaded={setActiveData} />}
+        {activeTab === "compliance" && <ComplianceReportsHub />}
         {activeTab === "leads" && <LeadAnalytics reportRange={reportRange} onDataLoaded={setActiveData} />}
         {activeTab === "tickets" && <TicketAnalytics reportRange={reportRange} onDataLoaded={setActiveData} />}
         {activeTab === "agents" && <AgentPerformanceAnalytics reportRange={reportRange} onDataLoaded={setActiveData} />}
