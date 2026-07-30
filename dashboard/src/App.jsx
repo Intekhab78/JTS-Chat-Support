@@ -97,13 +97,13 @@ export default function App() {
           <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
           <Route path="/ticket-status/:ticketId" element={<TicketStatusPage />} />
           <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><ClientPage /></ProtectedRoute>} />
-          <Route path="/manager" element={<ProtectedRoute allowedRoles={["manager"]}><ManagerPage /></ProtectedRoute>} />
-          <Route path="/client" element={<ProtectedRoute allowedRoles={["client", "manager", "tax_consultant"]}><ClientPage /></ProtectedRoute>} />
-          <Route path="/tax-consultant" element={<ProtectedRoute allowedRoles={["tax_consultant", "admin"]}><ClientPage /></ProtectedRoute>} />
-          <Route path="/purchase" element={<ProtectedRoute allowedRoles={["purchase"]}><PurchasePage /></ProtectedRoute>} />
-          <Route path="/supplier" element={<ProtectedRoute allowedRoles={["supplier"]}><SupplierPage /></ProtectedRoute>} />
-          <Route path="/sales" element={<ProtectedRoute allowedRoles={["sales"]}><SalesPage /></ProtectedRoute>} />
-          <Route path="/accounts" element={<ProtectedRoute allowedRoles={["accounts"]}><AccountsPage /></ProtectedRoute>} />
+          <Route path="/manager" element={<ProtectedRoute allowedRoles={["manager", "admin", "client"]}><ManagerPage /></ProtectedRoute>} />
+          <Route path="/client" element={<ProtectedRoute allowedRoles={["client", "manager", "tax_consultant", "admin"]}><ClientPage /></ProtectedRoute>} />
+          <Route path="/tax-consultant" element={<ProtectedRoute allowedRoles={["tax_consultant", "admin", "client"]}><ClientPage /></ProtectedRoute>} />
+          <Route path="/purchase" element={<ProtectedRoute allowedRoles={["purchase", "admin", "client"]}><PurchasePage /></ProtectedRoute>} />
+          <Route path="/supplier" element={<ProtectedRoute allowedRoles={["supplier", "admin", "client"]}><SupplierPage /></ProtectedRoute>} />
+          <Route path="/sales" element={<ProtectedRoute allowedRoles={["sales", "admin", "client"]}><SalesPage /></ProtectedRoute>} />
+          <Route path="/accounts" element={<ProtectedRoute allowedRoles={["accounts", "admin", "client"]}><AccountsPage /></ProtectedRoute>} />
           <Route path="/customer-portal" element={<ProtectedRoute allowedRoles={["customer"]}><CustomerPortalPage /></ProtectedRoute>} />
           <Route path="/agent" element={<ProtectedRoute allowedRoles={["agent"]}><AgentPage /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to={user ? destinationForRole(user.role) : "/"} replace />} />

@@ -581,7 +581,7 @@ export default function ClientPage() {
     menuItems.push({ label: "CRM", href: "/tax-consultant?tab=crm" });
     menuItems.push({ label: "Customer Master", href: "/tax-consultant?tab=inventory-customer" });
   } else if (!isAdminUser) {
-    if (hasPermission(user, PERMISSIONS.TEAM_VIEW)) menuItems.push({ label: "Agents", href: "/client?tab=agents" });
+    menuItems.push({ label: "Agents", href: "/client?tab=agents" });
     if (hasPermission(user, PERMISSIONS.CHAT_VIEW)) menuItems.push({ label: "Chats", href: "/client?tab=chats" });
 
     if (canUseTickets && hasPermission(user, PERMISSIONS.TICKET_VIEW)) {
@@ -602,10 +602,18 @@ export default function ClientPage() {
           { label: "Color Master", href: "/client?tab=inventory-color" },
           { label: "Unit Master", href: "/client?tab=inventory-unit" },
           { label: "Supplier Master", href: "/client?tab=inventory-supplier" },
-          { label: "VAT Master", href: "/client?tab=inventory-vat" },
           { label: "Stock In", href: "/client?tab=inventory-stock-in" },
           { label: "Stock Out", href: "/client?tab=inventory-stock-out" },
           { label: "Adjustment", href: "/client?tab=inventory-adjustment" }
+        ]
+      });
+      menuItems.push({
+        label: "Procurement",
+        children: [
+          { label: "Purchase Dashboard", href: "/purchase" },
+          { label: "Purchase Orders", href: "/purchase?tab=orders" },
+          { label: "Purchase Requests", href: "/purchase?tab=requests" },
+          { label: "Purchase Accounts", href: "/purchase?tab=accounts" }
         ]
       });
       menuItems.push({ label: "Customer Master", href: "/client?tab=inventory-customer" });
@@ -613,6 +621,8 @@ export default function ClientPage() {
 
     if (hasPermission(user, PERMISSIONS.CRM_VIEW) && canUseCRM) {
       menuItems.push({ label: "CRM", href: "/client?tab=crm" });
+      menuItems.push({ label: "Sales Board", href: "/sales" });
+      menuItems.push({ label: "Manager Board", href: "/manager" });
     }
 
     if (hasPermission(user, "tax.view") || hasPermission(user, PERMISSIONS.CRM_VIEW)) {
@@ -623,11 +633,13 @@ export default function ClientPage() {
     }
 
     if (hasPermission(user, "accounts.view") || hasPermission(user, PERMISSIONS.CRM_VIEW)) {
-      menuItems.push({ label: "Financial Center", href: "/client?tab=financial-analytics" });
+      menuItems.push({ label: "Financial Center", href: "/accounts" });
     }
 
     if (hasPermission(user, PERMISSIONS.CHAT_VIEW) && canUseShortcuts) {
       menuItems.push({ label: "Shortcuts", href: "/client?tab=shortcuts" });
+      menuItems.push({ label: "Workflow Builder", href: "/client?tab=workflow-builder" });
+      menuItems.push({ label: "Integration Hub", href: "/client?tab=enterprise-integrations" });
     }
 
     if (hasPermission(user, PERMISSIONS.REPORTS_VIEW) && canUseReports) {
