@@ -484,6 +484,18 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
     fallback.push({ label: "Reports", href: "/accounts?tab=reports" });
   }
 
+  // Tax Consultant specific
+  if (role === "tax_consultant") {
+    fallback.length = 0;
+    fallback.push({ label: "Dashboard", href: "/tax-consultant?tab=tax-consultant-dashboard" });
+    fallback.push({ label: "VAT Compliance", href: "/tax-consultant?tab=vat-compliance" });
+    fallback.push({ label: "Corporate Tax", href: "/tax-consultant?tab=corporate-tax" });
+    fallback.push({ label: "Trade License", href: "/tax-consultant?tab=trade-license" });
+    fallback.push({ label: "Compliance Reports", href: "/tax-consultant?tab=compliance-reports" });
+    fallback.push({ label: "CRM", href: "/tax-consultant?tab=crm" });
+    fallback.push({ label: "Customer Master", href: "/tax-consultant?tab=inventory-customer" });
+  }
+
   const adminMenuItems = [
     { label: "Dashboard", href: "/admin" },
     { label: "Clients", href: "/admin?tab=clients" },

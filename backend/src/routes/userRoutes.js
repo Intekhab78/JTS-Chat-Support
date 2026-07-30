@@ -4,8 +4,8 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 
 const router = Router();
 
-router.get("/", requireAuth, requireRole("admin", "client", "manager", "sales", "agent"), listAgents);
-router.get("/agents", requireAuth, requireRole("admin", "client", "manager", "sales", "agent"), listAgents);
+router.get("/", requireAuth, requireRole("admin", "client", "manager", "sales", "agent", "tax_consultant"), listAgents);
+router.get("/agents", requireAuth, requireRole("admin", "client", "manager", "sales", "agent", "tax_consultant"), listAgents);
 router.post("/agents", requireAuth, requireRole("admin", "client"), createAgent);
 router.patch("/agents/:id", requireAuth, requireRole("admin", "client"), updateAgent);
 router.delete("/agents/:id", requireAuth, requireRole("admin", "client"), deleteAgent);

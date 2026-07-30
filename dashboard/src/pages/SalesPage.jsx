@@ -21,7 +21,6 @@ import {
   ArrowRight,
   ChevronRight,
   ArrowLeft,
-  Globe,
   Package,
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -35,6 +34,8 @@ import {
 } from "lucide-react";
 import ChatPanel from "../components/ChatPanel.jsx";
 import { hasModule } from "../utils/planAccess.js";
+import { hasPermission } from "../utils/permissions.js";
+import { PERMISSIONS } from "../constants/domain.js";
 import CustomerManager from "../components/CustomerManager.jsx";
 import InventoryManager from "../components/InventoryManager.jsx";
 import TicketManager from "../components/TicketManager.jsx";
@@ -377,9 +378,15 @@ export default function SalesPage() {
   const menuItems = [
     { label: "Pipeline", href: "/sales" },
     { label: "Tasks", href: "/sales?tab=tasks" },
-    { label: "Notes", href: "/sales?tab=notes" },
-    { label: "Chats", href: "/sales?tab=chats" },
-    {
+    { label: "Notes", href: "/sales?tab=notes" }
+  ];
+
+  if (hasPermission(user, PERMISSIONS.CHAT_VIEW)) {
+    menuItems.push({ label: "Chats", href: "/sales?tab=chats" });
+  }
+
+  if (hasPermission(user, "inventory.view") || hasPermission(user, PERMISSIONS.CRM_VIEW)) {
+    menuItems.push({
       label: "Inventory",
       href: "/sales?tab=inventory",
       children: [
@@ -394,32 +401,21 @@ export default function SalesPage() {
         { label: "VAT Master", href: "/sales?tab=inventory&subtab=vat" },
         { label: "Stock Movement", href: "/sales?tab=inventory&subtab=history" }
       ]
-    },
-    { label: "Tickets", href: "/sales?tab=tickets" },
-    ...(canUseReports ? [{ label: "Insights", href: "/sales?tab=insights" }] : []),
-    { label: "Customer Master", href: "/sales?tab=customer-master" }
-  ];
+    });
+  }
 
-  const WebsiteSelector = () => (
-    <div className="flex items-center gap-3 mb-6 bg-white border border-slate-200 p-4 rounded-[28px] shadow-sm animate-in fade-in duration-500">
-      <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
-        <Globe size={18} />
-      </div>
-      <div className="flex-1">
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Operational Context</p>
-        <select
-          value={selectedWebsiteId}
-          onChange={(e) => setSelectedWebsiteId(e.target.value)}
-          className="w-full bg-transparent border-none text-sm font-black text-slate-900 uppercase tracking-tight outline-none cursor-pointer"
-        >
-          <option value="">All Ecosystem Assets</option>
-          {websites.map(w => (
-            <option key={w._id} value={w._id}>{w.websiteName}</option>
-          ))}
-        </select>
-      </div>
-    </div>
-  );
+  if (hasPermission(user, PERMISSIONS.TICKET_VIEW)) {
+    menuItems.push({ label: "Tickets", href: "/sales?tab=tickets" });
+  }
+
+  if (canUseReports && hasPermission(user, PERMISSIONS.REPORTS_VIEW)) {
+    menuItems.push({ label: "Insights", href: "/sales?tab=insights" });
+  }
+
+  if (hasPermission(user, PERMISSIONS.CRM_VIEW)) {
+    menuItems.push({ label: "Customer Master", href: "/sales?tab=customer-master" });
+  }
+
 
   if (!canUseCRM && activeTab === "pipeline") {
     return (
@@ -445,7 +441,6 @@ export default function SalesPage() {
     }
     return (
       <Layout menuItems={menuItems} title="Sales Intelligence" subtitle="Performance metrics and revenue projection">
-        <WebsiteSelector />
         <InsightsPanel websiteId={selectedWebsiteId} onViewLead={handleViewLead} />
       </Layout>
     );
@@ -462,7 +457,6 @@ export default function SalesPage() {
   if (activeTab === "tasks") {
     return (
       <Layout menuItems={menuItems} title="My Tasks" subtitle="Follow-ups and scheduled activities">
-        <WebsiteSelector />
         <CrmTasksView websiteId={selectedWebsiteId} onOpenCustomer={handleViewLead} />
       </Layout>
     );
@@ -479,7 +473,6 @@ export default function SalesPage() {
   if (activeTab === "customer-master") {
     return (
       <Layout menuItems={menuItems} title="Customer Master Registry" subtitle="Global management of customer profiles and accounts">
-        <WebsiteSelector />
         <CustomerManager websiteId={selectedWebsiteId} />
       </Layout>
     );
@@ -491,7 +484,6 @@ export default function SalesPage() {
 
     return (
       <Layout menuItems={menuItems} title="Stock Intelligence" subtitle="Real-time inventory levels, sub-masters and movement history">
-        <WebsiteSelector />
         <InventoryManager websiteId={selectedWebsiteId} activeTab={currentSubTab} readOnly={false} />
       </Layout>
     );
@@ -500,7 +492,6 @@ export default function SalesPage() {
   if (activeTab === "tickets") {
     return (
       <Layout menuItems={menuItems} title="Service Records" subtitle="Customer support context and ticket history">
-        <WebsiteSelector />
         <TicketManager websiteId={selectedWebsiteId} />
       </Layout>
     );
@@ -513,7 +504,6 @@ export default function SalesPage() {
       title="Sales Pipeline"
       subtitle="Manage your leads, opportunities, and deals"
     >
-      <WebsiteSelector />
       <CRMManager websiteId={selectedWebsiteId} initialLeadData={initialLeadData} highlightLeadId={highlightLeadId} />
     </Layout>
   );

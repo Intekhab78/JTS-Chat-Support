@@ -142,24 +142,6 @@ const MATRIX = Object.freeze({
     PERMISSIONS.ACTIVITY_VIEW,
     PERMISSIONS.NOTIFICATION_VIEW,
     PERMISSIONS.REPORTS_VIEW
-  ]),
-
-  [ROLES.MANAGEMENT]: new Set([
-    PERMISSIONS.CRM_VIEW,
-    PERMISSIONS.TICKET_VIEW,
-    PERMISSIONS.CHAT_VIEW,
-    PERMISSIONS.ACTIVITY_VIEW,
-    PERMISSIONS.NOTIFICATION_VIEW,
-    PERMISSIONS.AUDIT_VIEW,
-    PERMISSIONS.REPORTS_VIEW,
-    PERMISSIONS.TEAM_VIEW
-  ]),
-
-  [ROLES.USER]: new Set([
-    PERMISSIONS.TICKET_VIEW,
-    PERMISSIONS.CHAT_VIEW,
-    PERMISSIONS.ACTIVITY_VIEW,
-    PERMISSIONS.NOTIFICATION_VIEW
   ])
 });
 
@@ -169,11 +151,11 @@ export function hasPermission(user, permission) {
   if (role === "admin" || user.role === "admin") return true;
 
   // 1. Check dynamic DB permission list if populated
-  if (Array.isArray(user.permissions) && user.permissions.includes(permission)) {
-    return true;
+  if (Array.isArray(user.permissions)) {
+    return user.permissions.includes(permission);
   }
 
-  // 2. Fallback to static MATRIX
+  // 2. Fallback to static MATRIX only if DB permissions array is missing
   return MATRIX[user.role]?.has(permission) || MATRIX[role]?.has(permission) || false;
 }
 

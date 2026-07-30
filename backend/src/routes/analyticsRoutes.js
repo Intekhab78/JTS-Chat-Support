@@ -22,14 +22,14 @@ router.get("/agent", requireAuth, requireRole("agent", "sales", "user", "tax_con
 router.get("/export/csv", requireAuth, requireRole("admin", "client", "manager", "accounts"), attachTenantSubscription, requirePlanFeature("reports"), exportAnalyticsCSV);
 
 // Enterprise Reporting Endpoints
-router.get("/enterprise/executive", requireAuth, requireRole("admin", "client", "manager", "accounts"), getExecutiveSummary);
-router.get("/enterprise/leads", requireAuth, requireRole("admin", "client", "manager", "sales", "accounts"), getLeadAnalytics);
-router.get("/enterprise/tickets", requireAuth, requireRole("admin", "client", "manager", "accounts"), getTicketAnalytics);
-router.get("/enterprise/revenue", requireAuth, requireRole("admin", "client", "manager", "accounts"), getRevenueAnalytics);
-router.get("/enterprise/agents", requireAuth, requireRole("admin", "client", "manager", "accounts"), getAgentPerformanceAnalytics);
-router.get("/enterprise/websites", requireAuth, requireRole("admin", "client", "manager", "accounts"), getWebsiteAnalytics);
-router.get("/enterprise/customers", requireAuth, requireRole("admin", "client", "manager", "accounts"), getCustomerInsightsAnalytics);
-router.get("/enterprise/ai-insights", requireAuth, requireRole("admin", "client", "manager", "accounts"), getAiInsightsAnalytics);
+router.get("/enterprise/executive", requireAuth, requireRole("admin", "client", "manager", "accounts", "tax_consultant"), getExecutiveSummary);
+router.get("/enterprise/leads", requireAuth, requireRole("admin", "client", "manager", "sales", "accounts", "tax_consultant"), getLeadAnalytics);
+router.get("/enterprise/tickets", requireAuth, requireRole("admin", "client", "manager", "accounts", "tax_consultant"), getTicketAnalytics);
+router.get("/enterprise/revenue", requireAuth, requireRole("admin", "client", "manager", "accounts", "tax_consultant"), getRevenueAnalytics);
+router.get("/enterprise/agents", requireAuth, requireRole("admin", "client", "manager", "accounts", "tax_consultant"), getAgentPerformanceAnalytics);
+router.get("/enterprise/websites", requireAuth, requireRole("admin", "client", "manager", "accounts", "tax_consultant"), getWebsiteAnalytics);
+router.get("/enterprise/customers", requireAuth, requireRole("admin", "client", "manager", "accounts", "tax_consultant"), getCustomerInsightsAnalytics);
+router.get("/enterprise/ai-insights", requireAuth, requireRole("admin", "client", "manager", "accounts", "tax_consultant"), getAiInsightsAnalytics);
 
 
 export default router;

@@ -23,7 +23,15 @@ import {
   BarChart3,
   History,
   FileText,
-  CreditCard
+  CreditCard,
+  Building2,
+  Package,
+  ShoppingCart,
+  Send,
+  CheckSquare,
+  FileSpreadsheet,
+  Mail,
+  UserCheck
 } from "lucide-react";
 
 const PERMISSION_GROUPS = [
@@ -33,13 +41,26 @@ const PERMISSION_GROUPS = [
     icon: Users,
     color: "indigo",
     permissions: [
-      { id: "crm.view", label: "View Customers", desc: "Access customer registry and details", icon: Eye },
-      { id: "crm.create", label: "Create Leads", desc: "Add new prospects to the system", icon: UserPlus },
-      { id: "crm.update", label: "Update Records", desc: "Modify existing customer information", icon: Edit3 },
-      { id: "crm.archive", label: "Archive Data", desc: "Remove or hide outdated records", icon: Archive },
-      { id: "crm.delete", label: "Permanent Delete", desc: "Hard delete of CRM entities", icon: Trash2 },
-      { id: "crm.assign", label: "Assign Owner", desc: "Change account ownership", icon: Users },
-      { id: "crm.merge", label: "Merge Leads", desc: "Combine duplicate records", icon: GitMerge },
+      { id: "crm.view", label: "View Customers", desc: "Access customer registry and profiles", icon: Eye },
+      { id: "crm.create", label: "Create Leads", desc: "Add new prospects to the pipeline", icon: UserPlus },
+      { id: "crm.update", label: "Update Records", desc: "Modify customer & lead details", icon: Edit3 },
+      { id: "crm.assign", label: "Assign Owner", desc: "Change lead and customer ownership", icon: UserCheck },
+      { id: "crm.merge", label: "Merge Leads", desc: "Combine duplicate customer records", icon: GitMerge },
+      { id: "crm.send_email", label: "Send Emails", desc: "Send customer outreach and emails", icon: Mail },
+      { id: "crm.manage_tasks", label: "Manage Tasks", desc: "Create and track follow-up tasks", icon: CheckSquare },
+      { id: "crm.archive", label: "Archive Data", desc: "Archive inactive records", icon: Archive },
+      { id: "crm.delete", label: "Permanent Delete", desc: "Delete CRM entities permanently", icon: Trash2 },
+    ]
+  },
+  {
+    id: "compliance",
+    label: "Tax & Compliance",
+    icon: FileSpreadsheet,
+    color: "emerald",
+    permissions: [
+      { id: "tax.view", label: "View Compliance", desc: "Access VAT, Corp Tax & License status", icon: Eye },
+      { id: "tax.reminder_log", label: "Record Reminders", desc: "1-Click daily follow-up logging", icon: Send },
+      { id: "tax.manage", label: "Manage Deadlines", desc: "Update filing dates and work statuses", icon: Edit3 },
     ]
   },
   {
@@ -48,11 +69,12 @@ const PERMISSION_GROUPS = [
     icon: Ticket,
     color: "amber",
     permissions: [
-      { id: "ticket.view", label: "View Tickets", desc: "Access the support ticket desk", icon: Eye },
-      { id: "ticket.create", label: "Generate Tickets", desc: "Open new support inquiries", icon: Ticket },
+      { id: "ticket.view", label: "View Tickets", desc: "Access the support ticketing desk", icon: Eye },
+      { id: "ticket.create", label: "Generate Tickets", desc: "Create new support inquiries", icon: Ticket },
       { id: "ticket.update", label: "Update Status", desc: "Modify ticket state and priority", icon: Activity },
+      { id: "ticket.assign", label: "Assign Tickets", desc: "Reassign ticket ownership", icon: Users },
+      { id: "ticket.comment", label: "Post Comments", desc: "Add internal notes and client replies", icon: MessageCircle },
       { id: "ticket.delete", label: "Delete Ticket", desc: "Remove support records", icon: Trash2 },
-      { id: "ticket.comment", label: "Post Comments", desc: "Internal notes and external replies", icon: MessageCircle },
     ]
   },
   {
@@ -61,8 +83,8 @@ const PERMISSION_GROUPS = [
     icon: MessageSquare,
     color: "emerald",
     permissions: [
-      { id: "chat.view", label: "Access Live Chat", desc: "Participate in real-time conversations", icon: MessageSquare },
-      { id: "chat.transfer", label: "Transfer Chats", desc: "Move sessions between agents", icon: GitMerge },
+      { id: "chat.view", label: "Access Live Chat", desc: "Participate in visitor conversations", icon: MessageSquare },
+      { id: "chat.transfer", label: "Transfer Chats", desc: "Move live sessions between agents", icon: GitMerge },
       { id: "chat.note", label: "Private Notes", desc: "Leave internal context for team", icon: Edit3 },
       { id: "chat.history", label: "View History", desc: "Audit past chat transcripts", icon: History },
       { id: "chat.archive", label: "Archive Chats", desc: "Move sessions to storage/trash", icon: Archive },
@@ -74,9 +96,20 @@ const PERMISSION_GROUPS = [
     icon: CreditCard,
     color: "indigo",
     permissions: [
-      { id: "accounts.view", label: "View Ledger", desc: "Access financial overview and dashboards", icon: Eye },
+      { id: "accounts.view", label: "View Ledger", desc: "Access financial overview & ledger", icon: Eye },
       { id: "invoice.manage", label: "Manage Invoices", desc: "Generate and track customer invoices", icon: FileText },
-      { id: "billing.view", label: "Billing Details", desc: "View subscription and payment history", icon: CreditCard },
+      { id: "billing.view", label: "Billing Details", desc: "View subscription & payment history", icon: CreditCard },
+    ]
+  },
+  {
+    id: "inventory",
+    label: "Inventory & Procurement",
+    icon: Package,
+    color: "purple",
+    permissions: [
+      { id: "inventory.view", label: "View Stock", desc: "Browse SKU catalog and levels", icon: Eye },
+      { id: "inventory.manage", label: "Manage Inventory", desc: "Add/edit items and stock levels", icon: Package },
+      { id: "purchase.manage", label: "Procurement POs", desc: "Manage purchase orders and suppliers", icon: ShoppingCart },
     ]
   },
   {
@@ -85,10 +118,11 @@ const PERMISSION_GROUPS = [
     icon: Settings,
     color: "rose",
     permissions: [
-      { id: "reports.view", label: "Business Reports", desc: "View performance and ROI data", icon: BarChart3 },
+      { id: "reports.view", label: "Business Reports", desc: "View performance and BI reports", icon: BarChart3 },
       { id: "audit.view", label: "Audit Logs", desc: "Security and event tracking logs", icon: Lock },
+      { id: "team.view", label: "Team Roster", desc: "View personnel list and status", icon: Users },
       { id: "settings.manage", label: "System Settings", desc: "Global platform configuration", icon: Settings },
-      { id: "role.manage", label: "Role Management", desc: "Create and modify security roles", icon: Shield },
+      { id: "role.manage", label: "Role Master", desc: "Manage roles & authorization permissions", icon: Shield },
     ]
   }
 ];

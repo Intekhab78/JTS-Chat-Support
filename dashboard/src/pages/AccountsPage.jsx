@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import {
   FileText, CreditCard, BarChart3, TrendingUp, AlertCircle, Search,
   ArrowUpRight, ArrowDownLeft, Wallet, Calendar, Users, ShieldCheck, Zap,
-  Globe, Download, Filter, Send, Building2
+  Globe, Download, Filter, Send, Building2, Plus, CheckCircle2, Receipt, DollarSign, FileSpreadsheet
 } from "lucide-react";
 import Layout from "../components/Layout.jsx";
 import StatCard from "../components/StatCard.jsx";
@@ -15,7 +15,7 @@ import { useWebsite } from "../context/WebsiteContext.jsx";
 export default function AccountsPage() {
   const { user } = useAuth();
   const { websites, selectedWebsiteId, setSelectedWebsiteId } = useWebsite();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get("tab") || "overview";
 
   const [invoices, setInvoices] = useState([]);
@@ -164,38 +164,11 @@ export default function AccountsPage() {
     { label: "Reports", href: "/accounts?tab=reports" },
   ];
 
-  const WebsiteScopeSelector = () => (
-    <div className="mb-8 flex items-center justify-between gap-4 rounded-[32px] border border-slate-200/60 bg-white p-4 shadow-sm animate-in fade-in duration-500">
-      <div className="flex items-center gap-4 px-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
-          <Globe size={18} />
-        </div>
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Context Scope</p>
-          <h4 className="text-sm font-black text-slate-900">
-            {websites.find(w => w._id === selectedWebsiteId)?.websiteName || "All Managed Websites"}
-          </h4>
-        </div>
-      </div>
-      <div className="flex items-center gap-2 pr-2">
-        <select
-          value={selectedWebsiteId}
-          onChange={(e) => setSelectedWebsiteId(e.target.value)}
-          className="rounded-2xl border border-slate-100 bg-slate-50 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-600 outline-none hover:bg-white transition-all appearance-none cursor-pointer"
-        >
-          <option value="">Global View (All)</option>
-          {websites.map(w => (
-            <option key={w._id} value={w._id}>{w.websiteName}</option>
-          ))}
-        </select>
-      </div>
-    </div>
-  );
+
 
   if (tab === "invoices") {
     return (
       <Layout menuItems={menuItems} title="Invoice Management" subtitle="Track and manage customer billing">
-        <WebsiteScopeSelector />
         <div className="premium-card p-0 overflow-hidden">
           <div className="p-8 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between">
             <div>
@@ -282,7 +255,6 @@ export default function AccountsPage() {
   if (tab === "ledger") {
     return (
       <Layout menuItems={menuItems} title="General Ledger" subtitle="Unified stream of income and expenditure">
-        <WebsiteScopeSelector />
         <div className="premium-card p-0 overflow-hidden">
           <div className="p-8 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between">
             <h3 className="heading-md">Transaction History</h3>
@@ -400,101 +372,233 @@ export default function AccountsPage() {
     );
   }
 
-  return (
-    <Layout menuItems={menuItems} title="Accounts Dashboard" subtitle="Financial oversight and revenue analytics">
-      <WebsiteScopeSelector />
-      <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-700">
-        {/* Stat Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          <StatCard
-            label="Total Revenue"
-            value={`$${financials.totalRevenue.toLocaleString()}`}
-            trend="+12.5%"
-            color="indigo"
-          />
-          <StatCard
-            label="Total Expenses"
-            value={`$${financials.totalExpenses.toLocaleString()}`}
-            trend="+5.2%"
-            color="rose"
-          />
-          <StatCard
-            label="Net Profit"
-            value={`$${(financials.totalRevenue - financials.totalExpenses).toLocaleString()}`}
-            color="emerald"
-          />
-          <StatCard
-            label="Paid Invoices"
-            value={financials.paidInvoices}
-            color="emerald"
-          />
-        </div>
+  /* ── Overview Tab (Financial Command Center) ── */
+  const vatCollectedEst = Math.round(financials.totalRevenue * 0.05);
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Revenue Chart Placeholder */}
-          <div className="lg:col-span-2 premium-card p-6 sm:p-8">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h3 className="heading-md">Revenue vs Expense</h3>
-                <p className="small-label opacity-60">Comparative financial flow this year</p>
-              </div>
-              <div className="flex gap-2">
-                <button className="px-3 py-1.5 bg-slate-50 text-[9px] font-black uppercase tracking-widest text-slate-400 rounded-xl border border-slate-100">Yearly</button>
-                <button className="px-3 py-1.5 bg-indigo-600 text-[9px] font-black uppercase tracking-widest text-white rounded-xl shadow-lg shadow-indigo-200">Monthly</button>
+  return (
+    <Layout menuItems={menuItems} title="Financial Command Center" subtitle="Complete accounts oversight, receivables management, and VAT compliance desk">
+      <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-700">
+        
+        {/* 1. 5 Core Financial KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
+          <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gross Revenue</span>
+              <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                <DollarSign size={16} />
               </div>
             </div>
-            <div className="h-64 flex items-end justify-between gap-2 px-2">
-              {[40, 65, 45, 90, 75, 55, 85, 95, 70, 80, 60, 88].map((h, i) => (
-                <div key={i} className="flex-1 group relative flex flex-row gap-0.5 items-end h-full">
-                  <div
-                    className="w-1/2 bg-indigo-50 group-hover:bg-indigo-500 transition-all rounded-t-lg"
-                    style={{ height: `${h}%` }}
-                  />
-                  <div
-                    className="w-1/2 bg-rose-50 group-hover:bg-rose-500 transition-all rounded-t-lg"
-                    style={{ height: `${h * 0.4}%` }}
-                  />
-                  <p className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[8px] font-black text-slate-300 uppercase">
-                    {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][i]}
-                  </p>
-                </div>
-              ))}
+            <h4 className="text-2xl font-black text-slate-900">${financials.totalRevenue.toLocaleString()}</h4>
+            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full inline-block mt-2">+12.5% Inflow</span>
+          </div>
+
+          <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Receivables</span>
+              <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
+                <Wallet size={16} />
+              </div>
+            </div>
+            <h4 className="text-2xl font-black text-amber-600">{financials.pendingInvoices} Pending</h4>
+            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full inline-block mt-2">Awaiting Payment</span>
+          </div>
+
+          <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Overdue Alerts</span>
+              <div className="p-2 bg-rose-50 text-rose-600 rounded-xl">
+                <AlertCircle size={16} />
+              </div>
+            </div>
+            <h4 className="text-2xl font-black text-rose-600">{financials.overdueInvoices} Overdue</h4>
+            <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full inline-block mt-2">Action Required</span>
+          </div>
+
+          <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Expenses & POs</span>
+              <div className="p-2 bg-purple-50 text-purple-600 rounded-xl">
+                <CreditCard size={16} />
+              </div>
+            </div>
+            <h4 className="text-2xl font-black text-slate-900">${financials.totalExpenses.toLocaleString()}</h4>
+            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full inline-block mt-2">Payables</span>
+          </div>
+
+          <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Est. VAT Collected</span>
+              <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+                <Receipt size={16} />
+              </div>
+            </div>
+            <h4 className="text-2xl font-black text-emerald-600">${vatCollectedEst.toLocaleString()}</h4>
+            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full inline-block mt-2">5% Standard VAT</span>
+          </div>
+        </div>
+
+        {/* 2. Quick Action Toolbar */}
+        <section className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+              <Zap size={20} />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Fast Accounts Operations</h3>
+              <p className="text-[11px] font-semibold text-slate-400">1-Click financial management and customer billing control</p>
             </div>
           </div>
 
-          {/* Recent Activity */}
-          <div className="premium-card p-6 sm:p-8">
-            <h3 className="heading-md mb-6">Ledger Feed</h3>
-            <div className="space-y-6">
-              {ledgerEntries.slice(0, 6).map((entry, i) => (
-                <div key={i} className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${entry.type === 'income' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                      {entry.type === 'income' ? <ArrowUpRight size={14} /> : <ArrowDownLeft size={14} />}
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-slate-900 uppercase truncate max-w-[120px]">{entry.entity}</p>
-                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{entry.description}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className={`text-[10px] font-black ${entry.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {entry.type === 'income' ? '+' : '-'}${entry.amount.toLocaleString()}
-                    </p>
-                    <p className="text-[8px] font-bold text-slate-400 uppercase">{entry.date.toLocaleDateString()}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={() => {
+                const p = new URLSearchParams(searchParams);
+                p.set("tab", "invoices");
+                setSearchParams(p);
+              }}
+              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-md shadow-indigo-200 transition-all flex items-center gap-2"
+            >
+              <Plus size={14} /> View All Invoices
+            </button>
             <button
               onClick={() => {
                 const p = new URLSearchParams(searchParams);
                 p.set("tab", "ledger");
                 setSearchParams(p);
               }}
-              className="w-full mt-8 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 hover:bg-white hover:text-indigo-600 transition-all"
+              className="px-5 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 font-black text-xs uppercase tracking-wider rounded-2xl border border-slate-200 transition-all flex items-center gap-2"
             >
-              Audit Full Ledger
+              <FileSpreadsheet size={14} /> Audit General Ledger
+            </button>
+            <button
+              onClick={() => {
+                const p = new URLSearchParams(searchParams);
+                p.set("tab", "billing");
+                setSearchParams(p);
+              }}
+              className="px-5 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 font-black text-xs uppercase tracking-wider rounded-2xl border border-slate-200 transition-all flex items-center gap-2"
+            >
+              <Users size={14} /> Client Subscriptions
+            </button>
+          </div>
+        </section>
+
+        {/* 3. Invoices & Receivables Supervision Table */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-100 p-8 shadow-sm">
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">Recent Customer Invoices</h3>
+                <p className="text-[11px] font-semibold text-slate-400">Receivables status, PDF generation & 1-click payment logging</p>
+              </div>
+              <button
+                onClick={() => {
+                  const p = new URLSearchParams(searchParams);
+                  p.set("tab", "invoices");
+                  setSearchParams(p);
+                }}
+                className="text-xs font-black text-indigo-600 hover:underline uppercase tracking-wider"
+              >
+                View All ({invoices.length})
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-slate-100">
+                    <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Invoice #</th>
+                    <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Customer</th>
+                    <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Amount</th>
+                    <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Status</th>
+                    <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-wider text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {invoices.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-xs font-bold text-slate-400">No invoices generated yet.</td>
+                    </tr>
+                  ) : invoices.slice(0, 6).map((inv) => (
+                    <tr key={inv._id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="py-4 text-xs font-black text-slate-900 uppercase">{inv.invoiceId || "INV-000"}</td>
+                      <td className="py-4 text-xs font-bold text-slate-600">{inv.customerId?.name || "Customer"}</td>
+                      <td className="py-4 text-xs font-black text-slate-900">${(inv.total || 0).toLocaleString()}</td>
+                      <td className="py-4">
+                        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border ${
+                          inv.status === "paid" ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
+                          inv.status === "pending" ? "bg-amber-50 text-amber-600 border-amber-100" :
+                          "bg-rose-50 text-rose-600 border-rose-100"
+                        }`}>
+                          {inv.status}
+                        </span>
+                      </td>
+                      <td className="py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleViewPdf(inv)}
+                            disabled={pdfLoading[inv._id]}
+                            className="px-2.5 py-1 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg text-[9px] font-black uppercase transition-all flex items-center gap-1"
+                          >
+                            <Download size={10} />
+                            {pdfLoading[inv._id] ? "Loading..." : "PDF"}
+                          </button>
+                          {inv.status !== "paid" && (
+                            <button
+                              onClick={() => handleMarkPaid(inv)}
+                              className="px-2.5 py-1 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-[9px] font-black uppercase transition-all flex items-center gap-1"
+                            >
+                              <ShieldCheck size={10} />
+                              Pay
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 4. Ledger Stream Feed */}
+          <div className="bg-white rounded-3xl border border-slate-100 p-8 shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
+                <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">Ledger Feed</h3>
+                <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Real-time Stream</span>
+              </div>
+              <div className="space-y-4">
+                {ledgerEntries.slice(0, 5).map((entry, i) => (
+                  <div key={i} className="flex items-center justify-between gap-4 p-3 bg-slate-50/70 border border-slate-100 rounded-2xl">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${entry.type === 'income' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                        {entry.type === 'income' ? <ArrowUpRight size={14} /> : <ArrowDownLeft size={14} />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black text-slate-900 uppercase truncate">{entry.entity}</p>
+                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">{entry.description}</p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className={`text-[10px] font-black ${entry.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        {entry.type === 'income' ? '+' : '-'}${entry.amount.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                const p = new URLSearchParams(searchParams);
+                p.set("tab", "ledger");
+                setSearchParams(p);
+              }}
+              className="w-full mt-6 py-3 bg-slate-50 hover:bg-indigo-50 border border-slate-100 hover:border-indigo-200 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] text-slate-600 hover:text-indigo-600 transition-all text-center"
+            >
+              Audit Full Ledger Stream
             </button>
           </div>
         </div>

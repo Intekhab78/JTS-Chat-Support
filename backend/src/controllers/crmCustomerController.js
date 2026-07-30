@@ -80,10 +80,7 @@ export const listCustomers = asyncHandler(async (req, res) => {
   }
 
   const query = {};
-  if (websiteId) {
-    if (!ownedWebsiteIds.map(id => id.toString()).includes(websiteId)) {
-      throw new AppError("Unauthorized access to this website's CRM data", 403);
-    }
+  if (websiteId && ownedWebsiteIds.map(id => id.toString()).includes(websiteId.toString())) {
     query.websiteId = websiteId;
   } else {
     query.websiteId = { $in: ownedWebsiteIds };

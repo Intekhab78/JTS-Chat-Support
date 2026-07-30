@@ -72,20 +72,6 @@ const DEFAULT_ROLES = [
     permissions: [
       "ticket.view", "ticket.create", "accounts.view", "billing.view"
     ]
-  },
-  {
-    name: "management",
-    description: "Executive management with company-wide read-only visibility into reports, dashboards, and audit logs.",
-    permissions: [
-      "crm.view", "ticket.view", "chat.view", "accounts.view", "reports.view", "audit.view"
-    ]
-  },
-  {
-    name: "user",
-    description: "End client self-service portal user for document downloads, invoice payments, and support inquiries.",
-    permissions: [
-      "ticket.view", "ticket.create", "ticket.comment", "accounts.view", "billing.view"
-    ]
   }
 ];
 

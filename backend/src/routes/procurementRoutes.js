@@ -25,7 +25,7 @@ router.get("/rfqs", getRFQs);
 router.post("/rfqs/:id/bids", requireRole("supplier"), submitBid);
 
 // Managerial Routes
-router.use(requireRole("admin", "client", "manager", "purchase", "accounts", "sales"));
+router.use(requireRole("admin", "client", "manager", "purchase", "accounts", "sales", "tax_consultant"));
 
 router.get("/stats", getProcurementStats);
 router.route("/suppliers").get(getSuppliers).post(createSupplier);

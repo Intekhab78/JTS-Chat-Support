@@ -31,9 +31,19 @@ export async function connectDatabase() {
     }
 
     if (error?.name === "MongooseServerSelectionError") {
-      throw new Error(
-        "MongoDB Atlas is reachable, but this machine is not allowed to connect. Add your current IP to Atlas Network Access or temporarily allow 0.0.0.0/0 for local development."
-      );
+      logger.log("Atlas IP whitelist blocked. Attempting local MongoDB fallback...");
+      try {
+        await mongoose.connect(process.env.LOCAL_MONGODB_URI || "mongodb://127.0.0.1:27017/jts_chat_support", {
+          family: 4,
+          serverSelectionTimeoutMS: 5000
+        });
+        logger.log("MongoDB connected via Local Fallback (127.0.0.1:27017)");
+        return;
+      } catch (fallbackError) {
+        throw new Error(
+          "MongoDB Atlas is reachable, but this machine is not allowed to connect. Add your current IP to Atlas Network Access or temporarily allow 0.0.0.0/0 for local development."
+        );
+      }
     }
 
     throw error;

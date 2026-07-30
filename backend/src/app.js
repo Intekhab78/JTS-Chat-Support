@@ -52,6 +52,7 @@ import customCrmModuleRoutes from "./routes/customCrmModuleRoutes.js";
 import enterpriseBiAnalyticsRoutes from "./routes/enterpriseBiAnalyticsRoutes.js";
 import multiOrganizationRoutes from "./routes/multiOrganizationRoutes.js";
 import missionControlRoutes from "./routes/missionControlRoutes.js";
+import reminderRoutes from "./routes/reminderRoutes.js";
 import healthRoutes from "./routes/health.js";
 import { env } from "./config/env.js";
 
@@ -198,6 +199,7 @@ export function createApp() {
   app.use("/api/categories", categoryRoutes);
   app.use("/api/departments", departmentRoutes);
   app.use("/api/crm", crmRoutes);
+  app.use("/api/crm/reminders", reminderRoutes);
   app.use("/api/audit-logs", auditRoutes);
   app.use("/api/webhooks", webhookRoutes);
   app.use("/api/flows", flowRoutes);

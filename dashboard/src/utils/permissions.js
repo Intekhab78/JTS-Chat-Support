@@ -111,24 +111,6 @@ const MATRIX = {
     PERMISSIONS.ACTIVITY_VIEW,
     PERMISSIONS.NOTIFICATION_VIEW,
     PERMISSIONS.REPORTS_VIEW
-  ]),
-
-  [ROLES.MANAGEMENT]: new Set([
-    PERMISSIONS.CRM_VIEW,
-    PERMISSIONS.TICKET_VIEW,
-    PERMISSIONS.CHAT_VIEW,
-    PERMISSIONS.ACTIVITY_VIEW,
-    PERMISSIONS.NOTIFICATION_VIEW,
-    PERMISSIONS.AUDIT_VIEW,
-    PERMISSIONS.REPORTS_VIEW,
-    PERMISSIONS.TEAM_VIEW
-  ]),
-
-  [ROLES.USER]: new Set([
-    PERMISSIONS.TICKET_VIEW,
-    PERMISSIONS.CHAT_VIEW,
-    PERMISSIONS.ACTIVITY_VIEW,
-    PERMISSIONS.NOTIFICATION_VIEW
   ])
 };
 
@@ -136,11 +118,11 @@ export function hasPermission(user, permission) {
   if (user?.role === "admin") return true; // Super Admin has access to all actions
   if (!user?.role) return false;
 
-  // 1. Check custom dynamic permissions if present
-  if (Array.isArray(user.permissions) && user.permissions.includes(permission)) {
-    return true;
+  // 1. Dynamic DB permissions override from Role Master
+  if (Array.isArray(user.permissions)) {
+    return user.permissions.includes(permission);
   }
 
-  // 2. Fallback to static matrix for built-in roles
+  // 2. Fallback to static matrix for built-in roles only if DB permissions array is missing
   return MATRIX[user.role]?.has(permission) || false;
 }

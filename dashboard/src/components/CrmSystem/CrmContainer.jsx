@@ -208,8 +208,19 @@ export default function CrmContainer({
   const [statusFilter, setStatusFilter] = useState("");
   const [leadView, setLeadView] = useState((isSales || user?.role === "tax_consultant") ? "my_leads" : "all");
   const [recordCategoryTab, setRecordCategoryTab] = useState("all");
-  const [workspaceTab, setWorkspaceTab] = useState("dashboard");
-  const activeGroup = crmGroups.find(group => group.items.some(item => item.id === workspaceTab)) || crmGroups[0];
+  const [workspaceTab, setWorkspaceTab] = useState(user?.role === "tax_consultant" ? "vat" : "dashboard");
+
+  const filteredCrmGroups = crmGroups.filter(group => {
+    if (user?.role === "tax_consultant") {
+      return ["crm", "compliance"].includes(group.id);
+    }
+    if (user?.role !== "admin" && user?.role !== "accounts") {
+      if (group.id === "system" || group.id === "finance") return false;
+    }
+    return true;
+  });
+
+  const activeGroup = filteredCrmGroups.find(group => group.items.some(item => item.id === workspaceTab)) || filteredCrmGroups[0];
   const handleGroupClick = (group) => {
     setWorkspaceTab(group.items[0].id);
   };
@@ -1131,7 +1142,7 @@ export default function CrmContainer({
       <div className="bg-white border border-slate-200/80 rounded-[30px] p-5 shadow-sm space-y-4">
         {/* Tier 1: Main Category Groups */}
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 pb-4 justify-start">
-          {crmGroups.map(group => {
+          {filteredCrmGroups.map(group => {
             const GroupIcon = group.icon;
             const isGroupActive = activeGroup.id === group.id;
             return (

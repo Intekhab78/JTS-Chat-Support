@@ -4,10 +4,10 @@
 import { Website } from "../models/Website.js";
 
 const OWNER_ROLES = new Set(["admin", "client", "manager"]);
-const PERSONNEL_BASE_ROLES = new Set(["agent", "sales", "purchase", "user", "supplier", "accounts", "tax_consultant"]);
+const PERSONNEL_BASE_ROLES = new Set(["agent", "sales", "purchase", "supplier", "accounts", "tax_consultant", "customer"]);
 
 /**
- * Normalises legacy aliases (e.g., user or sales to agent).
+ * Normalises legacy aliases.
  * Manager is a distinct role representing a tenant-level admin.
  * @param {string} role
  * @returns {string}
@@ -15,7 +15,6 @@ const PERSONNEL_BASE_ROLES = new Set(["agent", "sales", "purchase", "user", "sup
 export function normalizeRole(role) {
   const normalized = String(role || "").trim().toLowerCase();
   if (!normalized) return normalized;
-  if (normalized === "user") return "agent";
   if (normalized === "account") return "accounts";
   if (OWNER_ROLES.has(normalized) || PERSONNEL_BASE_ROLES.has(normalized)) return normalized;
   return "agent";

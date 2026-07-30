@@ -43,7 +43,7 @@ function resolveDateRange(query) {
 
 export async function getManagerAnalytics(req, res) {
   const role = normalizeRole(req.user.role);
-  if (!OWNER_ROLES.includes(role) && role !== "accounts") {
+  if (!OWNER_ROLES.includes(role) && role !== "accounts" && role !== "tax_consultant") {
     return res.status(403).json({ message: "Access denied" });
   }
 

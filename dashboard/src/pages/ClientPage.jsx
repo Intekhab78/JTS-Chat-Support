@@ -34,6 +34,8 @@ import VatFilingDashboard from "../components/CrmSystem/VatFilingDashboard.jsx";
 import CorporateTaxDashboard from "../components/CrmSystem/CorporateTaxDashboard.jsx";
 import TradeLicenseDashboard from "../components/CrmSystem/TradeLicenseDashboard.jsx";
 import ComplianceReportsHub from "../components/CrmSystem/ComplianceReportsHub.jsx";
+import TaxConsultantDashboard from "../components/CrmSystem/TaxConsultantDashboard.jsx";
+import AdminOverdueFollowupsCard from "../components/CrmSystem/AdminOverdueFollowupsCard.jsx";
 import RiskRegisterManager from "../components/RiskRegisterManager.jsx";
 import SaaSFinancialCenter from "../components/SaaSFinancialCenter.jsx";
 import SlaManagementCenter from "../components/SlaManagementCenter.jsx";
@@ -195,7 +197,7 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
     chats: s.chats,
     resolutions: s.resolved
   })) || [];
-  
+
   const { formatCurrency } = useCurrency();
 
   return (
@@ -390,7 +392,9 @@ export default function ClientPage() {
   const canUseShortcuts = user?.role === "admin" || hasModule(user, "shortcuts");
   const isExpired = user?.subscription?.status === "expired" || user?.subscription?.status === "suspended";
   const [searchParams] = useSearchParams();
-  const tab = searchParams.get("tab") || "overview";
+  const tabParam = searchParams.get("tab");
+  const defaultTab = user?.role === "tax_consultant" ? "tax-consultant-dashboard" : "overview";
+  const tab = tabParam || defaultTab;
 
   const [analytics, setAnalytics] = useState({ activeVisitors: 0, activeChats: 0, trend: [], snapshots: [] });
   const [procurementStats, setProcurementStats] = useState(null);
@@ -567,19 +571,26 @@ export default function ClientPage() {
       { label: "Billing", href: "/client?tab=billing" },
     ];
 
-  if (!isAdminUser) {
+  if (userRole === "tax_consultant") {
+    menuItems.length = 0;
+    menuItems.push({ label: "Dashboard", href: "/tax-consultant?tab=tax-consultant-dashboard" });
+    menuItems.push({ label: "VAT Compliance", href: "/tax-consultant?tab=vat-compliance" });
+    menuItems.push({ label: "Corporate Tax", href: "/tax-consultant?tab=corporate-tax" });
+    menuItems.push({ label: "Trade License", href: "/tax-consultant?tab=trade-license" });
+    menuItems.push({ label: "Compliance Reports", href: "/tax-consultant?tab=compliance-reports" });
+    menuItems.push({ label: "CRM", href: "/tax-consultant?tab=crm" });
+    menuItems.push({ label: "Customer Master", href: "/tax-consultant?tab=inventory-customer" });
+  } else if (!isAdminUser) {
     if (hasPermission(user, PERMISSIONS.TEAM_VIEW)) menuItems.push({ label: "Agents", href: "/client?tab=agents" });
     if (hasPermission(user, PERMISSIONS.CHAT_VIEW)) menuItems.push({ label: "Chats", href: "/client?tab=chats" });
-    
-    if (canUseTickets) {
-      if (hasPermission(user, PERMISSIONS.TICKET_VIEW)) {
-        menuItems.push({ label: "Tickets", href: "/client?tab=tickets" });
-        menuItems.push({ label: "Departments", href: "/client?tab=departments" });
-        menuItems.push({ label: "Categories", href: "/client?tab=categories" });
-      }
+
+    if (canUseTickets && hasPermission(user, PERMISSIONS.TICKET_VIEW)) {
+      menuItems.push({ label: "Tickets", href: "/client?tab=tickets" });
+      menuItems.push({ label: "Departments", href: "/client?tab=departments" });
+      menuItems.push({ label: "Categories", href: "/client?tab=categories" });
     }
 
-    if (hasPermission(user, PERMISSIONS.CRM_VIEW)) {
+    if (hasPermission(user, "inventory.view") || hasPermission(user, PERMISSIONS.CRM_VIEW)) {
       menuItems.push({
         label: "Inventory",
         children: [
@@ -597,33 +608,22 @@ export default function ClientPage() {
           { label: "Adjustment", href: "/client?tab=inventory-adjustment" }
         ]
       });
-      if (canUseCRM) menuItems.push({ label: "CRM", href: "/client?tab=crm" });
       menuItems.push({ label: "Customer Master", href: "/client?tab=inventory-customer" });
+    }
+
+    if (hasPermission(user, PERMISSIONS.CRM_VIEW) && canUseCRM) {
+      menuItems.push({ label: "CRM", href: "/client?tab=crm" });
+    }
+
+    if (hasPermission(user, "tax.view") || hasPermission(user, PERMISSIONS.CRM_VIEW)) {
       menuItems.push({ label: "VAT Compliance", href: "/client?tab=vat-compliance" });
       menuItems.push({ label: "Corporate Tax", href: "/client?tab=corporate-tax" });
       menuItems.push({ label: "Trade License", href: "/client?tab=trade-license" });
       menuItems.push({ label: "Compliance Reports", href: "/client?tab=compliance-reports" });
-      menuItems.push({ label: "Risk Register", href: "/client?tab=risk-register" });
-      menuItems.push({ label: "SLA & SLO Center", href: "/client?tab=sla-center" });
-      menuItems.push({ label: "Observability Center", href: "/client?tab=observability" });
-      menuItems.push({ label: "Load & Capacity Center", href: "/client?tab=load-testing" });
-      menuItems.push({ label: "Release Center", href: "/client?tab=release-management" });
-      menuItems.push({ label: "Developer Portal", href: "/client?tab=developer-portal" });
-      menuItems.push({ label: "Product & Roadmap", href: "/client?tab=product-management" });
-      menuItems.push({ label: "AI & Automation Center", href: "/client?tab=ai-automation" });
-      menuItems.push({ label: "Compliance Governance", href: "/client?tab=compliance-governance" });
-      menuItems.push({ label: "Mobile Center", href: "/client?tab=mobile-readiness" });
-      menuItems.push({ label: "Integration Hub", href: "/client?tab=enterprise-integrations" });
-      menuItems.push({ label: "Workflow Builder", href: "/client?tab=workflow-builder" });
-      menuItems.push({ label: "App Marketplace", href: "/client?tab=app-marketplace" });
-      menuItems.push({ label: "Low-Code Studio", href: "/client?tab=lowcode-studio" });
-      menuItems.push({ label: "Custom Modules", href: "/client?tab=custom-crm-modules" });
-      menuItems.push({ label: "Enterprise BI", href: "/client?tab=enterprise-bi" });
-      menuItems.push({ label: "Multi-Org Center", href: "/client?tab=multi-organization" });
-      menuItems.push({ label: "Mission Control", href: "/client?tab=mission-control" });
-      if (user?.role === "admin" || user?.role === "client" || user?.role === "accounts") {
-        menuItems.push({ label: "Financial Center", href: "/client?tab=financial-analytics" });
-      }
+    }
+
+    if (hasPermission(user, "accounts.view") || hasPermission(user, PERMISSIONS.CRM_VIEW)) {
+      menuItems.push({ label: "Financial Center", href: "/client?tab=financial-analytics" });
     }
 
     if (hasPermission(user, PERMISSIONS.CHAT_VIEW) && canUseShortcuts) {
@@ -633,6 +633,7 @@ export default function ClientPage() {
     if (hasPermission(user, PERMISSIONS.REPORTS_VIEW) && canUseReports) {
       menuItems.push({ label: "Reports", href: "/client?tab=reports" });
       menuItems.push({ label: "Flow Analytics", href: "/client?tab=flow-analytics" });
+      menuItems.push({ label: "Enterprise BI", href: "/client?tab=enterprise-bi" });
     }
 
     if (hasPermission(user, PERMISSIONS.SETTINGS_MANAGE) && canUseSecurity) {
@@ -640,7 +641,9 @@ export default function ClientPage() {
       menuItems.push({ label: "Help Center", href: "/client?tab=help-center" });
     }
 
-    menuItems.push({ label: "Role Master", href: "/client?tab=roles" });
+    if (hasPermission(user, "role.manage") || hasPermission(user, PERMISSIONS.SETTINGS_MANAGE)) {
+      menuItems.push({ label: "Role Master", href: "/client?tab=roles" });
+    }
   }
 
 
@@ -792,10 +795,26 @@ export default function ClientPage() {
     content = <InventoryManager websiteId={selectedWebsiteId} activeTab="inventory-vat" />;
   }
 
+  if (tab === "tax-consultant-dashboard") {
+    title = "Tax Consultant Command Center";
+    subtitle = "Clean, task-oriented daily client follow-ups and compliance management";
+    content = (
+      <div className="space-y-8">
+        <TaxConsultantDashboard websiteId={selectedWebsiteId} />
+        {(userRole === "admin" || userRole === "manager") && <AdminOverdueFollowupsCard />}
+      </div>
+    );
+  }
+
   if (tab === "crm") {
     title = "CRM Master Console";
     subtitle = "Strategic customer relationship management and intelligence";
-    content = <CRMManager websiteId={selectedWebsiteId} />;
+    content = (
+      <div className="space-y-8">
+        {(userRole === "admin" || userRole === "manager") && <AdminOverdueFollowupsCard />}
+        <CRMManager websiteId={selectedWebsiteId} />
+      </div>
+    );
   }
 
   if (tab === "inventory-customer") {
@@ -947,7 +966,7 @@ export default function ClientPage() {
     subtitle = "Two-factor authentication, audit logs, and webhook delivery visibility";
     content = <SecurityCenter />;
   }
-  
+
   if (tab === "help-center") {
     title = "Help Center & Knowledge Base";
     subtitle = "Manage help articles, categories, and self-help guides";
@@ -1019,7 +1038,7 @@ export default function ClientPage() {
   }
 
   // Handle other tabs generically for now
-  if (!["overview", "chats", "websites", "agents", "clients", "reports", "tickets", "shortcuts", "history", "categories", "departments", "crm", "security", "billing", "subscriptions", "roles", "inventory-customer", "flow-analytics", "help-center", "inventory", "inventory-master", "inventory-stock-in", "inventory-stock-out", "inventory-adjustment", "inventory-history", "inventory-category", "inventory-subcategory", "inventory-brand", "inventory-size", "inventory-color", "inventory-unit", "inventory-supplier", "inventory-vat", "inventory-tax", "vat-compliance", "corporate-tax", "trade-license", "compliance-reports", "risk-register", "financial-analytics", "sla-center", "observability", "load-testing", "release-management", "developer-portal", "product-management", "ai-automation", "compliance-governance", "mobile-readiness", "enterprise-integrations", "workflow-builder", "app-marketplace", "lowcode-studio", "custom-crm-modules", "enterprise-bi", "multi-organization", "mission-control"].includes(tab)) {
+  if (!["overview", "tax-consultant-dashboard", "chats", "websites", "agents", "clients", "reports", "tickets", "shortcuts", "history", "categories", "departments", "crm", "security", "billing", "subscriptions", "roles", "inventory-customer", "flow-analytics", "help-center", "inventory", "inventory-master", "inventory-stock-in", "inventory-stock-out", "inventory-adjustment", "inventory-history", "inventory-category", "inventory-subcategory", "inventory-brand", "inventory-size", "inventory-color", "inventory-unit", "inventory-supplier", "inventory-vat", "inventory-tax", "vat-compliance", "corporate-tax", "trade-license", "compliance-reports", "risk-register", "financial-analytics", "sla-center", "observability", "load-testing", "release-management", "developer-portal", "product-management", "ai-automation", "compliance-governance", "mobile-readiness", "enterprise-integrations", "workflow-builder", "app-marketplace", "lowcode-studio", "custom-crm-modules", "enterprise-bi", "multi-organization", "mission-control"].includes(tab)) {
     content = (
       <div className="bg-white p-24 rounded-[40px] border border-slate-200/60 shadow-sm text-center">
         <div className="max-w-xs mx-auto space-y-4">
@@ -1035,29 +1054,6 @@ export default function ClientPage() {
 
   return (
     <Layout title={title} subtitle={subtitle} menuItems={menuItems}>
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-        <div className="flex items-center gap-4 bg-white/50 dark:bg-white/5 p-2 rounded-2xl border border-slate-100 dark:border-white/5">
-          <div className="p-2 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-500/20">
-            <Globe size={18} />
-          </div>
-          <select
-            value={selectedWebsiteId}
-            onChange={(e) => setSelectedWebsiteId(e.target.value)}
-            className="bg-transparent text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white outline-none cursor-pointer pr-8"
-          >
-            <option value="">All Ecosystem Assets</option>
-            {websites.map(w => (
-              <option key={w._id} value={w._id}>{w.websiteName}</option>
-            ))}
-          </select>
-        </div>
-        {selectedWebsiteId && (
-          <div className="px-5 py-2.5 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl border border-indigo-100 dark:border-indigo-500/20">
-            <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em]">Isolated Domain View Active</span>
-          </div>
-        )}
-      </div>
-
       {error && (
         <div className="bg-red-50 border border-red-100 text-red-700 px-6 py-4 rounded-2xl text-[13px] font-bold mb-8">
           {error}

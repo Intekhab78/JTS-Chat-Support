@@ -6,9 +6,9 @@ export const ROLES = Object.freeze({
   SALES: "sales",
   PURCHASE: "purchase",
   ACCOUNTS: "accounts",
-  USER: "user",
   TAX_CONSULTANT: "tax_consultant",
-  MANAGEMENT: "management"
+  SUPPLIER: "supplier",
+  CUSTOMER: "customer"
 });
 
 export const ROLE_VALUES = Object.freeze(Object.values(ROLES));

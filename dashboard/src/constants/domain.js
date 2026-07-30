@@ -4,8 +4,11 @@ export const ROLES = Object.freeze({
   MANAGER: "manager",
   AGENT: "agent",
   SALES: "sales",
+  PURCHASE: "purchase",
   ACCOUNTS: "accounts",
-  USER: "user"
+  TAX_CONSULTANT: "tax_consultant",
+  SUPPLIER: "supplier",
+  CUSTOMER: "customer"
 });
 
 export const PERMISSIONS = Object.freeze({
