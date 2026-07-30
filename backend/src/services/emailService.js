@@ -5,15 +5,27 @@ dotenv.config();
 
 // Create a transporter using environment variables
 // For testing/dev, you can use a service like Ethereal or Mailtrap
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp.ethereal.email",
-  port: process.env.SMTP_PORT || 587,
-  secure: process.env.SMTP_SECURE === "true",
-  auth: {
-    user: process.env.SMTP_USER || "mock_user@example.com",
-    pass: process.env.SMTP_PASS || "mock_pass"
-  }
-});
+const isGmail = process.env.SMTP_HOST === "smtp.gmail.com";
+
+const transporter = nodemailer.createTransport(
+  isGmail
+    ? {
+        service: "gmail",
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS
+        }
+      }
+    : {
+        host: process.env.SMTP_HOST || "smtp.ethereal.email",
+        port: Number(process.env.SMTP_PORT) || 587,
+        secure: process.env.SMTP_SECURE === "true",
+        auth: {
+          user: process.env.SMTP_USER || "mock_user@example.com",
+          pass: process.env.SMTP_PASS || "mock_pass"
+        }
+      }
+);
 
 /**
  * Send an email
