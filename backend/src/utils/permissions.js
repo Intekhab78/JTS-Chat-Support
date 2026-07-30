@@ -149,13 +149,19 @@ export function hasPermission(user, permission) {
   if (!user?.role || !permission) return false;
   const role = normalizeRole(user.role);
   if (role === "admin" || user.role === "admin") return true;
+  if (role === "client" || user.role === "client") {
+    if (Array.isArray(user.permissions) && user.permissions.length > 0) {
+      return user.permissions.includes(permission);
+    }
+    return true; // Client Organization Owner gets full access by default
+  }
 
-  // 1. Check dynamic DB permission list if populated
-  if (Array.isArray(user.permissions)) {
+  // 1. Check dynamic DB permission list if populated and non-empty
+  if (Array.isArray(user.permissions) && user.permissions.length > 0) {
     return user.permissions.includes(permission);
   }
 
-  // 2. Fallback to static MATRIX only if DB permissions array is missing
+  // 2. Fallback to static MATRIX
   return MATRIX[user.role]?.has(permission) || MATRIX[role]?.has(permission) || false;
 }
 

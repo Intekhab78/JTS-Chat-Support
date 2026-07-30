@@ -25,6 +25,17 @@ const DEFAULT_ROLES = [
     ]
   },
   {
+    name: "client",
+    description: "Organization Owner / Client tenant with full workspace administration & operational capabilities.",
+    permissions: [
+      "crm.view", "crm.create", "crm.update", "crm.archive", "crm.delete", "crm.assign", "crm.merge",
+      "ticket.view", "ticket.create", "ticket.update", "ticket.delete", "ticket.comment",
+      "chat.view", "chat.transfer", "chat.note", "chat.history", "chat.archive",
+      "accounts.view", "invoice.manage", "billing.view",
+      "reports.view", "audit.view", "settings.manage", "role.manage"
+    ]
+  },
+  {
     name: "manager",
     description: "Full operational manager with CRM, Ticketing, Chat, Accounting, and Reporting access.",
     permissions: [

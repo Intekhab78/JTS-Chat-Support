@@ -115,14 +115,14 @@ const MATRIX = {
 };
 
 export function hasPermission(user, permission) {
-  if (user?.role === "admin") return true; // Super Admin has access to all actions
-  if (!user?.role) return false;
+  if (!user?.role || !permission) return false;
+  if (user.role === "admin" || user.role === "client" || user.role === "CLIENT") return true;
 
-  // 1. Dynamic DB permissions override from Role Master
-  if (Array.isArray(user.permissions)) {
+  // 1. Dynamic DB permissions override from Role Master if non-empty
+  if (Array.isArray(user.permissions) && user.permissions.length > 0) {
     return user.permissions.includes(permission);
   }
 
-  // 2. Fallback to static matrix for built-in roles only if DB permissions array is missing
+  // 2. Fallback to static matrix for built-in roles
   return MATRIX[user.role]?.has(permission) || false;
 }
