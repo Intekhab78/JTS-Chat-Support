@@ -182,11 +182,11 @@ export default function AccountsPage() {
         <select
           value={selectedWebsiteId}
           onChange={(e) => setSelectedWebsiteId(e.target.value)}
-          className="rounded-2xl border border-slate-100 bg-slate-50 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-600 outline-none hover:bg-white transition-all appearance-none cursor-pointer"
+          className="rounded-2xl border border-slate-100 dark:border-white/10 bg-slate-50 dark:bg-slate-900 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-200 outline-none hover:bg-white dark:hover:bg-slate-800 transition-all appearance-none cursor-pointer"
         >
-          <option value="">Global View (All)</option>
+          <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-bold">Global View (All)</option>
           {websites.map(w => (
-            <option key={w._id} value={w._id}>{w.websiteName}</option>
+            <option key={w._id} value={w._id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-bold">{w.websiteName}</option>
           ))}
         </select>
       </div>

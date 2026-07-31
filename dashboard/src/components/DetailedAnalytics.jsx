@@ -190,8 +190,8 @@ export default function DetailedAnalytics({ analytics }) {
                         <tr key={agent._id} className="border-t border-slate-50 dark:border-white/5 hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors group cursor-pointer">
                            <td className="p-6">
                               <div className="flex items-center gap-4">
-                                 <div className="w-10 h-10 rounded-xl bg-slate-950 dark:bg-black text-white flex items-center justify-center font-black text-xs uppercase shadow-lg group-hover:scale-110 transition-transform border border-white/5">
-                                    {agent.name.split(" ").map(n => n[0]).join("")}
+                                 <div className="w-10 h-10 rounded-xl bg-slate-950 dark:bg-black text-white flex items-center justify-center font-black text-xs uppercase shadow-lg group-hover:scale-110 transition-transform border border-white/5 whitespace-nowrap select-none px-0.5 tracking-tighter">
+                                    {(agent.name || "").trim().split(/\s+/).map(n => n[0]).join("").toUpperCase()}
                                  </div>
                                  <div>
                                     <p className="text-xs font-black text-slate-900 dark:text-white uppercase truncate max-w-[150px] tracking-tight">{agent.name}</p>

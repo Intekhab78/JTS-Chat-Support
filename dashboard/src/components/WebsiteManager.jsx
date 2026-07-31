@@ -805,7 +805,7 @@ function LocalizationModal({ website, onClose, onSaved }) {
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-200">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20">
               <DollarSign size={20} />
             </div>
             <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Currency &amp; Localization</h2>
@@ -823,7 +823,7 @@ function LocalizationModal({ website, onClose, onSaved }) {
       </div>
 
       {/* Live Preview Banner */}
-      <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-[32px] p-8 text-white shadow-xl shadow-emerald-200/40 flex items-center justify-between gap-6">
+      <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-[32px] p-8 text-white shadow-xl shadow-emerald-500/20 flex items-center justify-between gap-6">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-70 mb-1">Live Preview</p>
           <p className="text-4xl font-black tracking-tight">{preview}</p>
@@ -910,7 +910,11 @@ function LocalizationModal({ website, onClose, onSaved }) {
                   key={opt.v}
                   type="button"
                   onClick={() => setSettings(s => ({ ...s, symbolPosition: opt.v }))}
-                  className={`flex-1 py-3 rounded-2xl border-2 text-[10px] font-black uppercase tracking-widest transition-all ${settings.symbolPosition === opt.v ? "bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-100" : "bg-slate-50 text-slate-400 border-slate-100 hover:border-emerald-300"}`}
+                  className={`flex-1 py-3 rounded-2xl border-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+                    settings.symbolPosition === opt.v
+                      ? "bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/20"
+                      : "bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-300 border-slate-100 dark:border-white/10 hover:border-emerald-300 dark:hover:border-emerald-500"
+                  }`}
                 >
                   {opt.label}
                   <span className="block text-[8px] mt-1 opacity-70">{opt.example}</span>
@@ -928,7 +932,11 @@ function LocalizationModal({ website, onClose, onSaved }) {
                   key={dp}
                   type="button"
                   onClick={() => setSettings(s => ({ ...s, decimalPlaces: dp }))}
-                  className={`flex-1 py-3 rounded-2xl border-2 text-[10px] font-black uppercase tracking-widest transition-all ${settings.decimalPlaces === dp ? "bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-100" : "bg-slate-50 text-slate-400 border-slate-100 hover:border-emerald-300"}`}
+                  className={`flex-1 py-3 rounded-2xl border-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+                    settings.decimalPlaces === dp
+                      ? "bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/20"
+                      : "bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-300 border-slate-100 dark:border-white/10 hover:border-emerald-300 dark:hover:border-emerald-500"
+                  }`}
                 >
                   {dp}
                 </button>
@@ -983,7 +991,11 @@ function LocalizationModal({ website, onClose, onSaved }) {
                 thousandSeparator: c.thousandSep,
                 decimalSeparator:  c.decimalSep,
               })}
-              className={`px-4 py-2.5 rounded-2xl border-2 text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${settings.currencyCode === c.code ? "bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-100" : "bg-slate-50 dark:bg-black/20 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-white/5 hover:border-emerald-300"}`}
+              className={`px-4 py-2.5 rounded-2xl border-2 text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+                settings.currencyCode === c.code
+                  ? "bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-500/20"
+                  : "bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-300 border-slate-100 dark:border-white/10 hover:border-emerald-300 dark:hover:border-emerald-500"
+              }`}
             >
               <span className="text-sm">{c.symbol}</span> {c.code}
             </button>

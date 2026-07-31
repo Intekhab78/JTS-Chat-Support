@@ -389,11 +389,11 @@ export default function SalesPage() {
         <select
           value={selectedWebsiteId}
           onChange={(e) => setSelectedWebsiteId(e.target.value)}
-          className="w-full bg-transparent border-none text-sm font-black text-slate-900 uppercase tracking-tight outline-none cursor-pointer"
+          className="w-full bg-transparent border-none text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight outline-none cursor-pointer"
         >
-          <option value="">All Ecosystem Assets</option>
+          <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-bold">All Ecosystem Assets</option>
           {websites.map(w => (
-            <option key={w._id} value={w._id}>{w.websiteName}</option>
+            <option key={w._id} value={w._id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-bold">{w.websiteName}</option>
           ))}
         </select>
       </div>

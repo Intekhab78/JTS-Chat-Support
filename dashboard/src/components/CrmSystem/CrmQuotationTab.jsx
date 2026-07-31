@@ -481,7 +481,7 @@ export default function CRMQuotationTab({ customer, websiteId, onPostWin }) {
         <div className="rounded-3xl border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-indigo-50 p-6 shadow-xl animate-in fade-in slide-in-from-top-4 duration-500 space-y-5">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-200">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20">
                 <CheckCircle size={24} />
               </div>
               <div>

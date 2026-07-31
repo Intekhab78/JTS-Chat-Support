@@ -347,7 +347,7 @@ export default function CrmInvoicesView({ websiteId }) {
                       <button
                         onClick={handleRazorpayCheckout}
                         disabled={paying}
-                        className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] transition-all shadow-md shadow-emerald-100 flex items-center justify-center gap-2"
+                        className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] transition-all shadow-md shadow-emerald-500/20 flex items-center justify-center gap-2"
                       >
                         <CreditCard size={13} /> {paying ? "Opening Razorpay..." : "Pay with Razorpay"}
                       </button>
