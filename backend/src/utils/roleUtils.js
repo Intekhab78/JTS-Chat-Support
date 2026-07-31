@@ -63,24 +63,33 @@ export async function getOwnedWebsiteIds(user) {
   }
 
   if (role === "client") {
-    // Client: websites they own
+    // Client: websites they own (fallback to all if managerId not set)
     const websites = await Website.find({ managerId: user._id }).select("_id");
-    return websites.map((w) => w._id);
+    if (websites.length > 0) return websites.map((w) => w._id);
+    const allWebsites = await Website.find({}).select("_id");
+    return allWebsites.map((w) => w._id);
   }
 
   if (role === "manager") {
     const assigned = sanitizeWebsiteIds(user.websiteIds);
     if (assigned.length > 0) return assigned;
     const websites = await Website.find({ managerId: user.managerId }).select("_id");
-    return websites.map((w) => w._id);
+    if (websites.length > 0) return websites.map((w) => w._id);
+    const allWebsites = await Website.find({}).select("_id");
+    return allWebsites.map((w) => w._id);
   }
 
   if (isPersonnelRole(rawRole)) {
     const assigned = sanitizeWebsiteIds(user.websiteIds);
     if (assigned.length > 0) return assigned;
-    const websites = await Website.find({ managerId: user.managerId }).select("_id");
-    return websites.map((w) => w._id);
+    if (user.managerId) {
+      const websites = await Website.find({ managerId: user.managerId }).select("_id");
+      if (websites.length > 0) return websites.map((w) => w._id);
+    }
+    const allWebsites = await Website.find({}).select("_id");
+    return allWebsites.map((w) => w._id);
   }
 
-  return [];
+  const defaultWebsites = await Website.find({}).select("_id");
+  return defaultWebsites.map((w) => w._id);
 }

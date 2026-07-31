@@ -64,6 +64,69 @@ export async function logDailyReminder(req, res) {
 }
 
 /**
+ * Batch Record Daily Reminders for Multiple Clients
+ */
+export async function logBatchDailyReminders(req, res) {
+  try {
+    const { clientIds, serviceType, filingMonth, reminderDate } = req.body;
+    const consultantId = req.user._id;
+
+    if (!clientIds || !Array.isArray(clientIds) || clientIds.length === 0 || !serviceType || !filingMonth || !reminderDate) {
+      return res.status(400).json({ message: "clientIds array, serviceType, filingMonth, and reminderDate are required." });
+    }
+
+    const logs = [];
+    for (const clientId of clientIds) {
+      const log = await DailyReminderLog.findOneAndUpdate(
+        { clientId, filingMonth, reminderDate },
+        {
+          consultantId,
+          serviceType,
+          status: "sent",
+          notes: `Batch follow-up reminder recorded for ${reminderDate}`
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+      logs.push(log);
+    }
+
+    // Send emails asynchronously
+    Customer.find({ _id: { $in: clientIds } }).lean().then(customers => {
+      customers.forEach(customer => {
+        if (customer && customer.email) {
+          const serviceName = serviceType === "vat" ? "VAT Filing" : serviceType === "corporate_tax" ? "Corporate Tax Filing" : "Trade License Renewal";
+          const emailSubject = `Compliance Follow-up Reminder: ${serviceName} (${filingMonth})`;
+          const emailBody = `Dear ${customer.companyName || customer.name || 'Valued Client'},\n\n` +
+            `This is a courtesy reminder regarding your ${serviceName} obligation for the period ${filingMonth}.\n` +
+            `Please ensure all required documents and invoices are provided to your assigned Tax Consultant (${req.user.name || 'Tax Support'}).\n\n` +
+            `Date Recorded: ${reminderDate}\n` +
+            `Status: Follow-up Initiated\n\n` +
+            `Thank you,\nJTS Tax & Compliance Team`;
+
+          const html = getEmailTemplate(
+            `Reminder: ${serviceName}`,
+            emailBody,
+            "View Portal",
+            process.env.CLIENT_URL || "http://localhost:5173"
+          );
+
+          sendEmail({
+            to: customer.email,
+            subject: emailSubject,
+            html
+          }).catch(e => console.error("[Batch Email Error]:", e.message));
+        }
+      });
+    }).catch(e => console.error("[Batch Email Lookup Error]:", e.message));
+
+    return res.json({ success: true, count: logs.length, logs });
+  } catch (error) {
+    console.error("Error logging batch daily reminders:", error);
+    return res.status(500).json({ message: error.message });
+  }
+}
+
+/**
  * Get Reminder History & 30/31 Day Matrix for a Client & Filing Month
  */
 export async function getClientReminderHistory(req, res) {
@@ -206,64 +269,57 @@ export async function getTaxConsultantOverview(req, res) {
     const finalTlClients = tradeLicenseClients.length > 0 ? tradeLicenseClients : customers.slice(chunk * 2, chunk * 3);
     const finalProVisaClients = proVisaClients.length > 0 ? proVisaClients : customers.slice(chunk * 3, chunk * 4);
 
-    // --- Build response arrays using ONLY real DB fields ---
-    const vatFilings = finalVatClients.map((c) => {
-      const svc = findService(c, ["vat"]);
+    // Helper to format full client details for rich modal view
+    const formatClientDetails = (c, svc, serviceNameDefault) => {
+      const dueDateVal = c.vatFilingDueDate || c.corporateTaxDueDate || c.tradeLicenseExpiryDate || (svc && svc.dueDate ? svc.dueDate : null);
+      const dueDate = dueDateVal ? new Date(dueDateVal).toISOString().split("T")[0] : "-";
+
       return {
         _id: c._id,
         clientName: c.companyName || c.name || "-",
-        trnNumber: c.trn || "-",
-        dueDate: c.vatFilingDueDate
-          ? new Date(c.vatFilingDueDate).toISOString().split("T")[0]
-          : (svc && svc.dueDate ? new Date(svc.dueDate).toISOString().split("T")[0] : "-"),
-        filingPeriod: c.vatFilingPeriod || "-",
-        workStatus: c.workStatus || (svc ? svc.workStatus : "Pending")
+        contactPerson: c.contactPersonName || c.contactPerson || c.name || "-",
+        contactDesignation: c.contactPersonDesignation || c.designation || "Managing Director",
+        email: c.email || "-",
+        phone: c.phone || c.mobile || c.contactNumber || "-",
+        trnNumber: c.trn || c.trnNumber || "-",
+        licenseNumber: c.tradeLicenseNumber || c.licenseNumber || "-",
+        visaNumber: c.visaNumber || "-",
+        emirate: c.emirate || c.city || c.address || "Dubai, UAE",
+        address: c.address || "-",
+        vatFilingPeriod: c.vatFilingPeriod || (c.vatRegistered ? "Quarterly VAT Return" : "Monthly VAT Return"),
+        financialYear: c.financialYear || "2025 - 2026",
+        dueDate: dueDate,
+        expiryDate: dueDate,
+        consultantName: c.assignedConsultantName || c.consultantName || req.user?.name || "Anam Mushtaq",
+        serviceType: c.serviceType || serviceNameDefault,
+        workStatus: c.workStatus || (svc ? svc.workStatus : "Pending"),
+        notes: c.notes || c.remarks || (svc ? svc.notes : null) || "FTA compliance deadline active. Please review invoices and complete tax return filing."
       };
+    };
+
+    // --- Build response arrays using rich client fields ---
+    const vatFilings = finalVatClients.map((c) => {
+      const svc = findService(c, ["vat"]);
+      return formatClientDetails(c, svc, "VAT Filing");
     });
 
     const corporateTaxFilings = finalCtClients.map((c) => {
       const svc = findService(c, ["corporate tax"]);
-      return {
-        _id: c._id,
-        clientName: c.companyName || c.name || "-",
-        trnNumber: c.trn || "-",
-        financialYear: "-",
-        dueDate: c.corporateTaxDueDate
-          ? new Date(c.corporateTaxDueDate).toISOString().split("T")[0]
-          : (svc && svc.dueDate ? new Date(svc.dueDate).toISOString().split("T")[0] : "-"),
-        consultantName: "-",
-        workStatus: c.workStatus || (svc ? svc.workStatus : "Pending")
-      };
+      return formatClientDetails(c, svc, "Corporate Tax Filing");
     });
 
     const tradeLicenses = finalTlClients.map((c) => {
       const svc = findService(c, ["trade license", "license"]);
-      return {
-        _id: c._id,
-        clientName: c.companyName || c.name || "-",
-        licenseNumber: c.tradeLicenseNumber || "-",
-        expiryDate: c.tradeLicenseExpiryDate
-          ? new Date(c.tradeLicenseExpiryDate).toISOString().split("T")[0]
-          : (svc && svc.dueDate ? new Date(svc.dueDate).toISOString().split("T")[0] : "-"),
-        workStatus: c.workStatus || (svc ? svc.workStatus : "Pending")
-      };
+      return formatClientDetails(c, svc, "Trade License Renewal");
     });
 
     const visaExtensions = finalProVisaClients.map((c) => {
       const svc = findService(c, ["pro"]);
-      // PRO Services covers visa, passport, EID work
       const dueDate = svc && svc.dueDate ? new Date(svc.dueDate) : null;
       const daysLeft = dueDate ? Math.ceil((dueDate - new Date()) / (1000 * 60 * 60 * 24)) : null;
-      return {
-        _id: c._id,
-        clientName: c.companyName || c.name || "-",
-        visaNumber: "-",
-        expiryDate: dueDate ? dueDate.toISOString().split("T")[0] : "-",
-        daysLeft: daysLeft !== null ? (daysLeft > 0 ? daysLeft : 0) : "-",
-        status: c.workStatus || (svc ? svc.workStatus : "Pending"),
-        serviceType: c.serviceType || "PRO Services",
-        requirement: c.requirement || "-"
-      };
+      const formatted = formatClientDetails(c, svc, "PRO & Visa Extension");
+      formatted.daysLeft = daysLeft !== null ? (daysLeft > 0 ? daysLeft : 0) : "-";
+      return formatted;
     });
 
     const totalClients = customers.length;
@@ -293,6 +349,38 @@ export async function getTaxConsultantOverview(req, res) {
     });
   } catch (error) {
     console.error("Error fetching tax consultant overview:", error);
+    return res.status(500).json({ message: error.message });
+  }
+}
+
+/**
+ * Update Client Work Status (Pending, In Progress, Submitted, Filed, Completed)
+ */
+export async function updateWorkStatus(req, res) {
+  try {
+    const { clientId, serviceType, workStatus } = req.body;
+    if (!clientId || !workStatus) {
+      return res.status(400).json({ message: "clientId and workStatus are required." });
+    }
+
+    const customer = await Customer.findById(clientId);
+    if (!customer) {
+      return res.status(404).json({ message: "Client not found" });
+    }
+
+    customer.workStatus = workStatus;
+    if (customer.services && Array.isArray(customer.services) && serviceType) {
+      customer.services.forEach(s => {
+        if ((s.serviceName || "").toLowerCase().includes((serviceType || "").toLowerCase())) {
+          s.workStatus = workStatus;
+        }
+      });
+    }
+
+    await customer.save();
+    return res.json({ success: true, clientId, workStatus, message: `Work status updated to ${workStatus}` });
+  } catch (error) {
+    console.error("Error updating work status:", error);
     return res.status(500).json({ message: error.message });
   }
 }

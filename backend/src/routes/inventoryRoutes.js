@@ -24,16 +24,15 @@ const router = Router();
 router.get("/search", requireAuth, requireRole("admin", "client", "manager", "sales", "agent", "purchase"), searchInventoryItems);
 
 // READ access for inventory (Meta, Items, Movements, Masters)
-// Allowed for admin, client, manager, sales, purchase
-router.get("/meta", requireAuth, requireRole("admin", "client", "manager", "sales", "purchase"), getInventoryMeta);
-router.get("/items", requireAuth, requireRole("admin", "client", "manager", "sales", "purchase"), listInventoryItems);
-router.get("/items/:id", requireAuth, requireRole("admin", "client", "manager", "sales", "purchase"), getInventoryItem);
-router.get("/movements", requireAuth, requireRole("admin", "client", "manager", "sales", "purchase"), listInventoryMovements);
-router.get("/masters/:type", requireAuth, requireRole("admin", "client", "manager", "sales", "purchase"), listMasters);
+// Allowed for admin, client, manager, sales, purchase, accounts, tax_consultant
+router.get("/meta", requireAuth, requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), getInventoryMeta);
+router.get("/items", requireAuth, requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), listInventoryItems);
+router.get("/items/:id", requireAuth, requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), getInventoryItem);
+router.get("/movements", requireAuth, requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), listInventoryMovements);
+router.get("/masters/:type", requireAuth, requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), listMasters);
 
 // WRITE access (Mutations)
-// Allowed for admin, client, manager, sales, purchase
-const requireWriteAccess = requireRole("admin", "client", "manager", "sales", "purchase");
+const requireWriteAccess = requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant");
 
 router.post("/items", requireAuth, requireWriteAccess, createInventoryItem);
 router.patch("/items/:id", requireAuth, requireWriteAccess, updateInventoryItem);

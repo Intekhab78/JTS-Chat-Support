@@ -431,7 +431,7 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
 
   /* Menu items */
   const fallback = [];
-  
+
   // Dashboard is always first, route depends on role
   const dashboardHref = role === "admin" ? "/admin" : role === "manager" ? "/manager" : role === "client" ? "/client" : role === "supplier" ? "/supplier?tab=dashboard" : role === "accounts" ? "/accounts" : "/agent";
   fallback.push({ label: "Dashboard", href: dashboardHref });
@@ -443,21 +443,21 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
   if (hasPermission(user, PERMISSIONS.CHAT_VIEW)) fallback.push({ label: "Chats", href: `${dashboardHref}?tab=chats` });
   if (hasPermission(user, PERMISSIONS.TICKET_VIEW)) fallback.push({ label: "Tickets", href: `${dashboardHref}?tab=tickets` });
   if (hasPermission(user, PERMISSIONS.CRM_VIEW)) fallback.push({ label: "CRM", href: `${dashboardHref}?tab=crm` });
-  
+
   if (role === "admin" || role === "client") {
     fallback.push({ label: "Departments", href: `${dashboardHref}?tab=departments` });
     fallback.push({ label: "Categories", href: `${dashboardHref}?tab=categories` });
   }
 
   fallback.push({ label: "Shortcuts", href: `${dashboardHref}?tab=shortcuts` });
-  
+
   if (hasPermission(user, PERMISSIONS.REPORTS_VIEW)) fallback.push({ label: "Reports", href: `${dashboardHref}?tab=reports` });
   if (hasPermission(user, PERMISSIONS.AUDIT_VIEW)) fallback.push({ label: "History", href: `${dashboardHref}?tab=history` });
-  
+
   if (hasPermission(user, PERMISSIONS.SETTINGS_MANAGE)) fallback.push({ label: "Security", href: `${dashboardHref}?tab=security` });
-  
+
   if (role === "admin") fallback.push({ label: "Subscriptions", href: "/admin?tab=subscriptions" });
-  
+
   // Role Master: only for admin and client
   if (role === "admin" || role === "client") {
     fallback.push({ label: "Role Master", href: `${dashboardHref}?tab=roles` });

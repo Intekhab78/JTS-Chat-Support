@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Plus, Check, RefreshCw, Trash2, Edit3, Calendar, Users, Cpu, X, AlertCircle } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import { Plus, Check, RefreshCw, Trash2, Edit3, Calendar, Users, Cpu, X, AlertCircle, DollarSign, Layers, CheckCircle2 } from "lucide-react";
 import { api } from "../../api/client.js";
 
 export default function CrmSubscriptionsView({ websiteId }) {
@@ -7,6 +7,13 @@ export default function CrmSubscriptionsView({ websiteId }) {
   const [plans, setPlans] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Search, Filters & Pagination State
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [cycleFilter, setCycleFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   // Subscription Form States
   const [showSubForm, setShowSubForm] = useState(false);
@@ -43,11 +50,25 @@ export default function CrmSubscriptionsView({ websiteId }) {
 
   useEffect(() => {
     if (websiteId) {
+      setCurrentPage(1);
       fetchData();
       closeSubModal();
       closePlanModal();
     }
   }, [websiteId]);
+
+  // KPI Analytics Metrics for Subscriptions
+  const metrics = useMemo(() => {
+    const totalSubs = subscriptions.length;
+    const activeSubs = subscriptions.filter(s => (s.status || "active").toLowerCase() === "active").length;
+    const totalMRR = subscriptions.reduce((sum, s) => {
+      const price = Number(s.planId?.price) || 0;
+      return sum + (s.billingCycle === "yearly" ? price / 12 : price);
+    }, 0);
+    const totalPlans = plans.length;
+
+    return { totalSubs, activeSubs, totalMRR, totalPlans };
+  }, [subscriptions, plans]);
 
   // Modals helper controls
   const openNewSubModal = () => {
@@ -99,17 +120,15 @@ export default function CrmSubscriptionsView({ websiteId }) {
   };
 
   // Submit handers
-  const handleSaveSub = async (e) => {
+  const handleCreateOrUpdateSub = async (e) => {
     e.preventDefault();
     try {
       if (editingSubId) {
-        // Edit flow
         await api(`/api/crm/subscriptions/${editingSubId}`, {
           method: "PUT",
-          body: JSON.stringify({ ...subForm })
+          body: JSON.stringify({ ...subForm, websiteId })
         });
       } else {
-        // Create flow
         await api(`/api/crm/subscriptions`, {
           method: "POST",
           body: JSON.stringify({ ...subForm, websiteId })
@@ -123,7 +142,7 @@ export default function CrmSubscriptionsView({ websiteId }) {
   };
 
   const handleDeleteSub = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this subscription record?")) return;
+    if (!window.confirm("Are you sure you want to cancel and delete this subscription?")) return;
     try {
       await api(`/api/crm/subscriptions/${id}`, {
         method: "DELETE"
@@ -134,28 +153,27 @@ export default function CrmSubscriptionsView({ websiteId }) {
     }
   };
 
-  const handleSavePlan = async (e) => {
+  const handleCreateOrUpdatePlan = async (e) => {
     e.preventDefault();
     try {
-      const features = planForm.featuresList.split(",").map(f => f.trim()).filter(Boolean);
       const payload = {
-        ...planForm,
-        websiteId,
-        features,
+        name: planForm.name,
+        price: Number(planForm.price) || 0,
+        billingCycle: planForm.billingCycle,
+        features: planForm.featuresList.split(",").map(f => f.trim()).filter(Boolean),
         usageLimits: {
-          storageGb: planForm.storageGb,
-          aiCredits: planForm.aiCredits
-        }
+          storageGb: Number(planForm.storageGb) || 5,
+          aiCredits: Number(planForm.aiCredits) || 100
+        },
+        websiteId
       };
 
       if (editingPlanId) {
-        // Edit flow
         await api(`/api/crm/plans/${editingPlanId}`, {
           method: "PUT",
           body: JSON.stringify(payload)
         });
       } else {
-        // Create flow
         await api(`/api/crm/plans`, {
           method: "POST",
           body: JSON.stringify(payload)
@@ -169,7 +187,7 @@ export default function CrmSubscriptionsView({ websiteId }) {
   };
 
   const handleDeletePlan = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this plan? All subscribers mapped to this plan may lose access status!")) return;
+    if (!window.confirm("Are you sure you want to delete this subscription plan?")) return;
     try {
       await api(`/api/crm/plans/${id}`, {
         method: "DELETE"
@@ -182,21 +200,19 @@ export default function CrmSubscriptionsView({ websiteId }) {
 
   const handleTriggerCron = async () => {
     try {
-      const res = await api(`/api/crm/subscriptions/cron`, { method: "POST" });
-      alert(res.message || "Billing cron execution processed.");
+      const res = await api(`/api/crm/subscriptions/run-cron`, { method: "POST" });
+      alert(res.message || "Billing cron executed successfully.");
       fetchData();
     } catch (err) {
       alert(err.message);
     }
   };
 
-  if (!websiteId) {
+  if (!websiteId || websiteId === "undefined" || websiteId === "null") {
     return (
-      <div className="flex flex-col items-center justify-center p-12 bg-white border border-slate-200/80 rounded-[30px] shadow-sm text-center">
-        <div className="w-16 h-16 bg-indigo-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-indigo-600">
-          <Calendar size={32} />
-        </div>
-        <h3 className="text-sm font-black text-slate-900 tracking-tight uppercase">Select a Specific Website Domain</h3>
+      <div className="bg-slate-50 border border-slate-200 rounded-[30px] p-10 text-center flex flex-col items-center justify-center my-6">
+        <AlertCircle size={40} className="text-slate-400 mb-3" />
+        <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest">Website Scoped Context Required</h4>
         <p className="text-xs font-bold text-slate-400 max-w-sm leading-relaxed mt-2">
           Plans, renewals, and subscriptions are configured per website asset. Please select a specific domain from the website selector at the top to configure billing structures.
         </p>
@@ -204,11 +220,38 @@ export default function CrmSubscriptionsView({ websiteId }) {
     );
   }
 
+  // Filtered & Paginated Subscriptions
+  const filteredSubscriptions = useMemo(() => {
+    return subscriptions.filter(s => {
+      const custName = s.customerId?.name || s.customerId?.companyName || "";
+      const planName = s.planId?.name || "";
+      const matchesSearch = search.trim() === "" ||
+        custName.toLowerCase().includes(search.toLowerCase()) ||
+        planName.toLowerCase().includes(search.toLowerCase());
+
+      const matchesStatus = statusFilter === "all" || (s.status || "active").toLowerCase() === statusFilter.toLowerCase();
+      const matchesCycle = cycleFilter === "all" || (s.billingCycle || "monthly").toLowerCase() === cycleFilter.toLowerCase();
+
+      return matchesSearch && matchesStatus && matchesCycle;
+    });
+  }, [subscriptions, search, statusFilter, cycleFilter]);
+
+  const totalPages = Math.ceil(filteredSubscriptions.length / itemsPerPage) || 1;
+
+  const paginatedSubscriptions = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredSubscriptions.slice(start, start + itemsPerPage);
+  }, [filteredSubscriptions, currentPage, itemsPerPage]);
+
   return (
     <div className="space-y-6">
       {/* Header Actions */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 border-b pb-4 border-slate-100">
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div>
+          <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Subscription & Recurring Billing</h3>
+          <p className="text-[10px] font-bold text-slate-400 mt-0.5">Manage customer subscription tiers, recurring billing cycles, and automated plan limits</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <button
             onClick={openNewPlanModal}
             className="flex-1 sm:flex-initial py-3 px-5 border border-slate-200 hover:bg-slate-50 text-[10px] font-black uppercase text-slate-700 rounded-2xl flex items-center justify-center gap-1.5 transition-all"
@@ -221,13 +264,91 @@ export default function CrmSubscriptionsView({ websiteId }) {
           >
             <Plus size={12} /> Assign Subscription
           </button>
+          <button
+            onClick={handleTriggerCron}
+            className="w-full sm:w-auto py-3 px-5 bg-slate-900 hover:bg-slate-800 text-[10px] font-black uppercase text-white rounded-2xl flex items-center justify-center gap-1.5 transition-all"
+          >
+            <RefreshCw size={12} /> Run Billing Cron
+          </button>
         </div>
-        <button
-          onClick={handleTriggerCron}
-          className="w-full sm:w-auto py-3 px-5 bg-slate-900 hover:bg-slate-800 text-[10px] font-black uppercase text-white rounded-2xl flex items-center justify-center gap-1.5 transition-all"
-        >
-          <RefreshCw size={12} className="animate-spin-slow" /> Run Billing Cron
-        </button>
+      </div>
+
+      {/* KPI Analytics Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white border border-slate-200/80 p-4 rounded-[24px] shadow-sm flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+            <Calendar size={20} />
+          </div>
+          <div>
+            <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider block">Active Subscriptions</span>
+            <span className="text-lg font-black text-slate-900">{metrics.activeSubs} Active</span>
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200/80 p-4 rounded-[24px] shadow-sm flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <DollarSign size={20} />
+          </div>
+          <div>
+            <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider block">Est. Monthly Revenue</span>
+            <span className="text-lg font-black text-emerald-700">${Math.round(metrics.totalMRR).toLocaleString()}/mo</span>
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200/80 p-4 rounded-[24px] shadow-sm flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+            <Layers size={20} />
+          </div>
+          <div>
+            <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider block">Configured Plans</span>
+            <span className="text-lg font-black text-blue-700">{metrics.totalPlans} Tiers</span>
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200/80 p-4 rounded-[24px] shadow-sm flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+            <Users size={20} />
+          </div>
+          <div>
+            <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider block">Total Customer Subs</span>
+            <span className="text-lg font-black text-amber-700">{metrics.totalSubs} Total</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Search and Filters Bar */}
+      <div className="bg-white border border-slate-200/80 p-4 rounded-[28px] shadow-sm flex flex-col sm:flex-row gap-3 items-center justify-between">
+        <div className="relative flex-1 w-full">
+          <input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+            placeholder="Search subscriptions by customer or plan name…"
+            className="w-full pl-4 pr-4 py-2 rounded-xl border border-slate-200 bg-slate-50/50 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:bg-white transition-all"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <select
+            value={statusFilter}
+            onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+            className="w-full sm:w-36 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/50 text-xs font-bold text-slate-700 outline-none cursor-pointer"
+          >
+            <option value="all">All Statuses</option>
+            <option value="active">Active</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="past_due">Past Due</option>
+          </select>
+
+          <select
+            value={cycleFilter}
+            onChange={(e) => { setCycleFilter(e.target.value); setCurrentPage(1); }}
+            className="w-full sm:w-36 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/50 text-xs font-bold text-slate-700 outline-none cursor-pointer"
+          >
+            <option value="all">All Cycles</option>
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+          </select>
+        </div>
       </div>
 
       {loading ? (
@@ -238,56 +359,89 @@ export default function CrmSubscriptionsView({ websiteId }) {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Active Subscriptions list */}
-          <div className="lg:col-span-2 bg-white border border-slate-200/80 rounded-[30px] p-6 shadow-sm space-y-4">
-            <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b pb-3 border-slate-100 flex items-center gap-1.5">
-              <Calendar size={14} className="text-indigo-500" /> Active Subscriptions
-            </h4>
-            {subscriptions.length === 0 ? (
-              <p className="text-slate-400 font-bold text-xs uppercase tracking-widest text-center py-10">No active subscriptions.</p>
-            ) : (
-              <div className="space-y-3">
-                {subscriptions.map(s => (
-                  <div key={s._id} className="p-4 border border-slate-100 hover:border-slate-200 rounded-2xl flex justify-between items-center transition-all group">
-                    <div>
-                      <h5 className="text-xs font-black text-slate-800 flex items-center gap-2">
-                        {s.customerId?.name || "Customer"} 
-                        <span className="text-[10px] font-bold text-slate-400">→</span> 
-                        <span className="text-indigo-600 font-black">{s.planId?.name || "No Plan"}</span>
-                      </h5>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">
-                        Renewal: {new Date(s.renewalDate).toLocaleDateString()} • Cycle: {s.billingCycle} • Seats: {s.seats}
-                      </p>
-                    </div>
-                    
-                    <div className="flex items-center gap-3">
-                      <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
-                        s.status === "active" || s.status === "renewed" 
-                          ? "bg-emerald-50 text-emerald-600" 
-                          : "bg-rose-50 text-rose-600"
-                      }`}>
-                        {s.status}
-                      </span>
+          <div className="lg:col-span-2 bg-white border border-slate-200/80 rounded-[30px] p-6 shadow-sm flex flex-col justify-between space-y-4 min-h-[420px]">
+            <div>
+              <div className="flex justify-between items-center border-b pb-3 border-slate-100">
+                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <Calendar size={14} className="text-indigo-500" /> Active Subscriptions ({filteredSubscriptions.length})
+                </h4>
+              </div>
+
+              {paginatedSubscriptions.length === 0 ? (
+                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest text-center py-12">No active subscriptions found matching filters.</p>
+              ) : (
+                <div className="space-y-3 mt-4">
+                  {paginatedSubscriptions.map(s => (
+                    <div key={s._id} className="p-4 border border-slate-100 hover:border-slate-200 rounded-2xl flex justify-between items-center transition-all group">
+                      <div>
+                        <h5 className="text-xs font-black text-slate-800 flex items-center gap-2">
+                          {s.customerId?.name || s.customerId?.companyName || "Customer"} 
+                          <span className="text-[10px] font-bold text-slate-400">→</span> 
+                          <span className="text-indigo-600 font-black">{s.planId?.name || "No Plan"}</span>
+                        </h5>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">
+                          Renewal: {s.renewalDate ? new Date(s.renewalDate).toLocaleDateString() : "N/A"} • Cycle: {s.billingCycle || "monthly"} • Seats: {s.seats || 1}
+                        </p>
+                      </div>
                       
-                      {/* Subscription Edit / Delete options */}
-                      <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                          onClick={() => openEditSubModal(s)}
-                          title="Edit Subscription"
-                          className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all"
-                        >
-                          <Edit3 size={11} />
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteSub(s._id)}
-                          title="Delete Subscription"
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-                        >
-                          <Trash2 size={11} />
-                        </button>
+                      <div className="flex items-center gap-3">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase ${
+                          (s.status || "active").toLowerCase() === "active" || (s.status || "").toLowerCase() === "renewed" 
+                            ? "bg-emerald-50 text-emerald-600 border border-emerald-100" 
+                            : "bg-rose-50 text-rose-600 border border-rose-100"
+                        }`}>
+                          {s.status || "active"}
+                        </span>
+                        
+                        {/* Subscription Edit / Delete options */}
+                        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button 
+                            onClick={() => openEditSubModal(s)}
+                            title="Edit Subscription"
+                            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all"
+                          >
+                            <Edit3 size={12} />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteSub(s._id)}
+                            title="Delete Subscription"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Pagination Controls */}
+            {filteredSubscriptions.length > 0 && (
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs font-bold text-slate-600 mt-auto">
+                <span className="text-[10px] uppercase tracking-wider text-slate-400">
+                  Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredSubscriptions.length)} of {filteredSubscriptions.length}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    className="px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-[10px] font-black uppercase transition-all"
+                  >
+                    Prev
+                  </button>
+                  <span className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 text-[10px] font-black">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    className="px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-[10px] font-black uppercase transition-all"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             )}
           </div>

@@ -103,53 +103,53 @@ router.use("/sales-targets", salesTargetRoutes);
 router.use("/compliance", complianceRoutes);
 
 // Analytics & Reports (Move above /:id to avoid shadowing)
-router.get("/reports", requireRole("admin", "client", "manager"), analyticsController.getCrmReports);
-router.get("/reports/won-timeseries", requireRole("admin", "client", "manager"), analyticsController.getWonRevenueTimeseries);
+router.get("/reports", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), analyticsController.getCrmReports);
+router.get("/reports/won-timeseries", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), analyticsController.getWonRevenueTimeseries);
 
 // Static Activity & Search
 router.get("/search", searchController.globalSearch);
 router.get("/timeline/:id", timelineController.getTimeline);
-router.post("/promote", requireRole("admin", "client", "manager", "agent", "sales"), interactionController.promoteVisitor);
+router.post("/promote", requireRole("admin", "client", "manager", "agent", "sales", "tax_consultant"), interactionController.promoteVisitor);
 router.get("/notes/my", interactionController.getMyCustomerNotes);
 router.get("/tasks/my", taskController.getMyFollowUpTasks);
 
 // Invoices
-router.get("/invoices", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), invoiceController.listAllInvoices);
-router.post("/invoices", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), invoiceController.createInvoice);
-router.put("/invoices/:id", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), invoiceController.updateInvoice);
-router.delete("/invoices/:id", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), invoiceController.deleteInvoice);
-router.post("/invoices/:id/pdf", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "customer"), invoiceController.generateInvoicePdf);
-router.post("/invoices/:id/razorpay-order", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), invoiceController.createRazorpayOrder);
-router.post("/invoices/:id/razorpay-verify", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), invoiceController.verifyRazorpayPayment);
+router.get("/invoices", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), invoiceController.listAllInvoices);
+router.post("/invoices", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), invoiceController.createInvoice);
+router.put("/invoices/:id", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), invoiceController.updateInvoice);
+router.delete("/invoices/:id", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), invoiceController.deleteInvoice);
+router.post("/invoices/:id/pdf", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant", "customer"), invoiceController.generateInvoicePdf);
+router.post("/invoices/:id/razorpay-order", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), invoiceController.createRazorpayOrder);
+router.post("/invoices/:id/razorpay-verify", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), invoiceController.verifyRazorpayPayment);
 
 // Core Customer/Lead Routes
 router.get("/customers", customerController.listCustomers);
 router.get("/", customerController.listCustomers);
-router.post("/", requireRole("admin", "client", "manager", "sales"), validate(createCustomerSchema), customerController.createCustomer);
-router.post("/import", requireRole("admin", "client", "manager", "sales"), upload.single("file"), customerController.importCustomers);
-router.post("/merge", requireRole("admin", "client", "manager"), validate(mergeCustomersSchema), customerController.mergeCustomers);
-router.patch("/bulk-update", requireRole("admin", "client", "manager"), customerController.bulkUpdateCustomers);
-router.delete("/bulk-delete", requireRole("admin", "client", "manager"), customerController.bulkDeleteCustomers);
+router.post("/", requireRole("admin", "client", "manager", "sales", "tax_consultant"), validate(createCustomerSchema), customerController.createCustomer);
+router.post("/import", requireRole("admin", "client", "manager", "sales", "tax_consultant"), upload.single("file"), customerController.importCustomers);
+router.post("/merge", requireRole("admin", "client", "manager", "tax_consultant"), validate(mergeCustomersSchema), customerController.mergeCustomers);
+router.patch("/bulk-update", requireRole("admin", "client", "manager", "tax_consultant"), customerController.bulkUpdateCustomers);
+router.delete("/bulk-delete", requireRole("admin", "client", "manager", "tax_consultant"), customerController.bulkDeleteCustomers);
 
 // Quotations
-router.get("/quotations/reports", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), quotationController.getQuotationsReports);
-router.get("/quotations", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), quotationController.listAllQuotations);
-router.get("/:customerId/quotations", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), quotationController.getCustomerQuotations);
-router.post("/quotations", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), quotationController.createQuotation);
+router.get("/quotations/reports", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), quotationController.getQuotationsReports);
+router.get("/quotations", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), quotationController.listAllQuotations);
+router.get("/:customerId/quotations", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), quotationController.getCustomerQuotations);
+router.post("/quotations", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), quotationController.createQuotation);
 router.patch("/quotations/:id/status", quotationController.updateQuotationStatus);
-router.put("/quotations/:id", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), quotationController.updateQuotation);
-router.delete("/quotations/:id", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), quotationController.deleteQuotation);
-router.post("/quotations/:id/send", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), quotationController.sendQuotation);
-router.post("/quotations/:id/pay", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), quotationController.createQuotationPayment);
-router.post("/quotations/:id/approve", requireRole("admin", "client", "manager"), quotationController.approveQuotation);
-router.post("/quotations/:id/deny", requireRole("admin", "client", "manager"), quotationController.denyQuotation);
-router.post("/quotations/:id/pdf", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "customer"), quotationController.generateQuotationPdf);
+router.put("/quotations/:id", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), quotationController.updateQuotation);
+router.delete("/quotations/:id", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), quotationController.deleteQuotation);
+router.post("/quotations/:id/send", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), quotationController.sendQuotation);
+router.post("/quotations/:id/pay", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), quotationController.createQuotationPayment);
+router.post("/quotations/:id/approve", requireRole("admin", "client", "manager", "tax_consultant"), quotationController.approveQuotation);
+router.post("/quotations/:id/deny", requireRole("admin", "client", "manager", "tax_consultant"), quotationController.denyQuotation);
+router.post("/quotations/:id/pdf", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant", "customer"), quotationController.generateQuotationPdf);
 
 // Interactions & Activity
 router.get("/:id/activity", interactionController.getCustomerActivity);
-router.post("/:id/notes", requireRole("admin", "client", "manager", "sales"), interactionController.addCustomerNote);
-router.post("/:id/send-email", requireRole("admin", "client", "manager", "sales"), upload.single("attachment"), interactionController.sendCustomerEmail);
-router.get("/:id/invoices", requireRole("admin", "client", "manager", "sales", "purchase", "accounts"), invoiceController.getCustomerInvoices);
+router.post("/:id/notes", requireRole("admin", "client", "manager", "sales", "tax_consultant"), interactionController.addCustomerNote);
+router.post("/:id/send-email", requireRole("admin", "client", "manager", "sales", "tax_consultant"), upload.single("attachment"), interactionController.sendCustomerEmail);
+router.get("/:id/invoices", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), invoiceController.getCustomerInvoices);
 
 // Tasks
 router.post("/:id/tasks", requireRole("admin", "client", "manager", "sales"), validate(createFollowUpTaskSchema), taskController.createFollowUpTask);
