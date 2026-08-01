@@ -2,9 +2,10 @@ import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import {
   Calculator, Calendar, Filter, AlertCircle, CheckCircle2, Clock, Users, Search, RefreshCw, ChevronRight, Timer,
-  Plus, Edit3, Trash2, X, Save
+  Plus, Edit3, Trash2, X, Save, Download, Printer
 } from "lucide-react";
 import { api } from "../../api/client.js";
+import { exportToCSV, exportToPDF, exportSingleRecordPDF } from "../../utils/exportUtils.js";
 import SearchableCustomerSelect from "../SearchableCustomerSelect.jsx";
 
 export default function CorporateTaxDashboard({ websiteId, teamMembers = [], onOpenCustomer }) {
@@ -143,6 +144,27 @@ export default function CorporateTaxDashboard({ websiteId, teamMembers = [], onO
     );
   });
 
+  const handleExportCtCSV = () => {
+    const exportData = filteredFilings.map(c => ({
+      "Client / Company": c.companyName || c.name || "-",
+      "TRN Number": c.trn || "Not Registered",
+      "Registration Status": c.corporateTaxStatus || "Registered",
+      "Corporate Tax Due Date": c.corporateTaxDueDate ? new Date(c.corporateTaxDueDate).toLocaleDateString() : "-",
+      "Assigned Consultant": c.assignedConsultant || c.ownerId?.name || "Tax Staff"
+    }));
+    exportToCSV(exportData, `Corporate_Tax_Report_${new Date().toISOString().slice(0, 10)}`);
+  };
+
+  const handleExportCtPDF = () => {
+    const exportData = filteredFilings.map(c => ({
+      "Company": c.companyName || c.name || "-",
+      "TRN": c.trn || "Not Registered",
+      "Status": c.corporateTaxStatus || "Registered",
+      "Due Date": c.corporateTaxDueDate ? new Date(c.corporateTaxDueDate).toLocaleDateString() : "-"
+    }));
+    exportToPDF(exportData, `Corporate_Tax_Report_${new Date().toISOString().slice(0, 10)}`, "UAE CORPORATE TAX COMPLIANCE REPORT");
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* Upper Title Header & Actions */}
@@ -160,6 +182,21 @@ export default function CorporateTaxDashboard({ websiteId, teamMembers = [], onO
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
+          <button 
+            onClick={handleExportCtCSV}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Corporate Tax Report to Excel CSV"
+          >
+            <Download size={13} /> Export CSV
+          </button>
+          <button 
+            onClick={handleExportCtPDF}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Corporate Tax Report to PDF"
+          >
+            <Printer size={13} /> Export PDF
+          </button>
+
           {/* Add CT Client Button */}
           <button
             onClick={openAddModal}
@@ -326,6 +363,26 @@ export default function CorporateTaxDashboard({ websiteId, teamMembers = [], onO
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            exportSingleRecordPDF(
+                              `CORPORATE TAX CERTIFICATE - ${filing.companyName || filing.name}`,
+                              {
+                                "Company Name": filing.companyName || filing.name,
+                                "TRN Number": filing.trn || "Not Registered",
+                                "Registration Status": filing.corporateTaxStatus || "Registered",
+                                "Tax Due Date": filing.corporateTaxDueDate ? new Date(filing.corporateTaxDueDate).toLocaleDateString() : "-",
+                                "Assigned Consultant": filing.ownerId?.name || "Tax Staff"
+                              },
+                              `CT_Record_${(filing.companyName || filing.name || "Client").replace(/\s+/g, '_')}`
+                            );
+                          }}
+                          className="p-1.5 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg transition-colors"
+                          title="Export Single Corporate Tax Record PDF"
+                        >
+                          <Printer size={15} />
+                        </button>
                         <button
                           onClick={(e) => openEditModal(filing, e)}
                           className="p-1.5 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg transition-colors"

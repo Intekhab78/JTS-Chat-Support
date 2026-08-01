@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Plus, Trash2, Tag, Search, ShoppingBag, Layers, Package, DollarSign, Filter, SlidersHorizontal, ArrowUpDown, TrendingUp } from "lucide-react";
+import { Plus, Trash2, Tag, Search, ShoppingBag, Layers, Package, DollarSign, Filter, SlidersHorizontal, ArrowUpDown, TrendingUp, Download, Printer } from "lucide-react";
 import { api } from "../../api/client.js";
 import ConfirmModal from "../ConfirmModal.jsx";
+import { exportToCSV, exportToPDF, exportSingleRecordPDF } from "../../utils/exportUtils.js";
 
 export default function CrmProductsView({ websiteId }) {
   const [products, setProducts] = useState([]);
@@ -155,6 +156,31 @@ export default function CrmProductsView({ websiteId }) {
     }
   };
 
+  const handleExportProductsCSV = () => {
+    const data = filteredProducts.map(p => ({
+      "SKU": p.sku || "-",
+      "Product / Service Name": p.name || "-",
+      "Category": p.category || "General",
+      "Type": p.type || "product",
+      "Price ($)": p.price || 0,
+      "Cost Price ($)": p.costPrice || p.cost || 0,
+      "Tax Rate (%)": p.taxRate || 18,
+      "Unit": p.unit || "pcs"
+    }));
+    exportToCSV(data, `Products_Catalog_${new Date().toISOString().slice(0, 10)}`);
+  };
+
+  const handleExportProductsPDF = () => {
+    const data = filteredProducts.map(p => ({
+      "SKU": p.sku || "-",
+      "Name": p.name || "-",
+      "Category": p.category || "General",
+      "Price ($)": p.price || 0,
+      "Tax (%)": p.taxRate || 18
+    }));
+    exportToPDF(data, `Products_Catalog_${new Date().toISOString().slice(0, 10)}`, "PRODUCTS & SERVICES CATALOG REPORT");
+  };
+
   return (
     <div className="space-y-6">
       {/* Product Analytics Dashboard KPI Cards */}
@@ -243,6 +269,22 @@ export default function CrmProductsView({ websiteId }) {
               </select>
               <ArrowUpDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             </div>
+
+            {/* Export Buttons */}
+            <button 
+              onClick={handleExportProductsCSV}
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all shrink-0"
+              title="Export Products Catalog to Excel CSV"
+            >
+              <Download size={13} /> Export CSV
+            </button>
+            <button 
+              onClick={handleExportProductsPDF}
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all shrink-0"
+              title="Export Products Catalog to PDF"
+            >
+              <Printer size={13} /> Export PDF
+            </button>
 
             {/* Add Product Button */}
             <button
@@ -468,7 +510,29 @@ export default function CrmProductsView({ websiteId }) {
             </div>
 
             {/* Modal Actions */}
-            <div className="flex gap-3 pt-4 border-t border-slate-100">
+            <div className="flex flex-wrap gap-3 pt-4 border-t border-slate-100">
+              <button
+                onClick={() => {
+                  exportSingleRecordPDF(
+                    `PRODUCT SPECIFICATION - ${selectedProduct.name}`,
+                    {
+                      "Product Name": selectedProduct.name,
+                      "SKU Code": selectedProduct.sku || "-",
+                      "Category": selectedProduct.category || "General",
+                      "Type": (selectedProduct.type || "Product").toUpperCase(),
+                      "Price": `$${(selectedProduct.price || 0).toLocaleString()}`,
+                      "Cost Price": selectedProduct.costPrice ? `$${selectedProduct.costPrice.toLocaleString()}` : "-",
+                      "Description": selectedProduct.description || "-",
+                      "Total Variants": selectedProduct.variantItems?.length || 0
+                    },
+                    `Product_Spec_${(selectedProduct.sku || selectedProduct.name || "Record").replace(/\s+/g, '_')}`
+                  );
+                }}
+                className="py-3 px-5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-2xl text-xs font-black uppercase flex items-center gap-1.5 transition-all"
+                title="Export Single Product Specification PDF"
+              >
+                <Printer size={14} /> Export Single PDF
+              </button>
               <button
                 onClick={() => confirmDelete(selectedProduct._id)}
                 className="py-3 px-5 bg-red-50 hover:bg-red-100 text-red-600 rounded-2xl text-xs font-black uppercase flex items-center gap-1.5 transition-all"

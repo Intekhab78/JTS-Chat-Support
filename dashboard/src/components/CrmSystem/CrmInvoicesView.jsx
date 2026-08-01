@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { FileText, Plus, Check, ChevronRight, DollarSign, Clock, AlertCircle, RefreshCw, Download, X, CreditCard } from "lucide-react";
+import { FileText, Check, X, CreditCard, DollarSign, Send, HelpCircle, Download, Clock, Search, Filter, AlertTriangle, ArrowRight, ShieldCheck, CheckCircle2, RefreshCw, Printer, ChevronRight } from "lucide-react";
 import { api, API_BASE } from "../../api/client.js";
+import { exportToCSV, exportToPDF } from "../../utils/exportUtils.js";
 
 export default function CrmInvoicesView({ websiteId }) {
   const [invoices, setInvoices] = useState([]);
@@ -278,6 +279,30 @@ export default function CrmInvoicesView({ websiteId }) {
     }
   }, [paginatedInvoices]);
 
+  const handleExportInvoicesCSV = () => {
+    const data = filteredInvoices.map(i => ({
+      "Invoice #": i.invoiceId || i.invoiceNumber || "INV-001",
+      "Client / Company": i.customerId?.companyName || i.customerId?.name || "-",
+      "Total Amount ($)": i.total || 0,
+      "Paid Amount ($)": i.paidAmount || 0,
+      "Balance Due ($)": Math.max(0, (i.total || 0) - (i.paidAmount || 0)),
+      "Status": (i.status || "Pending").toUpperCase(),
+      "Due Date": i.dueDate ? new Date(i.dueDate).toLocaleDateString() : "-"
+    }));
+    exportToCSV(data, `Invoices_Ledger_Report_${new Date().toISOString().slice(0, 10)}`);
+  };
+
+  const handleExportInvoicesPDF = () => {
+    const data = filteredInvoices.map(i => ({
+      "Invoice #": i.invoiceId || i.invoiceNumber || "INV-001",
+      "Client": i.customerId?.companyName || i.customerId?.name || "-",
+      "Total ($)": `$${(i.total || 0).toLocaleString()}`,
+      "Paid ($)": `$${(i.paidAmount || 0).toLocaleString()}`,
+      "Status": (i.status || "Pending").toUpperCase()
+    }));
+    exportToPDF(data, `Invoices_Ledger_Report_${new Date().toISOString().slice(0, 10)}`, "ENTERPRISE INVOICES & RECEIVABLES LEDGER REPORT");
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center border-b pb-3 border-slate-100">
@@ -285,7 +310,23 @@ export default function CrmInvoicesView({ websiteId }) {
           <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Invoices & Receivables Ledger</h3>
           <p className="text-[10px] font-bold text-slate-400 mt-0.5">Manage enterprise invoicing, payment allocations, and receivables</p>
         </div>
-        <span className="text-[10px] font-black text-indigo-500 uppercase tracking-wide">Enterprise Finance</span>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={handleExportInvoicesCSV}
+            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Invoices to Excel CSV"
+          >
+            <Download size={13} /> Export CSV
+          </button>
+          <button 
+            onClick={handleExportInvoicesPDF}
+            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Invoices to PDF"
+          >
+            <Printer size={13} /> Export PDF
+          </button>
+          <span className="text-[10px] font-black text-indigo-500 uppercase tracking-wide">Enterprise Finance</span>
+        </div>
       </div>
 
       {/* KPI Analytics Cards */}

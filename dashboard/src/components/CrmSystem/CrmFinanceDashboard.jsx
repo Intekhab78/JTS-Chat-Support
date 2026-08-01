@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { DollarSign, Percent, TrendingUp, CreditCard, RefreshCw, AlertTriangle } from "lucide-react";
+import { DollarSign, Percent, TrendingUp, CreditCard, RefreshCw, AlertTriangle, Download, Printer } from "lucide-react";
 import { api } from "../../api/client.js";
+import { exportToCSV, exportToPDF } from "../../utils/exportUtils.js";
 
 export default function CrmFinanceDashboard({ websiteId }) {
   const [metrics, setMetrics] = useState({
@@ -78,8 +79,56 @@ export default function CrmFinanceDashboard({ websiteId }) {
     );
   }
 
+  const handleExportFinanceCSV = () => {
+    const data = [
+      { "Metric": "Monthly Recurring Revenue (MRR)", "Amount ($)": metrics.mrr },
+      { "Metric": "Annualized Run Rate (ARR)", "Amount ($)": metrics.arr },
+      { "Metric": "Total Collections", "Amount ($)": metrics.collections },
+      { "Metric": "Outstanding Receivables", "Amount ($)": metrics.outstanding },
+      { "Metric": "Total Refunds Logged", "Amount ($)": metrics.refunds },
+      { "Metric": "Active SaaS Subscribers", "Amount ($)": metrics.activeSubsCount }
+    ];
+    exportToCSV(data, `Finance_Metrics_${new Date().toISOString().slice(0, 10)}`);
+  };
+
+  const handleExportFinancePDF = () => {
+    const data = [
+      { "Metric": "Monthly Recurring Revenue (MRR)", "Amount ($)": `$${metrics.mrr}` },
+      { "Metric": "Annualized Run Rate (ARR)", "Amount ($)": `$${metrics.arr}` },
+      { "Metric": "Total Collections", "Amount ($)": `$${metrics.collections}` },
+      { "Metric": "Outstanding Receivables", "Amount ($)": `$${metrics.outstanding}` },
+      { "Metric": "Total Refunds Logged", "Amount ($)": `$${metrics.refunds}` },
+      { "Metric": "Active SaaS Subscribers", "Amount ($)": String(metrics.activeSubsCount) }
+    ];
+    exportToPDF(data, `Finance_Metrics_${new Date().toISOString().slice(0, 10)}`, "ENTERPRISE FINANCE & P&L EXECUTIVE REPORT");
+  };
+
   return (
     <div className="space-y-8">
+      {/* Top Header & Export Bar */}
+      <div className="flex justify-between items-center bg-white border border-slate-200/80 p-4 rounded-[28px] shadow-sm">
+        <div>
+          <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Enterprise Finance & P&L Center</h3>
+          <p className="text-[10px] font-bold text-slate-400 mt-0.5">Recurring revenue, collections, receivables and statutory tax split</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={handleExportFinanceCSV}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Finance Report to Excel CSV"
+          >
+            <Download size={13} /> Export CSV
+          </button>
+          <button 
+            onClick={handleExportFinancePDF}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Finance Report to PDF"
+          >
+            <Printer size={13} /> Export PDF
+          </button>
+        </div>
+      </div>
+
       {/* Metrics Strips */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* MRR Card */}

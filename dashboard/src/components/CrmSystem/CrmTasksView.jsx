@@ -3,10 +3,11 @@ import { createPortal } from "react-dom";
 import {
   CheckCircle2, Clock, AlertTriangle, Search, Trash2, Calendar, User, Eye, X, Edit3,
   Plus, Filter, LayoutGrid, List, Sparkles, Phone, Video, Mail, ShieldAlert, ArrowRight,
-  Tag, AlertCircle, RefreshCw, Layers
+  Tag, AlertCircle, RefreshCw, Layers, Download, Printer
 } from "lucide-react";
 import { api } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { exportToCSV, exportToPDF, exportSingleRecordPDF } from "../../utils/exportUtils.js";
 
 export default function CrmTasksView({ onOpenCustomer, websiteId }) {
   const { user } = useAuth();
@@ -259,6 +260,30 @@ export default function CrmTasksView({ onOpenCustomer, websiteId }) {
     }
   };
 
+  const handleExportTasksCSV = () => {
+    const data = filteredTasks.map(t => ({
+      "Task Title": t.title || "-",
+      "Type": t.type || "FOLLOW_UP",
+      "Priority": (t.priority || "medium").toUpperCase(),
+      "Due Date": t.dueAt ? new Date(t.dueAt).toLocaleString() : "-",
+      "Status": (t.status || "pending").toUpperCase(),
+      "Assigned Agent": t.ownerId?.name || t.ownerName || "Unassigned",
+      "Client": t.customerId?.companyName || t.customerId?.name || "-"
+    }));
+    exportToCSV(data, `Tasks_Governance_Report_${new Date().toISOString().slice(0, 10)}`);
+  };
+
+  const handleExportTasksPDF = () => {
+    const data = filteredTasks.map(t => ({
+      "Title": t.title || "-",
+      "Type": t.type || "FOLLOW_UP",
+      "Priority": (t.priority || "medium").toUpperCase(),
+      "Due Date": t.dueAt ? new Date(t.dueAt).toLocaleDateString() : "-",
+      "Status": (t.status || "pending").toUpperCase()
+    }));
+    exportToPDF(data, `Tasks_Governance_Report_${new Date().toISOString().slice(0, 10)}`, "TASKS & GOVERNANCE ACTION ITEMS REPORT");
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Executive Dark Gradient Banner Header */}
@@ -279,7 +304,21 @@ export default function CrmTasksView({ onOpenCustomer, websiteId }) {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 shrink-0 flex-wrap">
+            <button 
+              onClick={handleExportTasksCSV}
+              className="flex items-center gap-1.5 px-4 py-3 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30 text-emerald-300 text-[10px] font-black uppercase tracking-wider rounded-2xl transition-all"
+              title="Export Tasks Hub to Excel CSV"
+            >
+              <Download size={14} /> Export CSV
+            </button>
+            <button 
+              onClick={handleExportTasksPDF}
+              className="flex items-center gap-1.5 px-4 py-3 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/30 text-indigo-300 text-[10px] font-black uppercase tracking-wider rounded-2xl transition-all"
+              title="Export Tasks Hub to PDF"
+            >
+              <Printer size={14} /> Export PDF
+            </button>
             <button
               onClick={fetchTasks}
               className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all border border-white/10"
@@ -627,6 +666,28 @@ export default function CrmTasksView({ onOpenCustomer, websiteId }) {
                       Reopen Task
                     </button>
                   )}
+
+                  <button
+                    onClick={() => {
+                      exportSingleRecordPDF(
+                        `TASK ACTION ITEM - ${task.title}`,
+                        {
+                          "Task Title": task.title,
+                          "Task Type": task.type || "FOLLOW_UP",
+                          "Priority": (task.priority || "medium").toUpperCase(),
+                          "Status": (task.status || "pending").toUpperCase(),
+                          "Due Date": task.dueAt ? new Date(task.dueAt).toLocaleString() : "No Date",
+                          "Assigned Agent": task.ownerId ? task.ownerId.name : "Unassigned",
+                          "Notes / Instructions": task.notes || "-"
+                        },
+                        `Task_${(task.title || "Record").replace(/\s+/g, '_')}`
+                      );
+                    }}
+                    className="p-2.5 bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 rounded-xl transition-all border border-slate-100"
+                    title="Export Single Task PDF"
+                  >
+                    <Printer size={14} />
+                  </button>
 
                   <button
                     onClick={() => handleOpenEdit(task)}

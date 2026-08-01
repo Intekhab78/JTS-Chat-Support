@@ -2,9 +2,10 @@ import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import {
   ShieldAlert, Calendar, Filter, AlertTriangle, AlertCircle, CheckCircle2, Clock, Users, Search, RefreshCw, ChevronRight, ShieldCheck,
-  Plus, Edit3, Trash2, X, Save, Eye, RotateCw, Mail, Phone, Building2
+  Plus, Edit3, Trash2, X, Save, Eye, RotateCw, Mail, Phone, Building2, Download, Printer
 } from "lucide-react";
 import { api } from "../../api/client.js";
+import { exportToCSV, exportToPDF, exportSingleRecordPDF } from "../../utils/exportUtils.js";
 import SearchableCustomerSelect from "../SearchableCustomerSelect.jsx";
 
 export default function TradeLicenseDashboard({ websiteId, teamMembers = [], onOpenCustomer }) {
@@ -182,6 +183,30 @@ export default function TradeLicenseDashboard({ websiteId, teamMembers = [], onO
     );
   });
 
+  const handleExportTlCSV = () => {
+    const exportData = filteredLicenses.map(c => ({
+      "Client / Company": c.companyName || c.name || "-",
+      "Trade License No": c.tradeLicenseNumber || "-",
+      "Authority": c.issuingAuthority || "DET Dubai",
+      "Expiry Date": c.tradeLicenseExpiryDate ? new Date(c.tradeLicenseExpiryDate).toLocaleDateString() : "-",
+      "Days Remaining": c.daysRemaining !== undefined ? c.daysRemaining : "-",
+      "Work Status": c.workStatus || "Pending",
+      "Assigned Consultant": c.assignedConsultant || c.ownerId?.name || "Tax Staff"
+    }));
+    exportToCSV(exportData, `Trade_License_Expiry_Report_${new Date().toISOString().slice(0, 10)}`);
+  };
+
+  const handleExportTlPDF = () => {
+    const exportData = filteredLicenses.map(c => ({
+      "Company": c.companyName || c.name || "-",
+      "License No": c.tradeLicenseNumber || "-",
+      "Expiry Date": c.tradeLicenseExpiryDate ? new Date(c.tradeLicenseExpiryDate).toLocaleDateString() : "-",
+      "Days Left": String(c.daysRemaining !== undefined ? c.daysRemaining : "-"),
+      "Status": c.workStatus || "Pending"
+    }));
+    exportToPDF(exportData, `Trade_License_Expiry_Report_${new Date().toISOString().slice(0, 10)}`, "UAE TRADE LICENSE EXPIRY & RENEWAL REPORT");
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* Upper Title Header & Actions */}
@@ -199,6 +224,21 @@ export default function TradeLicenseDashboard({ websiteId, teamMembers = [], onO
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
+          <button 
+            onClick={handleExportTlCSV}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Trade License Report to Excel CSV"
+          >
+            <Download size={13} /> Export CSV
+          </button>
+          <button 
+            onClick={handleExportTlPDF}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Trade License Report to PDF"
+          >
+            <Printer size={13} /> Export PDF
+          </button>
+
           {/* Add Trade License Button */}
           <button
             onClick={openAddModal}
@@ -417,6 +457,29 @@ export default function TradeLicenseDashboard({ websiteId, teamMembers = [], onO
                     </td>
                     <td className="px-6 py-4 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            exportSingleRecordPDF(
+                              `COMMERCIAL TRADE LICENSE - ${license.companyName || license.name}`,
+                              {
+                                "Company Name": license.companyName || license.name,
+                                "Trade License Number": license.tradeLicenseNumber || "-",
+                                "Issuing Authority": license.issuingAuthority || "DET Dubai",
+                                "Expiry Date": license.tradeLicenseExpiryDate ? new Date(license.tradeLicenseExpiryDate).toLocaleDateString() : "-",
+                                "Days Remaining": license.daysRemaining !== undefined ? license.daysRemaining : "-",
+                                "Work Status": license.workStatus || "Pending",
+                                "Assigned Consultant": license.ownerId?.name || "Tax Staff"
+                              },
+                              `Trade_License_${(license.companyName || license.name || "Record").replace(/\s+/g, '_')}`
+                            );
+                          }}
+                          className="p-1.5 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg transition-colors shrink-0"
+                          title="Export Single Trade License PDF"
+                        >
+                          <Printer size={14} />
+                        </button>
+
                         <button
                           onClick={(e) => { e.stopPropagation(); handleRenewLicense(license); }}
                           className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase rounded-lg shadow-sm transition-all flex items-center gap-1 shrink-0"

@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { Search, Plus, Grid, List, Mail, Phone, Building2, Trash2, Edit3, X, Check, Globe } from "lucide-react";
+import { Search, Plus, Grid, List, Mail, Phone, Building2, Trash2, Edit3, X, Check, Globe, ShieldCheck, ChevronRight, Eye, DollarSign, MapPin, Users, Download, Printer } from "lucide-react";
 import { api } from "../../api/client.js";
 import ConfirmModal from "../ConfirmModal.jsx";
+import { exportToCSV, exportToPDF, exportSingleRecordPDF } from "../../utils/exportUtils.js";
 
 export default function CrmCompaniesView({ websiteId }) {
   const [companies, setCompanies] = useState([]);
@@ -205,6 +206,30 @@ export default function CrmCompaniesView({ websiteId }) {
     );
   };
 
+  const handleExportCompaniesCSV = () => {
+    const data = filteredCompanies.map(c => ({
+      "Company Name": c.companyName || "-",
+      "Industry": c.industry || "-",
+      "Website": c.website || "-",
+      "GST / TRN": c.gstVat || c.trn || "Not Registered",
+      "Corporate Email": c.companyEmail || c.email || "-",
+      "Phone": c.phone || "-",
+      "Office Address": c.address || "-"
+    }));
+    exportToCSV(data, `Companies_Directory_${new Date().toISOString().slice(0, 10)}`);
+  };
+
+  const handleExportCompaniesPDF = () => {
+    const data = filteredCompanies.map(c => ({
+      "Company Name": c.companyName || "-",
+      "Industry": c.industry || "-",
+      "TRN / Tax ID": c.gstVat || c.trn || "-",
+      "Website": c.website || "-",
+      "Email": c.companyEmail || c.email || "-"
+    }));
+    exportToPDF(data, `Companies_Directory_${new Date().toISOString().slice(0, 10)}`, "CORPORATE COMPANIES DIRECTORY REPORT");
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Bar */}
@@ -274,6 +299,21 @@ export default function CrmCompaniesView({ websiteId }) {
 
         {/* Filters and View Controls */}
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <button 
+            onClick={handleExportCompaniesCSV}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Companies Directory to Excel CSV"
+          >
+            <Download size={13} /> Export CSV
+          </button>
+          <button 
+            onClick={handleExportCompaniesPDF}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Companies Directory to PDF"
+          >
+            <Printer size={13} /> Export PDF
+          </button>
+
           <select
             value={industryFilter}
             onChange={(e) => { setIndustryFilter(e.target.value); setPage(1); }}
@@ -293,9 +333,29 @@ export default function CrmCompaniesView({ websiteId }) {
           </div>
 
           {selectedIds.length > 0 && (
-            <button onClick={triggerBulkDeleteConfirm} className="bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all">
-              <Trash2 size={13} /> Delete ({selectedIds.length})
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button 
+                onClick={() => {
+                  const selectedCompanies = companies.filter(c => selectedIds.includes(c._id));
+                  const data = selectedCompanies.map(c => ({
+                    "Company Name": c.companyName || "-",
+                    "Industry": c.industry || "-",
+                    "Website": c.website || "-",
+                    "GST / TRN": c.gstVat || c.trn || "Not Registered",
+                    "Corporate Email": c.companyEmail || c.email || "-",
+                    "Phone": c.phone || "-"
+                  }));
+                  exportToCSV(data, `Selected_Companies_${selectedIds.length}_Items`);
+                }}
+                className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 px-3 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all"
+                title="Export Selected Companies CSV"
+              >
+                <Download size={13} /> Export Selected ({selectedIds.length})
+              </button>
+              <button onClick={triggerBulkDeleteConfirm} className="bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all">
+                <Trash2 size={13} /> Delete ({selectedIds.length})
+              </button>
+            </div>
           )}
 
           <button onClick={handleOpenCreate} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-indigo-100 transition-all">
@@ -564,7 +624,29 @@ export default function CrmCompaniesView({ websiteId }) {
             </div>
 
             {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-2 border-t pt-4 border-slate-100">
+            <div className="flex items-center justify-end gap-2 border-t pt-4 border-slate-100 flex-wrap">
+              <button
+                onClick={() => {
+                  exportSingleRecordPDF(
+                    `COMPANY PROFILE - ${viewingCompany.companyName}`,
+                    {
+                      "Company Name": viewingCompany.companyName,
+                      "Industry": viewingCompany.industry || "-",
+                      "TRN / Tax ID": viewingCompany.gstVat || viewingCompany.trn || "Not Registered",
+                      "Website": viewingCompany.website || "-",
+                      "Corporate Email": viewingCompany.companyEmail || viewingCompany.email || "-",
+                      "Phone": viewingCompany.phone || "-",
+                      "Office Address": viewingCompany.address || "-",
+                      "Est. Annual Revenue": viewingCompany.annualRevenue ? `$${Number(viewingCompany.annualRevenue).toLocaleString()}` : "-"
+                    },
+                    `Company_Profile_${(viewingCompany.companyName || "Record").replace(/\s+/g, '_')}`
+                  );
+                }}
+                className="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-black rounded-xl uppercase transition-all flex items-center gap-1.5"
+                title="Export single company record profile PDF"
+              >
+                <Printer size={13} /> Export Single PDF
+              </button>
               <button
                 onClick={(e) => { const c = viewingCompany; setViewingCompany(null); handleOpenEdit(c, e); }}
                 className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-black rounded-xl uppercase transition-all"

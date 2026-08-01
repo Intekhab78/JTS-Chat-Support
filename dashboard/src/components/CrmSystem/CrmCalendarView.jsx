@@ -2,10 +2,11 @@ import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import {
   Calendar as CalendarIcon, Video, Phone, CheckSquare, Clock, MapPin, Plus, X,
-  ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, Edit2, Trash2, Calendar
+  ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, Edit2, Trash2, Calendar, Download, Printer
 } from "lucide-react";
 import { api } from "../../api/client.js";
 import { useToast } from "../../context/ToastContext.jsx";
+import { exportToCSV, exportToPDF, exportSingleRecordPDF } from "../../utils/exportUtils.js";
 
 const VIEW_MODES = [
   { id: "month", label: "Month" },
@@ -234,8 +235,8 @@ export default function CrmCalendarView({ websiteId }) {
   };
 
   useEffect(() => {
-    fetchActivities();
-    fetchMeetingPlatforms();
+    fetchCalendarItems();
+    fetchLookups();
   }, [currentDate, viewMode, websiteId]);
 
   useEffect(() => {
@@ -329,6 +330,28 @@ export default function CrmCalendarView({ websiteId }) {
 
   const allItems = [...activities, ...reminders];
 
+  const handleExportCalendarCSV = () => {
+    const data = allItems.map(item => ({
+      "Title / Subject": item.title || item.subject || "-",
+      "Activity Type": (item.type || item.activityType || "MEETING").toUpperCase(),
+      "Date & Time": item.scheduledAt || item.date || item.dueDate ? new Date(item.scheduledAt || item.date || item.dueDate).toLocaleString() : "-",
+      "Status": (item.status || "scheduled").toUpperCase(),
+      "Platform": item.meetingType || "-",
+      "Client": item.customerId?.companyName || item.customerId?.name || "-"
+    }));
+    exportToCSV(data, `Calendar_Meetings_Report_${new Date().toISOString().slice(0, 10)}`);
+  };
+
+  const handleExportCalendarPDF = () => {
+    const data = allItems.map(item => ({
+      "Title": item.title || item.subject || "-",
+      "Type": (item.type || item.activityType || "MEETING").toUpperCase(),
+      "Scheduled At": item.scheduledAt || item.date || item.dueDate ? new Date(item.scheduledAt || item.date || item.dueDate).toLocaleString() : "-",
+      "Status": (item.status || "scheduled").toUpperCase()
+    }));
+    exportToPDF(data, `Calendar_Meetings_Report_${new Date().toISOString().slice(0, 10)}`, "CENTRALIZED CRM CALENDAR & SCHEDULED MEETINGS REPORT");
+  };
+
   return (
     <div className="space-y-6">
       {/* Calendar Header */}
@@ -344,6 +367,20 @@ export default function CrmCalendarView({ websiteId }) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button 
+            onClick={handleExportCalendarCSV}
+            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Calendar Meetings to Excel CSV"
+          >
+            <Download size={13} /> Export CSV
+          </button>
+          <button 
+            onClick={handleExportCalendarPDF}
+            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Calendar Meetings to PDF"
+          >
+            <Printer size={13} /> Export PDF
+          </button>
           {/* Navigation */}
           <div className="flex items-center bg-slate-100 p-1.5 rounded-2xl gap-1">
             <button
@@ -845,7 +882,31 @@ export default function CrmCalendarView({ websiteId }) {
                 </div>
               )}
 
-              <div className="flex gap-2 border-t pt-4">
+              <div className="flex gap-2 border-t pt-4 flex-wrap">
+                {selectedActivity && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      exportSingleRecordPDF(
+                        `SCHEDULED MEETING / EVENT - ${form.title}`,
+                        {
+                          "Event Title": form.title,
+                          "Activity Type": (form.type || "MEETING").toUpperCase(),
+                          "Meeting Platform": (form.meetingType || "ZOOM").toUpperCase(),
+                          "Scheduled Date & Time": form.dueDate ? new Date(form.dueDate).toLocaleString() : "-",
+                          "End Time": form.endAt ? new Date(form.endAt).toLocaleString() : "-",
+                          "Priority": (form.priority || "MEDIUM").toUpperCase(),
+                          "Description / Agenda": form.description || "-"
+                        },
+                        `Event_${(form.title || "Record").replace(/\s+/g, '_')}`
+                      );
+                    }}
+                    className="py-2.5 px-4 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-black uppercase rounded-xl flex items-center gap-1.5 transition-all"
+                    title="Export Single Meeting PDF"
+                  >
+                    <Printer size={13} /> Export PDF
+                  </button>
+                )}
                 <button type="button" onClick={() => setShowScheduleModal(false)} className="flex-1 py-2.5 bg-slate-100 text-slate-700 text-xs font-black uppercase rounded-xl">
                   Cancel
                 </button>

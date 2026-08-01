@@ -55,3 +55,42 @@ export const exportToPDF = (data, filename, title = "Report") => {
 
   doc.save(`${filename}.pdf`);
 };
+
+export const exportSingleRecordPDF = (title, keyValues, filename = "Single_Record_Report") => {
+  const doc = new jsPDF();
+  
+  // Header Branding
+  doc.setFillColor(79, 70, 229); // Indigo 600
+  doc.rect(0, 0, 210, 30, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text(String(title).toUpperCase(), 14, 18);
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 25);
+
+  // AutoTable Key-Value Grid
+  const rows = Object.entries(keyValues).map(([key, val]) => [
+    String(key).toUpperCase(),
+    val !== undefined && val !== null ? String(val) : "-"
+  ]);
+
+  autoTable(doc, {
+    startY: 38,
+    head: [["FIELD / PROPERTY", "VALUE / DETAILS"]],
+    body: rows,
+    theme: 'striped',
+    styles: { fontSize: 10, cellPadding: 4 },
+    headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold' },
+    columnStyles: {
+      0: { fontStyle: 'bold', cellWidth: 70 },
+      1: { cellWidth: 110 }
+    }
+  });
+
+  doc.save(`${filename}.pdf`);
+};
+

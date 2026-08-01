@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Plus, Check, RefreshCw, Trash2, Edit3, Calendar, Users, Cpu, X, AlertCircle, DollarSign, Layers, CheckCircle2 } from "lucide-react";
+import {
+  Repeat, DollarSign, Layers, Users, Plus, Play, Search, Filter,
+  Calendar, Check, AlertCircle, RefreshCw, X, Trash2, Edit3, ChevronRight, ShieldCheck, Download, Printer, Cpu
+} from "lucide-react";
 import { api } from "../../api/client.js";
+import { exportToCSV, exportToPDF, exportSingleRecordPDF } from "../../utils/exportUtils.js";
 
 export default function CrmSubscriptionsView({ websiteId }) {
   const [subscriptions, setSubscriptions] = useState([]);
@@ -243,6 +247,30 @@ export default function CrmSubscriptionsView({ websiteId }) {
     return filteredSubscriptions.slice(start, start + itemsPerPage);
   }, [filteredSubscriptions, currentPage, itemsPerPage]);
 
+  const handleExportSubsCSV = () => {
+    const data = filteredSubscriptions.map(s => ({
+      "Customer / Company": s.customerId?.companyName || s.customerId?.name || "-",
+      "Plan Tier": s.planId?.name || "Standard",
+      "Billing Cycle": (s.billingCycle || "monthly").toUpperCase(),
+      "Seats": s.seats || 1,
+      "Monthly Value ($)": s.planId?.price ? (s.planId.price * (s.seats || 1)) : 0,
+      "Status": (s.status || "active").toUpperCase(),
+      "Renewal Date": s.nextBillingDate ? new Date(s.nextBillingDate).toLocaleDateString() : "-"
+    }));
+    exportToCSV(data, `Subscriptions_MRR_Report_${new Date().toISOString().slice(0, 10)}`);
+  };
+
+  const handleExportSubsPDF = () => {
+    const data = filteredSubscriptions.map(s => ({
+      "Customer": s.customerId?.companyName || s.customerId?.name || "-",
+      "Plan": s.planId?.name || "Standard",
+      "Cycle": (s.billingCycle || "monthly").toUpperCase(),
+      "Status": (s.status || "active").toUpperCase(),
+      "Next Bill": s.nextBillingDate ? new Date(s.nextBillingDate).toLocaleDateString() : "-"
+    }));
+    exportToPDF(data, `Subscriptions_MRR_Report_${new Date().toISOString().slice(0, 10)}`, "SUBSCRIPTIONS & RECURRING BILLING MRR REPORT");
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Actions */}
@@ -252,6 +280,20 @@ export default function CrmSubscriptionsView({ websiteId }) {
           <p className="text-[10px] font-bold text-slate-400 mt-0.5">Manage customer subscription tiers, recurring billing cycles, and automated plan limits</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <button 
+            onClick={handleExportSubsCSV}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Subscriptions to Excel CSV"
+          >
+            <Download size={13} /> Export CSV
+          </button>
+          <button 
+            onClick={handleExportSubsPDF}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Subscriptions to PDF"
+          >
+            <Printer size={13} /> Export PDF
+          </button>
           <button
             onClick={openNewPlanModal}
             className="flex-1 sm:flex-initial py-3 px-5 border border-slate-200 hover:bg-slate-50 text-[10px] font-black uppercase text-slate-700 rounded-2xl flex items-center justify-center gap-1.5 transition-all"
@@ -395,6 +437,27 @@ export default function CrmSubscriptionsView({ websiteId }) {
                         
                         {/* Subscription Edit / Delete options */}
                         <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => {
+                              exportSingleRecordPDF(
+                                `SUBSCRIPTION SUMMARY - ${s.customerId?.name || s.customerId?.companyName || "Customer"}`,
+                                {
+                                  "Customer / Client": s.customerId?.name || s.customerId?.companyName || "-",
+                                  "Plan Tier": s.planId?.name || "Standard Plan",
+                                  "Billing Cycle": (s.billingCycle || "monthly").toUpperCase(),
+                                  "Seats Allocated": s.seats || 1,
+                                  "Monthly Value": `$${(s.planId?.price ? (s.planId.price * (s.seats || 1)) : 0).toLocaleString()}`,
+                                  "Subscription Status": (s.status || "active").toUpperCase(),
+                                  "Next Renewal Date": s.renewalDate ? new Date(s.renewalDate).toLocaleDateString() : "-"
+                                },
+                                `Subscription_${(s.customerId?.companyName || s.customerId?.name || "Record").replace(/\s+/g, '_')}`
+                              );
+                            }}
+                            title="Export Single Subscription PDF"
+                            className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                          >
+                            <Printer size={12} />
+                          </button>
                           <button 
                             onClick={() => openEditSubModal(s)}
                             title="Edit Subscription"

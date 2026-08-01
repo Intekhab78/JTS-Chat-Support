@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import {
-  FileText, Calendar, Filter, AlertTriangle, CheckCircle2, Clock, Users, Search, RefreshCw, ChevronRight,
-  Plus, Edit3, Trash2, X, Save
+  FileText, Plus, Search, Filter, Calendar, Users, AlertTriangle, CheckCircle2, Clock, Eye, Edit2, Edit3, ChevronRight, Trash2, ShieldCheck, Sparkles, RefreshCw, X, Download, Printer
 } from "lucide-react";
 import { api } from "../../api/client.js";
+import { exportToCSV, exportToPDF, exportSingleRecordPDF } from "../../utils/exportUtils.js";
 import SearchableCustomerSelect from "../SearchableCustomerSelect.jsx";
 
 export default function VatFilingDashboard({ websiteId, teamMembers = [], onOpenCustomer }) {
@@ -199,6 +199,29 @@ export default function VatFilingDashboard({ websiteId, teamMembers = [], onOpen
     );
   });
 
+  const handleExportVatCSV = () => {
+    const exportData = filteredClients.map(c => ({
+      "Client / Company": c.companyName || c.name || "-",
+      "TRN Number": c.trn || "Not Registered",
+      "Filing Period": c.vatFilingPeriod || "Q4 2026",
+      "Filing Due Date": c.vatFilingDueDate ? new Date(c.vatFilingDueDate).toLocaleDateString() : "-",
+      "Work Status": c.workStatus || "Pending",
+      "Assigned Consultant": c.assignedConsultant || c.ownerId?.name || "Tax Staff"
+    }));
+    exportToCSV(exportData, `VAT_Filing_Report_${new Date().toISOString().slice(0, 10)}`);
+  };
+
+  const handleExportVatPDF = () => {
+    const exportData = filteredClients.map(c => ({
+      "Company": c.companyName || c.name || "-",
+      "TRN": c.trn || "Not Registered",
+      "Period": c.vatFilingPeriod || "Q4 2026",
+      "Due Date": c.vatFilingDueDate ? new Date(c.vatFilingDueDate).toLocaleDateString() : "-",
+      "Status": c.workStatus || "Pending"
+    }));
+    exportToPDF(exportData, `VAT_Filing_Report_${new Date().toISOString().slice(0, 10)}`, "UAE VAT FILING SCHEDULE & STATUS REPORT");
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* Upper Title Header & Actions */}
@@ -216,6 +239,21 @@ export default function VatFilingDashboard({ websiteId, teamMembers = [], onOpen
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
+          <button 
+            onClick={handleExportVatCSV}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export VAT Filing Report to Excel CSV"
+          >
+            <Download size={13} /> Export CSV
+          </button>
+          <button 
+            onClick={handleExportVatPDF}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export VAT Filing Report to PDF"
+          >
+            <Printer size={13} /> Export PDF
+          </button>
+
           {/* Add VAT Filing Button */}
           <button
             onClick={openAddModal}
@@ -340,13 +378,13 @@ export default function VatFilingDashboard({ websiteId, teamMembers = [], onOpen
           <table className="w-full text-left table-fixed">
             <thead>
               <tr className="bg-slate-50/50 border-b border-slate-100">
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[22%]">Client Company</th>
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[15%]">TRN Number</th>
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[16%]">Filing Period (Quarter)</th>
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[14%]">VAT Due Date</th>
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[14%]">Work Status</th>
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[11%]">Assigned Consultant</th>
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[8%] text-right">Actions</th>
+                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[18%]">Client Company</th>
+                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[11%]">TRN Number</th>
+                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[13%]">Filing Period</th>
+                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[12%]">VAT Due Date</th>
+                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[15%]">Work Status</th>
+                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[16%]">Assigned Consultant</th>
+                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[15%] text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -386,40 +424,40 @@ export default function VatFilingDashboard({ websiteId, teamMembers = [], onOpen
                     onClick={() => onOpenCustomer && onOpenCustomer(client)}
                     className="hover:bg-slate-50/80 transition-colors cursor-pointer"
                   >
-                    <td className="px-6 py-4">
-                      <div>
-                        <p className="text-xs font-black text-slate-900">{client.companyName || client.name}</p>
-                        <p className="text-[10px] text-slate-400 font-bold">{client.email || "No Email"}</p>
+                    <td className="px-4 py-4 overflow-hidden">
+                      <div className="truncate">
+                        <p className="text-xs font-black text-slate-900 truncate">{client.companyName || client.name}</p>
+                        <p className="text-[10px] text-slate-400 font-bold truncate">{client.email || "No Email"}</p>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg">
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <span className="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-lg">
                         {client.trn || "N/A"}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center gap-1 bg-indigo-50 border border-indigo-100 text-indigo-700 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider">
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1 bg-indigo-50 border border-indigo-100 text-indigo-700 px-2 py-0.5 rounded-xl text-[10px] font-black uppercase tracking-wider">
                         <Clock size={11} className="text-indigo-500 shrink-0" />
                         {periodBadgeText}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-1.5">
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-1">
                         <Calendar size={13} className={isOverdue ? "text-rose-500" : "text-slate-400"} />
                         <span className={`text-xs font-black ${isOverdue ? "text-rose-600" : "text-slate-700"}`}>
                           {client.vatFilingDueDate ? new Date(client.vatFilingDueDate).toLocaleDateString() : "Not Set"}
                         </span>
                         {isOverdue && (
-                          <span className="px-1.5 py-0.5 text-[8px] font-black uppercase bg-rose-100 text-rose-700 rounded">Overdue</span>
+                          <span className="px-1 py-0.5 text-[8px] font-black uppercase bg-rose-100 text-rose-700 rounded">Overdue</span>
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-4 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       {/* Live 1-Click Interactive Status Selector */}
                       <select
                         value={client.workStatus || "Pending"}
                         onChange={(e) => handleInlineStatusChange(client._id, e.target.value, e)}
-                        className={`px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider outline-none cursor-pointer border transition-all ${
+                        className={`max-w-[125px] w-full px-2 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider outline-none cursor-pointer border transition-all text-ellipsis overflow-hidden ${
                           client.workStatus === "Completed" || client.workStatus === "Approved" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
                           client.workStatus === "In Progress" ? "bg-sky-50 text-sky-600 border-sky-200" :
                           client.workStatus === "Under Review" ? "bg-purple-50 text-purple-600 border-purple-200" :
@@ -433,13 +471,34 @@ export default function VatFilingDashboard({ websiteId, teamMembers = [], onOpen
                         <option value="Completed">Completed / Approved</option>
                       </select>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="text-xs font-bold text-slate-700">
+                    <td className="px-4 py-4 whitespace-nowrap overflow-hidden">
+                      <span className="text-xs font-bold text-slate-700 truncate block max-w-[140px]" title={client.ownerId?.name || "Unassigned"}>
                         {client.ownerId?.name || "Unassigned"}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1">
+                    <td className="px-4 py-4 text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1.5 shrink-0">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            exportSingleRecordPDF(
+                              `VAT FILING CERTIFICATE - ${client.companyName || client.name}`,
+                              {
+                                "Company Name": client.companyName || client.name,
+                                "TRN Number": client.trn || "Not Registered",
+                                "Filing Period": client.vatFilingPeriod || "Q4 2026",
+                                "Due Date": client.vatFilingDueDate ? new Date(client.vatFilingDueDate).toLocaleDateString() : "-",
+                                "Work Status": client.workStatus || "Pending",
+                                "Assigned Consultant": client.ownerId?.name || "Tax Staff"
+                              },
+                              `VAT_Record_${(client.companyName || client.name || "Client").replace(/\s+/g, '_')}`
+                            );
+                          }}
+                          className="p-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200/80 rounded-lg transition-all"
+                          title="Export Single VAT Record PDF"
+                        >
+                          <Printer size={14} />
+                        </button>
                         <button
                           onClick={(e) => openEditModal(client, e)}
                           className="p-1.5 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-lg transition-colors"

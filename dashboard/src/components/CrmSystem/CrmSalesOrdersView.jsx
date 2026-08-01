@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { ShoppingBag, ChevronRight, CheckCircle2, Truck, RefreshCw, Search, Filter, ArrowUpDown, DollarSign, Clock, PackageCheck, AlertCircle } from "lucide-react";
+import { ShoppingBag, DollarSign, PackageCheck, Clock, Search, Filter, ArrowUpDown, RefreshCw, ChevronRight, Download, Printer } from "lucide-react";
 import { api } from "../../api/client.js";
+import { exportToCSV, exportToPDF, exportSingleRecordPDF } from "../../utils/exportUtils.js";
 
 const STATUS_PROGRESSION = [
   "draft", "confirmed", "processing", "packed", "shipped", "delivered", "completed"
@@ -85,6 +86,29 @@ export default function CrmSalesOrdersView({ websiteId }) {
       });
   }, [orders, search, statusFilter, paymentFilter, sortBy]);
 
+  const handleExportOrdersCSV = () => {
+    const data = filteredOrders.map(o => ({
+      "Order #": o.orderNumber || o.orderId || "SO-001",
+      "Client / Company": o.customerId?.companyName || o.customerId?.name || o.customerName || "-",
+      "Total Value ($)": o.grandTotal || o.totalAmount || o.total || 0,
+      "Fulfillment Status": (o.fulfillmentStatus || o.status || "Confirmed").toUpperCase(),
+      "Payment Status": (o.paymentStatus || "Pending").toUpperCase(),
+      "Order Date": o.createdAt ? new Date(o.createdAt).toLocaleDateString() : "-"
+    }));
+    exportToCSV(data, `Sales_Orders_Report_${new Date().toISOString().slice(0, 10)}`);
+  };
+
+  const handleExportOrdersPDF = () => {
+    const data = filteredOrders.map(o => ({
+      "Order #": o.orderNumber || o.orderId || "SO-001",
+      "Client": o.customerId?.companyName || o.customerId?.name || o.customerName || "-",
+      "Total ($)": `$${(o.grandTotal || o.totalAmount || o.total || 0).toLocaleString()}`,
+      "Fulfillment": (o.fulfillmentStatus || o.status || "Confirmed").toUpperCase(),
+      "Payment": (o.paymentStatus || "Pending").toUpperCase()
+    }));
+    exportToPDF(data, `Sales_Orders_Report_${new Date().toISOString().slice(0, 10)}`, "SALES ORDERS PIPELINE REPORT");
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -93,13 +117,29 @@ export default function CrmSalesOrdersView({ websiteId }) {
           <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Sales Order Pipeline</h3>
           <p className="text-[10px] font-bold text-slate-400 mt-0.5">Manage customer orders, fulfillment statuses, and payment ledgers</p>
         </div>
-        <button
-          onClick={fetchOrders}
-          className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all"
-          title="Refresh orders"
-        >
-          <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={handleExportOrdersCSV}
+            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Sales Orders to Excel CSV"
+          >
+            <Download size={13} /> Export CSV
+          </button>
+          <button 
+            onClick={handleExportOrdersPDF}
+            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Sales Orders to PDF"
+          >
+            <Printer size={13} /> Export PDF
+          </button>
+          <button
+            onClick={fetchOrders}
+            className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all"
+            title="Refresh orders"
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+          </button>
+        </div>
       </div>
 
       {/* KPI Analytics Cards */}
@@ -327,6 +367,28 @@ export default function CrmSalesOrdersView({ websiteId }) {
                     <span className="text-indigo-600">${selectedOrder.totalAmount ? selectedOrder.totalAmount.toLocaleString() : 0}</span>
                   </div>
                 </div>
+
+                <button
+                  onClick={() => {
+                    exportSingleRecordPDF(
+                      `SALES ORDER - ${selectedOrder.orderNumber || selectedOrder.soNumber || selectedOrder._id}`,
+                      {
+                        "Order Number": selectedOrder.orderNumber || selectedOrder.soNumber || "-",
+                        "Customer Name": selectedOrder.customerId?.companyName || selectedOrder.customerId?.name || selectedOrder.clientName || "Valued Client",
+                        "Order Date": selectedOrder.createdAt ? new Date(selectedOrder.createdAt).toLocaleDateString() : "-",
+                        "Pipeline Status": (selectedOrder.status || "processing").toUpperCase(),
+                        "Payment Status": (selectedOrder.paymentStatus || "pending").toUpperCase(),
+                        "Total Items": selectedOrder.items?.length || 0,
+                        "Total Amount": `$${(selectedOrder.totalAmount || 0).toLocaleString()}`
+                      },
+                      `Sales_Order_${(selectedOrder.orderNumber || selectedOrder.soNumber || "Record").replace(/\s+/g, '_')}`
+                    );
+                  }}
+                  className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-2xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-sm mt-3"
+                  title="Export Single Sales Order PDF"
+                >
+                  <Printer size={13} /> Export Single Order PDF
+                </button>
 
                 {/* Status Transitions Progression Bar */}
                 <div className="space-y-2.5 pt-3 border-t border-slate-100">

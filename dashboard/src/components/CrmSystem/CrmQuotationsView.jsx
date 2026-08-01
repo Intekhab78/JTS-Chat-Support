@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Plus, Check, X, FileText, ChevronRight, Eye, RefreshCw, Send, HelpCircle, Download, Search, Filter, DollarSign, CheckCircle2, PackageCheck } from "lucide-react";
+import { Plus, Check, X, FileText, ChevronRight, Eye, RefreshCw, Send, HelpCircle, Download, Search, Filter, DollarSign, CheckCircle2, PackageCheck, Printer } from "lucide-react";
 import { api, API_BASE } from "../../api/client.js";
+import { exportToCSV, exportToPDF } from "../../utils/exportUtils.js";
 
 const getCurrencySymbol = (code) => {
   const symbols = {
@@ -158,6 +159,29 @@ export default function CrmQuotationsView({ websiteId }) {
     }
   }, [paginatedQuotations]);
 
+  const handleExportQuotesCSV = () => {
+    const data = filteredQuotations.map(q => ({
+      "Quotation #": q.quotationId || q.quoteNumber || "QT-001",
+      "Client / Company": q.customerId?.companyName || q.customerId?.name || q.customerName || q.clientName || "-",
+      "Total Amount ($)": q.grandTotal || q.totalAmount || q.total || 0,
+      "Status": (q.status || "Draft").toUpperCase(),
+      "Valid Until": q.validUntil ? new Date(q.validUntil).toLocaleDateString() : "-",
+      "Created Date": q.createdAt ? new Date(q.createdAt).toLocaleDateString() : "-"
+    }));
+    exportToCSV(data, `Quotations_Ledger_${new Date().toISOString().slice(0, 10)}`);
+  };
+
+  const handleExportQuotesPDF = () => {
+    const data = filteredQuotations.map(q => ({
+      "Quotation #": q.quotationId || q.quoteNumber || "QT-001",
+      "Client": q.customerId?.companyName || q.customerId?.name || q.customerName || "-",
+      "Total ($)": `$${(q.grandTotal || q.totalAmount || q.total || 0).toLocaleString()}`,
+      "Status": (q.status || "Draft").toUpperCase(),
+      "Valid Until": q.validUntil ? new Date(q.validUntil).toLocaleDateString() : "-"
+    }));
+    exportToPDF(data, `Quotations_Ledger_${new Date().toISOString().slice(0, 10)}`, "OPERATIONS QUOTATIONS LEDGER REPORT");
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -165,12 +189,28 @@ export default function CrmQuotationsView({ websiteId }) {
           <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Quotations & Revisions</h3>
           <p className="text-[10px] font-bold text-slate-400 mt-0.5">Manage customer quotations, version history, and approvals</p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="py-3 px-5 bg-indigo-600 hover:bg-indigo-700 text-[10px] font-black uppercase text-white rounded-2xl flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-100 transition-all"
-        >
-          <Plus size={14} /> Create Quotation
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={handleExportQuotesCSV}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Quotations to Excel CSV"
+          >
+            <Download size={13} /> Export CSV
+          </button>
+          <button 
+            onClick={handleExportQuotesPDF}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Quotations to PDF"
+          >
+            <Printer size={13} /> Export PDF
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="py-3 px-5 bg-indigo-600 hover:bg-indigo-700 text-[10px] font-black uppercase text-white rounded-2xl flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-100 transition-all"
+          >
+            <Plus size={14} /> Create Quotation
+          </button>
+        </div>
       </div>
 
       {/* KPI Analytics Cards */}

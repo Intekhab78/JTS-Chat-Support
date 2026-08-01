@@ -2,11 +2,12 @@ import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { 
   Target, Award, Calendar, Plus, Trash2, ArrowUpRight, 
-  TrendingUp, Users, Percent, CheckCircle2, ShieldAlert, X 
+  TrendingUp, Users, Percent, CheckCircle2, ShieldAlert, X, Download, Printer 
 } from "lucide-react";
 import { api } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { formatCurrency } from "./CrmUIComponents.jsx";
+import { exportToCSV, exportToPDF, exportSingleRecordPDF } from "../../utils/exportUtils.js";
 
 const monthsList = [
   "January", "February", "March", "April", "May", "June",
@@ -131,6 +132,27 @@ export default function CrmSalesTargets({ websiteId, teamMembers }) {
   const valueProgressPercent = companyTargetVal > 0 ? Math.min(100, Math.round((companyAchievedVal / companyTargetVal) * 100)) : 0;
   const countProgressPercent = companyTargetCnt > 0 ? Math.min(100, Math.round((companyAchievedCnt / companyTargetCnt) * 100)) : 0;
 
+  const handleExportTargetsCSV = () => {
+    const data = targets.map(t => ({
+      "Scope / Consultant": t.ownerId ? (t.ownerId.name || "Consultant") : "Company-Wide Target",
+      "Target Month / Year": `${monthsList[selectedMonth - 1]} ${selectedYear}`,
+      "Revenue Target Value": t.targetValue || 0,
+      "Deals Count Target": t.targetCount || 0,
+      "Achievement Status": t.ownerId ? "Individual Quota" : "Master Goal"
+    }));
+    exportToCSV(data, `Sales_Targets_Report_${selectedYear}_${selectedMonth}`);
+  };
+
+  const handleExportTargetsPDF = () => {
+    const data = targets.map(t => ({
+      "Scope / Consultant": t.ownerId ? (t.ownerId.name || "Consultant") : "Company-Wide Target",
+      "Month/Year": `${monthsList[selectedMonth - 1]} ${selectedYear}`,
+      "Revenue Goal ($)": `$${(t.targetValue || 0).toLocaleString()}`,
+      "Deals Goal": String(t.targetCount || 0)
+    }));
+    exportToPDF(data, `Sales_Targets_Report_${selectedYear}_${selectedMonth}`, "SALES TARGETS & CONSULTANT QUOTAS REPORT");
+  };
+
   return (
     <div className="space-y-6">
       {/* Timeframe selector header */}
@@ -145,7 +167,21 @@ export default function CrmSalesTargets({ websiteId, teamMembers }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <button 
+            onClick={handleExportTargetsCSV}
+            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Sales Targets to Excel CSV"
+          >
+            <Download size={13} /> Export CSV
+          </button>
+          <button 
+            onClick={handleExportTargetsPDF}
+            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Sales Targets to PDF"
+          >
+            <Printer size={13} /> Export PDF
+          </button>
           {/* Month selector */}
           <select
             value={selectedMonth}
@@ -337,15 +373,39 @@ export default function CrmSalesTargets({ websiteId, teamMembers }) {
                           </div>
 
                           {/* Control actions */}
-                          {isManagerOrAdmin && (
+                          <div className="flex items-center gap-1 shrink-0">
                             <button
-                              onClick={() => handleDeleteTarget(item._id)}
-                              className="w-8 h-8 rounded-xl hover:bg-rose-50 text-slate-400 hover:text-rose-600 flex items-center justify-center transition-colors shrink-0"
-                              title="Delete target"
+                              onClick={() => {
+                                exportSingleRecordPDF(
+                                  `SALES QUOTA REPORT - ${agentName}`,
+                                  {
+                                    "Consultant Name": agentName,
+                                    "Role": (item.ownerId?.role || "Sales").toUpperCase(),
+                                    "Timeframe": `${monthsList[selectedMonth - 1]} ${selectedYear}`,
+                                    "Target Revenue": formatCurrency(item.targetValue),
+                                    "Achieved Revenue": formatCurrency(item.achievedValue),
+                                    "Achievement Rate": `${pctVal}%`,
+                                    "Target Deals Count": item.targetCount || 0,
+                                    "Deals Won": item.achievedCount || 0
+                                  },
+                                  `Sales_Quota_${agentName.replace(/\s+/g, '_')}`
+                                );
+                              }}
+                              className="w-8 h-8 rounded-xl hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 flex items-center justify-center transition-colors"
+                              title="Export Single Sales Quota PDF"
                             >
-                              <Trash2 size={14} />
+                              <Printer size={13} />
                             </button>
-                          )}
+                            {isManagerOrAdmin && (
+                              <button
+                                onClick={() => handleDeleteTarget(item._id)}
+                                className="w-8 h-8 rounded-xl hover:bg-rose-50 text-slate-400 hover:text-rose-600 flex items-center justify-center transition-colors"
+                                title="Delete target"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       );
                     })}

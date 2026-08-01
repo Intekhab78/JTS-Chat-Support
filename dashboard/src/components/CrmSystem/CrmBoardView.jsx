@@ -1,11 +1,82 @@
-import React from "react";
-import { ChevronRight, User, AlertTriangle, TrendingUp, Brain, Clock, Shield, Flame, Award, Zap } from "lucide-react";
+import React, { useState } from "react";
+import { ChevronRight, User, AlertTriangle, TrendingUp, Brain, Clock, Shield, Flame, Award, Zap, Download, Printer } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   WinProbabilityBadge,
   HeatIndicator,
   formatCurrency
 } from "./CrmUIComponents.jsx";
 import { isStaleLead, isHighValueLead } from "./crmUtils.js";
+
+const exportColumnStage = (columnLabel, columnCustomers, format = "csv") => {
+  const title = `CRM PIPELINE STAGE REPORT - ${columnLabel.toUpperCase()}`;
+  const filename = `${columnLabel.toUpperCase()}_Stage_Leads_${new Date().toISOString().slice(0, 10)}`;
+  const columns = ["Client / Lead Name", "Company Name", "Email", "Phone", "TRN", "Lead Value ($)", "Work Status", "Payment Status", "Owner"];
+  
+  const rows = columnCustomers.map(c => [
+    c.name || "-",
+    c.companyName || "-",
+    c.email || "-",
+    c.phones?.[0]?.phone || c.phone || c.whatsApp || "-",
+    c.trn || "Not Registered",
+    c.leadValue || c.budget || 0,
+    c.workStatus || "Pending",
+    c.paymentStatus || "Pending",
+    c.ownerId?.name || "Unassigned"
+  ]);
+
+  if (format === "csv") {
+    const csvContent = "data:text/csv;charset=utf-8," + [
+      [title],
+      ["Stage Scope", columnLabel.toUpperCase()],
+      ["Total Stage Records", columnCustomers.length],
+      ["Generated Date", new Date().toLocaleDateString()],
+      [],
+      columns,
+      ...rows
+    ].map(e => e.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `${filename}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } else {
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, 210, 28, "F");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(255, 255, 255);
+    doc.text("JTS SUPPORT CRM", 14, 13);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(199, 210, 254);
+    doc.text(title, 14, 20);
+
+    doc.setFontSize(8);
+    doc.setTextColor(255, 255, 255);
+    doc.text(`DATE: ${new Date().toLocaleDateString()}`, 196, 14, { align: "right" });
+
+    autoTable(doc, {
+      startY: 34,
+      margin: { left: 14, right: 14 },
+      head: [columns.map(c => c.toUpperCase())],
+      body: rows.length > 0 ? rows.map(r => r.map(cell => String(cell))) : [["No records found in this stage", "-", "-", "-", "-", "$0", "-", "-", "-"]],
+      theme: "grid",
+      styles: { fontSize: 8, cellPadding: 2.5 },
+      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [248, 250, 252] }
+    });
+
+    doc.save(`${filename}.pdf`);
+  }
+};
 
 const cleanString = (val, fallback = "") => (val || "").trim() || fallback;
 
@@ -79,9 +150,24 @@ export default function CrmBoardView({
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.18em]">{columnCustomers.length} records</p>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-right flex flex-col items-end gap-1">
                   <p className="text-[12px] font-black text-slate-950 tracking-tight">{formatCurrency(columnValue)}</p>
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Total Value</p>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => exportColumnStage(column.label, columnCustomers, "csv")}
+                      className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100 transition-colors flex items-center gap-1 text-[8px] font-black uppercase"
+                      title={`Export ${column.label} stage to Excel CSV`}
+                    >
+                      <Download size={10} /> CSV
+                    </button>
+                    <button
+                      onClick={() => exportColumnStage(column.label, columnCustomers, "pdf")}
+                      className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-100 transition-colors flex items-center gap-1 text-[8px] font-black uppercase"
+                      title={`Export ${column.label} stage to PDF`}
+                    >
+                      <Printer size={10} /> PDF
+                    </button>
+                  </div>
                 </div>
               </div>
               <div
