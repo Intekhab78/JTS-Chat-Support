@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { Search, Plus, Grid, List, Mail, Phone, Building2, Trash2, Edit3, X, Check, Globe, Eye, Users, ShieldCheck, ChevronRight, MapPin, DollarSign } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { Search, Plus, Grid, List, Mail, Phone, Building2, Trash2, Edit3, X, Check, Globe } from "lucide-react";
 import { api } from "../../api/client.js";
 import ConfirmModal from "../ConfirmModal.jsx";
 
@@ -90,6 +91,12 @@ export default function CrmCompaniesView({ websiteId }) {
     const start = (page - 1) * itemsPerPage;
     return filteredCompanies.slice(start, start + itemsPerPage);
   }, [filteredCompanies, page, itemsPerPage]);
+
+  useEffect(() => {
+    if (showModal) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "";
+    return () => { document.body.style.overflow = ""; };
+  }, [showModal]);
 
   const handleOpenCreate = () => {
     setEditingCompany(null);

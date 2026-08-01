@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   X, User, Mail, Phone, Calendar, DollarSign, Clock, FileText, CheckCircle2,
   Trash2, Plus, Edit3, Eye, ArrowLeft, Paperclip, MessageSquare, AlertCircle, BookOpen, Search, Filter, Download, Send, Globe, Building2, ShieldCheck, Tag, Layers, Check, CheckCircle, ChevronRight, ChevronLeft, Upload, File, Share2, MoreVertical, AlertTriangle, Star, Save, RefreshCw
@@ -28,6 +29,7 @@ const PROFILE_TABS = [
 ];
 
 export default function Customer360View({ customerId, websiteId, onClose }) {
+  const containerRef = useRef(null);
   const { user } = useAuth();
   const { formatCurrency } = useCurrency();
   const isReadOnly = user?.role === "management";
@@ -241,6 +243,17 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
   }, [customerId]);
 
   useEffect(() => {
+    document.body.style.overflow = "hidden";
+    if (containerRef.current) {
+      containerRef.current.scrollTop = 0;
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [customerId, loading]);
+
+  useEffect(() => {
     if (customerId && customer) fetchTabData();
   }, [activeTab, customer]);
 
@@ -287,10 +300,11 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
   };
 
   if (loading) {
-    return (
-      <div className="fixed inset-0 bg-slate-900/10 backdrop-blur-sm z-40 flex items-center justify-center">
+    return createPortal(
+      <div className="fixed inset-0 bg-slate-900/10 backdrop-blur-sm z-50 flex items-center justify-center">
         <div className="w-12 h-12 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
-      </div>
+      </div>,
+      document.body
     );
   }
 
@@ -305,8 +319,8 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
   ].filter(Boolean).length;
   const setupPercentage = Math.round((setupScore / 7) * 100);
 
-  return (
-    <div className="fixed inset-0 z-40 bg-slate-50 flex flex-col overflow-y-auto">
+  return createPortal(
+    <div ref={containerRef} className="fixed inset-0 z-50 bg-slate-50 flex flex-col overflow-y-auto">
       {/* Upper Navigation Header */}
       <header className="sticky top-0 bg-white border-b border-slate-200/80 px-8 py-5 flex items-center justify-between shadow-sm z-10">
         <div className="flex items-center gap-4">
@@ -1675,6 +1689,7 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
           </form>
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }

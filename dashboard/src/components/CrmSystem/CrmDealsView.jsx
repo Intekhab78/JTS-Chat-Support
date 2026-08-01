@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Search, Plus, Grid, List, Trash2, Edit3, X, Check, DollarSign, Calendar, TrendingUp } from "lucide-react";
 import { api } from "../../api/client.js";
 import ConfirmModal from "../ConfirmModal.jsx";
@@ -85,7 +86,13 @@ export default function CrmDealsView({ websiteId }) {
 
   useEffect(() => {
     fetchDeals();
-  }, [page, search, websiteId]);
+  }, [search, websiteId]);
+
+  useEffect(() => {
+    if (showModal) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "";
+    return () => { document.body.style.overflow = ""; };
+  }, [showModal]);
 
   useEffect(() => {
     if (websiteId) {
@@ -335,105 +342,108 @@ export default function CrmDealsView({ websiteId }) {
       )}
 
       {/* Add/Edit Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowModal(false)} />
-          <form onSubmit={handleSubmit} className="relative w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl space-y-6">
-            <div className="flex justify-between items-center">
+      {showModal && createPortal(
+        <div className="fixed inset-0 z-[9999] p-4 sm:p-6 flex items-center justify-center pointer-events-none">
+          <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm pointer-events-auto" onClick={() => setShowModal(false)} />
+          <div className="relative z-10 pointer-events-auto w-full max-w-md bg-white rounded-[32px] shadow-2xl border border-slate-100 flex flex-col max-h-[90vh] overflow-hidden">
+            <div className="flex justify-between items-center px-6 sm:px-8 py-5 border-b border-slate-100 shrink-0">
               <h3 className="text-base font-black text-slate-900">{editingDeal ? "Edit Deal" : "Create Deal"}</h3>
               <button type="button" onClick={() => setShowModal(false)} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-all"><X size={18} /></button>
             </div>
             
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Deal Name</label>
-              <input
-                required
-                value={form.dealName}
-                onChange={(e) => setForm({ ...form, dealName: e.target.value })}
-                className="w-full bg-slate-50 rounded-xl border border-slate-200/50 px-4 py-3 text-xs font-bold"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="px-6 sm:px-8 py-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Deal Value ($)</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Deal Name</label>
                 <input
-                  type="number"
                   required
-                  value={form.dealValue}
-                  onChange={(e) => setForm({ ...form, dealValue: Number(e.target.value) })}
-                  className="w-full bg-slate-50 rounded-xl border border-slate-200/50 px-4 py-3 text-xs font-bold"
+                  value={form.dealName}
+                  onChange={(e) => setForm({ ...form, dealName: e.target.value })}
+                  className="w-full bg-slate-50 rounded-xl border border-slate-200/50 px-4 py-2.5 text-xs font-bold"
                 />
               </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Win Probability (%)</label>
-                <input
-                  type="number"
-                  required
-                  value={form.probability}
-                  onChange={(e) => setForm({ ...form, probability: Number(e.target.value) })}
-                  className="w-full bg-slate-50 rounded-xl border border-slate-200/50 px-4 py-3 text-xs font-bold"
-                />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Expected Close Date</label>
-                <input
-                  type="date"
-                  value={form.expectedCloseDate}
-                  onChange={(e) => setForm({ ...form, expectedCloseDate: e.target.value })}
-                  className="w-full bg-slate-50 rounded-xl border border-slate-200/50 px-4 py-3 text-xs font-bold"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Deal Value ($)</label>
+                  <input
+                    type="number"
+                    required
+                    value={form.dealValue}
+                    onChange={(e) => setForm({ ...form, dealValue: Number(e.target.value) })}
+                    className="w-full bg-slate-50 rounded-xl border border-slate-200/50 px-4 py-2.5 text-xs font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Win Probability (%)</label>
+                  <input
+                    type="number"
+                    required
+                    value={form.probability}
+                    onChange={(e) => setForm({ ...form, probability: Number(e.target.value) })}
+                    className="w-full bg-slate-50 rounded-xl border border-slate-200/50 px-4 py-2.5 text-xs font-bold"
+                  />
+                </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Expected Close Date</label>
+                  <input
+                    type="date"
+                    value={form.expectedCloseDate}
+                    onChange={(e) => setForm({ ...form, expectedCloseDate: e.target.value })}
+                    className="w-full bg-slate-50 rounded-xl border border-slate-200/50 px-4 py-2.5 text-xs font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Stage</label>
+                  <select
+                    value={form.stage}
+                    onChange={(e) => setForm({ ...form, stage: e.target.value })}
+                    className="w-full bg-slate-50 rounded-xl border border-slate-200/50 px-4 py-2.5 text-xs font-bold"
+                  >
+                    {activeStages.map(s => (
+                      <option key={s.key} value={s.key}>{s.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Stage</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Company</label>
                 <select
-                  value={form.stage}
-                  onChange={(e) => setForm({ ...form, stage: e.target.value })}
-                  className="w-full bg-slate-50 rounded-xl border border-slate-200/50 px-4 py-3 text-xs font-bold"
+                  value={form.companyId}
+                  onChange={(e) => setForm({ ...form, companyId: e.target.value })}
+                  className="w-full bg-slate-50 rounded-xl border border-slate-200/50 px-4 py-2.5 text-xs font-bold"
                 >
-                  {activeStages.map(s => (
-                    <option key={s.key} value={s.key}>{s.label}</option>
+                  <option value="">Select Company</option>
+                  {companies.map((c) => (
+                    <option key={c._id} value={c._id}>{c.companyName}</option>
                   ))}
                 </select>
               </div>
-            </div>
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Company</label>
-              <select
-                value={form.companyId}
-                onChange={(e) => setForm({ ...form, companyId: e.target.value })}
-                className="w-full bg-slate-50 rounded-xl border border-slate-200/50 px-4 py-3 text-xs font-bold"
-              >
-                <option value="">Select Company</option>
-                {companies.map((c) => (
-                  <option key={c._id} value={c._id}>{c.companyName}</option>
-                ))}
-              </select>
-            </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Primary Contact</label>
+                <select
+                  value={form.primaryContactId}
+                  onChange={(e) => setForm({ ...form, primaryContactId: e.target.value })}
+                  className="w-full bg-slate-50 rounded-xl border border-slate-200/50 px-4 py-2.5 text-xs font-bold"
+                >
+                  <option value="">Select Contact</option>
+                  {contacts.map((c) => (
+                    <option key={c._id} value={c._id}>{c.displayName || `${c.firstName} ${c.lastName}`}</option>
+                  ))}
+                </select>
+              </div>
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Primary Contact</label>
-              <select
-                value={form.primaryContactId}
-                onChange={(e) => setForm({ ...form, primaryContactId: e.target.value })}
-                className="w-full bg-slate-50 rounded-xl border border-slate-200/50 px-4 py-3 text-xs font-bold"
-              >
-                <option value="">Select Contact</option>
-                {contacts.map((c) => (
-                  <option key={c._id} value={c._id}>{c.displayName || `${c.firstName} ${c.lastName}`}</option>
-                ))}
-              </select>
-            </div>
-
-            <button type="submit" className="w-full py-4.5 bg-slate-950 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2">
-              <Check size={16} /> Save Deal
-            </button>
-          </form>
-        </div>
+              <button type="submit" className="w-full py-4 bg-slate-950 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 mt-2">
+                <Check size={16} /> Save Deal
+              </button>
+            </form>
+          </div>
+        </div>,
+        document.body
       )}
 
       <ConfirmModal
