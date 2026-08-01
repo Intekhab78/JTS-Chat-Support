@@ -45,6 +45,10 @@ const websiteSchema = new mongoose.Schema(
     enableKnowledgeBase: { type: Boolean, default: true },
     enableLiveAgent: { type: Boolean, default: true },
     enableAutomation: { type: Boolean, default: true },
+    enabledModules: {
+      type: [String],
+      default: ["crm", "operations", "finance", "compliance", "service", "automation"]
+    },
     botWelcomeMessage: { type: String, default: "Hi 👋 How can we help you today?" },
     pipelineStages: {
       type: [

@@ -41,6 +41,7 @@ export async function createWebsite(req, res) {
     enableKnowledgeBase: req.body.enableKnowledgeBase !== undefined ? req.body.enableKnowledgeBase : true,
     enableLiveAgent: req.body.enableLiveAgent !== undefined ? req.body.enableLiveAgent : true,
     enableAutomation: req.body.enableAutomation !== undefined ? req.body.enableAutomation : true,
+    ...(Array.isArray(req.body.enabledModules) ? { enabledModules: req.body.enabledModules } : {}),
     businessHours: req.body.businessHours,
     webhooks: req.body.webhooks,
     ...(Array.isArray(req.body.pipelineStages) ? { pipelineStages: req.body.pipelineStages } : {}),
@@ -80,7 +81,7 @@ export async function updateWebsite(req, res) {
     "websiteName", "domain", "primaryColor", "accentColor", "launcherIcon",
     "welcomeMessage", "awayMessage", "position", "businessHours", "webhooks",
     "isActive", "enableChat", "enableLeadGeneration", "enableTicketing",
-    "enableKnowledgeBase", "enableLiveAgent", "enableAutomation", "currencySettings"
+    "enableKnowledgeBase", "enableLiveAgent", "enableAutomation", "currencySettings", "enabledModules"
   ];
   
   fields.forEach(field => {
@@ -88,6 +89,11 @@ export async function updateWebsite(req, res) {
       updateData[field] = req.body[field];
     }
   });
+
+  if (role !== "admin") {
+    // Non-admin clients cannot alter SaaS module entitlements (enabledModules)
+    delete updateData.enabledModules;
+  }
 
   if (Array.isArray(req.body.pipelineStages)) {
     updateData.pipelineStages = req.body.pipelineStages;

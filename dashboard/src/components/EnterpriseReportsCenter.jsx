@@ -12,6 +12,7 @@ import RealTimeActivityCenter from "./RealTimeActivityCenter.jsx";
 import ComplianceReportsHub from "./CrmSystem/ComplianceReportsHub.jsx";
 import { exportToCSV, exportToExcel, exportToPDF } from "../utils/exportUtils.js";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
+import { useWebsite } from "../context/WebsiteContext.jsx";
 
 const REPORT_COLORS = ["#6366f1", "#14b8a6", "#f59e0b", "#ef4444", "#8b5cf6", "#0ea5e9"];
 
@@ -1061,18 +1062,21 @@ export default function EnterpriseReportsCenter() {
   const [activeData, setActiveData] = useState(null);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
 
+  const { selectedWebsite } = useWebsite() || {};
+  const enabledModules = selectedWebsite?.enabledModules;
+
   const tabs = [
     { id: "executive", label: "Executive Summary", icon: LayoutDashboard },
-    { id: "compliance", label: "Compliance Suite Hub", icon: Briefcase },
-    { id: "leads", label: "Lead Analytics", icon: Users },
-    { id: "tickets", label: "Ticket Analytics", icon: Ticket },
-    { id: "agents", label: "Agent Performance", icon: ShieldAlert },
+    { id: "compliance", label: "Compliance Suite Hub", icon: Briefcase, module: "compliance" },
+    { id: "leads", label: "Lead Analytics", icon: Users, module: "crm" },
+    { id: "tickets", label: "Ticket Analytics", icon: Ticket, module: "service" },
+    { id: "agents", label: "Agent Performance", icon: ShieldAlert, module: "service" },
     { id: "websites", label: "Website Analytics", icon: Zap },
-    { id: "customers", label: "Customer Insights", icon: Activity },
-    { id: "revenue", label: "Revenue Dashboard", icon: DollarSign },
-    { id: "ai", label: "AI Insights", icon: Zap },
+    { id: "customers", label: "Customer Insights", icon: Activity, module: "crm" },
+    { id: "revenue", label: "Revenue Dashboard", icon: DollarSign, module: "finance" },
+    { id: "ai", label: "AI Insights", icon: Zap, module: "automation" },
     { id: "realtime", label: "Real-Time Activity", icon: Zap },
-  ];
+  ].filter(t => !t.module || !enabledModules || !Array.isArray(enabledModules) || enabledModules.length === 0 || enabledModules.includes(t.module));
 
   // Reset active dataset when tab or date range changes
   useEffect(() => {

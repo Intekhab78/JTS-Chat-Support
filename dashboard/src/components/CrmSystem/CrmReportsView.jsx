@@ -15,6 +15,7 @@ import { formatCurrency, formatCurrencyCompact } from "../../utils/currencyForma
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { api } from "../../api/client.js";
+import { useWebsite } from "../../context/WebsiteContext.jsx";
 
 const CRM_ALL_MODULES = [
   { id: "all", label: "⚡ MASTER ALL-IN-ONE WORKBOOK", category: "Master", icon: Sparkles, color: "emerald", desc: "Download complete CRM ecosystem in 1 Master PDF / Excel" },
@@ -45,7 +46,27 @@ const CRM_ALL_MODULES = [
 ];
 
 export default function CRMReportsView({ summary, customers = [], websiteId, onDrillDown, activeRange, setActiveRange }) {
-  const totalModulesCount = CRM_ALL_MODULES.filter(m => m.id !== "all").length;
+  const { selectedWebsite } = useWebsite() || {};
+  const enabledModules = selectedWebsite?.enabledModules;
+
+  const categoryToModuleKey = {
+    "CRM & Sales": "crm",
+    "Operations": "operations",
+    "Finance": "finance",
+    "Compliance": "compliance",
+    "Activity & Staff": "service",
+    "Master": "automation"
+  };
+
+  const allowedModules = CRM_ALL_MODULES.filter(m => {
+    if (m.id === "all") return true;
+    if (!enabledModules || !Array.isArray(enabledModules) || enabledModules.length === 0) return true;
+    const modKey = categoryToModuleKey[m.category];
+    if (!modKey) return true;
+    return enabledModules.includes(modKey);
+  });
+
+  const totalModulesCount = allowedModules.filter(m => m.id !== "all").length;
 
   const [exportCategoryTab, setExportCategoryTab] = useState("All");
   const [exportingModule, setExportingModule] = useState("");
@@ -803,7 +824,7 @@ export default function CRMReportsView({ summary, customers = [], websiteId, onD
 
         {/* Module Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 relative z-10">
-          {CRM_ALL_MODULES.filter(m => m.id !== "all" && (exportCategoryTab === "All" || m.category.includes(exportCategoryTab.split(" ")[0]))).map(mod => {
+          {allowedModules.filter(m => m.id !== "all" && (exportCategoryTab === "All" || m.category.includes(exportCategoryTab.split(" ")[0]))).map(mod => {
             const Icon = mod.icon;
             const isExporting = exportingModule === mod.id;
             return (

@@ -3,7 +3,8 @@ import { env } from "../config/env.js";
 import { User } from "../models/User.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
-import { buildSubscription } from "../utils/planUtils.js";
+import { buildSubscription, buildSubscriptionAsync } from "../utils/planUtils.js";
+import { SubscriptionPlan } from "../models/SubscriptionPlan.js";
 import { normalizeRole } from "../utils/roleUtils.js";
 import { canUseMockBilling, logBlockedMockBillingRequest } from "../utils/mockBillingAccess.js";
 import crypto from "crypto";
@@ -89,6 +90,51 @@ export const adminGetAllSubscriptions = asyncHandler(async (req, res, next) => {
     return res.json(client ? [client] : []);
   }
 });
+
+export const adminUpdateClientSubscription = asyncHandler(async (req, res, next) => {
+  const role = normalizeRole(req.user.role);
+  if (role !== "admin") {
+    return next(new AppError("Only Superadmin can update client subscriptions", 403));
+  }
+
+  const { clientId, plan, status, offerCode, discountPercentage, specialNotes, agentSeats, websiteSlots, durationDays } = req.body;
+
+  const client = await User.findById(clientId);
+  if (!client || client.role !== "client") {
+    return next(new AppError("Client user not found", 404));
+  }
+
+  const updatedSub = await buildSubscriptionAsync(plan || client.subscription?.plan || "basic", {
+    status: status || client.subscription?.status || "active"
+  });
+
+  if (offerCode !== undefined) updatedSub.offerCode = offerCode;
+  if (discountPercentage !== undefined) updatedSub.discountPercentage = Number(discountPercentage) || 0;
+  if (specialNotes !== undefined) updatedSub.specialNotes = specialNotes;
+
+  if (agentSeats !== undefined && !Number.isNaN(Number(agentSeats))) {
+    updatedSub.limits.agents = Number(agentSeats);
+  }
+  if (websiteSlots !== undefined && !Number.isNaN(Number(websiteSlots))) {
+    updatedSub.limits.websites = Number(websiteSlots);
+  }
+
+  if (durationDays && Number(durationDays) > 0) {
+    const expiry = new Date();
+    expiry.setDate(expiry.getDate() + Number(durationDays));
+    updatedSub.expiresAt = expiry;
+  }
+
+  client.subscription = updatedSub;
+  await client.save();
+
+  res.json({
+    status: "success",
+    message: `Subscription successfully updated for ${client.name}`,
+    subscription: client.subscription
+  });
+});
+
 export const getSubscriptionStatus = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id);
   res.json({
@@ -111,10 +157,8 @@ export const executeMockCheckout = asyncHandler(async (req, res, next) => {
   }
 
   const { plan } = req.body;
-  const validPlans = ["basic", "standard", "pro"];
-
-  if (!validPlans.includes(plan)) {
-    return next(new AppError("Invalid plan selected", 400));
+  if (!plan) {
+    return next(new AppError("Plan is required", 400));
   }
 
   const user = await User.findById(req.user._id);
@@ -122,30 +166,23 @@ export const executeMockCheckout = asyncHandler(async (req, res, next) => {
     return next(new AppError("User not found", 404));
   }
 
-  // Update subscription using the utility
-  user.subscription = buildSubscription(plan, { status: "active" });
+  // Fully dynamic plan resolution from MongoDB
+  user.subscription = await buildSubscriptionAsync(plan, { status: "active" });
 
   await user.save();
 
   res.json({
     status: "success",
-    message: `Plan ${plan} activated successfully (Mock Payment)`,
+    message: `Plan ${plan} activated successfully`,
     subscription: user.subscription
   });
 });
 
 export const createRazorpaySubscriptionOrder = asyncHandler(async (req, res, next) => {
   const { plan } = req.body;
-  const planPrices = {
-    basic: 2400,     // 2400 INR
-    standard: 6500,  // 6500 INR
-    pro: 16500       // 16500 INR
-  };
-
-  const amount = planPrices[plan];
-  if (!amount) {
-    return next(new AppError("Invalid plan selected", 400));
-  }
+  const planDoc = await SubscriptionPlan.findOne({ code: String(plan || "").toLowerCase() });
+  const monthlyPrice = planDoc ? planDoc.monthlyPrice : 49;
+  const amount = Math.floor(monthlyPrice * 80); // USD to INR conversion (e.g. $49 -> ₹3,920)
 
   const keyId = env.razorpayKeyId || process.env.RAZORPAY_KEY_ID;
   const keySecret = env.razorpayKeySecret || process.env.RAZORPAY_KEY_SECRET;

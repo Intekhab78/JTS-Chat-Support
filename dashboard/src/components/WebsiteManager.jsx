@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Globe, Plus, Trash2, Copy, Check, Settings, Code, Palette, X, Network, DollarSign } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Globe, Plus, Trash2, Copy, Check, Settings, Code, Palette, X, Network, DollarSign, Lock } from "lucide-react";
 import { api, getApiBase } from "../api/client.js";
 import WidgetCustomizer from "./WidgetCustomizer.jsx";
 import FlowBuilder from "./FlowBuilder.jsx";
@@ -7,6 +8,8 @@ import PaginationControls from "./PaginationControls.jsx";
 import { getPaginationMeta } from "../utils/pagination.js";
 import { CURRENCY_MASTER, DEFAULT_CURRENCY_SETTINGS } from "../constants/currencies.js";
 import { useCurrency } from "../context/CurrencyContext.jsx";
+import { useWebsite } from "../context/WebsiteContext.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 
 const COLOR_PRESETS = [
   { primary: "#6366f1", accent: "#4f46e5", name: "Indigo" },
@@ -65,11 +68,15 @@ export default function WebsiteManager() {
   const [page, setPage] = useState(1);
   const [widgetBaseUrl, setWidgetBaseUrl] = useState("");
   const { refreshCurrency } = useCurrency();
+  const { refreshWebsites } = useWebsite() || {};
+  const { user } = useAuth() || {};
+  const isAdmin = user?.role === "admin";
 
   const fetchWebsites = async () => {
     try {
       const data = await api("/api/websites");
       setWebsites(data);
+      if (refreshWebsites) refreshWebsites();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -109,6 +116,7 @@ export default function WebsiteManager() {
       enableKnowledgeBase: true,
       enableLiveAgent: true,
       enableAutomation: true,
+      enabledModules: ["crm", "operations", "finance", "compliance", "service", "automation"],
       businessHours: createDefaultBusinessHours(),
       webhooks: []
     });
@@ -142,6 +150,7 @@ export default function WebsiteManager() {
       enableKnowledgeBase: website.enableKnowledgeBase !== false,
       enableLiveAgent: website.enableLiveAgent !== false,
       enableAutomation: website.enableAutomation !== false,
+      enabledModules: website.enabledModules || ["crm", "operations", "finance", "compliance", "service", "automation"],
       businessHours: website.businessHours || createDefaultBusinessHours(),
       webhooks: website.webhooks || []
     });
@@ -326,239 +335,244 @@ export default function WebsiteManager() {
         </button>
       </div>
 
-      {isAdding && (
-        <form onSubmit={handleSubmit} className="premium-card p-10 md:p-16 animate-in zoom-in-95 duration-700 overflow-hidden bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5 transition-colors">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
-            {/* Left Segment: Form Inputs */}
-            <div className="lg:col-span-7 space-y-10">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                <div className="space-y-8">
-                  <div className="space-y-3">
-                    <label className="small-label dark:text-slate-400">Terminal Identity (Name)</label>
-                    <input
-                      value={formData.websiteName}
-                      onChange={(e) => setFormData({ ...formData, websiteName: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-6 py-4.5 text-xs font-black focus:border-indigo-500/50 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-800 dark:text-white shadow-inner"
-                      placeholder="Platform Alpha"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-3">
-                    <label className="small-label dark:text-slate-400">Domain Authority (URL)</label>
-                    <input
-                      value={formData.domain}
-                      onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-6 py-4.5 text-xs font-black focus:border-indigo-500/50 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-800 dark:text-white shadow-inner"
-                      placeholder="alpha.enterprise.com"
-                      required
-                    />
-                  </div>
-                </div>
-
+      {isAdding && createPortal(
+        <div className="fixed inset-0 z-[9999] p-4 sm:p-6 lg:p-10 flex items-center justify-center pointer-events-none">
+          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md pointer-events-auto" onClick={handleCancel} />
+          <div className="relative z-10 pointer-events-auto w-full max-w-6xl bg-white dark:bg-slate-900 rounded-[40px] shadow-2xl border border-slate-100 dark:border-white/5 flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="flex justify-between items-center px-8 py-5 border-b border-slate-100 dark:border-white/5 shrink-0 bg-slate-50/50 dark:bg-black/20">
+              <div>
+                <h3 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                  {editingId ? `Configure Website: ${formData.websiteName || formData.domain}` : "Deploy New Terminal"}
+                </h3>
+                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">
+                  Manage domain credentials, module entitlements & widget settings
+                </p>
               </div>
+              <button type="button" onClick={handleCancel} className="p-3 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-all">
+                <X size={20} />
+              </button>
+            </div>
 
-
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                <div className="space-y-4">
-                  <label className="small-label dark:text-slate-400">Primary Color Vector</label>
-                  <div className="flex flex-wrap gap-3">
-                    {COLOR_PRESETS.map((preset) => (
-                      <button
-                        key={preset.name}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, primaryColor: preset.primary, accentColor: preset.accent })}
-                        className={`w-11 h-11 rounded-2xl border-[4px] transition-all hover:scale-110 active:scale-90 ${formData.primaryColor === preset.primary ? 'border-slate-900 dark:border-white scale-110 shadow-2xl' : 'border-transparent dark:border-white/5 shadow-sm'}`}
-                        style={{ backgroundColor: preset.primary }}
-                        title={preset.name}
-                      />
-                    ))}
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    <label className="small-label dark:text-slate-400">Launcher Icon</label>
-                    <input
-                      value={formData.launcherIcon}
-                      onChange={(e) => setFormData({ ...formData, launcherIcon: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-6 py-4.5 text-xl font-black focus:border-indigo-500/50 outline-none transition-all text-center shadow-inner"
-                      placeholder="💬"
-                      maxLength={4}
-                    />
-                  </div>
-                  <div className="space-y-3">
-                    <label className="small-label dark:text-slate-400">System State</label>
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, isActive: !formData.isActive })}
-                      className={`w-full py-4.5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all shadow-xl ${formData.isActive
-                        ? "bg-emerald-500 text-white shadow-emerald-500/20"
-                        : "bg-red-500 text-white shadow-red-500/20"
-                        }`}
-                    >
-                      {formData.isActive ? "Online" : "Paused"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-10 border-t border-slate-50 dark:border-white/5 space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="small-label dark:text-slate-400">Business Hours</label>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setFormData({
-                      ...formData,
-                      businessHours: { ...formData.businessHours, enabled: !formData.businessHours?.enabled }
-                    })}
-                    className={`rounded-2xl px-5 py-3 text-[10px] font-black uppercase tracking-widest ${formData.businessHours?.enabled ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-700"}`}
-                  >
-                    {formData.businessHours?.enabled ? "Enabled" : "Disabled"}
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <select
-                    value={formData.businessHours?.timezone || "Asia/Kolkata"}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      businessHours: { ...formData.businessHours, timezone: e.target.value }
-                    })}
-                    className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-6 py-4 text-xs font-black"
-                  >
-                    {(Intl.supportedValuesOf ? Intl.supportedValuesOf('timeZone') : [
-                      "Asia/Kolkata", "UTC", "America/New_York", "Europe/London", "Asia/Tokyo", "Australia/Sydney", "America/Los_Angeles", "Europe/Paris"
-                    ]).map(tz => (
-                      <option key={tz} value={tz}>{tz}</option>
-                    ))}
-                  </select>
-                  <div className="grid grid-cols-2 gap-3">
-                    <input
-                      type="time"
-                      value={formData.businessHours?.monday?.open || "09:00"}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        businessHours: {
-                          ...formData.businessHours,
-                          monday: { ...(formData.businessHours?.monday || {}), open: e.target.value, isOpen: true }
-                        }
-                      })}
-                      className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-4 py-4 text-xs font-black"
-                    />
-                    <input
-                      type="time"
-                      value={formData.businessHours?.monday?.close || "17:00"}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        businessHours: {
-                          ...formData.businessHours,
-                          monday: { ...(formData.businessHours?.monday || {}), close: e.target.value, isOpen: true }
-                        }
-                      })}
-                      className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-4 py-4 text-xs font-black"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-10 border-t border-slate-50 dark:border-white/5 space-y-6">
-                <div className="space-y-1">
-                  <label className="small-label dark:text-slate-400">Enterprise Modules</label>
-                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Enable or disable specific features for this website.</p>
-                </div>
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                  {[
-                    { key: "enableChat", label: "Live Chat" },
-                    { key: "enableLeadGeneration", label: "Lead Gen (CRM)" },
-                    { key: "enableTicketing", label: "Ticketing" },
-                    { key: "enableKnowledgeBase", label: "Help Center" },
-                    { key: "enableLiveAgent", label: "Live Agents" },
-                    { key: "enableAutomation", label: "Automations" },
-                  ].map((feat) => (
-                    <button
-                      key={feat.key}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, [feat.key]: !formData[feat.key] })}
-                      className={`flex flex-col items-start gap-3 p-4 rounded-[20px] border-2 transition-all ${formData[feat.key] ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-50 dark:bg-black/20 border-slate-100 dark:border-white/5 opacity-60'}`}
-                    >
-                      <div className={`w-3 h-3 rounded-full ${formData[feat.key] ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-300 dark:bg-slate-700'}`} />
-                      <span className={`text-[10px] font-black uppercase tracking-widest ${formData[feat.key] ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400'}`}>
-                        {feat.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-10 border-t border-slate-50 dark:border-white/5 space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="small-label dark:text-slate-400">Webhooks</label>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Receive `ticket.created`, `ticket.updated`, `chat.closed`, and `chat.assigned` events.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, webhooks: [...(formData.webhooks || []), { url: "", secret: "", events: ["ticket.created"] }] })}
-                    className="bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest"
-                  >
-                    Add Webhook
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  {(formData.webhooks || []).map((hook, idx) => (
-                    <div key={idx} className="rounded-[28px] border border-slate-100 p-5 dark:border-white/5">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="p-8 md:p-12 overflow-y-auto custom-scrollbar flex-1">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
+                {/* Left Segment: Form Inputs */}
+                <div className="lg:col-span-7 space-y-10">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div className="space-y-8">
+                      <div className="space-y-3">
+                        <label className="small-label dark:text-slate-400">Terminal Identity (Name)</label>
                         <input
-                          value={hook.url}
-                          onChange={(e) => {
-                            const webhooks = [...formData.webhooks];
-                            webhooks[idx] = { ...webhooks[idx], url: e.target.value };
-                            setFormData({ ...formData, webhooks });
-                          }}
-                          placeholder="https://example.com/webhooks/support"
-                          className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-2xl px-4 py-3 text-xs font-bold"
-                        />
-                        <input
-                          value={hook.secret || ""}
-                          onChange={(e) => {
-                            const webhooks = [...formData.webhooks];
-                            webhooks[idx] = { ...webhooks[idx], secret: e.target.value };
-                            setFormData({ ...formData, webhooks });
-                          }}
-                          placeholder="Signing secret"
-                          className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-2xl px-4 py-3 text-xs font-bold"
+                          value={formData.websiteName}
+                          onChange={(e) => setFormData({ ...formData, websiteName: e.target.value })}
+                          className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-6 py-4.5 text-xs font-black focus:border-indigo-500/50 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-800 dark:text-white shadow-inner"
+                          placeholder="Platform Alpha"
+                          required
                         />
                       </div>
-                      <input
-                        value={(hook.events || []).join(", ")}
-                        onChange={(e) => {
-                          const webhooks = [...formData.webhooks];
-                          webhooks[idx] = { ...webhooks[idx], events: e.target.value.split(",").map(v => v.trim()).filter(Boolean) };
-                          setFormData({ ...formData, webhooks });
-                        }}
-                        placeholder="ticket.created, ticket.updated"
-                        className="mt-4 w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-2xl px-4 py-3 text-xs font-bold"
-                      />
+                      <div className="space-y-3">
+                        <label className="small-label dark:text-slate-400">Domain Authority (URL)</label>
+                        <input
+                          value={formData.domain}
+                          onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
+                          className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-6 py-4.5 text-xs font-black focus:border-indigo-500/50 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-800 dark:text-white shadow-inner"
+                          placeholder="alpha.enterprise.com"
+                          required
+                        />
+                      </div>
                     </div>
-                  ))}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div className="space-y-4">
+                      <label className="small-label dark:text-slate-400">Primary Color Vector</label>
+                      <div className="flex flex-wrap gap-3">
+                        {COLOR_PRESETS.map((preset) => (
+                          <button
+                            key={preset.name}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, primaryColor: preset.primary, accentColor: preset.accent })}
+                            className={`w-11 h-11 rounded-2xl border-[4px] transition-all hover:scale-110 active:scale-90 ${formData.primaryColor === preset.primary ? 'border-slate-900 dark:border-white scale-110 shadow-2xl' : 'border-transparent dark:border-white/5 shadow-sm'}`}
+                            style={{ backgroundColor: preset.primary }}
+                            title={preset.name}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-3">
+                        <label className="small-label dark:text-slate-400">Launcher Icon</label>
+                        <input
+                          value={formData.launcherIcon}
+                          onChange={(e) => setFormData({ ...formData, launcherIcon: e.target.value })}
+                          className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-6 py-4.5 text-xs font-black text-center"
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        <label className="small-label dark:text-slate-400">Status</label>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, isActive: !formData.isActive })}
+                          className={`w-full py-4.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all ${formData.isActive ? 'bg-emerald-50 text-emerald-600 border-2 border-emerald-200' : 'bg-rose-50 text-rose-600 border-2 border-rose-200'}`}
+                        >
+                          {formData.isActive ? "Active" : "Inactive"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="small-label dark:text-slate-400">Welcome Message Prompt</label>
+                    <textarea
+                      value={formData.welcomeMessage}
+                      onChange={(e) => setFormData({ ...formData, welcomeMessage: e.target.value })}
+                      rows={3}
+                      className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl p-6 text-xs font-bold focus:border-indigo-500/50 outline-none transition-all"
+                    />
+                  </div>
+
+                  <div className="pt-10 border-t border-slate-50 dark:border-white/5 space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <label className="small-label dark:text-slate-400 flex items-center gap-2">
+                          Enterprise Modules & Navigation Features
+                          {!isAdmin && (
+                            <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border border-amber-200 dark:border-amber-500/20">
+                              <Lock size={10} /> Superadmin Managed
+                            </span>
+                          )}
+                        </label>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">
+                          {isAdmin 
+                            ? "Enable or disable specific modules for this domain (e.g. Turn OFF UAE Compliance Suite for pure Product Sales clients)."
+                            : "SaaS Enterprise Module Entitlements are locked & configured by your Superadmin based on your subscription plan."
+                          }
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                      {[
+                        { key: "enableChat", label: "Live Chat Widget" },
+                        { key: "enableLeadGeneration", label: "Lead Gen (CRM)" },
+                        { key: "enableTicketing", label: "Helpdesk Tickets" },
+                        { key: "enableKnowledgeBase", label: "Help Center" },
+                        { module: "compliance", label: "UAE Compliance Suite (VAT)" },
+                        { module: "finance", label: "Finance & Invoicing" },
+                        { module: "operations", label: "Operations & Catalog" },
+                        { module: "service", label: "Service & Care Inbox" },
+                        { module: "automation", label: "Workflows & AI Platform" },
+                      ].map((feat) => {
+                        const isModule = !!feat.module;
+                        const isEnabled = isModule 
+                          ? (formData.enabledModules || []).includes(feat.module)
+                          : !!formData[feat.key];
+
+                        const isLockedForClient = isModule && !isAdmin;
+
+                        const toggleFunc = () => {
+                          if (isLockedForClient) return;
+                          if (isModule) {
+                            const current = formData.enabledModules || ["crm", "operations", "finance", "compliance", "service", "automation"];
+                            const next = current.includes(feat.module)
+                              ? current.filter(m => m !== feat.module)
+                              : [...current, feat.module];
+                            setFormData({ ...formData, enabledModules: next });
+                          } else {
+                            setFormData({ ...formData, [feat.key]: !formData[feat.key] });
+                          }
+                        };
+
+                        return (
+                          <button
+                            key={feat.key || feat.module}
+                            type="button"
+                            disabled={isLockedForClient}
+                            onClick={toggleFunc}
+                            className={`flex flex-col items-start gap-3 p-4 rounded-[20px] border-2 transition-all relative ${isLockedForClient ? 'cursor-not-allowed opacity-75' : 'hover:scale-[1.02]'} ${isEnabled ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-50 dark:bg-black/20 border-slate-100 dark:border-white/5 opacity-60'}`}
+                          >
+                            <div className="flex items-center justify-between w-full">
+                              <div className={`w-3 h-3 rounded-full ${isEnabled ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-300 dark:bg-slate-700'}`} />
+                              {isLockedForClient && <Lock size={12} className="text-slate-400" />}
+                            </div>
+                            <span className={`text-[10px] font-black uppercase tracking-widest ${isEnabled ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400'}`}>
+                              {feat.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="pt-10 border-t border-slate-50 dark:border-white/5 space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="small-label dark:text-slate-400">Webhooks</label>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Receive `ticket.created`, `ticket.updated`, `chat.closed`, and `chat.assigned` events.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, webhooks: [...(formData.webhooks || []), { url: "", secret: "", events: ["ticket.created"] }] })}
+                        className="bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest"
+                      >
+                        Add Webhook
+                      </button>
+                    </div>
+                    <div className="space-y-4">
+                      {(formData.webhooks || []).map((hook, idx) => (
+                        <div key={idx} className="rounded-[28px] border border-slate-100 p-5 dark:border-white/5">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <input
+                              value={hook.url}
+                              onChange={(e) => {
+                                const webhooks = [...formData.webhooks];
+                                webhooks[idx] = { ...webhooks[idx], url: e.target.value };
+                                setFormData({ ...formData, webhooks });
+                              }}
+                              placeholder="https://example.com/webhooks/support"
+                              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-2xl px-4 py-3 text-xs font-bold"
+                            />
+                            <input
+                              value={hook.secret || ""}
+                              onChange={(e) => {
+                                const webhooks = [...formData.webhooks];
+                                webhooks[idx] = { ...webhooks[idx], secret: e.target.value };
+                                setFormData({ ...formData, webhooks });
+                              }}
+                              placeholder="Signing secret"
+                              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-2xl px-4 py-3 text-xs font-bold"
+                            />
+                          </div>
+                          <input
+                            value={(hook.events || []).join(", ")}
+                            onChange={(e) => {
+                              const webhooks = [...formData.webhooks];
+                              webhooks[idx] = { ...webhooks[idx], events: e.target.value.split(",").map(v => v.trim()).filter(Boolean) };
+                              setFormData({ ...formData, webhooks });
+                            }}
+                            placeholder="ticket.created, ticket.updated"
+                            className="mt-4 w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-2xl px-4 py-3 text-xs font-bold"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="pt-10 border-t border-slate-50 dark:border-white/5">
+                    <button type="submit" className="w-full bg-slate-950 dark:bg-indigo-600 hover:bg-black dark:hover:bg-indigo-500 text-white font-black text-[11px] uppercase tracking-[0.4em] py-6 rounded-[24px] shadow-2xl transition-all hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-4">
+                      <Check size={20} />
+                      {editingId ? "Update Configuration" : "Finalize Ecosystem Deployment"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Right Segment: Live Preview */}
+                <div className="lg:col-span-5 h-[640px]">
+                  <PreviewWidget data={formData} />
                 </div>
               </div>
-
-              <div className="pt-10 border-t border-slate-50 dark:border-white/5">
-                <button type="submit" className="w-full bg-slate-950 dark:bg-indigo-600 hover:bg-black dark:hover:bg-indigo-500 text-white font-black text-[11px] uppercase tracking-[0.4em] py-6 rounded-[24px] shadow-2xl transition-all hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-4">
-                  <Check size={20} />
-                  {editingId ? "Update Configuration" : "Finalize Ecosystem Deployment"}
-                </button>
-              </div>
-            </div>
-
-            {/* Right Segment: Live Preview */}
-            <div className="lg:col-span-5 h-[640px]">
-              <PreviewWidget data={formData} />
-            </div>
+            </form>
           </div>
-        </form>
+        </div>,
+        document.body
       )}
 
       {error && (

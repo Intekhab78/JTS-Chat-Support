@@ -18,13 +18,16 @@ const planLimitsSchema = new mongoose.Schema({
 }, { _id: false });
 
 const subscriptionSchema = new mongoose.Schema({
-  plan: { type: String, enum: ["basic", "standard", "pro"], default: "pro" },
+  plan: { type: String, enum: ["basic", "standard", "pro", "enterprise"], default: "pro" },
   status: { type: String, enum: ["trial", "active", "suspended", "expired"], default: "active" },
   enabledModules: {
     type: [String],
     default: ["chat", "tickets", "crm", "shortcuts", "reports", "security"]
   },
   limits: { type: planLimitsSchema, default: () => ({}) },
+  offerCode: { type: String, default: "" },
+  discountPercentage: { type: Number, default: 0 },
+  specialNotes: { type: String, default: "" },
   expiresAt: { type: Date, default: null }
 }, { _id: false });
 

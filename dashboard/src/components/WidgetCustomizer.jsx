@@ -15,7 +15,7 @@ export default function WidgetCustomizer({ website, onUpdate }) {
   async function handleSave() {
     setSaving(true);
     try {
-      const updated = await api(`/api/websites/${website._id}/widget-config`, {
+      const updated = await api(`/api/websites/${website._id}`, {
         method: "PATCH",
         body: JSON.stringify(config),
       });

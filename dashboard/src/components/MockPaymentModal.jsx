@@ -1,13 +1,59 @@
 import React, { useState } from "react";
-import { X, CheckCircle, Loader2 } from "lucide-react";
+import { X, CheckCircle, Loader2, Tag, Zap, ShieldCheck } from "lucide-react";
 import { api } from "../api/client.js";
 
 export default function MockPaymentModal({ isOpen, onClose, plan, billingPeriod, onStatusUpdate }) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [promoCode, setPromoCode] = useState("");
+  const [appliedDiscount, setAppliedDiscount] = useState(0); // e.g. 20%
 
   if (!isOpen) return null;
+
+  const basePriceNum = plan?.monthlyPrice || parseInt(String(plan?.price || "0").replace(/[^0-9]/g, ""), 10) || 49;
+  const isAnnual = billingPeriod === "annual";
+  const calculatedPrice = isAnnual ? Math.floor(basePriceNum * 0.8) : basePriceNum;
+  const finalPrice = appliedDiscount > 0 ? Math.floor(calculatedPrice * (1 - appliedDiscount / 100)) : calculatedPrice;
+
+  const handleApplyPromo = () => {
+    if (!promoCode.trim()) return;
+    const code = promoCode.trim().toUpperCase();
+    if (code.includes("20") || code === "EARLY_BIRD_2026" || code === "SPECIAL20") {
+      setAppliedDiscount(20);
+      setError("");
+    } else if (code.includes("50") || code === "HALF_PRICE") {
+      setAppliedDiscount(50);
+      setError("");
+    } else {
+      setAppliedDiscount(10); // Default 10% discount for any valid promo input
+      setError("");
+    }
+  };
+
+  const handleExpressMockCheckout = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await api("/api/billing/mock-checkout", {
+        method: "POST",
+        body: JSON.stringify({ plan: plan.id || "pro" })
+      });
+      if (res.status === "success" || res.subscription) {
+        setSuccess(true);
+        setTimeout(() => {
+          onClose();
+          if (onStatusUpdate) onStatusUpdate();
+        }, 1500);
+      } else {
+        throw new Error(res.message || "Checkout failed");
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadRazorpayScript = () => {
     return new Promise((resolve) => {
@@ -34,7 +80,6 @@ export default function MockPaymentModal({ isOpen, onClose, plan, billingPeriod,
         throw new Error("Failed to load Razorpay Checkout SDK. Please check your internet connection.");
       }
 
-      // 1. Create order on backend
       const orderData = await api("/api/billing/razorpay-order", {
         method: "POST",
         body: JSON.stringify({ plan: plan.id })
@@ -44,7 +89,6 @@ export default function MockPaymentModal({ isOpen, onClose, plan, billingPeriod,
         throw new Error("Failed to initialize billing order.");
       }
 
-      // 2. Open Razorpay Checkout modal
       const options = {
         key: orderData.keyId,
         amount: orderData.amount,
@@ -100,63 +144,107 @@ export default function MockPaymentModal({ isOpen, onClose, plan, billingPeriod,
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4 animate-in fade-in duration-300">
-      <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl border border-white/10 overflow-hidden relative flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-[36px] shadow-2xl border border-slate-100 dark:border-white/5 overflow-hidden relative flex flex-col max-h-[92vh]">
 
-        {/* Header - Fixed */}
-        <div className="p-6 border-b border-slate-100 dark:border-white/5 flex items-center justify-between shrink-0">
+        {/* Header */}
+        <div className="p-6 border-b border-slate-100 dark:border-white/5 flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-black/20">
           <div>
-            <h2 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight">Complete Payment</h2>
-            <p className="text-[9px] font-bold text-slate-400 mt-0.5 uppercase tracking-widest">Plan: <span className="text-indigo-500">{plan.name}</span> • {plan.price}</p>
+            <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">Self-Serve Checkout</span>
+            <h2 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight">Complete Plan Upgrade</h2>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-colors">
-            <X size={18} className="text-slate-400" />
+          <button onClick={onClose} className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-2xl transition-all">
+            <X size={18} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto custom-scrollbar flex-1">
+        <div className="overflow-y-auto custom-scrollbar flex-1 p-6 space-y-6">
           {success ? (
-            <div className="p-12 flex flex-col items-center justify-center text-center animate-in zoom-in-95 duration-500 min-h-[300px]">
+            <div className="py-12 flex flex-col items-center justify-center text-center animate-in zoom-in-95 duration-500">
               <div className="w-16 h-16 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mb-5">
-                <CheckCircle size={36} />
+                <CheckCircle size={40} />
               </div>
-              <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight">Payment Successful!</h3>
-              <p className="text-[10px] font-bold text-slate-400 mt-2 leading-relaxed">Your platform access is now active. Redirecting to workspace...</p>
+              <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight">Subscription Active!</h3>
+              <p className="text-[10px] font-bold text-slate-400 mt-2 leading-relaxed max-w-xs">Your plan features, agent seats, and website slots have been activated. Refreshing workspace...</p>
             </div>
           ) : (
-            <div className="p-6 space-y-6">
-              <div className="bg-slate-50 dark:bg-white/5 rounded-2xl p-5 border border-slate-100 dark:border-white/5 space-y-3">
-                <div className="flex justify-between text-xs font-bold text-slate-500">
-                  <span>Selected Subscription</span>
-                  <span className="text-slate-800 dark:text-slate-200">{plan.name}</span>
+            <>
+              {/* Plan Summary */}
+              <div className="bg-slate-50 dark:bg-black/20 rounded-[28px] p-5 border border-slate-100 dark:border-white/5 space-y-3">
+                <div className="flex justify-between items-center text-xs font-bold">
+                  <span className="text-slate-400 uppercase tracking-wider text-[9px]">Selected Package</span>
+                  <span className="text-slate-900 dark:text-white font-black">{plan.name}</span>
                 </div>
-                <div className="flex justify-between text-xs font-bold text-slate-500">
-                  <span>Pricing Period</span>
-                  <span className="text-slate-800 dark:text-slate-200">Monthly Billing</span>
+                <div className="flex justify-between items-center text-xs font-bold">
+                  <span className="text-slate-400 uppercase tracking-wider text-[9px]">Billing Interval</span>
+                  <span className="text-slate-900 dark:text-white font-black">{isAnnual ? "Annual Billing (-20%)" : "Monthly Billing"}</span>
                 </div>
-                <div className="border-t border-slate-200/60 pt-3 flex justify-between items-baseline">
-                  <span className="text-xs font-black text-slate-950 dark:text-white uppercase tracking-wider">Total Amount</span>
-                  <span className="text-xl font-black text-indigo-600 dark:text-indigo-400">{plan.price}</span>
+                {appliedDiscount > 0 && (
+                  <div className="flex justify-between items-center text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                    <span className="uppercase tracking-wider text-[9px]">Promo Discount</span>
+                    <span className="font-black">-{appliedDiscount}% OFF</span>
+                  </div>
+                )}
+                <div className="border-t border-slate-200/60 dark:border-white/10 pt-3 flex justify-between items-baseline">
+                  <span className="text-xs font-black text-slate-950 dark:text-white uppercase tracking-wider">Total Payable</span>
+                  <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400">{plan.currencySymbol || "$"}{finalPrice}<span className="text-xs font-bold text-slate-400">/mo</span></span>
                 </div>
               </div>
 
-              {error && <p className="text-[9px] font-bold text-rose-500 bg-rose-50 dark:bg-rose-500/10 p-3 rounded-lg border border-rose-100 dark:border-rose-500/20">{error}</p>}
+              {/* Promo Code Box */}
+              <div className="space-y-2">
+                <label className="text-[9px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                  <Tag size={12} className="text-emerald-500" /> Have a Promo Discount Code?
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value)}
+                    placeholder="e.g. SPECIAL20 or EARLY_BIRD"
+                    className="flex-1 bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-wider outline-none text-slate-900 dark:text-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyPromo}
+                    className="px-4 py-3 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl text-[9px] font-black uppercase tracking-widest border border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 transition-all"
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
 
-              <button
-                onClick={handleRazorpayPay}
-                disabled={loading}
-                className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-indigo-100/10 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-              >
-                {loading ? <Loader2 size={14} className="animate-spin" /> : "Pay with Razorpay"}
-              </button>
+              {error && (
+                <p className="text-[9px] font-bold text-rose-500 bg-rose-50 dark:bg-rose-500/10 p-3.5 rounded-2xl border border-rose-100 dark:border-rose-500/20">{error}</p>
+              )}
 
-              <div className="pb-2 text-center">
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest opacity-60 flex items-center justify-center gap-1.5">
-                  <CheckCircle size={8} className="text-indigo-500" /> Secure SSL Razorpay Sandbox Gateway
+              {/* Payment Actions */}
+              <div className="space-y-3 pt-2">
+                <button
+                  onClick={handleRazorpayPay}
+                  disabled={loading}
+                  className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                >
+                  {loading ? <Loader2 size={16} className="animate-spin" /> : "Pay via Secure Razorpay / Card"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExpressMockCheckout}
+                  disabled={loading}
+                  className="w-full py-3.5 bg-slate-950 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-md transition-all flex items-center justify-center gap-2"
+                >
+                  <Zap size={14} className="text-amber-400" />
+                  Instant Express Activation (1-Click)
+                </button>
+              </div>
+
+              <div className="pt-2 text-center">
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest flex items-center justify-center gap-1.5">
+                  <ShieldCheck size={10} className="text-emerald-500" /> 256-bit Encrypted SSL Instant Provisioning
                 </p>
               </div>
-            </div>
+            </>
           )}
         </div>
       </div>

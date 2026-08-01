@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   TrendingUp, LayoutGrid, List, UserCheck, Clock, AlertCircle,
   Shield, UserPlus, Zap, CheckCircle2, Search, Plus, Download,
@@ -210,7 +210,17 @@ export default function CrmContainer({
   const [recordCategoryTab, setRecordCategoryTab] = useState("all");
   const [workspaceTab, setWorkspaceTab] = useState(user?.role === "tax_consultant" ? "vat" : "dashboard");
 
-  const filteredCrmGroups = crmGroups;
+  // Dynamic module filtering per website/client configuration
+  const filteredCrmGroups = useMemo(() => {
+    const currentWebsite = websites.find(w => w._id === websiteId || w.domain === websiteId);
+    const enabledModules = currentWebsite?.enabledModules;
+
+    if (!enabledModules || !Array.isArray(enabledModules) || enabledModules.length === 0) {
+      return crmGroups; // Default: show all modules if no restriction is set
+    }
+
+    return crmGroups.filter(group => enabledModules.includes(group.id));
+  }, [websites, websiteId]);
 
   const activeGroup = filteredCrmGroups.find(group => group.items.some(item => item.id === workspaceTab)) || filteredCrmGroups[0];
   const handleGroupClick = (group) => {

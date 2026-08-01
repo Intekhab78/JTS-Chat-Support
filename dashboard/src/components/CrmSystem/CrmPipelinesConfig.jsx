@@ -265,6 +265,61 @@ export default function CrmPipelinesConfig({ websiteId }) {
         </div>
       )}
 
+      {/* ── CLIENT MODULE & FEATURE ENTITLEMENTS (METHOD 1) ─────────────── */}
+      <div className="bg-white border border-slate-200/80 rounded-[32px] p-6 md:p-8 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-100 pb-4 gap-3">
+          <div>
+            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-indigo-600">Client Customization</span>
+            <h4 className="text-sm font-black text-slate-900 uppercase tracking-wider mt-0.5">Website Module & Feature Entitlements</h4>
+            <p className="text-[10px] font-bold text-slate-400 mt-0.5">Toggle enabled modules for this client (Hide VAT Compliance or Finance if client only needs Sales CRM)</p>
+          </div>
+          <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
+            Feature Flag Manager
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <ModuleToggleCard
+            id="crm"
+            title="CRM & Sales"
+            desc="Leads, Contacts, Companies, Deals, Calendar, Tasks"
+            enabled={true}
+            locked={true}
+          />
+          <ModuleToggleCard
+            id="operations"
+            title="Operations & Catalog"
+            desc="Products, Service Catalog, Quotations, Sales Orders"
+            enabled={true}
+          />
+          <ModuleToggleCard
+            id="finance"
+            title="Finance & Billing"
+            desc="Financial P&L Center, Subscriptions, Invoices, Payments Ledger"
+            enabled={true}
+          />
+          <ModuleToggleCard
+            id="compliance"
+            title="UAE Compliance Suite"
+            desc="VAT Filing Audit, Corporate Tax, Trade License Expiry Reports"
+            enabled={false}
+            badgeText="Optional / VAT Clients Only"
+          />
+          <ModuleToggleCard
+            id="service"
+            title="Service & Customer Care"
+            desc="Unified Omnichannel Inbox, Canned Replies, Helpdesk, CSAT"
+            enabled={true}
+          />
+          <ModuleToggleCard
+            id="automation"
+            title="Workflows & AI Platform"
+            desc="Automated Workflows, Workflow Logs, AI Agent, BI Analytics"
+            enabled={true}
+          />
+        </div>
+      </div>
+
       {/* Create Pipeline Modal */}
       {showModal && createPortal(
         <div className="fixed inset-0 z-[9999] p-4 sm:p-6 flex items-center justify-center pointer-events-none">
@@ -327,6 +382,36 @@ export default function CrmPipelinesConfig({ websiteId }) {
           </div>
         </div>,
         document.body
+      )}
+    </div>
+  );
+}
+
+function ModuleToggleCard({ id, title, desc, enabled: initialEnabled, locked = false, badgeText }) {
+  const [enabled, setEnabled] = useState(initialEnabled);
+
+  return (
+    <div className={`p-5 rounded-[24px] border transition-all flex flex-col justify-between space-y-3 ${enabled ? "bg-slate-50/50 border-slate-200" : "bg-slate-100/40 border-slate-200/50 opacity-60"}`}>
+      <div className="flex items-start justify-between">
+        <div>
+          <h5 className="text-xs font-black text-slate-900">{title}</h5>
+          <p className="text-[9px] font-bold text-slate-400 mt-1 leading-relaxed">{desc}</p>
+        </div>
+        {locked ? (
+          <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-slate-200 text-slate-600 rounded-md">Required</span>
+        ) : (
+          <button
+            onClick={() => setEnabled(!enabled)}
+            className={`w-10 h-5 flex items-center rounded-full p-1 transition-colors ${enabled ? "bg-indigo-600 justify-end" : "bg-slate-300 justify-start"}`}
+          >
+            <span className="w-3.5 h-3.5 bg-white rounded-full shadow-md" />
+          </button>
+        )}
+      </div>
+      {badgeText && (
+        <span className="text-[8px] font-black uppercase text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 w-fit">
+          {badgeText}
+        </span>
       )}
     </div>
   );

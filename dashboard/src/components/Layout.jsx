@@ -912,6 +912,20 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
 
         {/* ── Page Content ─────────────────────────── */}
         <main className="flex-1 overflow-y-auto custom-scrollbar">
+          {user?.subscription?.status === "expired" && (
+            <div className="bg-rose-600 text-white px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl animate-in slide-in-from-top-4 duration-500 border-b border-rose-700">
+              <div className="flex items-center gap-3">
+                <AlertTriangle size={20} className="shrink-0 animate-pulse text-amber-300" />
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wider">SUBSCRIPTION EXPIRED</p>
+                  <p className="text-[11px] font-bold text-rose-100 mt-0.5">Your subscription has expired. Renew your plan package to maintain uninterrupted access to enterprise modules & live widgets.</p>
+                </div>
+              </div>
+              <a href="/client?tab=billing" className="px-5 py-2.5 bg-white text-rose-600 hover:bg-rose-50 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md shrink-0">
+                Renew Subscription Now
+              </a>
+            </div>
+          )}
           <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto animate-fade-in">
             {children}
           </div>

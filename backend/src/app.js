@@ -26,6 +26,7 @@ import razorpayWebhookRoutes from "./routes/razorpayWebhookRoutes.js";
 import whatsappWebhookRoutes from "./routes/whatsappWebhookRoutes.js";
 import flowRoutes from "./routes/flowRoutes.js";
 import billingRoutes from "./routes/billingRoutes.js";
+import subscriptionPlanRoutes from "./routes/subscriptionPlanRoutes.js";
 import trackingRoutes from "./routes/trackingRoutes.js";
 import roleRoutes from "./routes/roleRoutes.js";
 import helpRoutes from "./routes/helpRoutes.js";
@@ -204,6 +205,7 @@ export function createApp() {
   app.use("/api/webhooks", webhookRoutes);
   app.use("/api/flows", flowRoutes);
   app.use("/api/billing", billingRoutes);
+  app.use("/api/subscription-plans", subscriptionPlanRoutes);
   app.use("/api/tracking", trackingRoutes);
   app.use("/api/roles", roleRoutes);
   app.use("/api/inventory", inventoryRoutes);

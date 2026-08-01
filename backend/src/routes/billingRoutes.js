@@ -4,6 +4,7 @@ import {
   createPortalSession, 
   getSubscriptionStatus, 
   adminGetAllSubscriptions,
+  adminUpdateClientSubscription,
   executeMockCheckout,
   createRazorpaySubscriptionOrder,
   verifyRazorpaySubscriptionPayment
@@ -16,6 +17,7 @@ router.use(requireAuth);
 
 router.get("/status", getSubscriptionStatus);
 router.get("/admin/all", adminGetAllSubscriptions);
+router.patch("/admin/update", adminUpdateClientSubscription);
 router.post("/checkout", createCheckoutSession);
 router.post("/mock-checkout", executeMockCheckout);
 router.post("/razorpay-order", createRazorpaySubscriptionOrder);
