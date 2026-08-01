@@ -1253,6 +1253,8 @@ export default function CrmContainer({
 
           <CrmReportsView
             summary={summary}
+            customers={customers}
+            websiteId={websiteId}
             onDrillDown={onDrillDown}
             activeRange={activeRange}
             setActiveRange={setActiveRange}
@@ -1474,6 +1476,7 @@ export default function CrmContainer({
               pagination={pagination}
               leadView={leadView}
               openCustomer={openCustomer}
+              onOpen360={(cId) => setActiveCustomer360Id(cId)}
               selectedIds={selectedIds}
               toggleSelection={toggleSelection}
               clearSelection={() => setSelectedIds([])}

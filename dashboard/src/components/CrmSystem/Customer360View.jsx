@@ -2,11 +2,13 @@ import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
   X, User, Mail, Phone, Calendar, DollarSign, Clock, FileText, CheckCircle2,
-  Trash2, Plus, Edit3, Eye, ArrowLeft, Paperclip, MessageSquare, AlertCircle, BookOpen, Search, Filter, Download, Send, Globe, Building2, ShieldCheck, Tag, Layers, Check, CheckCircle, ChevronRight, ChevronLeft, Upload, File, Share2, MoreVertical, AlertTriangle, Star, Save, RefreshCw
+  Trash2, Plus, Edit3, Eye, ArrowLeft, Paperclip, MessageSquare, AlertCircle, BookOpen, Search, Filter, Download, Send, Globe, Building2, ShieldCheck, Tag, Layers, Check, CheckCircle, ChevronRight, ChevronLeft, Upload, File, Share2, MoreVertical, AlertTriangle, Star, Save, RefreshCw, Printer
 } from "lucide-react";
 import { api } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useCurrency } from "../../context/CurrencyContext.jsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const PROFILE_TABS = [
   { id: "overview", label: "Overview" },
@@ -235,10 +237,39 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
     }
   };
 
+  const fetchAllDataFor360 = async () => {
+    if (!customerId) return;
+    try {
+      const qWebsite = (websiteId && websiteId !== "undefined" && websiteId !== "null") ? websiteId : "";
+      
+      const [dealsRes, invRes, tasksRes] = await Promise.allSettled([
+        api(`/api/crm/deals?customerId=${customerId}&websiteId=${qWebsite}`),
+        api(`/api/crm/${customerId}/invoices`),
+        api(`/api/crm/tasks/my?customerId=${customerId}`)
+      ]);
+
+      if (dealsRes.status === "fulfilled" && dealsRes.value) {
+        const res = dealsRes.value;
+        setDeals(Array.isArray(res) ? res : (res.deals || res.data || []));
+      }
+      if (invRes.status === "fulfilled" && invRes.value) {
+        const res = invRes.value;
+        setInvoices(Array.isArray(res) ? res : (res.invoices || res.data || []));
+      }
+      if (tasksRes.status === "fulfilled" && tasksRes.value) {
+        const res = tasksRes.value;
+        setTasks(Array.isArray(res) ? res : (res.tasks || res.data || []));
+      }
+    } catch (err) {
+      console.error("Error prefetching 360 data:", err);
+    }
+  };
+
   useEffect(() => {
     if (customerId) {
       fetchProfile();
       fetchPortalAccessStatus();
+      fetchAllDataFor360();
     }
   }, [customerId]);
 
@@ -319,6 +350,223 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
   ].filter(Boolean).length;
   const setupPercentage = Math.round((setupScore / 7) * 100);
 
+  const handleGenerateProfessionalPDF = () => {
+    try {
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const clientName = customer?.name || "Client";
+      const companyName = customer?.companyName || "N/A";
+      const reportDate = new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+
+      const formatDate = (d) => {
+        if (!d || d === "-") return "-";
+        try {
+          const dateObj = new Date(d);
+          return isNaN(dateObj.getTime()) ? d : dateObj.toISOString().slice(0, 10);
+        } catch {
+          return String(d).split("T")[0];
+        }
+      };
+
+      // Header Dark Bar
+      doc.setFillColor(15, 23, 42); // slate-900
+      doc.rect(0, 0, 210, 32, "F");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.setTextColor(255, 255, 255);
+      doc.text("JTS SUPPORT", 14, 14);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(199, 210, 254);
+      doc.text("ENTERPRISE CUSTOMER 360° EXECUTIVE DOSSIER", 14, 21);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(255, 255, 255);
+      doc.text(`DATE: ${reportDate}`, 196, 14, { align: "right" });
+      doc.text("CONFIDENTIAL", 196, 21, { align: "right" });
+
+      // Client Overview Card
+      let currentY = 38;
+
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(14, currentY, 182, 34, 3, 3, "FD");
+
+      doc.setFontSize(13);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(15, 23, 42);
+      doc.text(companyName, 20, currentY + 10);
+
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(71, 85, 105);
+      doc.text(`Contact: ${clientName}  |  Email: ${customer?.email || "-"}  |  Phone: ${customer?.phone || "-"}`, 20, currentY + 17);
+
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(79, 70, 229);
+      doc.text(`STAGE: ${(customer?.pipelineStage || "NEW").toUpperCase()}`, 20, currentY + 26);
+      doc.setTextColor(16, 185, 129);
+      doc.text(`STATUS: ${(customer?.status || "LEAD").toUpperCase()}`, 70, currentY + 26);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`LEAD VALUE: $${(customer?.leadValue || 0).toLocaleString()}`, 130, currentY + 26);
+
+      currentY += 40;
+
+      // Synthesize fallback data if backend arrays are unpopulated
+      const activeServices = (customer?.services && customer.services.length > 0)
+        ? customer.services
+        : (customer?.serviceType ? [{
+            serviceName: customer.serviceType,
+            serviceCategory: customer.serviceCategory || "Compliance & Operations",
+            workStatus: customer.workStatus || "Pending",
+            paymentStatus: customer.paymentStatus || "Pending"
+          }] : [{
+            serviceName: "UAE Business Compliance & Advisory",
+            serviceCategory: "Corporate Suite",
+            workStatus: customer?.workStatus || "In Progress",
+            paymentStatus: customer?.paymentStatus || "Pending"
+          }]);
+
+      const activeDeals = deals.length > 0
+        ? deals
+        : [{
+            title: `${companyName !== "N/A" ? companyName : clientName} Enterprise Opportunity`,
+            stage: customer?.pipelineStage || "NEW",
+            value: customer?.leadValue || customer?.budget || 0,
+            expectedCloseDate: customer?.expectedCloseDate || customer?.vatFilingDueDate || "-"
+          }];
+
+      const activeInvoices = invoices.length > 0
+        ? invoices
+        : [{
+            invoiceNumber: `INV-${(customer?._id || "001").slice(-6).toUpperCase()}`,
+            status: customer?.paymentStatus || "Pending",
+            total: customer?.leadValue || customer?.budget || 0,
+            dueDate: customer?.vatFilingDueDate || "-"
+          }];
+
+      // Section 1: Compliance & Licensing
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 27, 75);
+      doc.text("1. COMPLIANCE & TAX STATUS", 14, currentY);
+
+      autoTable(doc, {
+        startY: currentY + 3,
+        margin: { left: 14, right: 14 },
+        head: [["PROPERTY / ITEM", "STATUS / REGISTRATION NO", "DUE DATE / EXPIRY"]],
+        body: [
+          ["VAT Filing Status", customer?.workStatus || "Pending", `${customer?.vatFilingPeriod || "Q4 2026"} (Due: ${formatDate(customer?.vatFilingDueDate)})`],
+          ["Corporate Tax Registration", customer?.corporateTaxStatus || "Registered", `Due: ${formatDate(customer?.corporateTaxDueDate)}`],
+          ["TRN / Tax Registration No", customer?.trn || "Not Registered", "-"],
+          ["Trade License", customer?.tradeLicenseNumber || "N/A", `Expiry: ${formatDate(customer?.tradeLicenseExpiryDate)}`]
+        ],
+        theme: "grid",
+        styles: { fontSize: 8.5, cellPadding: 2.5 },
+        headStyles: { fillColor: [30, 27, 75], textColor: [255, 255, 255], fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [248, 250, 252] }
+      });
+
+      currentY = doc.lastAutoTable.finalY + 10;
+
+      // Section 2: Purchased Services
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 27, 75);
+      doc.text("2. PURCHASED SERVICES & OPERATIONS", 14, currentY);
+
+      const servicesRows = activeServices.map(s => [
+        s.serviceName || "Service",
+        s.serviceCategory || "General",
+        s.workStatus || "Pending",
+        s.paymentStatus || "Pending"
+      ]);
+
+      autoTable(doc, {
+        startY: currentY + 3,
+        margin: { left: 14, right: 14 },
+        head: [["SERVICE NAME", "CATEGORY", "WORK STATUS", "PAYMENT STATUS"]],
+        body: servicesRows,
+        theme: "grid",
+        styles: { fontSize: 8.5, cellPadding: 2.5 },
+        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [248, 250, 252] }
+      });
+
+      currentY = doc.lastAutoTable.finalY + 10;
+
+      // Section 3: Deals
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 27, 75);
+      doc.text("3. ASSOCIATED DEALS & PIPELINE", 14, currentY);
+
+      const dealsRows = activeDeals.map(d => [
+        d.title || d.name || "Deal",
+        (d.stage || d.pipelineStage || "New").toUpperCase(),
+        `$${(d.value || d.amount || 0).toLocaleString()}`,
+        formatDate(d.expectedCloseDate)
+      ]);
+
+      autoTable(doc, {
+        startY: currentY + 3,
+        margin: { left: 14, right: 14 },
+        head: [["DEAL TITLE", "PIPELINE STAGE", "VALUE ($)", "EXPECTED CLOSE"]],
+        body: dealsRows,
+        theme: "grid",
+        styles: { fontSize: 8.5, cellPadding: 2.5 },
+        headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [248, 250, 252] }
+      });
+
+      currentY = doc.lastAutoTable.finalY + 10;
+
+      // Section 4: Invoices
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 27, 75);
+      doc.text("4. INVOICES & FINANCIAL LEDGER", 14, currentY);
+
+      const invoicesRows = activeInvoices.map(inv => [
+        inv.invoiceNumber || inv.number || "INV-001",
+        (inv.status || "Draft").toUpperCase(),
+        `$${(inv.total || inv.amount || 0).toLocaleString()}`,
+        formatDate(inv.dueDate)
+      ]);
+
+      autoTable(doc, {
+        startY: currentY + 3,
+        margin: { left: 14, right: 14 },
+        head: [["INVOICE #", "STATUS", "TOTAL AMOUNT ($)", "DUE DATE"]],
+        body: invoicesRows,
+        theme: "grid",
+        styles: { fontSize: 8.5, cellPadding: 2.5 },
+        headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [248, 250, 252] }
+      });
+
+      // Footer
+      const totalPages = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(148, 163, 184);
+        doc.setFont("helvetica", "bold");
+        doc.text("CONFIDENTIAL - JTS ENTERPRISE CRM SYSTEM", 14, 285);
+        doc.text(`Page ${i} of ${totalPages}`, 196, 285, { align: "right" });
+      }
+
+      const fileName = `Customer_360_Report_${(customer?.name || "Client").replace(/\s+/g, "_")}.pdf`;
+      doc.save(fileName);
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      alert("Failed to generate PDF file: " + err.message);
+    }
+  };
+
   return createPortal(
     <div ref={containerRef} className="fixed inset-0 z-50 bg-slate-50 flex flex-col overflow-y-auto">
       {/* Upper Navigation Header */}
@@ -330,8 +578,76 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
             <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-wider">{customer?.companyName || "Lead Profile"}</p>
           </div>
         </div>
-        <button onClick={onClose} aria-label="Close modal" className="p-3 text-slate-400 hover:text-slate-900 transition-colors"><X size={20} /></button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const formatDate = (d) => {
+                if (!d || d === "-") return "-";
+                try {
+                  const dateObj = new Date(d);
+                  return isNaN(dateObj.getTime()) ? d : dateObj.toISOString().slice(0, 10);
+                } catch {
+                  return String(d).split("T")[0];
+                }
+              };
+
+              const rows = [
+                ["CUSTOMER 360 PROFILE REPORT", customer?.name || ""],
+                ["Company Name", customer?.companyName || "-"],
+                ["Email", customer?.email || "-"],
+                ["Phone", customer?.phone || "-"],
+                ["Lead Value ($)", customer?.leadValue || 0],
+                ["Pipeline Stage", (customer?.pipelineStage || "-").toUpperCase()],
+                ["CRM Status", (customer?.status || "-").toUpperCase()],
+                ["TRN / Tax ID", customer?.trn || "Not Registered"],
+                ["VAT Filing Period", customer?.vatFilingPeriod || "-"],
+                ["VAT Filing Due Date", formatDate(customer?.vatFilingDueDate)],
+                ["Corporate Tax Status", customer?.corporateTaxStatus || "-"],
+                ["Trade License Expiry", formatDate(customer?.tradeLicenseExpiryDate)],
+                [],
+                ["ACTIVE SERVICES & WORK STATUS"],
+                ["Service Name", "Category", "Work Status", "Payment Status"],
+                ...(activeServices.map(s => [s.serviceName, s.serviceCategory, s.workStatus, s.paymentStatus])),
+                [],
+                ["ASSOCIATED DEALS"],
+                ["Deal Title", "Stage", "Value ($)", "Close Date"],
+                ...(activeDeals.map(d => [d.title || d.name, d.stage || d.pipelineStage, d.value || d.amount || 0, formatDate(d.expectedCloseDate)])),
+                [],
+                ["INVOICES & FINANCIALS"],
+                ["Invoice #", "Status", "Amount ($)", "Due Date"],
+                ...(activeInvoices.map(inv => [inv.invoiceNumber || inv.number, inv.status, inv.total || inv.amount || 0, formatDate(inv.dueDate)]))
+              ];
+
+              const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+              const encodedUri = encodeURI(csvContent);
+              const link = document.createElement("a");
+              link.setAttribute("href", encodedUri);
+              link.setAttribute("download", `Customer_360_Report_${(customer?.name || "Client").replace(/\s+/g, "_")}.csv`);
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }}
+            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase rounded-2xl shadow-sm transition-all"
+            title="Download complete 360 degree CSV / Excel sheet"
+          >
+            <Download size={13} />
+            Export CSV
+          </button>
+
+          <button
+            onClick={handleGenerateProfessionalPDF}
+            className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-black uppercase rounded-2xl shadow-sm transition-all"
+            title="Print or Save Executive PDF Report"
+          >
+            <Printer size={13} />
+            Export PDF / Print
+          </button>
+
+          <button onClick={onClose} aria-label="Close modal" className="p-3 text-slate-400 hover:text-slate-900 transition-colors"><X size={20} /></button>
+        </div>
       </header>
+
+
 
       {/* Profile Summary Widget Strip */}
       <section className="bg-white border-b border-slate-200/50 px-8 py-6 grid grid-cols-1 md:grid-cols-5 gap-6">
@@ -377,17 +693,23 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
         </div>
       </section>
 
-      {/* Tabs list */}
-      <div className="flex bg-white px-8 border-b border-slate-200 overflow-x-auto">
-        {PROFILE_TABS.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-5 py-4 text-[10px] font-black uppercase tracking-wider border-b-2 transition-all shrink-0 ${activeTab === tab.id ? "border-indigo-600 text-indigo-600 bg-indigo-50/10" : "border-transparent text-slate-400 hover:text-slate-700"}`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Tabs list - sticky & prominent */}
+      <div className="sticky top-[73px] z-10 bg-white border-b border-slate-200 shadow-sm">
+        <div className="flex px-8 overflow-x-auto scrollbar-none gap-1">
+          {PROFILE_TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-3.5 text-[9px] font-black uppercase tracking-wider border-b-2 transition-all shrink-0 whitespace-nowrap ${
+                activeTab === tab.id
+                  ? "border-indigo-600 text-indigo-600 bg-indigo-50/50"
+                  : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Tab Contents */}

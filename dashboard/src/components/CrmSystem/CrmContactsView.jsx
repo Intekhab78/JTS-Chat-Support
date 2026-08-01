@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Search, UserPlus, Grid, List, Mail, Phone, Building, Trash2, Edit3, X, Check, Eye, Users, ChevronRight, MessageSquare, Briefcase, ShieldCheck } from "lucide-react";
+import { Search, UserPlus, Grid, List, Mail, Phone, Building, Trash2, Edit3, X, Check, Eye, Users, ChevronRight, MessageSquare, Briefcase, ShieldCheck, Download } from "lucide-react";
 import { api } from "../../api/client.js";
 import ConfirmModal from "../ConfirmModal.jsx";
 
@@ -215,15 +215,68 @@ export default function CrmContactsView({ websiteId }) {
     );
   };
 
+  // ── Bulk Export All Customers CSV ──────────────────────────────────
+  const handleExportAllCSV = () => {
+    const exportList = search.trim() !== "" || companyFilter !== "all" ? filteredContacts : contacts;
+    const headers = [
+      "Full Name", "Company", "Email", "Phone / WhatsApp",
+      "Job Title", "Department", "Lead Stage", "CRM Status",
+      "Plan / Service", "Assigned To", "Created Date"
+    ];
+    const rows = exportList.map(c => [
+      `"${(c.displayName || `${c.firstName || ""} ${c.lastName || ""}`).trim()}"`,
+      `"${c.companyId?.companyName || c.companyName || "-"}"`,
+      `"${c.email || "-"}"`,
+      `"${c.phones?.[0]?.phone || c.phone || c.whatsApp || "-"}"`,
+      `"${c.jobTitle || "-"}"`,
+      `"${c.department || "-"}"`,
+      `"${c.stage || c.leadStage || "-"}"`,
+      `"${c.status || c.crmStatus || "-"}"`,
+      `"${c.plan || c.servicePlan || "-"}"`,
+      `"${c.assignedTo?.name || c.assignedToName || "-"}"`,
+      `"${c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "-"}"`
+    ]);
+
+    const csvContent = [
+      `All Customers Report - ${new Date().toLocaleDateString()}`,
+      `Total Records: ${exportList.length}`,
+      "",
+      headers.join(","),
+      ...rows.map(r => r.join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `All_Customers_Report_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Bar */}
-      <div className="flex justify-between items-center border-b pb-3 border-slate-100">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b pb-3 border-slate-100">
         <div>
-          <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Contacts & Accounts Management</h3>
+          <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Contacts &amp; Accounts Management</h3>
           <p className="text-[10px] font-bold text-slate-400 mt-0.5">Manage customer directory, key decision makers, and corporate profiles</p>
         </div>
-        <span className="text-[10px] font-black text-indigo-500 uppercase tracking-wide">CRM Directory</span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportAllCSV}
+            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase rounded-2xl shadow-sm transition-all"
+            title="Download all customers as CSV/Excel"
+          >
+            <Download size={13} />
+            Export All Customers
+          </button>
+          {selectedIds.length > 0 && (
+            <span className="text-[10px] font-bold text-indigo-600">{selectedIds.length} selected</span>
+          )}
+        </div>
       </div>
 
       {/* KPI Analytics Cards */}

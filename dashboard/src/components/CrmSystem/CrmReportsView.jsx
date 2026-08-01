@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { 
   XCircle, Filter, Info, Calendar, ArrowUpRight, ArrowDownRight, Printer, FileText,
-  Clock, TrendingUp, Zap, TrendingDown, AlertTriangle, 
+  Clock, TrendingUp, Zap, TrendingDown, AlertTriangle, Download,
   BarChart3, PieChart, Users, Target, CheckCircle2, TrendingUp as TrendUpIcon, Sparkles,
   Repeat, Receipt
 } from "lucide-react";
@@ -11,8 +11,10 @@ import {
 import CRMLeaderboard from "./CrmLeaderboard.jsx";
 
 import { formatCurrency, formatCurrencyCompact } from "../../utils/currencyFormatter.js";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
-export default function CRMReportsView({ summary, onDrillDown, activeRange, setActiveRange }) {
+export default function CRMReportsView({ summary, customers = [], websiteId, onDrillDown, activeRange, setActiveRange }) {
   
   const aging = summary?.aging || { recent: 0, stale: 0, dormant: 0 };
   const breakdown = summary?.stageBreakdown || [];
@@ -64,6 +66,245 @@ export default function CRMReportsView({ summary, onDrillDown, activeRange, setA
     };
   });
 
+  // ── MASTER MULTI-SECTION CSV EXPORT ────────────────────────────────
+  const handleExportCSV = () => {
+    const reportDate = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    const totalPipelineValue = sortedBreakdown.reduce((sum, b) => sum + (b.totalValue || 0), 0);
+
+    const rows = [
+      ["=========================================================================="],
+      ["JTS SUPPORT ENTERPRISE CRM MASTER PERFORMANCE REPORT"],
+      ["Generated Date", reportDate],
+      ["Time Period Scope", activeRange ? activeRange.toUpperCase() : "ALL TIME"],
+      ["=========================================================================="],
+      [],
+      ["--- SECTION 1: CRM EXECUTIVE SUMMARY ---"],
+      ["Metric", "Value"],
+      ["Total Leads in Scope", totalLeads || 0],
+      ["Total Pipeline Value ($)", totalPipelineValue],
+      ["Total Won Revenue ($)", summary?.revenue || 0],
+      ["Overall Conversion Rate (%)", `${safeConversionRate}%`],
+      ["Total Invoiced Amount ($)", totalInvoiced],
+      ["Total Payments Collected ($)", totalReceived],
+      ["Collection Efficiency (%)", `${safeCollectionEfficiency.toFixed(1)}%`],
+      ["Customer Acquisition Cost (CAC)", cac ? `$${cac}` : "N/A"],
+      ["Customer Lifetime Value (LTV)", ltv ? `$${ltv}` : "N/A"],
+      [],
+      ["--- SECTION 2: PIPELINE STAGE BREAKDOWN ---"],
+      ["Pipeline Stage", "Total Count", "Total Deal Value ($)", "Stage Conversion Rate (%)"],
+      ...funnelData.map(item => [
+        item.stage.toUpperCase(),
+        item.count,
+        item.totalValue || 0,
+        `${item.convFromPrev}%`
+      ]),
+      [],
+      ["--- SECTION 3: LEAD ACQUISITION SOURCES ---"],
+      ["Source Channel", "Total Leads", "Share (%)"],
+      ...(leadsBySource.map(src => [
+        src._id || "Direct / Unknown",
+        src.count,
+        `${totalLeads > 0 ? Math.round((src.count / totalLeads) * 100) : 0}%`
+      ])),
+      [],
+      ["--- SECTION 4: LEAD AGING & OPERATIONAL HEALTH ---"],
+      ["Health Metric", "Value"],
+      ["Recent Active Leads (<7 Days)", aging.recent || 0],
+      ["Stale Pending Leads (8-30 Days)", aging.stale || 0],
+      ["Dormant Inactive Leads (>30 Days)", aging.dormant || 0],
+      ["Overdue Tasks Pending", followUpHealth.overdue || 0],
+      ["Completed Tasks Today", followUpHealth.completedToday || 0],
+      [],
+      ["--- SECTION 5: SALES TEAM LEADERBOARD & CONSULTANTS ---"],
+      ["Consultant Name", "Role / Designation", "Leads Handled", "Won Deals", "Revenue Generated ($)"],
+      ...((agents || []).map(ag => [
+        ag.name || "Consultant",
+        ag.role || "Sales Agent",
+        ag.totalLeads || 0,
+        ag.wonDeals || 0,
+        ag.revenue || 0
+      ])),
+      [],
+      ["--- SECTION 6: MASTER CUSTOMER & LEAD DIRECTORY REGISTER ---"],
+      ["Client / Lead Name", "Company Name", "Email Address", "Phone / Contact", "TRN / Tax ID", "Pipeline Stage", "CRM Status", "Lead Value ($)", "Work Status", "Payment Status", "Assigned Owner", "Created Date"],
+      ...((customers || []).map(c => [
+        c.name || "-",
+        c.companyName || "-",
+        c.email || "-",
+        c.phones?.[0]?.phone || c.phone || c.whatsApp || "-",
+        c.trn || "Not Registered",
+        c.pipelineStage || "new",
+        c.status || "lead",
+        c.leadValue || c.budget || 0,
+        c.workStatus || "Pending",
+        c.paymentStatus || "Pending",
+        c.ownerId?.name || "Unassigned",
+        c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "-"
+      ]))
+    ];
+
+    const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Master_CRM_Performance_Report_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // ── MASTER EXECUTIVE PDF REPORT DOWNLOAD ────────────────────────────
+  const handleExportPDF = () => {
+    try {
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const reportDate = new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+      const totalPipelineValue = sortedBreakdown.reduce((sum, b) => sum + (b.totalValue || 0), 0);
+
+      // Header Dark Bar
+      doc.setFillColor(15, 23, 42); // slate-900
+      doc.rect(0, 0, 210, 32, "F");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.setTextColor(255, 255, 255);
+      doc.text("JTS SUPPORT", 14, 14);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(199, 210, 254);
+      doc.text("MASTER ENTERPRISE CRM & SALES INTELLIGENCE REPORT", 14, 21);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(255, 255, 255);
+      doc.text(`DATE: ${reportDate}`, 196, 14, { align: "right" });
+      doc.text("EXECUTIVE SUMMARY", 196, 21, { align: "right" });
+
+      // KPI Grid Box
+      let currentY = 38;
+
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(14, currentY, 182, 28, 3, 3, "FD");
+
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(100, 116, 139);
+
+      doc.text("TOTAL LEADS", 20, currentY + 9);
+      doc.text("PIPELINE VALUE", 65, currentY + 9);
+      doc.text("CONVERSION RATE", 115, currentY + 9);
+      doc.text("TOTAL REVENUE", 160, currentY + 9);
+
+      doc.setFontSize(12);
+      doc.setTextColor(15, 23, 42);
+      doc.text(`${totalLeads || 0}`, 20, currentY + 20);
+      doc.setTextColor(79, 70, 229);
+      doc.text(`$${totalPipelineValue.toLocaleString()}`, 65, currentY + 20);
+      doc.setTextColor(16, 185, 129);
+      doc.text(`${safeConversionRate}%`, 115, currentY + 20);
+      doc.setTextColor(15, 23, 42);
+      doc.text(`$${(summary?.revenue || 0).toLocaleString()}`, 160, currentY + 20);
+
+      currentY += 34;
+
+      // Section 1: Funnel & Stage Breakdown
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 27, 75);
+      doc.text("1. PIPELINE STAGE & FUNNEL ANALYSIS", 14, currentY);
+
+      const funnelRows = funnelData.map(item => [
+        item.stage.toUpperCase(),
+        String(item.count),
+        `$${(item.totalValue || 0).toLocaleString()}`,
+        `${item.convFromPrev}%`
+      ]);
+
+      autoTable(doc, {
+        startY: currentY + 3,
+        margin: { left: 14, right: 14 },
+        head: [["PIPELINE STAGE", "TOTAL COUNT", "DEAL VALUE ($)", "STAGE CONVERSION RATE (%)"]],
+        body: funnelRows.length > 0 ? funnelRows : [["No stage data available", "0", "$0", "0%"]],
+        theme: "grid",
+        styles: { fontSize: 8.5, cellPadding: 2.5 },
+        headStyles: { fillColor: [30, 27, 75], textColor: [255, 255, 255], fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [248, 250, 252] }
+      });
+
+      currentY = doc.lastAutoTable.finalY + 10;
+
+      // Section 2: Acquisition Sources
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 27, 75);
+      doc.text("2. LEAD ACQUISITION SOURCES", 14, currentY);
+
+      const sourceRows = leadsBySource.map(src => [
+        (src._id || "Direct / Unknown").toUpperCase(),
+        String(src.count),
+        `${totalLeads > 0 ? Math.round((src.count / totalLeads) * 100) : 0}%`
+      ]);
+
+      autoTable(doc, {
+        startY: currentY + 3,
+        margin: { left: 14, right: 14 },
+        head: [["SOURCE CHANNEL", "TOTAL LEADS GENERATED", "CONTRIBUTION SHARE (%)"]],
+        body: sourceRows.length > 0 ? sourceRows : [["Direct", String(totalLeads || 0), "100%"]],
+        theme: "grid",
+        styles: { fontSize: 8.5, cellPadding: 2.5 },
+        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [248, 250, 252] }
+      });
+
+      currentY = doc.lastAutoTable.finalY + 10;
+
+      // Section 3: Master Customer Directory Register
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 27, 75);
+      doc.text("3. MASTER CUSTOMER & LEAD DIRECTORY REGISTER", 14, currentY);
+
+      const customerRows = (customers || []).map(c => [
+        c.name || "-",
+        c.companyName || "-",
+        c.email || "-",
+        c.phones?.[0]?.phone || c.phone || c.whatsApp || "-",
+        (c.pipelineStage || "new").toUpperCase(),
+        (c.status || "lead").toUpperCase(),
+        `$${(c.leadValue || c.budget || 0).toLocaleString()}`
+      ]);
+
+      autoTable(doc, {
+        startY: currentY + 3,
+        margin: { left: 14, right: 14 },
+        head: [["CLIENT / LEAD NAME", "COMPANY", "EMAIL", "PHONE", "STAGE", "STATUS", "VALUE ($)"]],
+        body: customerRows.length > 0 ? customerRows : [["No customer records found", "-", "-", "-", "-", "-", "$0"]],
+        theme: "grid",
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [248, 250, 252] }
+      });
+
+      // Footer
+      const totalPages = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(148, 163, 184);
+        doc.setFont("helvetica", "bold");
+        doc.text("CONFIDENTIAL - JTS ENTERPRISE CRM SYSTEM", 14, 285);
+        doc.text(`Page ${i} of ${totalPages}`, 196, 285, { align: "right" });
+      }
+
+      const fileName = `Master_CRM_Performance_Report_${new Date().toISOString().slice(0, 10)}.pdf`;
+      doc.save(fileName);
+    } catch (err) {
+      console.error("PDF generation error:", err);
+      alert("Failed to generate PDF report: " + err.message);
+    }
+  };
+
   return (
     <div id="reports-print-area" className="space-y-10 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <style dangerouslySetInnerHTML={{ __html: `
@@ -104,10 +345,18 @@ export default function CRMReportsView({ summary, onDrillDown, activeRange, setA
         
         <div className="flex items-center gap-3">
           <button 
-            onClick={() => window.print()}
-            className="no-print flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-slate-200 text-[10px] font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50 shadow-sm transition-all"
+            onClick={handleExportCSV}
+            className="no-print flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-50 border border-indigo-200 text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:bg-indigo-100 shadow-sm transition-all"
           >
-            <Printer size={14} /> Save as PDF
+            <Download size={14} /> Export CSV
+          </button>
+
+          <button 
+            onClick={handleExportPDF}
+            className="no-print flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 border border-slate-900 text-[10px] font-black uppercase tracking-widest text-white hover:bg-slate-800 shadow-sm transition-all"
+            title="Download Master CRM Executive PDF Report"
+          >
+            <Printer size={14} /> Export Master PDF
           </button>
           
           <div className="no-print flex items-center gap-2 p-1 bg-slate-100 rounded-2xl border border-slate-200">

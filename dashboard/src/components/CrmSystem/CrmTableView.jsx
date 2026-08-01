@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { User, ChevronRight, Check, Trash2, UserPlus, Tag, Shield, AlertTriangle, TrendingUp, X, Clock } from "lucide-react";
+import { User, ChevronRight, Check, Trash2, UserPlus, Tag, Shield, AlertTriangle, TrendingUp, X, Clock, Eye } from "lucide-react";
 import { formatCurrency } from "./CrmUIComponents.jsx";
 import { isStaleLead, isHighValueLead } from "./crmUtils.js";
 
@@ -9,6 +9,7 @@ export default function CrmTableView({
   pagination,
   leadView,
   openCustomer,
+  onOpen360,
   selectedIds = [],
   toggleSelection,
   clearSelection,
@@ -197,11 +198,20 @@ export default function CrmTableView({
                       </p>
                     </td>
                     <td className="px-6 py-5 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {onOpen360 && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onOpen360(c._id); }}
+                            className="w-8 h-8 rounded-full hover:bg-indigo-50 flex items-center justify-center text-slate-300 hover:text-indigo-500 transition-all"
+                            title="Open Full 360° Customer Profile"
+                          >
+                            <Eye size={15} />
+                          </button>
+                        )}
                         <button
                           onClick={(e) => { e.stopPropagation(); openCustomer(c, 'actions'); }}
                           className="w-8 h-8 rounded-full hover:bg-amber-50 flex items-center justify-center text-slate-300 hover:text-amber-500 transition-all"
-                          title="Create Task"
+                          title="Quick Actions / Drawer"
                         >
                           <Clock size={16} />
                         </button>

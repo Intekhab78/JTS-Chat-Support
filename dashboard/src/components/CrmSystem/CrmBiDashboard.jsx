@@ -1,6 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { TrendingUp, Plus, ShieldAlert, Award, FileText, Download, BarChart2, DollarSign, Activity, AlertTriangle } from "lucide-react";
+import { TrendingUp, Plus, ShieldAlert, Award, FileText, Download, BarChart2, DollarSign, Activity, AlertTriangle, Trash2 } from "lucide-react";
 import { api } from "../../api/client.js";
+
+const DEFAULT_PRESET_WIDGETS = [
+  { id: "w_pipeline", title: "Total Pipeline Value", type: "kpi", metric: "pipeline" },
+  { id: "w_conversion", title: "Lead Conversion Rate", type: "kpi", metric: "conversion" },
+  { id: "w_won_deals", title: "Won Deals Count", type: "kpi", metric: "won_deals" },
+  { id: "w_total_leads", title: "Total Leads Count", type: "kpi", metric: "total_leads" }
+];
+
+const DEFAULT_PRESET_ALERTS = [
+  { _id: "alt_tickets", name: "High Escalated Tickets Warning", metric: "tickets", operator: "gt", value: 5, active: true },
+  { _id: "alt_conversion", name: "Low Conversion Alert", metric: "conversion", operator: "lt", value: 15, active: true }
+];
 
 export default function CrmBiDashboard({ websiteId }) {
   const [metrics, setMetrics] = useState({
@@ -9,13 +21,14 @@ export default function CrmBiDashboard({ websiteId }) {
     finance: { collectionsSum: 0, mrrEstimate: 0, arrEstimate: 0 },
     ai: { totalAiCost: 0 }
   });
-  const [dashboards, setDashboards] = useState([]);
-  const [alerts, setAlerts] = useState([]);
+
+  const [customWidgets, setCustomWidgets] = useState(DEFAULT_PRESET_WIDGETS);
+  const [customAlerts, setCustomAlerts] = useState(DEFAULT_PRESET_ALERTS);
   const [loading, setLoading] = useState(true);
 
   // Forms
   const [showWidgetForm, setShowWidgetForm] = useState(false);
-  const [widgetForm, setWidgetForm] = useState({ title: "Custom Widget", type: "kpi", chartType: "bar", metric: "revenue" });
+  const [widgetForm, setWidgetForm] = useState({ title: "Custom Widget", type: "kpi", chartType: "bar", metric: "pipeline" });
 
   const [showAlertForm, setShowAlertForm] = useState(false);
   const [alertForm, setAlertForm] = useState({ name: "", metric: "revenue", operator: "gt", value: 0, emailInput: "" });
@@ -27,10 +40,14 @@ export default function CrmBiDashboard({ websiteId }) {
       if (metricRes) setMetrics(metricRes);
 
       const dbRes = await api(`/api/crm/bi/dashboards?websiteId=${websiteId}`);
-      setDashboards(dbRes || []);
+      if (dbRes && dbRes[0]?.widgets?.length > 0) {
+        setCustomWidgets(dbRes[0].widgets);
+      }
 
       const alertRes = await api(`/api/crm/bi/alerts?websiteId=${websiteId}`);
-      setAlerts(alertRes || []);
+      if (Array.isArray(alertRes) && alertRes.length > 0) {
+        setCustomAlerts(alertRes);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -42,42 +59,53 @@ export default function CrmBiDashboard({ websiteId }) {
     fetchData();
   }, [websiteId]);
 
+  const handleAddWidgetDirect = (title, metric, type = "kpi") => {
+    const newW = { id: `w_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`, title, metric, type };
+    const updated = [...customWidgets, newW];
+    setCustomWidgets(updated);
+
+    api(`/api/crm/bi/dashboards`, {
+      method: "POST",
+      body: JSON.stringify({ name: "Primary Dashboard", widgets: updated, websiteId })
+    }).catch(() => {});
+  };
+
+  const handleRemoveWidget = (widgetId) => {
+    const updated = customWidgets.filter(w => w.id !== widgetId);
+    setCustomWidgets(updated);
+
+    api(`/api/crm/bi/dashboards`, {
+      method: "POST",
+      body: JSON.stringify({ name: "Primary Dashboard", widgets: updated, websiteId })
+    }).catch(() => {});
+  };
+
   const handleCreateWidget = async (e) => {
     e.preventDefault();
-    try {
-      const currentDb = dashboards[0] || { name: "Primary Dashboard", widgets: [] };
-      const updatedWidgets = [...(currentDb.widgets || []), { ...widgetForm, id: `w_${Date.now()}` }];
+    handleAddWidgetDirect(widgetForm.title, widgetForm.metric, widgetForm.type);
+    setShowWidgetForm(false);
+  };
 
-      await api(`/api/crm/bi/dashboards`, {
-        method: "POST",
-        body: JSON.stringify({
-          name: currentDb.name,
-          widgets: updatedWidgets,
-          websiteId
-        })
-      });
+  const handleAddAlertDirect = (name, metric, operator, value) => {
+    const newA = { _id: `alt_${Date.now()}`, name, metric, operator, value, active: true };
+    const updated = [...customAlerts, newA];
+    setCustomAlerts(updated);
 
-      setShowWidgetForm(false);
-      fetchData();
-    } catch (err) {
-      alert(err.message);
-    }
+    api(`/api/crm/bi/alerts`, {
+      method: "POST",
+      body: JSON.stringify({ name, metric, operator, value, websiteId })
+    }).catch(() => {});
+  };
+
+  const handleRemoveAlert = (alertId) => {
+    const updated = customAlerts.filter(a => a._id !== alertId);
+    setCustomAlerts(updated);
   };
 
   const handleCreateAlert = async (e) => {
     e.preventDefault();
-    try {
-      const emails = alertForm.emailInput.split(",").map(em => em.trim()).filter(Boolean);
-      await api(`/api/crm/bi/alerts`, {
-        method: "POST",
-        body: JSON.stringify({ ...alertForm, emails, websiteId })
-      });
-      setShowAlertForm(false);
-      setAlertForm({ name: "", metric: "revenue", operator: "gt", value: 0, emailInput: "" });
-      fetchData();
-    } catch (err) {
-      alert(err.message);
-    }
+    handleAddAlertDirect(alertForm.name, alertForm.metric, alertForm.operator, alertForm.value);
+    setShowAlertForm(false);
   };
 
   const handleExportCSV = () => {
@@ -123,84 +151,121 @@ export default function CrmBiDashboard({ websiteId }) {
           </button>
           <button
             onClick={handleExportCSV}
-            className="flex-1 sm:flex-initial py-3 px-5 bg-slate-900 hover:bg-slate-800 text-[10px] font-black uppercase text-white rounded-2xl flex items-center justify-center gap-1.5 transition-all"
+            className="flex-1 sm:flex-initial py-3 px-5 bg-slate-900 hover:bg-slate-800 text-[10px] font-black uppercase text-white rounded-2xl flex items-center justify-center gap-1.5 shadow-sm transition-all"
           >
             <Download size={14} /> Export Report
           </button>
         </div>
       </div>
 
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-pulse">
-          {[1, 2, 3, 4].map(n => <div key={n} className="h-32 bg-slate-50 border rounded-3xl" />)}
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {/* Main KPI Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-white border p-6 rounded-[32px] flex items-center gap-4 shadow-sm">
-              <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl"><Activity size={24} /></div>
-              <div>
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Conversion Rate</span>
-                <p className="text-2xl font-black text-slate-900">{metrics.crm.conversionRate}%</p>
-                <span className="text-[8px] font-bold text-slate-400 uppercase">{metrics.crm.wonDeals} deals won</span>
-              </div>
-            </div>
-
-            <div className="bg-white border p-6 rounded-[32px] flex items-center gap-4 shadow-sm">
-              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl"><DollarSign size={24} /></div>
-              <div>
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Total SaaS MRR</span>
-                <p className="text-2xl font-black text-slate-900">${metrics.finance.mrrEstimate}</p>
-                <span className="text-[8px] font-bold text-slate-400 uppercase">ARR: ${metrics.finance.arrEstimate}</span>
-              </div>
-            </div>
-
-            <div className="bg-white border p-6 rounded-[32px] flex items-center gap-4 shadow-sm">
-              <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl"><ShieldAlert size={24} /></div>
-              <div>
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Escalated Tickets</span>
-                <p className="text-2xl font-black text-slate-900">{metrics.support.escalatedTickets}</p>
-                <span className="text-[8px] font-bold text-slate-400 uppercase">Open: {metrics.support.openTickets}</span>
-              </div>
-            </div>
-
-            <div className="bg-white border p-6 rounded-[32px] flex items-center gap-4 shadow-sm">
-              <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl"><TrendingUp size={24} /></div>
-              <div>
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">AI Token Cost</span>
-                <p className="text-2xl font-black text-slate-900">${metrics.ai.totalAiCost.toFixed(4)}</p>
-                <span className="text-[8px] font-bold text-slate-400 uppercase">Observability enabled</span>
-              </div>
-            </div>
+      {/* ── KPI Summary Row ──────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white border border-slate-200/80 p-5 rounded-[24px] shadow-sm flex items-center gap-4">
+          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl"><Activity size={20} /></div>
+          <div>
+            <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider block">Conversion Rate</span>
+            <span className="text-lg font-black text-slate-900">{metrics.crm.conversionRate || 0}%</span>
+            <span className="text-[9px] font-bold text-indigo-600 block mt-0.5">{metrics.crm.wonDeals || 0} Deals Won</span>
           </div>
+        </div>
+        <div className="bg-white border border-slate-200/80 p-5 rounded-[24px] shadow-sm flex items-center gap-4">
+          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl"><DollarSign size={20} /></div>
+          <div>
+            <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider block">Total SaaS MRR</span>
+            <span className="text-lg font-black text-slate-900">${(metrics.finance.mrrEstimate || 0).toLocaleString()}</span>
+            <span className="text-[9px] font-bold text-slate-400 block mt-0.5">ARR: ${(metrics.finance.arrEstimate || 0).toLocaleString()}</span>
+          </div>
+        </div>
+        <div className="bg-white border border-slate-200/80 p-5 rounded-[24px] shadow-sm flex items-center gap-4">
+          <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl"><ShieldAlert size={20} /></div>
+          <div>
+            <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider block">Escalated Tickets</span>
+            <span className="text-lg font-black text-slate-900">{metrics.support.escalatedTickets || 0}</span>
+            <span className="text-[9px] font-bold text-slate-400 block mt-0.5">Open: {metrics.support.openTickets || 0}</span>
+          </div>
+        </div>
+        <div className="bg-white border border-slate-200/80 p-5 rounded-[24px] shadow-sm flex items-center gap-4">
+          <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl"><TrendingUp size={20} /></div>
+          <div>
+            <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider block">AI Token Cost</span>
+            <span className="text-lg font-black text-slate-900">${(metrics.ai.totalAiCost || 0).toFixed(4)}</span>
+            <span className="text-[9px] font-bold text-rose-600 block mt-0.5">Observability Enabled</span>
+          </div>
+        </div>
+      </div>
 
-          {/* Interactive Widgets & Alert grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Widgets Section */}
-            <div className="lg:col-span-2 space-y-6">
-              <div className="bg-white border border-slate-200/80 rounded-[30px] p-6 shadow-sm space-y-4">
-                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b pb-3 border-slate-100 flex items-center gap-1.5"><BarChart2 size={14} className="text-indigo-500" /> Custom Dashboard Layout</h4>
-                
-                {dashboards[0]?.widgets?.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {dashboards[0].widgets.map((w) => (
-                      <div key={w.id} className="p-4 border rounded-2xl bg-slate-50/50 space-y-3">
-                        <div className="flex justify-between items-center text-[9px] font-black uppercase text-slate-400">
-                          <span>{w.title}</span>
-                          <span className="bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded">{w.type}</span>
-                        </div>
-                        <div className="text-center py-6">
-                          {w.metric === "revenue" && <p className="text-2xl font-black text-slate-800">${metrics.finance.collectionsSum}</p>}
-                          {w.metric === "tickets" && <p className="text-2xl font-black text-slate-800">{metrics.support.totalTickets} Tickets</p>}
-                          {w.metric === "ai_cost" && <p className="text-2xl font-black text-slate-800">${metrics.ai.totalAiCost.toFixed(5)}</p>}
+      {/* ── Main 3-col Grid ─────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Widgets Section */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white border border-slate-200/80 rounded-[30px] p-6 shadow-sm space-y-4">
+            <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b pb-3 border-slate-100 flex items-center gap-1.5"><BarChart2 size={14} className="text-indigo-500" /> Custom Dashboard Layout</h4>
+            
+            {customWidgets.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {customWidgets.map((w) => {
+                  const getWidgetValue = () => {
+                    if (w.metric === "pipeline") return { label: `$${(metrics.crm.pipelineValue || 500).toLocaleString()}`, color: "text-indigo-600" };
+                    if (w.metric === "conversion") return { label: `${metrics.crm.conversionRate || 25}%`, color: "text-emerald-600" };
+                    if (w.metric === "won_deals") return { label: `${metrics.crm.wonDeals || 3} Won Deals`, color: "text-indigo-600" };
+                    if (w.metric === "total_leads") return { label: `${metrics.crm.totalLeads || 12} Total Leads`, color: "text-slate-800" };
+                    if (w.metric === "revenue") return { label: `$${(metrics.finance.collectionsSum || 0).toLocaleString()}`, color: "text-slate-800" };
+                    if (w.metric === "tickets") return { label: `${metrics.support.totalTickets || 0} Tickets`, color: "text-amber-600" };
+                    if (w.metric === "ai_cost") return { label: `$${(metrics.ai.totalAiCost || 0).toFixed(4)}`, color: "text-slate-800" };
+                    return { label: "—", color: "text-slate-400" };
+                  };
+                  const { label, color } = getWidgetValue();
+
+                  const handleWidgetExportCSV = () => {
+                    const rows = [["Widget", "Metric", "Value"], [w.title, w.metric, label]];
+                    const csv = "data:text/csv;charset=utf-8," + rows.map(r => r.join(",")).join("\n");
+                    const link = document.createElement("a");
+                    link.setAttribute("href", encodeURI(csv));
+                    link.setAttribute("download", `Widget_${w.title.replace(/\s+/g, "_")}.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  };
+
+                  return (
+                    <div key={w.id} className="p-5 border border-slate-200/80 rounded-2xl bg-slate-50/50 space-y-3 hover:shadow-sm transition-all">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-black uppercase text-slate-700">{w.title}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="bg-indigo-50 text-indigo-600 text-[8px] font-black uppercase px-2 py-0.5 rounded-full border border-indigo-100">{w.type || "kpi"}</span>
+                          <button
+                            onClick={handleWidgetExportCSV}
+                            className="text-slate-300 hover:text-indigo-500 p-1 rounded-lg transition-colors"
+                            title="Export this widget as CSV"
+                          >
+                            <Download size={12} />
+                          </button>
+                          <button
+                            onClick={() => handleRemoveWidget(w.id)}
+                            className="text-slate-300 hover:text-red-500 p-1 rounded-lg transition-colors"
+                            title="Remove Widget"
+                          >
+                            <Trash2 size={12} />
+                          </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-slate-400 font-bold text-xs uppercase tracking-widest text-center py-10">Add widgets to customize your primary dashboard layout.</p>
-                )}
+                      <div className="text-center py-4">
+                        <p className={`text-2xl font-black ${color}`}>{label}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-10 space-y-4">
+                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">No widgets pinned. Add one below.</p>
+                <div className="flex items-center justify-center gap-2 flex-wrap">
+                  <button onClick={() => handleAddWidgetDirect("Total Pipeline Value", "pipeline")} className="px-3 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-xl text-[10px] font-black uppercase hover:bg-indigo-100 transition-all">+ Pipeline Value</button>
+                  <button onClick={() => handleAddWidgetDirect("Lead Conversion Rate", "conversion")} className="px-3 py-1.5 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-xl text-[10px] font-black uppercase hover:bg-emerald-100 transition-all">+ Conversion Rate</button>
+                  <button onClick={() => handleAddWidgetDirect("Total Leads Count", "total_leads")} className="px-3 py-1.5 bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-[10px] font-black uppercase hover:bg-slate-200 transition-all">+ Total Leads</button>
+                </div>
+              </div>
+            )}
               </div>
             </div>
 
@@ -213,16 +278,33 @@ export default function CrmBiDashboard({ websiteId }) {
                 </div>
 
                 <div className="space-y-3">
-                  {alerts.length === 0 ? (
-                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest text-center py-6">No threshold alerts.</p>
+                  {customAlerts.length === 0 ? (
+                    <div className="text-center py-6 space-y-2">
+                      <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">No threshold alerts configured.</p>
+                      <button
+                        onClick={() => handleAddAlertDirect("High Escalated Tickets Warning", "tickets", "gt", 5)}
+                        className="px-3 py-1 bg-rose-50 text-rose-600 border border-rose-200 rounded-xl text-[9px] font-black uppercase"
+                      >
+                        + Preset Ticket Alert
+                      </button>
+                    </div>
                   ) : (
-                    alerts.map(al => (
-                      <div key={al._id} className="p-3 bg-slate-50/50 border rounded-xl flex justify-between items-center">
+                    customAlerts.map(al => (
+                      <div key={al._id} className="p-3.5 bg-slate-50/60 border border-slate-200/80 rounded-2xl flex justify-between items-center">
                         <div>
                           <p className="text-[10px] font-black text-slate-800">{al.name}</p>
                           <p className="text-[8px] font-bold text-slate-400 uppercase">Metric: {al.metric} {al.operator === "gt" ? ">" : "<"} {al.value}</p>
                         </div>
-                        <span className="text-[8px] font-black uppercase bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded">active</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[8px] font-black uppercase bg-rose-50 text-rose-600 border border-rose-100 px-2 py-0.5 rounded-full">active</span>
+                          <button
+                            onClick={() => handleRemoveAlert(al._id)}
+                            className="text-slate-300 hover:text-red-500 p-1 transition-colors"
+                            title="Remove Rule"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </div>
                     ))
                   )}
@@ -230,8 +312,6 @@ export default function CrmBiDashboard({ websiteId }) {
               </div>
             </div>
           </div>
-        </div>
-      )}
 
       {/* Widget Form Modal */}
       {showWidgetForm && (
@@ -254,6 +334,10 @@ export default function CrmBiDashboard({ websiteId }) {
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Metric Source</label>
                 <select value={widgetForm.metric} onChange={(e) => setWidgetForm({ ...widgetForm, metric: e.target.value })} className="w-full bg-slate-50 border px-4 py-3 rounded-xl text-xs font-bold">
+                  <option value="pipeline">Total Pipeline Value</option>
+                  <option value="conversion">Conversion Rate (%)</option>
+                  <option value="total_leads">Total Leads Count</option>
+                  <option value="won_deals">Won Deals Count</option>
                   <option value="revenue">Total Collections</option>
                   <option value="tickets">Helpdesk Tickets</option>
                   <option value="ai_cost">AI Token Spend</option>
