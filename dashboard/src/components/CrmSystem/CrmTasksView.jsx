@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   CheckCircle2, Clock, AlertTriangle, Search, Trash2, Calendar, User, Eye, X, Edit3,
   Plus, Filter, LayoutGrid, List, Sparkles, Phone, Video, Mail, ShieldAlert, ArrowRight,
@@ -41,6 +42,12 @@ export default function CrmTasksView({ onOpenCustomer, websiteId }) {
   useEffect(() => {
     fetchTasks();
   }, [ownerFilter, websiteId]);
+
+  useEffect(() => {
+    if (showCreateModal || editingTask) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "";
+    return () => { document.body.style.overflow = ""; };
+  }, [showCreateModal, editingTask]);
 
   useEffect(() => {
     if (isManager) {
@@ -754,183 +761,74 @@ export default function CrmTasksView({ onOpenCustomer, websiteId }) {
       )}
 
       {/* Create Task Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm animate-in fade-in" onClick={() => setShowCreateModal(false)} />
-          <form onSubmit={handleCreateTaskSubmit} className="relative w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl space-y-5 animate-in zoom-in-95">
-            <div className="flex justify-between items-center border-b pb-4 border-slate-100">
+      {showCreateModal && createPortal(
+        <div className="fixed inset-0 z-[9999] p-4 sm:p-6 flex items-center justify-center pointer-events-none">
+          <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm pointer-events-auto" onClick={() => setShowCreateModal(false)} />
+          <div className="relative z-10 pointer-events-auto w-full max-w-md bg-white rounded-[32px] shadow-2xl border border-slate-100 flex flex-col max-h-[90vh] overflow-hidden">
+            <div className="flex justify-between items-center px-6 sm:px-8 py-5 border-b border-slate-100 shrink-0">
               <div>
                 <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">Schedule New Follow-Up</h3>
                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Assign activity to consultant & set due date</p>
               </div>
-              <button type="button" onClick={() => setShowCreateModal(false)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl"><X size={16} /></button>
+              <button type="button" onClick={() => setShowCreateModal(false)} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-all"><X size={18} /></button>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Select Related Lead / Customer</label>
-              <select
-                required
-                value={createForm.customerId}
-                onChange={e => setCreateForm({ ...createForm, customerId: e.target.value })}
-                className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-4 py-3 text-xs font-bold text-slate-800 outline-none focus:border-indigo-500"
-              >
-                <option value="">-- Choose Lead / Customer --</option>
-                {customers.map(c => (
-                  <option key={c._id} value={c._id}>{c.name} ({c.companyName || c.crn || "Client"})</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Task Title / Description</label>
-              <input
-                required
-                placeholder="e.g. Follow up on VAT filing documents"
-                value={createForm.title}
-                onChange={e => setCreateForm({ ...createForm, title: e.target.value })}
-                className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-4 py-3 text-xs font-bold outline-none focus:border-indigo-500"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleCreateTaskSubmit} className="px-6 sm:px-8 py-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Activity Type</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Select Related Lead / Customer</label>
                 <select
-                  value={createForm.type}
-                  onChange={e => setCreateForm({ ...createForm, type: e.target.value })}
-                  className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-3 py-3 text-xs font-bold"
+                  required
+                  value={createForm.customerId}
+                  onChange={e => setCreateForm({ ...createForm, customerId: e.target.value })}
+                  className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-4 py-2.5 text-xs font-bold text-slate-800 outline-none"
                 >
-                  <option value="FOLLOW_UP">Follow Up</option>
-                  <option value="MEETING">Meeting</option>
-                  <option value="CALL">Phone Call</option>
-                  <option value="EMAIL">Email</option>
-                  <option value="AUDIT">Post-Mortem / Audit</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Priority Level</label>
-                <select
-                  value={createForm.priority}
-                  onChange={e => setCreateForm({ ...createForm, priority: e.target.value })}
-                  className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-3 py-3 text-xs font-bold"
-                >
-                  <option value="medium">Medium Priority</option>
-                  <option value="high">High Priority</option>
-                  <option value="critical">Critical</option>
-                  <option value="low">Low Priority</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Due Date</label>
-              <input
-                type="date"
-                required
-                value={createForm.dueAt}
-                onChange={e => setCreateForm({ ...createForm, dueAt: e.target.value })}
-                className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-4 py-3 text-xs font-bold"
-              />
-            </div>
-
-            {isManager && agents.length > 0 && (
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Assign to Consultant / Agent</label>
-                <select
-                  value={createForm.ownerId}
-                  onChange={e => setCreateForm({ ...createForm, ownerId: e.target.value })}
-                  className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-4 py-3 text-xs font-bold"
-                >
-                  <option value="">Assign to Me ({user?.name})</option>
-                  {agents.map(a => (
-                    <option key={a._id} value={a._id}>{a.name} ({a.role})</option>
+                  <option value="">-- Choose Lead / Customer --</option>
+                  {customers.map(c => (
+                    <option key={c._id} value={c._id}>{c.name} ({c.companyName || c.crn || "Client"})</option>
                   ))}
                 </select>
               </div>
-            )}
-
-            <button type="submit" className="w-full py-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-indigo-200 transition-all">
-              + Save & Schedule Activity
-            </button>
-          </form>
-        </div>
-      )}
-
-      {/* Edit Task Modal */}
-      {editingTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm animate-in fade-in" onClick={() => setEditingTask(null)} />
-          <form onSubmit={handleSaveEditSubmit} className="relative w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl space-y-5 animate-in zoom-in-95">
-            <div className="flex justify-between items-center border-b pb-4 border-slate-100">
-              <div>
-                <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">Edit Task Details</h3>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Update title, activity type, due date or status</p>
-              </div>
-              <button type="button" onClick={() => setEditingTask(null)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl"><X size={16} /></button>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Related Customer / Lead</label>
-              <input
-                disabled
-                value={editingTask.customerId?.name ? `${editingTask.customerId.name} (${editingTask.customerId.companyName || editingTask.customerId.crn || "Client"})` : "General Task"}
-                className="w-full bg-slate-100/70 rounded-xl border border-slate-200 px-4 py-3 text-xs font-bold text-slate-500 cursor-not-allowed"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Task Title / Description</label>
-              <input
-                required
-                value={editForm.title}
-                onChange={e => setEditForm({ ...editForm, title: e.target.value })}
-                className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-4 py-3 text-xs font-bold outline-none focus:border-indigo-500"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Activity Type</label>
-                <select
-                  value={editForm.type}
-                  onChange={e => setEditForm({ ...editForm, type: e.target.value })}
-                  className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-3 py-3 text-xs font-bold"
-                >
-                  <option value="FOLLOW_UP">Follow Up</option>
-                  <option value="MEETING">Meeting</option>
-                  <option value="CALL">Phone Call</option>
-                  <option value="EMAIL">Email</option>
-                  <option value="AUDIT">Post-Mortem / Audit</option>
-                </select>
-              </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Priority Level</label>
-                <select
-                  value={editForm.priority}
-                  onChange={e => setEditForm({ ...editForm, priority: e.target.value })}
-                  className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-3 py-3 text-xs font-bold"
-                >
-                  <option value="medium">Medium Priority</option>
-                  <option value="high">High Priority</option>
-                  <option value="critical">Critical</option>
-                  <option value="low">Low Priority</option>
-                </select>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Task Title / Description</label>
+                <input
+                  required
+                  placeholder="e.g. Follow up on VAT filing documents"
+                  value={createForm.title}
+                  onChange={e => setCreateForm({ ...createForm, title: e.target.value })}
+                  className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-4 py-2.5 text-xs font-bold outline-none"
+                />
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Status</label>
-                <select
-                  value={editForm.status}
-                  onChange={e => setEditForm({ ...editForm, status: e.target.value })}
-                  className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-3 py-3 text-xs font-bold"
-                >
-                  <option value="pending">Pending</option>
-                  <option value="completed">Completed</option>
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Activity Type</label>
+                  <select
+                    value={createForm.type}
+                    onChange={e => setCreateForm({ ...createForm, type: e.target.value })}
+                    className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-3 py-2.5 text-xs font-bold outline-none"
+                  >
+                    <option value="FOLLOW_UP">Follow Up</option>
+                    <option value="MEETING">Meeting</option>
+                    <option value="CALL">Phone Call</option>
+                    <option value="EMAIL">Email</option>
+                    <option value="AUDIT">Post-Mortem / Audit</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Priority Level</label>
+                  <select
+                    value={createForm.priority}
+                    onChange={e => setCreateForm({ ...createForm, priority: e.target.value })}
+                    className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-3 py-2.5 text-xs font-bold outline-none"
+                  >
+                    <option value="medium">Medium Priority</option>
+                    <option value="high">High Priority</option>
+                    <option value="critical">Critical</option>
+                    <option value="low">Low Priority</option>
+                  </select>
+                </div>
               </div>
 
               <div className="space-y-1">
@@ -938,34 +836,149 @@ export default function CrmTasksView({ onOpenCustomer, websiteId }) {
                 <input
                   type="date"
                   required
-                  value={editForm.dueAt}
-                  onChange={e => setEditForm({ ...editForm, dueAt: e.target.value })}
-                  className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-3 py-3 text-xs font-bold"
+                  value={createForm.dueAt}
+                  onChange={e => setCreateForm({ ...createForm, dueAt: e.target.value })}
+                  className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-4 py-2.5 text-xs font-bold outline-none"
                 />
               </div>
+
+              {isManager && agents.length > 0 && (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Assign to Consultant / Agent</label>
+                  <select
+                    value={createForm.ownerId}
+                    onChange={e => setCreateForm({ ...createForm, ownerId: e.target.value })}
+                    className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-4 py-2.5 text-xs font-bold outline-none"
+                  >
+                    <option value="">Assign to Me ({user?.name})</option>
+                    {agents.map(a => (
+                      <option key={a._id} value={a._id}>{a.name} ({a.role})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <button type="submit" className="w-full py-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-indigo-200 transition-all mt-2">
+                + Save & Schedule Activity
+              </button>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Edit Task Modal */}
+      {editingTask && createPortal(
+        <div className="fixed inset-0 z-[9999] p-4 sm:p-6 flex items-center justify-center pointer-events-none">
+          <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm pointer-events-auto" onClick={() => setEditingTask(null)} />
+          <div className="relative z-10 pointer-events-auto w-full max-w-md bg-white rounded-[32px] shadow-2xl border border-slate-100 flex flex-col max-h-[90vh] overflow-hidden">
+            <div className="flex justify-between items-center px-6 sm:px-8 py-5 border-b border-slate-100 shrink-0">
+              <div>
+                <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">Edit Task Details</h3>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Update title, activity type, due date or status</p>
+              </div>
+              <button type="button" onClick={() => setEditingTask(null)} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-all"><X size={18} /></button>
             </div>
 
-            {isManager && agents.length > 0 && (
+            <form onSubmit={handleSaveEditSubmit} className="px-6 sm:px-8 py-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Assign to Consultant / Agent</label>
-                <select
-                  value={editForm.ownerId}
-                  onChange={e => setEditForm({ ...editForm, ownerId: e.target.value })}
-                  className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-4 py-3 text-xs font-bold"
-                >
-                  <option value="">Unassigned</option>
-                  {agents.map(a => (
-                    <option key={a._id} value={a._id}>{a.name} ({a.role})</option>
-                  ))}
-                </select>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Related Customer / Lead</label>
+                <input
+                  disabled
+                  value={editingTask.customerId?.name ? `${editingTask.customerId.name} (${editingTask.customerId.companyName || editingTask.customerId.crn || "Client"})` : "General Task"}
+                  className="w-full bg-slate-100/70 rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-500 cursor-not-allowed"
+                />
               </div>
-            )}
 
-            <button type="submit" className="w-full py-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-indigo-200 transition-all">
-              Save Task Changes
-            </button>
-          </form>
-        </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Task Title / Description</label>
+                <input
+                  required
+                  value={editForm.title}
+                  onChange={e => setEditForm({ ...editForm, title: e.target.value })}
+                  className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-4 py-2.5 text-xs font-bold outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Activity Type</label>
+                  <select
+                    value={editForm.type}
+                    onChange={e => setEditForm({ ...editForm, type: e.target.value })}
+                    className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-3 py-2.5 text-xs font-bold outline-none"
+                  >
+                    <option value="FOLLOW_UP">Follow Up</option>
+                    <option value="MEETING">Meeting</option>
+                    <option value="CALL">Phone Call</option>
+                    <option value="EMAIL">Email</option>
+                    <option value="AUDIT">Post-Mortem / Audit</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Priority Level</label>
+                  <select
+                    value={editForm.priority}
+                    onChange={e => setEditForm({ ...editForm, priority: e.target.value })}
+                    className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-3 py-2.5 text-xs font-bold outline-none"
+                  >
+                    <option value="medium">Medium Priority</option>
+                    <option value="high">High Priority</option>
+                    <option value="critical">Critical</option>
+                    <option value="low">Low Priority</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Status</label>
+                  <select
+                    value={editForm.status}
+                    onChange={e => setEditForm({ ...editForm, status: e.target.value })}
+                    className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-3 py-2.5 text-xs font-bold outline-none"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Due Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={editForm.dueAt}
+                    onChange={e => setEditForm({ ...editForm, dueAt: e.target.value })}
+                    className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-3 py-2.5 text-xs font-bold outline-none"
+                  />
+                </div>
+              </div>
+
+              {isManager && agents.length > 0 && (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Assign to Consultant / Agent</label>
+                  <select
+                    value={editForm.ownerId}
+                    onChange={e => setEditForm({ ...editForm, ownerId: e.target.value })}
+                    className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-4 py-2.5 text-xs font-bold outline-none"
+                  >
+                    <option value="">Unassigned</option>
+                    {agents.map(a => (
+                      <option key={a._id} value={a._id}>{a.name} ({a.role})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <button type="submit" className="w-full py-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-indigo-200 transition-all mt-2">
+                Save Task Changes
+              </button>
+            </form>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

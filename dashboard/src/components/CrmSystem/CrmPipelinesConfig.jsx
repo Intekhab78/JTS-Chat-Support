@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Plus, Trash2, Edit3, Check, X, MoveUp, MoveDown, Layout, ShieldAlert } from "lucide-react";
 import { api } from "../../api/client.js";
 
@@ -39,6 +40,12 @@ export default function CrmPipelinesConfig({ websiteId }) {
   useEffect(() => {
     if (websiteId) fetchPipelines();
   }, [websiteId]);
+
+  useEffect(() => {
+    if (showModal) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "";
+    return () => { document.body.style.overflow = ""; };
+  }, [showModal]);
 
   const handleOpenCreate = () => {
     setPipelineForm({
@@ -221,64 +228,67 @@ export default function CrmPipelinesConfig({ websiteId }) {
       )}
 
       {/* Create Pipeline Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowModal(false)} />
-          <form onSubmit={handleSubmit} className="relative w-full max-w-lg bg-white rounded-[32px] p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center">
+      {showModal && createPortal(
+        <div className="fixed inset-0 z-[9999] p-4 sm:p-6 flex items-center justify-center pointer-events-none">
+          <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm pointer-events-auto" onClick={() => setShowModal(false)} />
+          <div className="relative z-10 pointer-events-auto w-full max-w-lg bg-white rounded-[32px] shadow-2xl border border-slate-100 flex flex-col max-h-[90vh] overflow-hidden">
+            <div className="flex justify-between items-center px-6 sm:px-8 py-5 border-b border-slate-100 shrink-0">
               <h3 className="text-base font-black text-slate-900">Create Sales Pipeline</h3>
               <button type="button" onClick={() => setShowModal(false)} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-all"><X size={18} /></button>
             </div>
             
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Pipeline Name</label>
-              <input
-                required
-                value={pipelineForm.name}
-                onChange={(e) => setPipelineForm({ ...pipelineForm, name: e.target.value })}
-                className="w-full bg-slate-50 rounded-xl border border-slate-200/50 px-4 py-3 text-xs font-bold"
-              />
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Stages Setup</label>
-                <button type="button" onClick={handleAddStage} className="text-[9px] font-black uppercase text-indigo-600 hover:underline">Add Custom Stage</button>
+            <form onSubmit={handleSubmit} className="px-6 sm:px-8 py-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Pipeline Name</label>
+                <input
+                  required
+                  value={pipelineForm.name}
+                  onChange={(e) => setPipelineForm({ ...pipelineForm, name: e.target.value })}
+                  className="w-full bg-slate-50 rounded-xl border border-slate-200/50 px-4 py-2.5 text-xs font-bold"
+                />
               </div>
 
-              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
-                {pipelineForm.stages.map((stage, idx) => (
-                  <div key={idx} className="flex gap-2 items-center bg-slate-50/50 p-3 rounded-xl border border-slate-100">
-                    <div className="flex flex-col gap-1">
-                      <button type="button" onClick={() => moveStage(idx, -1)} className="p-1 hover:bg-slate-200 rounded text-slate-500"><MoveUp size={11} /></button>
-                      <button type="button" onClick={() => moveStage(idx, 1)} className="p-1 hover:bg-slate-200 rounded text-slate-500"><MoveDown size={11} /></button>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Stages Setup</label>
+                  <button type="button" onClick={handleAddStage} className="text-[9px] font-black uppercase text-indigo-600 hover:underline">Add Custom Stage</button>
+                </div>
+
+                <div className="space-y-2 max-h-[260px] overflow-y-auto custom-scrollbar pr-2">
+                  {pipelineForm.stages.map((stage, idx) => (
+                    <div key={idx} className="flex gap-2 items-center bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                      <div className="flex flex-col gap-1">
+                        <button type="button" onClick={() => moveStage(idx, -1)} className="p-1 hover:bg-slate-200 rounded text-slate-500"><MoveUp size={11} /></button>
+                        <button type="button" onClick={() => moveStage(idx, 1)} className="p-1 hover:bg-slate-200 rounded text-slate-500"><MoveDown size={11} /></button>
+                      </div>
+                      <input
+                        required
+                        placeholder="Stage Label"
+                        value={stage.label}
+                        onChange={(e) => handleStageFieldChange(idx, "label", e.target.value)}
+                        className="flex-1 bg-white rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold"
+                      />
+                      <input
+                        type="number"
+                        placeholder="%"
+                        required
+                        value={stage.probability}
+                        onChange={(e) => handleStageFieldChange(idx, "probability", Number(e.target.value))}
+                        className="w-16 bg-white rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-center"
+                      />
+                      <button type="button" onClick={() => handleRemoveStage(idx)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={13} /></button>
                     </div>
-                    <input
-                      required
-                      placeholder="Stage Label"
-                      value={stage.label}
-                      onChange={(e) => handleStageFieldChange(idx, "label", e.target.value)}
-                      className="flex-1 bg-white rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold"
-                    />
-                    <input
-                      type="number"
-                      placeholder="%"
-                      required
-                      value={stage.probability}
-                      onChange={(e) => handleStageFieldChange(idx, "probability", Number(e.target.value))}
-                      className="w-16 bg-white rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-center"
-                    />
-                    <button type="button" onClick={() => handleRemoveStage(idx)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={13} /></button>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <button type="submit" className="w-full py-4.5 bg-slate-950 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2">
-              <Check size={16} /> Save Pipeline Configuration
-            </button>
-          </form>
-        </div>
+              <button type="submit" className="w-full py-4 bg-slate-950 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 mt-2">
+                <Check size={16} /> Save Pipeline Configuration
+              </button>
+            </form>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

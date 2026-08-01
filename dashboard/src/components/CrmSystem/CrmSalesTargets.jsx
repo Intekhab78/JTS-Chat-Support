@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { 
   Target, Award, Calendar, Plus, Trash2, ArrowUpRight, 
-  TrendingUp, Users, Percent, CheckCircle2, ShieldAlert 
+  TrendingUp, Users, Percent, CheckCircle2, ShieldAlert, X 
 } from "lucide-react";
 import { api } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
@@ -54,6 +55,12 @@ export default function CrmSalesTargets({ websiteId, teamMembers }) {
     }
     fetchTargets();
   }, [websiteId, selectedYear, selectedMonth]);
+
+  useEffect(() => {
+    if (showModal) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "";
+    return () => { document.body.style.overflow = ""; };
+  }, [showModal]);
 
   const handleSaveTarget = async (e) => {
     e.preventDefault();
@@ -396,29 +403,39 @@ export default function CrmSalesTargets({ websiteId, teamMembers }) {
       )}
 
       {/* Target Setup Modal Form */}
-      {showModal && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-slate-200 rounded-[28px] max-w-md w-full p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
-            <div>
-              <h3 className="text-base font-black text-slate-950 tracking-tight">Configure Sales Target</h3>
-              <p className="text-xs text-slate-400 font-bold uppercase mt-0.5">Timeframe: {monthsList[selectedMonth - 1]} {selectedYear}</p>
+      {showModal && createPortal(
+        <div className="fixed inset-0 z-[9999] p-4 sm:p-6 flex items-center justify-center pointer-events-none">
+          <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm pointer-events-auto" onClick={() => setShowModal(false)} />
+          <div className="relative z-10 pointer-events-auto w-full max-w-md bg-white rounded-[32px] shadow-2xl border border-slate-100 flex flex-col max-h-[90vh] overflow-hidden">
+            <div className="flex justify-between items-center px-6 sm:px-8 py-5 border-b border-slate-100 shrink-0">
+              <div>
+                <h3 className="text-base font-black text-slate-950 tracking-tight">Configure Sales Target</h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">Timeframe: {monthsList[selectedMonth - 1]} {selectedYear}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-all"
+              >
+                <X size={18} />
+              </button>
             </div>
 
-            {formError && (
-              <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3.5 text-xs text-rose-600 font-bold flex items-center gap-2">
-                <ShieldAlert size={14} className="shrink-0" />
-                <span>{formError}</span>
-              </div>
-            )}
+            <form onSubmit={handleSaveTarget} className="px-6 sm:px-8 py-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
+              {formError && (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3.5 text-xs text-rose-600 font-bold flex items-center gap-2">
+                  <ShieldAlert size={14} className="shrink-0" />
+                  <span>{formError}</span>
+                </div>
+              )}
 
-            <form onSubmit={handleSaveTarget} className="space-y-4">
               {/* Owner target selection */}
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400 block">Assign Target To</label>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Assign Target To</label>
                 <select
                   value={targetForm.ownerId}
                   onChange={(e) => setTargetForm(prev => ({ ...prev, ownerId: e.target.value }))}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black uppercase text-slate-700 focus:bg-white transition-all outline-none"
+                  className="w-full rounded-xl border border-slate-200/50 bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-700 outline-none"
                 >
                   <option value="">Company Wide (Overall Target)</option>
                   {teamMembers.map(m => (
@@ -428,27 +445,27 @@ export default function CrmSalesTargets({ websiteId, teamMembers }) {
               </div>
 
               {/* Target value input */}
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400 block">Target Won Revenue (₹)</label>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Target Won Revenue (₹)</label>
                 <input
                   type="number"
                   placeholder="e.g. 500000"
                   required
                   value={targetForm.targetValue}
                   onChange={(e) => setTargetForm(prev => ({ ...prev, targetValue: e.target.value }))}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-semibold text-slate-900 focus:bg-white transition-all outline-none"
+                  className="w-full rounded-xl border border-slate-200/50 bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-900 outline-none"
                 />
               </div>
 
               {/* Target won deals count input */}
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400 block">Target Won Deals Count (Optional)</label>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Target Won Deals Count (Optional)</label>
                 <input
                   type="number"
                   placeholder="e.g. 10"
                   value={targetForm.targetCount}
                   onChange={(e) => setTargetForm(prev => ({ ...prev, targetCount: e.target.value }))}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-semibold text-slate-900 focus:bg-white transition-all outline-none"
+                  className="w-full rounded-xl border border-slate-200/50 bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-900 outline-none"
                 />
               </div>
 
@@ -457,14 +474,14 @@ export default function CrmSalesTargets({ websiteId, teamMembers }) {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 border border-slate-200 rounded-2xl py-3 text-[10px] font-black uppercase text-slate-500 hover:bg-slate-50 transition-all"
+                  className="flex-1 border border-slate-200 rounded-2xl py-3.5 text-[10px] font-black uppercase text-slate-500 hover:bg-slate-50 transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 bg-indigo-600 rounded-2xl py-3 text-[10px] font-black uppercase text-white shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center justify-center"
+                  className="flex-1 bg-indigo-600 rounded-2xl py-3.5 text-[10px] font-black uppercase text-white shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center justify-center"
                 >
                   {saving ? (
                     <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -475,7 +492,8 @@ export default function CrmSalesTargets({ websiteId, teamMembers }) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

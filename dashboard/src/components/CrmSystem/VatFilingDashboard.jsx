@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   FileText, Calendar, Filter, AlertTriangle, CheckCircle2, Clock, Users, Search, RefreshCw, ChevronRight,
   Plus, Edit3, Trash2, X, Save
@@ -50,6 +51,12 @@ export default function VatFilingDashboard({ websiteId, teamMembers = [], onOpen
   useEffect(() => {
     fetchVatStats();
   }, [websiteId, monthFilter, consultantFilter]);
+
+  useEffect(() => {
+    if (showModal) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "";
+    return () => { document.body.style.overflow = ""; };
+  }, [showModal]);
 
   const openAddModal = () => {
     setEditingClient(null);
@@ -356,10 +363,11 @@ export default function VatFilingDashboard({ websiteId, teamMembers = [], onOpen
       </div>
 
       {/* Add / Edit VAT Filing Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-[32px] border border-slate-200 shadow-2xl max-w-2xl w-full overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+      {showModal && createPortal(
+        <div className="fixed inset-0 z-[9999] p-4 sm:p-6 flex items-center justify-center pointer-events-none">
+          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200 pointer-events-auto" onClick={() => setShowModal(false)} />
+          <div className="relative z-10 pointer-events-auto bg-white rounded-[32px] border border-slate-200 shadow-2xl max-w-2xl w-full flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 sm:p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl border border-indigo-100 shadow-sm">
                   <FileText size={22} />
@@ -379,7 +387,7 @@ export default function VatFilingDashboard({ websiteId, teamMembers = [], onOpen
               </button>
             </div>
 
-            <form onSubmit={handleFormSubmit} className="p-8 space-y-6 max-h-[80vh] overflow-y-auto custom-scrollbar">
+            <form onSubmit={handleFormSubmit} className="p-6 sm:p-8 space-y-4 overflow-y-auto custom-scrollbar flex-1">
               <div className="grid grid-cols-2 gap-4">
                 <SearchableCustomerSelect
                   label="Company Name *"
@@ -524,7 +532,8 @@ export default function VatFilingDashboard({ websiteId, teamMembers = [], onOpen
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

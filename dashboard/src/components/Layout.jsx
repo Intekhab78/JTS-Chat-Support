@@ -689,7 +689,7 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
       <aside
         aria-label="Desktop navigation"
         className={`
-          hidden lg:flex flex-col glass-sidebar shadow-2xl flex-shrink-0 relative z-30
+          hidden lg:flex flex-col glass-sidebar shadow-2xl flex-shrink-0 relative z-[45]
           transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
           ${isCollapsed ? "w-[5.5rem]" : "w-72"}
         `}
@@ -698,9 +698,9 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
         <button
           onClick={() => setIsCollapsed(c => !c)}
           aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="absolute -right-3 top-8 bg-indigo-600 border border-white/10 text-white rounded-full p-1.5 shadow-xl z-50 transition-all hover:scale-110 active:scale-95 hover:bg-indigo-500"
+          className="absolute -right-3.5 top-7 bg-indigo-600 border border-white/10 text-white rounded-full p-2 shadow-xl z-50 transition-all hover:scale-110 active:scale-95 hover:bg-indigo-500 flex items-center justify-center"
         >
-          {isCollapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
+          {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
 
         <SidebarContent {...sidebarProps} collapsed={isCollapsed} onNavigate={() => { }} />

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Calendar as CalendarIcon, Video, Phone, CheckSquare, Clock, MapPin, Plus, X,
   ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, Edit2, Trash2, Calendar
@@ -233,9 +234,15 @@ export default function CrmCalendarView({ websiteId }) {
   };
 
   useEffect(() => {
-    fetchCalendarItems();
-    fetchLookups();
-  }, [websiteId, viewMode, currentDate]);
+    fetchActivities();
+    fetchMeetingPlatforms();
+  }, [currentDate, viewMode, websiteId]);
+
+  useEffect(() => {
+    if (showScheduleModal) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "";
+    return () => { document.body.style.overflow = ""; };
+  }, [showScheduleModal]);
 
   const handleCreateOrUpdate = async (e) => {
     e.preventDefault();
@@ -618,15 +625,24 @@ export default function CrmCalendarView({ websiteId }) {
       </div>
 
       {/* Schedule / Reschedule Event Modal */}
-      {showScheduleModal && (
-        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm" onClick={() => setShowScheduleModal(false)} />
-          <div className="bg-white rounded-[28px] p-8 max-w-lg w-full relative z-10 border shadow-2xl space-y-6">
-            <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest border-b pb-3">
-              {selectedActivity ? "Reschedule / Edit Event" : "Schedule New Event"}
-            </h4>
+      {showScheduleModal && createPortal(
+        <div className="fixed inset-0 z-[9999] p-4 sm:p-6 flex items-center justify-center pointer-events-none">
+          <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm pointer-events-auto" onClick={() => setShowScheduleModal(false)} />
+          <div className="relative z-10 pointer-events-auto bg-white rounded-[28px] max-w-lg w-full border shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+            <div className="flex justify-between items-center px-6 sm:px-8 py-5 border-b border-slate-100 shrink-0">
+              <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest">
+                {selectedActivity ? "Reschedule / Edit Event" : "Schedule New Event"}
+              </h4>
+              <button
+                type="button"
+                onClick={() => setShowScheduleModal(false)}
+                className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-all"
+              >
+                <X size={18} />
+              </button>
+            </div>
 
-            <form onSubmit={handleCreateOrUpdate} className="space-y-4 text-xs font-bold text-slate-600">
+            <form onSubmit={handleCreateOrUpdate} className="px-6 sm:px-8 py-6 space-y-4 text-xs font-bold text-slate-600 overflow-y-auto custom-scrollbar flex-1">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Event Type</label>
@@ -839,7 +855,8 @@ export default function CrmCalendarView({ websiteId }) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
