@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Headphones, ShieldAlert, Award, Inbox, Settings, Plus, RefreshCw, Calendar, FileText } from "lucide-react";
+import { Headphones, ShieldAlert, Award, Inbox, Settings, Plus, RefreshCw, Calendar, FileText, Download, Printer } from "lucide-react";
 import { api } from "../../api/client.js";
+import { exportToCSV, exportToPDF, exportSingleRecordPDF } from "../../utils/exportUtils.js";
 
 export default function CrmHelpdeskView({ websiteId }) {
   const [tickets, setTickets] = useState([]);
@@ -68,16 +69,52 @@ export default function CrmHelpdeskView({ websiteId }) {
     }
   };
 
+  const handleExportCSV = () => {
+    const data = tickets.map(t => ({
+      "Ticket ID": t.ticketId || t._id,
+      "Subject": t.subject || "-",
+      "Priority": (t.priority || "Normal").toUpperCase(),
+      "Escalation Level": t.escalationLevel || 0,
+      "Status": (t.status || "Open").toUpperCase(),
+      "Created At": t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "-"
+    }));
+    exportToCSV(data, `Helpdesk_Tickets_${new Date().toISOString().slice(0,10)}`);
+  };
+
+  const handleExportPDF = () => {
+    const data = tickets.map(t => ({
+      "Ticket ID": t.ticketId || t._id,
+      "Subject": t.subject || "-",
+      "Priority": (t.priority || "Normal").toUpperCase(),
+      "Status": (t.status || "Open").toUpperCase()
+    }));
+    exportToPDF(data, `Helpdesk_Tickets_${new Date().toISOString().slice(0,10)}`, "HELPDESK TICKETS & SLA REPORT");
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Actions */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex gap-2 w-full sm:w-auto flex-wrap">
           <button
             onClick={() => setShowAssetForm(true)}
-            className="flex-1 sm:flex-initial py-3 px-5 border border-slate-200 hover:bg-slate-50 text-[10px] font-black uppercase text-slate-700 rounded-2xl flex items-center justify-center gap-1.5 transition-all"
+            className="py-2.5 px-4 border border-slate-200 hover:bg-slate-50 text-[10px] font-black uppercase text-slate-700 rounded-2xl flex items-center justify-center gap-1.5 transition-all"
           >
             Register Asset
+          </button>
+          <button
+            onClick={handleExportCSV}
+            className="py-2.5 px-4 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase rounded-2xl flex items-center justify-center gap-1.5 transition-all"
+            title="Export Helpdesk Tickets to CSV"
+          >
+            <Download size={13} /> Export CSV
+          </button>
+          <button
+            onClick={handleExportPDF}
+            className="py-2.5 px-4 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase rounded-2xl flex items-center justify-center gap-1.5 transition-all"
+            title="Export Helpdesk Tickets to PDF"
+          >
+            <Printer size={13} /> Export PDF
           </button>
         </div>
         <button
@@ -97,18 +134,40 @@ export default function CrmHelpdeskView({ websiteId }) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Support Tickets overview */}
           <div className="lg:col-span-2 bg-white border border-slate-200/80 rounded-[30px] p-6 shadow-sm space-y-4">
-            <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b pb-3 border-slate-100 flex items-center gap-1.5"><Inbox size={14} className="text-indigo-500" /> Active SLA Tickets</h4>
+            <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b pb-3 border-slate-100 flex items-center gap-1.5"><Inbox size={14} className="text-indigo-500" /> Active SLA Tickets ({tickets.length})</h4>
             {tickets.length === 0 ? (
               <p className="text-slate-400 font-bold text-xs uppercase tracking-widest text-center py-10">No active tickets.</p>
             ) : (
               <div className="space-y-3">
                 {tickets.slice(0, 10).map(t => (
-                  <div key={t._id} className="p-4 border border-slate-100 rounded-2xl flex justify-between items-center">
+                  <div key={t._id} className="p-4 border border-slate-100 rounded-2xl flex justify-between items-center hover:border-slate-200 transition-all">
                     <div>
                       <h5 className="text-xs font-black text-slate-800">{t.subject} ({t.ticketId})</h5>
                       <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">Priority: {t.priority} • Escalation Level: {t.escalationLevel || 0} • Status: {t.status}</p>
                     </div>
-                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${t.status === "open" ? "bg-indigo-50 text-indigo-600" : "bg-slate-100 text-slate-600"}`}>{t.status}</span>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${t.status === "open" ? "bg-indigo-50 text-indigo-600" : "bg-slate-100 text-slate-600"}`}>{t.status}</span>
+                      <button
+                        onClick={() => {
+                          exportSingleRecordPDF(
+                            `HELPDESK TICKET REPORT - ${t.ticketId || t._id}`,
+                            {
+                              "Ticket ID": t.ticketId || t._id,
+                              "Subject": t.subject || "-",
+                              "Priority Level": (t.priority || "NORMAL").toUpperCase(),
+                              "Escalation Level": t.escalationLevel || 0,
+                              "Current Status": (t.status || "OPEN").toUpperCase(),
+                              "Created Date": t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "-"
+                            },
+                            `Ticket_${t.ticketId || t._id}`
+                          );
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                        title="Export Single Ticket PDF"
+                      >
+                        <Printer size={12} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

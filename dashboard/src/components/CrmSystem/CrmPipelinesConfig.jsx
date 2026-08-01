@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Plus, Trash2, Edit3, Check, X, MoveUp, MoveDown, Layout, ShieldAlert } from "lucide-react";
+import { Plus, Trash2, Edit3, Check, X, MoveUp, MoveDown, Layout, ShieldAlert, Download, Printer } from "lucide-react";
 import { api } from "../../api/client.js";
+import { exportToCSV, exportToPDF, exportSingleRecordPDF } from "../../utils/exportUtils.js";
 
 const DEFAULT_STAGES = [
   { key: "new", label: "New Lead", probability: 10, order: 0, color: "bg-violet-50 text-violet-600 border-violet-100" },
@@ -143,17 +144,54 @@ export default function CrmPipelinesConfig({ websiteId }) {
     }
   };
 
+  const handleExportCSV = () => {
+    const data = (selectedPipeline?.stages || DEFAULT_STAGES).map(s => ({
+      "Pipeline Name": selectedPipeline?.name || "Standard Sales Pipeline",
+      "Stage Key": s.key,
+      "Stage Label": s.label,
+      "Win Probability (%)": `${s.probability}%`,
+      "Order Index": s.order
+    }));
+    exportToCSV(data, `Pipeline_Config_${(selectedPipeline?.name || "Default").replace(/\s+/g, '_')}`);
+  };
+
+  const handleExportPDF = () => {
+    const data = (selectedPipeline?.stages || DEFAULT_STAGES).map(s => ({
+      "Stage Key": s.key,
+      "Stage Label": s.label,
+      "Win Probability (%)": `${s.probability}%`,
+      "Order": String(s.order)
+    }));
+    exportToPDF(data, `Pipeline_Config_${(selectedPipeline?.name || "Default").replace(/\s+/g, '_')}`, `PIPELINE STAGE CONFIGURATION - ${(selectedPipeline?.name || "STANDARD PIPELINE").toUpperCase()}`);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header section */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center bg-white border border-slate-200/80 p-5 rounded-[24px] shadow-sm">
         <div>
           <h4 className="text-sm font-black text-slate-900 uppercase tracking-wider">Configure Pipelines</h4>
           <p className="text-[10px] font-bold text-slate-400 mt-1">Manage custom stages and sales progression sequences.</p>
         </div>
-        <button onClick={handleOpenCreate} className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider flex items-center gap-2">
-          <Plus size={14} /> New Pipeline
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Pipeline Config to CSV"
+          >
+            <Download size={13} /> Export CSV
+          </button>
+          <button
+            onClick={handleExportPDF}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Pipeline Config to PDF"
+          >
+            <Printer size={13} /> Export PDF
+          </button>
+          <button onClick={handleOpenCreate} className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-2 transition-all">
+            <Plus size={14} /> New Pipeline
+          </button>
+        </div>
       </div>
 
       {loading ? (

@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   FileText, Download, Filter, Calendar, Users, Briefcase, RefreshCw, FileSpreadsheet,
-  ShieldCheck, Check, Search, Award, AlertTriangle, CreditCard, Landmark, Sparkles, ChevronRight, Layers, Eye, X, ArrowUpRight
+  ShieldCheck, Check, Search, Award, AlertTriangle, CreditCard, Landmark, Sparkles, ChevronRight, Layers, Eye, X, ArrowUpRight, Printer
 } from "lucide-react";
 import { api } from "../../api/client.js";
-import { exportToPDF, exportToExcel, exportToCSV } from "../../utils/exportUtils.js";
+import { exportToPDF, exportToExcel, exportToCSV, exportSingleRecordPDF } from "../../utils/exportUtils.js";
 import OverdueClientsSection from "./OverdueClientsSection.jsx";
 
 const COMPLIANCE_REPORTS = [

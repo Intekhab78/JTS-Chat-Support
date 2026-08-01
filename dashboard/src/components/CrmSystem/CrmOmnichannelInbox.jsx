@@ -2,10 +2,11 @@ import React, { useState, useEffect } from "react";
 import {
   MessageSquare, Mail, Phone, Calendar, Send, ShieldAlert, Check, CheckCheck,
   UserCheck, RefreshCw, Filter, Search, Tag, Pin, Facebook, Instagram, Trash,
-  PlusCircle, AlertCircle, HelpCircle, Archive, CheckCircle2, ChevronRight, UserPlus
+  PlusCircle, AlertCircle, HelpCircle, Archive, CheckCircle2, ChevronRight, UserPlus, Download, Printer
 } from "lucide-react";
 import { api } from "../../api/client.js";
 import { useToast } from "../../context/ToastContext.jsx";
+import { exportToCSV, exportToPDF, exportSingleRecordPDF } from "../../utils/exportUtils.js";
 
 const CHANNELS = [
   { id: "", label: "All Channels" },
@@ -278,6 +279,30 @@ export default function CrmOmnichannelInbox({ websiteId }) {
     }
   };
 
+  const handleExportCSV = () => {
+    const data = sessions.map(s => ({
+      "Session ID": s._id,
+      "Customer / Contact": s.customerName || s.customerId?.name || "Guest",
+      "Channel": (s.channel || "Chat").toUpperCase(),
+      "Priority": (s.priority || "Normal").toUpperCase(),
+      "Status": (s.status || "Active").toUpperCase(),
+      "Assigned Agent": s.assignedAgentId?.name || "Unassigned",
+      "Last Activity": s.updatedAt ? new Date(s.updatedAt).toLocaleDateString() : "-"
+    }));
+    exportToCSV(data, `Omnichannel_Inbox_Sessions_${new Date().toISOString().slice(0,10)}`);
+  };
+
+  const handleExportPDF = () => {
+    const data = sessions.map(s => ({
+      "Customer / Contact": s.customerName || s.customerId?.name || "Guest",
+      "Channel": (s.channel || "Chat").toUpperCase(),
+      "Priority": (s.priority || "Normal").toUpperCase(),
+      "Status": (s.status || "Active").toUpperCase(),
+      "Assigned Agent": s.assignedAgentId?.name || "Unassigned"
+    }));
+    exportToPDF(data, `Omnichannel_Inbox_Sessions_${new Date().toISOString().slice(0,10)}`, "OMNICHANNEL INBOX CONVERSATIONS REPORT");
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Banner */}
@@ -292,8 +317,23 @@ export default function CrmOmnichannelInbox({ websiteId }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <span className="text-[10px] font-black text-slate-400 uppercase">Agent Status:</span>
+        <div className="flex items-center gap-3 flex-wrap w-full sm:w-auto">
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Conversations to CSV"
+          >
+            <Download size={13} /> Export CSV
+          </button>
+          <button
+            onClick={handleExportPDF}
+            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Conversations to PDF"
+          >
+            <Printer size={13} /> Export PDF
+          </button>
+
+          <span className="text-[10px] font-black text-slate-400 uppercase ml-2">Agent Status:</span>
           <select
             value={agentStatus}
             onChange={(e) => handleUpdateAgentStatus(e.target.value)}
@@ -408,6 +448,27 @@ export default function CrmOmnichannelInbox({ websiteId }) {
                     <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">Assigned: {selectedSession.assignedAgent?.name || "Unassigned"}</p>
                   </div>
                   <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        exportSingleRecordPDF(
+                          `OMNICHANNEL CONVERSATION BRIEF - ${selectedSession.sessionId || selectedSession._id}`,
+                          {
+                            "Session ID": selectedSession.sessionId || selectedSession._id,
+                            "Customer Name": selectedSession.customerName || selectedSession.customerId?.name || "Guest",
+                            "Channel": (selectedSession.channel || "Chat").toUpperCase(),
+                            "Priority Level": (selectedSession.priority || "Normal").toUpperCase(),
+                            "Assigned Agent": selectedSession.assignedAgent?.name || "Unassigned",
+                            "Current Status": (selectedSession.status || "Active").toUpperCase(),
+                            "Last Message Summary": selectedSession.lastMessagePreview || "-"
+                          },
+                          `Conversation_${selectedSession.sessionId || selectedSession._id}`
+                        );
+                      }}
+                      className="px-2 py-1 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 rounded-xl text-[9px] font-black uppercase text-emerald-700 flex items-center gap-1 transition-all"
+                      title="Export Single Conversation Brief PDF"
+                    >
+                      <Printer size={10} /> Export PDF
+                    </button>
                     <button
                       onClick={() => setShowAssignModal(true)}
                       className="px-2 py-1 bg-slate-50 border hover:bg-slate-100 rounded-xl text-[9px] font-black uppercase text-slate-600 flex items-center gap-1"

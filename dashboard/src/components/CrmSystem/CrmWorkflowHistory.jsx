@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Play, CheckCircle, XCircle, AlertCircle, Search, Clock, FileText } from "lucide-react";
+import { Play, CheckCircle, XCircle, AlertCircle, Search, Clock, FileText, Download, Printer } from "lucide-react";
 import { api } from "../../api/client.js";
+import { exportToCSV, exportToPDF, exportSingleRecordPDF } from "../../utils/exportUtils.js";
 
 export default function CrmWorkflowHistory({ websiteId }) {
   const [executions, setExecutions] = useState([]);
@@ -23,11 +24,56 @@ export default function CrmWorkflowHistory({ websiteId }) {
     fetchExecutions();
   }, [websiteId]);
 
+  const handleExportCSV = () => {
+    const data = executions.map(e => ({
+      "Workflow Name": e.workflowId?.name || "Workflow Run",
+      "Trigger Type": e.workflowId?.trigger || "System Event",
+      "Execution Status": (e.status || "Completed").toUpperCase(),
+      "Timestamp": e.createdAt ? new Date(e.createdAt).toLocaleString() : "-"
+    }));
+    exportToCSV(data, `Workflow_Executions_Log_${new Date().toISOString().slice(0,10)}`);
+  };
+
+  const handleExportPDF = () => {
+    const data = executions.map(e => ({
+      "Workflow Name": e.workflowId?.name || "Workflow Run",
+      "Trigger": e.workflowId?.trigger || "System Event",
+      "Status": (e.status || "Completed").toUpperCase(),
+      "Timestamp": e.createdAt ? new Date(e.createdAt).toLocaleDateString() : "-"
+    }));
+    exportToPDF(data, `Workflow_Executions_Log_${new Date().toISOString().slice(0,10)}`, "AUTOMATION WORKFLOW EXECUTION AUDIT REPORT");
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center border-b pb-3 border-slate-100">
-        <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Automation Execution Logs</h3>
-        <span className="text-[10px] font-black text-indigo-500 uppercase tracking-wide">Real-time Pipeline Audit</span>
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row justify-between items-center bg-white border border-slate-200/80 rounded-[24px] p-5 shadow-sm gap-4">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 bg-indigo-50 text-indigo-600 flex items-center justify-center rounded-2xl">
+            <Clock size={18} />
+          </div>
+          <div>
+            <h3 className="text-sm font-black tracking-tight text-slate-900">Automation Execution Logs</h3>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Real-time pipeline automation audit trail</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Workflow Logs to CSV"
+          >
+            <Download size={13} /> Export CSV
+          </button>
+          <button
+            onClick={handleExportPDF}
+            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Workflow Logs to PDF"
+          >
+            <Printer size={13} /> Export PDF
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -38,7 +84,7 @@ export default function CrmWorkflowHistory({ websiteId }) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Runs history list */}
           <div className="lg:col-span-2 bg-white border border-slate-200/80 rounded-[30px] p-6 shadow-sm space-y-4">
-            <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b pb-3 border-slate-100">Executions List</h4>
+            <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b pb-3 border-slate-100">Executions List ({executions.length})</h4>
             {executions.length === 0 ? (
               <p className="text-slate-400 font-bold text-xs uppercase tracking-widest text-center py-10">No execution logs found.</p>
             ) : (
@@ -51,10 +97,29 @@ export default function CrmWorkflowHistory({ websiteId }) {
                   >
                     <div className="space-y-1">
                       <h5 className="text-xs font-black text-slate-800">{e.workflowId?.name || "Workflow Run"}</h5>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">Trigger: {e.workflowId?.trigger} • Executed: {new Date(e.createdAt).toLocaleTimeString()}</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">Trigger: {e.workflowId?.trigger || "Event"} • Executed: {new Date(e.createdAt).toLocaleTimeString()}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${e.status === "success" ? "bg-emerald-50 text-emerald-600" : e.status === "failed" ? "bg-rose-50 text-rose-600" : "bg-indigo-50 text-indigo-600"}`}>{e.status}</span>
+                      <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${e.status === "success" ? "bg-emerald-50 text-emerald-600" : e.status === "failed" ? "bg-rose-50 text-rose-600" : "bg-indigo-50 text-indigo-600"}`}>{e.status || "Completed"}</span>
+                      <button
+                        onClick={(evt) => {
+                          evt.stopPropagation();
+                          exportSingleRecordPDF(
+                            `WORKFLOW EXECUTION LOG - ${e.workflowId?.name || "Run"}`,
+                            {
+                              "Workflow Name": e.workflowId?.name || "Workflow Run",
+                              "Trigger Event": e.workflowId?.trigger || "System Event",
+                              "Execution Status": (e.status || "COMPLETED").toUpperCase(),
+                              "Execution Time": e.createdAt ? new Date(e.createdAt).toLocaleString() : "-"
+                            },
+                            `Workflow_Run_${e._id}`
+                          );
+                        }}
+                        className="p-1 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                        title="Export Single Execution Run PDF"
+                      >
+                        <Printer size={12} />
+                      </button>
                     </div>
                   </div>
                 ))}

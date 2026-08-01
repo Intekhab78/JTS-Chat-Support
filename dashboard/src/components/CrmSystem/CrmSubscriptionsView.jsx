@@ -145,6 +145,8 @@ export default function CrmSubscriptionsView({ websiteId }) {
     }
   };
 
+  const handleSaveSub = handleCreateOrUpdateSub;
+
   const handleDeleteSub = async (id) => {
     if (!window.confirm("Are you sure you want to cancel and delete this subscription?")) return;
     try {
@@ -157,7 +159,7 @@ export default function CrmSubscriptionsView({ websiteId }) {
     }
   };
 
-  const handleCreateOrUpdatePlan = async (e) => {
+  const handleSavePlan = async (e) => {
     e.preventDefault();
     try {
       const payload = {
@@ -189,6 +191,8 @@ export default function CrmSubscriptionsView({ websiteId }) {
       alert(err.message || "Failed to save plan.");
     }
   };
+
+  const handleCreateOrUpdatePlan = handleSavePlan;
 
   const handleDeletePlan = async (id) => {
     if (!window.confirm("Are you sure you want to delete this subscription plan?")) return;

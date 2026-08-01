@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Shield, Search, RefreshCw, Filter, Calendar, User, Activity, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { Shield, Search, RefreshCw, Filter, Calendar, User, Activity, AlertCircle, Eye, EyeOff, Download, Printer } from "lucide-react";
 import { api } from "../../api/client.js";
+import { exportToCSV, exportToPDF, exportSingleRecordPDF } from "../../utils/exportUtils.js";
 
 export default function CrmAuditLogsView({ websiteId }) {
   const [logs, setLogs] = useState([]);
@@ -76,7 +77,7 @@ export default function CrmAuditLogsView({ websiteId }) {
       </div>
 
       {/* Filter panel */}
-      <div className="bg-white border border-slate-200/80 rounded-[28px] p-5 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="bg-white border border-slate-200/80 rounded-[28px] p-6 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-4">
         {/* Search */}
         <div className="space-y-1">
           <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Fuzzy Lookup (Actor / ID)</label>
@@ -129,10 +130,25 @@ export default function CrmAuditLogsView({ websiteId }) {
           </select>
         </div>
 
-        {/* Quick summary status */}
-        <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-3 flex flex-col justify-center">
-          <span className="text-[9px] font-black text-indigo-500 uppercase tracking-wider">Total Audited Events</span>
-          <span className="text-xl font-black text-slate-900">{filteredLogs.length} Records</span>
+        {/* Export buttons & summary */}
+        <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-3 flex flex-col justify-between">
+          <span className="text-[9px] font-black text-indigo-500 uppercase tracking-wider">Total Audited: {filteredLogs.length}</span>
+          <div className="flex gap-2 mt-1">
+            <button
+              onClick={handleExportCSV}
+              className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1"
+              title="Export Audit Logs to CSV"
+            >
+              <Download size={11} /> CSV
+            </button>
+            <button
+              onClick={handleExportPDF}
+              className="flex-1 py-1.5 px-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1"
+              title="Export Audit Logs to PDF"
+            >
+              <Printer size={11} /> PDF
+            </button>
+          </div>
         </div>
       </div>
 
@@ -220,8 +236,30 @@ export default function CrmAuditLogsView({ websiteId }) {
                           {log.ipAddress || "System"}
                         </td>
 
-                        {/* Expand Details Trigger */}
-                        <td className="py-3.5 px-6 text-right">
+                        {/* Expand Details & Single Export */}
+                        <td className="py-3.5 px-6 text-right space-x-1">
+                          <button
+                            onClick={() => {
+                              exportSingleRecordPDF(
+                                `SECURITY AUDIT LOG EVENT - ${log.action?.toUpperCase()}`,
+                                {
+                                  "Log Event ID": log._id,
+                                  "Timestamp": log.createdAt ? new Date(log.createdAt).toLocaleString() : "-",
+                                  "Actor Name": log.actorName || "System",
+                                  "Actor Role": log.actorRole || "system",
+                                  "Action Performed": (log.action || "general").toUpperCase(),
+                                  "Target Entity Type": log.entityType || "-",
+                                  "Target Entity ID": log.entityId || "-",
+                                  "IP Address": log.ipAddress || "Internal"
+                                },
+                                `Audit_Log_${log._id}`
+                              );
+                            }}
+                            className="p-1.5 rounded-xl border border-slate-200/80 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 transition-colors inline-flex items-center"
+                            title="Export Single Audit Log PDF"
+                          >
+                            <Printer size={12} />
+                          </button>
                           <button
                             onClick={() => toggleExpandLog(log._id)}
                             className="p-1.5 rounded-xl border border-slate-200/80 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-colors inline-flex items-center gap-1"

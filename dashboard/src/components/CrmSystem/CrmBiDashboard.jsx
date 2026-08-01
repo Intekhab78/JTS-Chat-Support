@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { TrendingUp, Plus, ShieldAlert, Award, FileText, Download, BarChart2, DollarSign, Activity, AlertTriangle, Trash2 } from "lucide-react";
+import { TrendingUp, Plus, ShieldAlert, Award, FileText, Download, Printer, BarChart2, DollarSign, Activity, AlertTriangle, Trash2 } from "lucide-react";
 import { api } from "../../api/client.js";
+import { exportToPDF } from "../../utils/exportUtils.js";
 
 const DEFAULT_PRESET_WIDGETS = [
   { id: "w_pipeline", title: "Total Pipeline Value", type: "kpi", metric: "pipeline" },
@@ -134,6 +135,22 @@ export default function CrmBiDashboard({ websiteId }) {
     document.body.removeChild(link);
   };
 
+  const handleExportPDF = () => {
+    const data = [
+      { "Category": "CRM Sales", "Metric Name": "Total Pipeline Value ($)", "Value": `$${metrics.crm.pipelineValue}` },
+      { "Category": "CRM Sales", "Metric Name": "Lead Conversion Rate (%)", "Value": `${metrics.crm.conversionRate}%` },
+      { "Category": "CRM Sales", "Metric Name": "Total Won Deals", "Value": String(metrics.crm.wonDeals) },
+      { "Category": "CRM Sales", "Metric Name": "Total Leads Logged", "Value": String(metrics.crm.totalLeads) },
+      { "Category": "Customer Support", "Metric Name": "Total SLA Tickets", "Value": String(metrics.support.totalTickets) },
+      { "Category": "Customer Support", "Metric Name": "Open SLA Tickets", "Value": String(metrics.support.openTickets) },
+      { "Category": "Customer Support", "Metric Name": "Escalated Tickets", "Value": String(metrics.support.escalatedTickets) },
+      { "Category": "Finance Ledger", "Metric Name": "Total Collections ($)", "Value": `$${metrics.finance.collectionsSum}` },
+      { "Category": "Finance Ledger", "Metric Name": "MRR Estimate ($)", "Value": `$${metrics.finance.mrrEstimate}` },
+      { "Category": "Finance Ledger", "Metric Name": "ARR Estimate ($)", "Value": `$${metrics.finance.arrEstimate}` }
+    ];
+    exportToPDF(data, `BI_Analytics_${new Date().toISOString().slice(0,10)}`, "BUSINESS INTELLIGENCE & ANALYTICS REPORT");
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Panel */}
@@ -142,18 +159,26 @@ export default function CrmBiDashboard({ websiteId }) {
           <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Enterprise Analytics & BI</h3>
           <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5">Real-time Multi-tenant Intelligence Board</p>
         </div>
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex gap-2 w-full sm:w-auto flex-wrap">
           <button
             onClick={() => setShowWidgetForm(true)}
-            className="flex-1 sm:flex-initial py-3 px-5 border border-slate-200 hover:bg-slate-50 text-[10px] font-black uppercase text-slate-700 rounded-2xl flex items-center justify-center gap-1.5 transition-all"
+            className="py-2.5 px-4 border border-slate-200 hover:bg-slate-50 text-[10px] font-black uppercase text-slate-700 rounded-2xl flex items-center justify-center gap-1.5 transition-all"
           >
             <Plus size={14} /> Add Widget
           </button>
           <button
             onClick={handleExportCSV}
-            className="flex-1 sm:flex-initial py-3 px-5 bg-slate-900 hover:bg-slate-800 text-[10px] font-black uppercase text-white rounded-2xl flex items-center justify-center gap-1.5 shadow-sm transition-all"
+            className="py-2.5 px-4 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase rounded-2xl flex items-center justify-center gap-1.5 transition-all"
+            title="Export BI Metrics to CSV"
           >
-            <Download size={14} /> Export Report
+            <Download size={13} /> Export CSV
+          </button>
+          <button
+            onClick={handleExportPDF}
+            className="py-2.5 px-4 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase rounded-2xl flex items-center justify-center gap-1.5 transition-all"
+            title="Export BI Metrics to PDF"
+          >
+            <Printer size={13} /> Export PDF
           </button>
         </div>
       </div>

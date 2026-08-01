@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { 
   History, Mail, Phone, Video, FileText, MessageSquare, 
-  Search, RefreshCw, User, Calendar, Award, AlertTriangle, Play 
+  Search, RefreshCw, User, Calendar, Award, AlertTriangle, Play, Download, Printer 
 } from "lucide-react";
 import { api } from "../../api/client.js";
+import { exportToCSV, exportToPDF, exportSingleRecordPDF } from "../../utils/exportUtils.js";
 
 const ACTIVITY_TYPES = [
   { value: "", label: "All Activities" },
@@ -85,6 +86,28 @@ export default function CrmActivityFeed({ websiteId, onOpenCustomer }) {
     );
   };
 
+  const handleExportCSV = () => {
+    const data = activities.map(a => ({
+      "Activity Title": a.title || "Activity",
+      "Type": (a.type || "general").toUpperCase(),
+      "Description / Details": a.description || "-",
+      "Created By": a.ownerId?.name || "System",
+      "User Role": a.ownerId?.role || "System",
+      "Timestamp": a.createdAt ? new Date(a.createdAt).toLocaleString() : "-"
+    }));
+    exportToCSV(data, `CRM_Activity_Feed_${new Date().toISOString().slice(0,10)}`);
+  };
+
+  const handleExportPDF = () => {
+    const data = activities.map(a => ({
+      "Activity Title": a.title || "Activity",
+      "Type": (a.type || "general").toUpperCase(),
+      "Created By": a.ownerId?.name || "System",
+      "Timestamp": a.createdAt ? new Date(a.createdAt).toLocaleDateString() : "-"
+    }));
+    exportToPDF(data, `CRM_Activity_Feed_${new Date().toISOString().slice(0,10)}`, "LIVE CRM TEAM ACTIVITY FEED REPORT");
+  };
+
   if (!websiteId) {
     return (
       <div className="flex flex-col items-center justify-center p-12 bg-white border border-slate-200/80 rounded-[30px] shadow-sm text-center">
@@ -136,6 +159,22 @@ export default function CrmActivityFeed({ websiteId, onOpenCustomer }) {
               <option key={t.value} value={t.value}>{t.label}</option>
             ))}
           </select>
+
+          {/* Master Export Buttons */}
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Feed to CSV"
+          >
+            <Download size={13} /> Export CSV
+          </button>
+          <button
+            onClick={handleExportPDF}
+            className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Feed to PDF"
+          >
+            <Printer size={13} /> Export PDF
+          </button>
 
           {/* Refresh Action */}
           <button
@@ -197,12 +236,34 @@ export default function CrmActivityFeed({ websiteId, onOpenCustomer }) {
                       </p>
                     )}
 
-                    {/* Agent metadata footer */}
-                    <div className="flex items-center gap-2 border-t border-slate-100/80 pt-2 text-[9px] text-slate-400 font-bold uppercase tracking-widest">
-                      <span className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center text-[7px] text-slate-600 font-black shrink-0">
-                        {creatorName[0]?.toUpperCase()}
-                      </span>
-                      <span>By {creatorName} ({creatorRole})</span>
+                    {/* Agent metadata footer & single export */}
+                    <div className="flex items-center justify-between border-t border-slate-100/80 pt-2 text-[9px] text-slate-400 font-bold uppercase tracking-widest">
+                      <div className="flex items-center gap-2">
+                        <span className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center text-[7px] text-slate-600 font-black shrink-0">
+                          {creatorName[0]?.toUpperCase()}
+                        </span>
+                        <span>By {creatorName} ({creatorRole})</span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          exportSingleRecordPDF(
+                            `ACTIVITY EVENT BRIEF - ${act.title}`,
+                            {
+                              "Activity Event": act.title,
+                              "Activity Type": (act.type || "GENERAL").toUpperCase(),
+                              "Details / Description": act.description || "-",
+                              "Created By User": creatorName,
+                              "User Role": creatorRole,
+                              "Timestamp": act.createdAt ? new Date(act.createdAt).toLocaleString() : "-"
+                            },
+                            `Activity_${(act.title || "Record").replace(/\s+/g, '_')}`
+                          );
+                        }}
+                        className="text-slate-400 hover:text-emerald-600 p-1 hover:bg-emerald-50 rounded transition-all"
+                        title="Export Single Activity PDF"
+                      >
+                        <Printer size={12} />
+                      </button>
                     </div>
                   </div>
                 </div>

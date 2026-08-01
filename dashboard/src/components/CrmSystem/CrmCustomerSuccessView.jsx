@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { ShieldCheck, Heart, User, CheckCircle, HelpCircle } from "lucide-react";
+import { ShieldCheck, Heart, User, CheckCircle, HelpCircle, Download, Printer } from "lucide-react";
 import { api } from "../../api/client.js";
+import { exportToCSV, exportToPDF, exportSingleRecordPDF } from "../../utils/exportUtils.js";
 
 export default function CrmCustomerSuccessView({ websiteId }) {
   const [profiles, setProfiles] = useState([]);
@@ -63,11 +64,57 @@ export default function CrmCustomerSuccessView({ websiteId }) {
     }
   };
 
+  const handleExportCSV = () => {
+    const data = profiles.map(p => ({
+      "Client Name": p.customerId?.name || p.customerId?.companyName || "Customer",
+      "Onboarding Status": p.onboardingStatus || "Pending",
+      "Health Score": p.healthScore || 100,
+      "Adoption Score (%)": `${p.adoptionScore || 0}%`,
+      "Risk Level": (p.riskLevel || "Low").toUpperCase()
+    }));
+    exportToCSV(data, `Customer_Success_Profiles_${new Date().toISOString().slice(0,10)}`);
+  };
+
+  const handleExportPDF = () => {
+    const data = profiles.map(p => ({
+      "Client Name": p.customerId?.name || p.customerId?.companyName || "Customer",
+      "Onboarding": p.onboardingStatus || "Pending",
+      "Health Score": String(p.healthScore || 100),
+      "Risk Level": (p.riskLevel || "Low").toUpperCase()
+    }));
+    exportToPDF(data, `Customer_Success_Profiles_${new Date().toISOString().slice(0,10)}`, "CUSTOMER SUCCESS & RETENTION AUDIT REPORT");
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center border-b pb-3 border-slate-100">
-        <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Customer Success & Health Center</h3>
-        <span className="text-[10px] font-black text-indigo-500 uppercase tracking-wide">Enterprise Retention</span>
+      {/* Header bar */}
+      <div className="flex items-center justify-between bg-white border border-slate-200/80 rounded-[24px] p-5 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 bg-indigo-50 text-indigo-600 flex items-center justify-center rounded-2xl">
+            <Heart size={18} />
+          </div>
+          <div>
+            <h3 className="text-sm font-black tracking-tight text-slate-900">Customer Success Hub</h3>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Client retention, health scores & onboarding tracking</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Success Profiles to CSV"
+          >
+            <Download size={13} /> Export CSV
+          </button>
+          <button
+            onClick={handleExportPDF}
+            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            title="Export Success Profiles to PDF"
+          >
+            <Printer size={13} /> Export PDF
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -93,9 +140,30 @@ export default function CrmCustomerSuccessView({ websiteId }) {
                       <h5 className="text-xs font-black text-slate-800">{p.customerId?.name || "Customer Profile"}</h5>
                       <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">Onboarding: {p.onboardingStatus} • Adoption: {p.adoptionScore}%</p>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
                       <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${p.riskLevel === "high" ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-600"}`}>{p.riskLevel} Risk</span>
                       <span className="text-xs font-black text-indigo-600">Health: {p.healthScore}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          exportSingleRecordPDF(
+                            `CUSTOMER SUCCESS DOSSIER - ${p.customerId?.name || "Client"}`,
+                            {
+                              "Client Name": p.customerId?.name || p.customerId?.companyName || "Client",
+                              "Onboarding Status": p.onboardingStatus || "Pending",
+                              "Health Score": `${p.healthScore || 100} / 100`,
+                              "Product Adoption Rate": `${p.adoptionScore || 0}%`,
+                              "Churn Risk Level": (p.riskLevel || "Low").toUpperCase(),
+                              "Last Touchpoint": p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : "-"
+                            },
+                            `Success_Profile_${(p.customerId?.name || "Client").replace(/\s+/g, '_')}`
+                          );
+                        }}
+                        className="p-1 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                        title="Export Single Profile PDF"
+                      >
+                        <Printer size={12} />
+                      </button>
                     </div>
                   </div>
                 ))}
