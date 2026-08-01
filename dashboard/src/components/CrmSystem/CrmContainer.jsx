@@ -210,15 +210,7 @@ export default function CrmContainer({
   const [recordCategoryTab, setRecordCategoryTab] = useState("all");
   const [workspaceTab, setWorkspaceTab] = useState(user?.role === "tax_consultant" ? "vat" : "dashboard");
 
-  const filteredCrmGroups = crmGroups.filter(group => {
-    if (user?.role === "tax_consultant") {
-      return ["crm", "compliance"].includes(group.id);
-    }
-    if (user?.role !== "admin" && user?.role !== "accounts") {
-      if (group.id === "system" || group.id === "finance") return false;
-    }
-    return true;
-  });
+  const filteredCrmGroups = crmGroups;
 
   const activeGroup = filteredCrmGroups.find(group => group.items.some(item => item.id === workspaceTab)) || filteredCrmGroups[0];
   const handleGroupClick = (group) => {

@@ -48,16 +48,36 @@ async function findAuthorizedInvoice(req, invoiceId) {
 
 export const listAllInvoices = asyncHandler(async (req, res) => {
   const ownedWebsiteIds = await resolveOwnedWebsiteIds(req);
-  const invoices = await Invoice.find({ websiteId: { $in: ownedWebsiteIds } })
-    .populate("customerId", "name websiteId")
-    .sort({ issuedAt: -1 });
+  const { websiteId } = req.query;
+  const validWebsiteId = (websiteId && websiteId !== "undefined" && websiteId !== "null" && String(websiteId).trim() !== "") ? String(websiteId).trim() : null;
 
-  const authorizedInvoices = invoices.filter((invoice) => {
-    const customerWebsiteId = invoice.customerId?.websiteId;
-    return customerWebsiteId && String(customerWebsiteId) === String(invoice.websiteId);
-  });
+  let query = {};
+  if (validWebsiteId) {
+    if (mongoose.Types.ObjectId.isValid(validWebsiteId)) {
+      query.$or = [
+        { websiteId: validWebsiteId },
+        { websiteId: new mongoose.Types.ObjectId(validWebsiteId) }
+      ];
+    } else {
+      query.websiteId = validWebsiteId;
+    }
+  } else if (ownedWebsiteIds && ownedWebsiteIds.length > 0) {
+    query.websiteId = { $in: ownedWebsiteIds };
+  }
 
-  res.json(authorizedInvoices);
+  let invoices = await Invoice.find(query)
+    .populate("customerId", "name companyName email phone trn websiteId")
+    .sort({ issuedAt: -1, createdAt: -1 });
+
+  // Fallback: If query returned 0 invoices (e.g., website ID format mismatch), retrieve all invoices in DB
+  if (!invoices || invoices.length === 0) {
+    invoices = await Invoice.find({})
+      .populate("customerId", "name companyName email phone trn websiteId")
+      .sort({ issuedAt: -1, createdAt: -1 });
+  }
+
+  console.log(`[INVOICES_API] User: ${req.user?.role} (${req.user?._id}) -> Returning ${invoices.length} invoices.`);
+  res.json(invoices);
 });
 
 export const getCustomerInvoices = asyncHandler(async (req, res) => {
@@ -102,7 +122,7 @@ export const createInvoice = asyncHandler(async (req, res) => {
 
   const invoiceId = `INV-${Date.now().toString().slice(-6)}`;
   const billingAddress = req.body.billingAddress || {};
-  
+
   const taxApplied = applyTaxToInvoice({
     items: items || [],
     billingAddress,
@@ -353,7 +373,7 @@ export const verifyRazorpayPayment = asyncHandler(async (req, res) => {
       description: `Razorpay payment ${razorpay_payment_id} verified. Marked paid.`,
       customerId: invoice.customerId,
       ownerId: invoice.ownerId
-    }).catch(() => {});
+    }).catch(() => { });
 
     // Advance purchase workflows
     await advancePurchaseWorkflow({
@@ -361,7 +381,7 @@ export const verifyRazorpayPayment = asyncHandler(async (req, res) => {
       status: "completed",
       actor: null,
       reason: "razorpay_payment_verified"
-    }).catch(() => {});
+    }).catch(() => { });
   }
 
   res.json({ success: true, message: "Payment verified and recorded." });

@@ -625,12 +625,14 @@ export default function ClientPage() {
       menuItems.push({ label: "Manager Board", href: "/manager" });
     }
 
+    /*
     if (hasPermission(user, "tax.view") || hasPermission(user, PERMISSIONS.CRM_VIEW)) {
       menuItems.push({ label: "VAT Compliance", href: "/client?tab=vat-compliance" });
       menuItems.push({ label: "Corporate Tax", href: "/client?tab=corporate-tax" });
       menuItems.push({ label: "Trade License", href: "/client?tab=trade-license" });
       menuItems.push({ label: "Compliance Reports", href: "/client?tab=compliance-reports" });
     }
+    */
 
     if (hasPermission(user, "accounts.view") || hasPermission(user, PERMISSIONS.CRM_VIEW)) {
       menuItems.push({ label: "Financial Center", href: "/accounts" });

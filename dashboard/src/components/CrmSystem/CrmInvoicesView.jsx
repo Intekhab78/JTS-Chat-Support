@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { FileText, Plus, Check, ChevronRight, DollarSign, Clock, AlertCircle, RefreshCw, Download, X, CreditCard } from "lucide-react";
 import { api, API_BASE } from "../../api/client.js";
 
@@ -6,6 +6,12 @@ export default function CrmInvoicesView({ websiteId }) {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
+
+  // Pagination & Search State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paying, setPaying] = useState(false);
@@ -28,16 +34,27 @@ export default function CrmInvoicesView({ websiteId }) {
   const fetchInvoices = async () => {
     setLoading(true);
     try {
-      const res = await api(`/api/crm/invoices?websiteId=${websiteId}`);
-      setInvoices(res || []);
+      const qWebsite = (websiteId && websiteId !== "undefined" && websiteId !== "null") ? websiteId : "";
+      const res = await api(`/api/crm/invoices?websiteId=${qWebsite}`);
+      const list = Array.isArray(res) ? res : (res?.invoices || res?.data || []);
+      setInvoices(list);
+      // Auto-select first invoice
+      if (list.length > 0) {
+        setSelectedInvoice(list[0]);
+      } else {
+        setSelectedInvoice(null);
+      }
     } catch (err) {
-      console.error(err);
+      console.error("fetchInvoices error:", err);
+      setInvoices([]);
+      setSelectedInvoice(null);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    setCurrentPage(1);
     fetchInvoices();
   }, [websiteId]);
 
@@ -218,11 +235,127 @@ export default function CrmInvoicesView({ websiteId }) {
     }
   };
 
+  // KPI Analytics Metrics for Invoices
+  const metrics = useMemo(() => {
+    const totalCount = invoices.length;
+    const totalInvoicedValue = invoices.reduce((sum, i) => sum + (Number(i.total) || 0), 0);
+    const paidAmount = invoices.reduce((sum, i) => sum + (Number(i.paidAmount) || 0), 0);
+    const pendingAmount = Math.max(0, totalInvoicedValue - paidAmount);
+
+    return { totalCount, totalInvoicedValue, paidAmount, pendingAmount };
+  }, [invoices]);
+
+  // Filtered & Paginated Invoices
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter(i => {
+      const clientName = i.customerId?.companyName || i.customerId?.name || "";
+      const invNum = i.invoiceId || i.invoiceNumber || "";
+      const matchesSearch = search.trim() === "" ||
+        invNum.toLowerCase().includes(search.toLowerCase()) ||
+        clientName.toLowerCase().includes(search.toLowerCase());
+
+      const matchesStatus = statusFilter === "all" || i.status?.toLowerCase() === statusFilter.toLowerCase();
+      return matchesSearch && matchesStatus;
+    });
+  }, [invoices, search, statusFilter]);
+
+  const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage) || 1;
+
+  const paginatedInvoices = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredInvoices.slice(start, start + itemsPerPage);
+  }, [filteredInvoices, currentPage, itemsPerPage]);
+
+  // Always auto-select the first invoice when paginated list changes
+  useEffect(() => {
+    if (paginatedInvoices.length > 0) {
+      const isSelectedInPage = selectedInvoice && paginatedInvoices.some(i => i._id === selectedInvoice._id);
+      if (!isSelectedInPage) {
+        setSelectedInvoice(paginatedInvoices[0]);
+      }
+    } else {
+      setSelectedInvoice(null);
+    }
+  }, [paginatedInvoices]);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center border-b pb-3 border-slate-100">
-        <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Invoices & Receivables Ledger</h3>
+        <div>
+          <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Invoices & Receivables Ledger</h3>
+          <p className="text-[10px] font-bold text-slate-400 mt-0.5">Manage enterprise invoicing, payment allocations, and receivables</p>
+        </div>
         <span className="text-[10px] font-black text-indigo-500 uppercase tracking-wide">Enterprise Finance</span>
+      </div>
+
+      {/* KPI Analytics Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white border border-slate-200/80 p-4 rounded-[24px] shadow-sm flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+            <FileText size={20} />
+          </div>
+          <div>
+            <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider block">Total Invoices</span>
+            <span className="text-lg font-black text-slate-900">{metrics.totalCount} Invoices</span>
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200/80 p-4 rounded-[24px] shadow-sm flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <DollarSign size={20} />
+          </div>
+          <div>
+            <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider block">Total Invoiced</span>
+            <span className="text-lg font-black text-emerald-700">${metrics.totalInvoicedValue.toLocaleString()}</span>
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200/80 p-4 rounded-[24px] shadow-sm flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+            <CreditCard size={20} />
+          </div>
+          <div>
+            <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider block">Total Collected</span>
+            <span className="text-lg font-black text-blue-700">${metrics.paidAmount.toLocaleString()}</span>
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200/80 p-4 rounded-[24px] shadow-sm flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+            <Clock size={20} />
+          </div>
+          <div>
+            <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider block">Pending Receivables</span>
+            <span className="text-lg font-black text-amber-700">${metrics.pendingAmount.toLocaleString()}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Search and Status Filter Bar */}
+      <div className="bg-white border border-slate-200/80 p-4 rounded-[28px] shadow-sm flex flex-col sm:flex-row gap-3 items-center justify-between">
+        <div className="relative flex-1 w-full">
+          <input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+            placeholder="Search invoices by ID or customer name…"
+            className="w-full pl-4 pr-4 py-2 rounded-xl border border-slate-200 bg-slate-50/50 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:bg-white transition-all"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <select
+            value={statusFilter}
+            onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+            className="w-full sm:w-40 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/50 text-xs font-bold text-slate-700 outline-none cursor-pointer"
+          >
+            <option value="all">All Statuses</option>
+            <option value="paid">Paid</option>
+            <option value="pending">Pending</option>
+            <option value="overdue">Overdue</option>
+            <option value="partially_paid">Partially Paid</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
       </div>
 
       {loading ? (
@@ -234,33 +367,73 @@ export default function CrmInvoicesView({ websiteId }) {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Invoices List */}
-          <div className="lg:col-span-2 bg-white border border-slate-200/80 rounded-[30px] p-6 shadow-sm space-y-4">
-            <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b pb-3 border-slate-100">Issued Invoices</h4>
-            {invoices.length === 0 ? (
-              <p className="text-slate-400 font-bold text-xs uppercase tracking-widest text-center py-10">No invoices logged.</p>
-            ) : (
-              <div className="space-y-3">
-                {invoices.map(i => (
-                  <div
-                    key={i._id}
-                    onClick={() => setSelectedInvoice(i)}
-                    className={`p-4 border rounded-2xl flex justify-between items-center cursor-pointer transition-colors ${selectedInvoice?._id === i._id ? "border-indigo-500 bg-indigo-50/10" : "border-slate-100 hover:bg-slate-50/50"}`}
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-black text-slate-800">{i.invoiceId}</span>
-                        <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded ${
-                          i.status === "paid" ? "bg-emerald-50 text-emerald-700" :
-                          i.status === "partially_paid" ? "bg-sky-50 text-sky-700" :
-                          i.status === "cancelled" ? "bg-rose-50 text-rose-700" :
-                          "bg-amber-50 text-amber-700"
-                        }`}>{i.status}</span>
+          <div className="lg:col-span-2 bg-white border border-slate-200/80 rounded-[30px] p-6 shadow-sm flex flex-col justify-between space-y-4 min-h-[420px]">
+            <div>
+              <div className="flex justify-between items-center border-b pb-3 border-slate-100">
+                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                  Issued Invoices ({filteredInvoices.length})
+                </h4>
+                <span className="text-[10px] font-bold text-slate-400">First invoice auto-selected</span>
+              </div>
+
+              {paginatedInvoices.length === 0 ? (
+                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest text-center py-12">No invoices logged.</p>
+              ) : (
+                <div className="space-y-3 mt-4">
+                  {paginatedInvoices.map(i => {
+                    const custName = i.customerId?.companyName || i.customerId?.name || "General Client";
+                    return (
+                      <div
+                        key={i._id}
+                        onClick={() => setSelectedInvoice(i)}
+                        className={`p-4 border rounded-2xl flex justify-between items-center cursor-pointer transition-colors ${selectedInvoice?._id === i._id ? "border-indigo-500 bg-indigo-50/20 shadow-sm" : "border-slate-100 hover:bg-slate-50/50"}`}
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-black text-slate-800">{i.invoiceId}</span>
+                            <span className={`text-[8px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
+                              i.status === "paid" ? "bg-emerald-50 text-emerald-700 border border-emerald-100" :
+                              i.status === "partially_paid" ? "bg-sky-50 text-sky-700 border border-sky-100" :
+                              i.status === "cancelled" ? "bg-rose-50 text-rose-700 border border-rose-100" :
+                              "bg-amber-50 text-amber-700 border border-amber-100"
+                            }`}>{i.status}</span>
+                            <span className="text-[10px] font-black text-indigo-700 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full">{custName}</span>
+                          </div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase">Grand Total: <span className="text-slate-900 font-extrabold">${i.total}</span> • Allocated: <span className="text-indigo-600 font-black">${i.paidAmount || 0}</span></p>
+                        </div>
+                        <ChevronRight size={16} className="text-slate-400 shrink-0" />
                       </div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Grand Total: ${i.total} • Allocated: <span className="text-indigo-600 font-black">${i.paidAmount || 0}</span></p>
-                    </div>
-                    <ChevronRight size={14} className="text-slate-400" />
-                  </div>
-                ))}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Pagination Controls */}
+            {filteredInvoices.length > 0 && (
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs font-bold text-slate-600 mt-auto">
+                <span className="text-[10px] uppercase tracking-wider text-slate-400">
+                  Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredInvoices.length)} of {filteredInvoices.length}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    className="px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-[10px] font-black uppercase transition-all"
+                  >
+                    Prev
+                  </button>
+                  <span className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 text-[10px] font-black">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    className="px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-[10px] font-black uppercase transition-all"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             )}
           </div>

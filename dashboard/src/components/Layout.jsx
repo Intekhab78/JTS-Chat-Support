@@ -431,7 +431,7 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
 
   /* Menu items */
   const fallback = [];
-  
+
   // Dashboard is always first, route depends on role
   const dashboardHref = role === "admin" ? "/admin" : role === "manager" ? "/manager" : role === "client" ? "/client" : role === "supplier" ? "/supplier?tab=dashboard" : role === "accounts" ? "/accounts" : "/agent";
   fallback.push({ label: "Dashboard", href: dashboardHref });
@@ -443,21 +443,21 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
   if (hasPermission(user, PERMISSIONS.CHAT_VIEW)) fallback.push({ label: "Chats", href: `${dashboardHref}?tab=chats` });
   if (hasPermission(user, PERMISSIONS.TICKET_VIEW)) fallback.push({ label: "Tickets", href: `${dashboardHref}?tab=tickets` });
   if (hasPermission(user, PERMISSIONS.CRM_VIEW)) fallback.push({ label: "CRM", href: `${dashboardHref}?tab=crm` });
-  
+
   if (role === "admin" || role === "client") {
     fallback.push({ label: "Departments", href: `${dashboardHref}?tab=departments` });
     fallback.push({ label: "Categories", href: `${dashboardHref}?tab=categories` });
   }
 
   fallback.push({ label: "Shortcuts", href: `${dashboardHref}?tab=shortcuts` });
-  
+
   if (hasPermission(user, PERMISSIONS.REPORTS_VIEW)) fallback.push({ label: "Reports", href: `${dashboardHref}?tab=reports` });
   if (hasPermission(user, PERMISSIONS.AUDIT_VIEW)) fallback.push({ label: "History", href: `${dashboardHref}?tab=history` });
-  
+
   if (hasPermission(user, PERMISSIONS.SETTINGS_MANAGE)) fallback.push({ label: "Security", href: `${dashboardHref}?tab=security` });
-  
+
   if (role === "admin") fallback.push({ label: "Subscriptions", href: "/admin?tab=subscriptions" });
-  
+
   // Role Master: only for admin and client
   if (role === "admin" || role === "client") {
     fallback.push({ label: "Role Master", href: `${dashboardHref}?tab=roles` });
@@ -484,16 +484,30 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
     fallback.push({ label: "Reports", href: "/accounts?tab=reports" });
   }
 
-  // Tax Consultant specific
-  if (role === "tax_consultant") {
-    fallback.length = 0;
-    fallback.push({ label: "Dashboard", href: "/tax-consultant?tab=tax-consultant-dashboard" });
-    fallback.push({ label: "VAT Compliance", href: "/tax-consultant?tab=vat-compliance" });
-    fallback.push({ label: "Corporate Tax", href: "/tax-consultant?tab=corporate-tax" });
-    fallback.push({ label: "Trade License", href: "/tax-consultant?tab=trade-license" });
-    fallback.push({ label: "Compliance Reports", href: "/tax-consultant?tab=compliance-reports" });
-    fallback.push({ label: "CRM", href: "/tax-consultant?tab=crm" });
-    fallback.push({ label: "Customer Master", href: "/tax-consultant?tab=inventory-customer" });
+  // Dynamic Tax & Compliance Sidebar Menu Links
+  if (role === "tax_consultant" || hasPermission(user, "tax.view") || hasPermission(user, "tax.vat")) {
+    if (role === "tax_consultant") {
+      fallback.length = 0;
+      fallback.push({ label: "Dashboard", href: "/tax-consultant?tab=tax-consultant-dashboard" });
+    }
+
+    if (role === "tax_consultant" || role === "admin" || hasPermission(user, "tax.vat") || hasPermission(user, "tax.view")) {
+      fallback.push({ label: "VAT Compliance", href: role === "tax_consultant" ? "/tax-consultant?tab=vat-compliance" : `${dashboardHref}?tab=vat-compliance` });
+    }
+    if (role === "tax_consultant" || role === "admin" || hasPermission(user, "tax.corporate_tax") || hasPermission(user, "tax.view")) {
+      fallback.push({ label: "Corporate Tax", href: role === "tax_consultant" ? "/tax-consultant?tab=corporate-tax" : `${dashboardHref}?tab=corporate-tax` });
+    }
+    if (role === "tax_consultant" || role === "admin" || hasPermission(user, "tax.trade_license") || hasPermission(user, "tax.view")) {
+      fallback.push({ label: "Trade License", href: role === "tax_consultant" ? "/tax-consultant?tab=trade-license" : `${dashboardHref}?tab=trade-license` });
+    }
+    if (role === "tax_consultant" || role === "admin" || hasPermission(user, "tax.reports") || hasPermission(user, "tax.view")) {
+      fallback.push({ label: "Compliance Reports", href: role === "tax_consultant" ? "/tax-consultant?tab=compliance-reports" : `${dashboardHref}?tab=compliance-reports` });
+    }
+
+    if (role === "tax_consultant") {
+      fallback.push({ label: "CRM", href: "/tax-consultant?tab=crm" });
+      fallback.push({ label: "Customer Master", href: "/tax-consultant?tab=inventory-customer" });
+    }
   }
 
   const adminMenuItems = [

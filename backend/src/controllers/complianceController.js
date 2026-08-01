@@ -339,11 +339,10 @@ export const getTradeLicenseStats = asyncHandler(async (req, res) => {
 
   const now = new Date();
 
-  let darkRedCount = 0; // Expired (<0 days)
-  let redCount = 0;     // <30 Days
-  let orangeCount = 0;  // 30-60 Days
-  let yellowCount = 0;  // 60-90 Days
-  let greenCount = 0;   // >90 Days
+  let redCount = 0;     // Expired (<0 days)
+  let orangeCount = 0;  // <30 Days
+  let yellowCount = 0;  // <60 Days
+  let greenCount = 0;   // >60 Days / Healthy / Completed
 
   const licenses = rawClients.map(client => {
     let daysRemaining = null;
@@ -353,17 +352,19 @@ export const getTradeLicenseStats = asyncHandler(async (req, res) => {
       const expiryDate = new Date(client.tradeLicenseExpiryDate);
       const diffTime = expiryDate.getTime() - now.getTime();
       daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    }
 
+    if (client.workStatus === "Completed") {
+      alertLevel = "green";
+      greenCount++;
+    } else if (daysRemaining !== null) {
       if (daysRemaining < 0) {
-        alertLevel = "dark_red";
-        darkRedCount++;
-      } else if (daysRemaining <= 30) {
         alertLevel = "red";
         redCount++;
-      } else if (daysRemaining <= 60) {
+      } else if (daysRemaining <= 30) {
         alertLevel = "orange";
         orangeCount++;
-      } else if (daysRemaining <= 90) {
+      } else if (daysRemaining <= 60) {
         alertLevel = "yellow";
         yellowCount++;
       } else {
@@ -371,6 +372,7 @@ export const getTradeLicenseStats = asyncHandler(async (req, res) => {
         greenCount++;
       }
     } else {
+      alertLevel = "green";
       greenCount++;
     }
 
@@ -386,34 +388,18 @@ export const getTradeLicenseStats = asyncHandler(async (req, res) => {
     : licenses;
 
   const totalLicenses = licenses.length;
-  const activeCount = licenses.filter(l => l.alertLevel === "green" || l.workStatus === "Completed").length;
-  const renewalPendingCount = licenses.filter(l => l.alertLevel !== "green" && l.workStatus !== "Completed").length;
-  const renewedCount = licenses.filter(l => l.workStatus === "Completed").length;
-  const expiredCount = darkRedCount;
-  const expiringIn90Days = yellowCount + orangeCount + redCount;
-  const expiringIn60Days = orangeCount + redCount;
-  const expiringIn30Days = redCount;
+  const activeCount = greenCount;
+  const renewalPendingCount = redCount + orangeCount + yellowCount;
 
   res.json({
     summary: {
       totalLicenses,
       activeCount,
       renewalPendingCount,
-      renewedCount,
-      expiredCount,
-      expiringIn90Days,
-      expiringIn60Days,
-      expiringIn30Days,
-      darkRed: darkRedCount,
-      red: darkRedCount + redCount,
+      red: redCount,
       orange: orangeCount,
       yellow: yellowCount,
-      green: greenCount,
-      darkRedCount,
-      redCount,
-      orangeCount,
-      yellowCount,
-      greenCount
+      green: greenCount
     },
     licenses: filteredLicenses
   });

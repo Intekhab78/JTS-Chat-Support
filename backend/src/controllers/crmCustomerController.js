@@ -675,7 +675,7 @@ export const updateCustomer = asyncHandler(async (req, res) => {
     if (existingUser) throw new AppError("A user account with this email already exists", 409);
   }
 
-  if (customer.trn && String(customer.trn).trim() !== "" && !/^\d{15}$/.test(String(customer.trn).trim())) {
+  if (updates.trn !== undefined && updates.trn !== null && String(updates.trn).trim() !== "" && !/^\d{15}$/.test(String(updates.trn).trim())) {
     throw new AppError("Tax Registration Number (TRN) must be a 15-digit number", 400);
   }
 

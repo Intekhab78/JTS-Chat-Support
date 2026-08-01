@@ -53,7 +53,18 @@ export default function CustomerManager({ websiteId }) {
     setLoading(true);
     try {
       const data = await api(`/api/crm?websiteId=${websiteId}&limit=500`);
-      setItems(Array.isArray(data) ? data : (data.customers || []));
+      const rawList = Array.isArray(data) ? data : (data.customers || []);
+
+      const seenEmails = new Set();
+      const uniqueList = rawList.filter(item => {
+        if (!item.email || item.email.endsWith('@anonymous.local')) return true;
+        const lowerEmail = item.email.toLowerCase().trim();
+        if (seenEmails.has(lowerEmail)) return false;
+        seenEmails.add(lowerEmail);
+        return true;
+      });
+
+      setItems(uniqueList);
       setError("");
     } catch (err) {
       setError(err.message || "Failed to load customer data.");

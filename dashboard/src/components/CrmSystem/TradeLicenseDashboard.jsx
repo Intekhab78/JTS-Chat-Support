@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import {
   ShieldAlert, Calendar, Filter, AlertTriangle, AlertCircle, CheckCircle2, Clock, Users, Search, RefreshCw, ChevronRight, ShieldCheck,
-  Plus, Edit3, Trash2, X, Save
+  Plus, Edit3, Trash2, X, Save, Eye, RotateCw, Mail, Phone, Building2
 } from "lucide-react";
 import { api } from "../../api/client.js";
 import SearchableCustomerSelect from "../SearchableCustomerSelect.jsx";
@@ -17,6 +17,7 @@ export default function TradeLicenseDashboard({ websiteId, teamMembers = [], onO
   // Modal State
   const [showModal, setShowModal] = useState(false);
   const [editingLicense, setEditingLicense] = useState(null); // null for Add, object for Edit
+  const [inspectingLicense, setInspectingLicense] = useState(null); // Detailed License Profile Modal
   const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -127,6 +128,45 @@ export default function TradeLicenseDashboard({ websiteId, teamMembers = [], onO
       fetchTlStats();
     } catch (err) {
       alert(err.message || "Failed to save Trade License record");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRenewLicense = async (license, durationYears = 1) => {
+    const currentExpiry = license.tradeLicenseExpiryDate ? new Date(license.tradeLicenseExpiryDate) : new Date();
+    const newExpiry = new Date(currentExpiry);
+    newExpiry.setFullYear(newExpiry.getFullYear() + durationYears);
+    const newExpiryStr = newExpiry.toISOString().substring(0, 10);
+
+    if (!confirm(`Confirm Trade License Renewal for "${license.companyName || license.name}"?\n\nNew Expiry Date will be set to: ${newExpiryStr} (+${durationYears} Year)\nWork Status will be updated to Completed & Healthy.`)) {
+      return;
+    }
+
+    setSaving(true);
+    try {
+      try {
+        await api(`/api/crm/compliance/trade-license/${license._id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            tradeLicenseExpiryDate: newExpiryStr,
+            workStatus: "Completed"
+          })
+        });
+      } catch {
+        await api(`/api/crm/${license._id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            tradeLicenseExpiryDate: newExpiryStr,
+            workStatus: "Completed"
+          })
+        });
+      }
+      alert(`✅ Trade License successfully renewed for "${license.companyName || license.name}"!\nNew Expiry Date: ${newExpiryStr}`);
+      setInspectingLicense(null);
+      fetchTlStats();
+    } catch (err) {
+      alert(err.message || "Failed to renew license");
     } finally {
       setSaving(false);
     }
@@ -274,15 +314,15 @@ export default function TradeLicenseDashboard({ websiteId, teamMembers = [], onO
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left table-fixed">
+          <table className="w-full text-left table-fixed min-w-[1100px]">
             <thead>
               <tr className="bg-slate-50/50 border-b border-slate-100">
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[24%]">Client Company</th>
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[16%]">Trade License No</th>
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[15%]">Expiry Date</th>
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[18%]">Days Remaining</th>
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[15%]">Assigned Consultant</th>
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[12%] text-right">Actions</th>
+                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[22%]">Client Company</th>
+                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[14%]">Trade License No</th>
+                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[13%]">Expiry Date</th>
+                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[17%]">Days Remaining</th>
+                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[16%]">Assigned Consultant</th>
+                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[18%] text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -299,27 +339,42 @@ export default function TradeLicenseDashboard({ websiteId, teamMembers = [], onO
                   </td>
                 </tr>
               ) : filteredLicenses.map((license) => {
-                const category = license.highlightCategory;
-                const days = license.daysRemaining;
+                const days = license.daysRemaining !== undefined && license.daysRemaining !== null
+                  ? license.daysRemaining
+                  : (license.tradeLicenseExpiryDate ? Math.ceil((new Date(license.tradeLicenseExpiryDate) - new Date()) / (1000 * 60 * 60 * 24)) : null);
+
+                const isRenewed = license.workStatus === "Completed";
+                const category = isRenewed ? "green" : (license.alertLevel || (days === null ? "green" : days < 0 ? "red" : days <= 30 ? "orange" : days <= 60 ? "yellow" : "green"));
 
                 return (
                   <tr
                     key={license._id}
-                    onClick={() => onOpenCustomer && onOpenCustomer(license)}
-                    className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                    onClick={() => setInspectingLicense(license)}
+                    className="hover:bg-amber-50/40 transition-colors cursor-pointer group"
                   >
                     <td className="px-6 py-4">
                       <div>
-                        <p className="text-xs font-black text-slate-900">{license.companyName || license.name}</p>
-                        <p className="text-[10px] text-slate-400 font-bold">{license.email || "No Email"}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-black text-slate-900 group-hover:text-amber-600 transition-colors truncate">{license.companyName || license.name}</p>
+                          {license.workStatus === "Completed" ? (
+                            <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-emerald-100 text-emerald-700 border border-emerald-300 shrink-0">
+                              ✓ RENEWED
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-amber-100 text-amber-700 border border-amber-300 shrink-0">
+                              PENDING RENEWAL
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-bold truncate mt-0.5">{license.email || "No Email"}</p>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg">
+                      <span className="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg inline-block">
                         {license.tradeLicenseNumber || "N/A"}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-1.5">
                         <Calendar size={13} className={category === "red" ? "text-rose-500" : "text-slate-400"} />
                         <span className={`text-xs font-black ${
@@ -330,7 +385,7 @@ export default function TradeLicenseDashboard({ websiteId, teamMembers = [], onO
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       {days === null ? (
                         <span className="text-xs font-bold text-slate-400">No Expiry Date</span>
                       ) : category === "red" ? (
@@ -356,28 +411,40 @@ export default function TradeLicenseDashboard({ websiteId, teamMembers = [], onO
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-xs font-bold text-slate-700">
+                      <span className="text-xs font-bold text-slate-700 truncate block">
                         {license.ownerId?.name || "Unassigned"}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1">
+                    <td className="px-6 py-4 text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleRenewLicense(license); }}
+                          className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase rounded-lg shadow-sm transition-all flex items-center gap-1 shrink-0"
+                          title="Renew License (+1 Year)"
+                        >
+                          <RotateCw size={11} /> Renew
+                        </button>
+
                         <button
                           onClick={(e) => openEditModal(license, e)}
-                          className="p-1.5 hover:bg-amber-50 text-slate-400 hover:text-amber-600 rounded-lg transition-colors"
+                          className="p-1.5 hover:bg-amber-50 text-slate-400 hover:text-amber-600 rounded-lg transition-colors shrink-0"
                           title="Edit Trade License & Expiry"
                         >
-                          <Edit3 size={15} />
+                          <Edit3 size={14} />
                         </button>
                         <button
                           onClick={(e) => handleDelete(license, e)}
-                          className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
+                          className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors shrink-0"
                           title="Delete License Record"
                         >
-                          <Trash2 size={15} />
+                          <Trash2 size={14} />
                         </button>
-                        <button className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-900 rounded-lg transition-colors">
-                          <ChevronRight size={16} />
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setInspectingLicense(license); }}
+                          className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-900 rounded-lg transition-colors shrink-0"
+                          title="View Trade License Details"
+                        >
+                          <Eye size={15} />
                         </button>
                       </div>
                     </td>
@@ -568,6 +635,75 @@ export default function TradeLicenseDashboard({ websiteId, teamMembers = [], onO
           </div>
         </div>,
         document.body
+      )}
+
+      {/* 360 Trade License Inspection & Renewal Modal */}
+      {inspectingLicense && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-[32px] max-w-lg w-full p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b pb-4 border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-amber-50 text-amber-600 rounded-2xl border border-amber-100">
+                  <ShieldAlert size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">{inspectingLicense.companyName || inspectingLicense.name}</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">UAE Commercial Trade License Profile</p>
+                </div>
+              </div>
+              <button onClick={() => setInspectingLicense(null)} className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100"><X size={18} /></button>
+            </div>
+
+            <div className="space-y-3 text-xs font-bold text-slate-700">
+              {/* Contact info */}
+              <div className="bg-slate-50 border border-slate-100 p-4 rounded-2xl space-y-2">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Company & Contact</span>
+                <div className="flex items-center gap-2 text-slate-900 font-extrabold"><Building2 size={14} className="text-amber-500 shrink-0" /><span>{inspectingLicense.companyName || inspectingLicense.name}</span></div>
+                {inspectingLicense.email && <div className="flex items-center gap-2 text-slate-700"><Mail size={14} className="text-indigo-500 shrink-0" /><span>{inspectingLicense.email}</span></div>}
+              </div>
+
+              {/* License identifiers */}
+              <div className="bg-slate-50 border border-slate-100 p-4 rounded-2xl space-y-2.5">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Trade License Schedule</span>
+                <div className="flex justify-between items-center"><span className="text-slate-400">License Number:</span><span className="font-mono text-xs font-black text-slate-900 bg-white px-2 py-0.5 rounded border">{inspectingLicense.tradeLicenseNumber || "N/A"}</span></div>
+                <div className="flex justify-between items-center"><span className="text-slate-400">Issuing Authority:</span><span className="font-extrabold text-slate-800">{inspectingLicense.issuingAuthority || "DET Dubai"}</span></div>
+                <div className="flex justify-between items-center"><span className="text-slate-400">Expiry Date:</span><span className="font-mono font-black text-rose-600">{inspectingLicense.tradeLicenseExpiryDate ? new Date(inspectingLicense.tradeLicenseExpiryDate).toLocaleDateString() : "Not Specified"}</span></div>
+                <div className="flex justify-between items-center"><span className="text-slate-400">Assigned Consultant:</span><span className="font-bold text-slate-800">{inspectingLicense.ownerId?.name || "Unassigned"}</span></div>
+              </div>
+
+              {/* Status Badge */}
+              <div className="bg-amber-50/50 border border-amber-100 p-4 rounded-2xl flex items-center justify-between">
+                <div>
+                  <span className="text-[9px] font-black text-amber-700 uppercase tracking-wider block">Health & Renewal Status</span>
+                  <span className="text-xs font-black text-slate-900 mt-0.5 block">{inspectingLicense.workStatus || "Pending Renewal"}</span>
+                </div>
+
+                <button
+                  onClick={() => handleRenewLicense(inspectingLicense, 1)}
+                  disabled={saving}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md shadow-amber-500/20 transition-all flex items-center gap-1.5"
+                >
+                  <RotateCw size={13} className={saving ? "animate-spin" : ""} />
+                  Renew +1 Year
+                </button>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center pt-4 border-t border-slate-100">
+              <button
+                onClick={(e) => {
+                  const lic = inspectingLicense;
+                  setInspectingLicense(null);
+                  openEditModal(lic, e);
+                }}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5"
+              >
+                <Edit3 size={13} /> Edit Details
+              </button>
+              <button onClick={() => setInspectingLicense(null)} className="px-5 py-2.5 bg-slate-900 text-white font-black text-xs uppercase rounded-xl">Close</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

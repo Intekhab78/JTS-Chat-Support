@@ -58,7 +58,11 @@ const PERMISSION_GROUPS = [
     icon: FileSpreadsheet,
     color: "emerald",
     permissions: [
-      { id: "tax.view", label: "View Compliance", desc: "Access VAT, Corp Tax & License status", icon: Eye },
+      { id: "tax.view", label: "View Compliance Suite", desc: "Access full UAE Tax & Compliance Hub", icon: Eye },
+      { id: "tax.vat", label: "VAT Compliance", desc: "Access VAT filing schedules & client status", icon: FileText },
+      { id: "tax.corporate_tax", label: "Corporate Tax", desc: "Access Corporate Tax registration & deadlines", icon: Building2 },
+      { id: "tax.trade_license", label: "Trade License Renewal", desc: "Access UAE Trade License expiry & renewals", icon: Shield },
+      { id: "tax.reports", label: "Compliance Reports", desc: "Access 360° compliance audit reports", icon: BarChart3 },
       { id: "tax.reminder_log", label: "Record Reminders", desc: "1-Click daily follow-up logging", icon: Send },
       { id: "tax.manage", label: "Manage Deadlines", desc: "Update filing dates and work statuses", icon: Edit3 },
     ]

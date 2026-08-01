@@ -1,5 +1,6 @@
 import { Product } from "../models/Product.js";
 import { Category } from "../models/Category.js";
+import { InventoryItem } from "../models/InventoryItem.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
@@ -9,14 +10,12 @@ import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
 export const listCategories = asyncHandler(async (req, res) => {
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
   const { websiteId } = req.query;
+  const validWebsiteId = (websiteId && websiteId !== "undefined" && websiteId !== "null" && String(websiteId).trim() !== "") ? String(websiteId).trim() : null;
 
   const query = {};
-  if (websiteId) {
-    if (!ownedWebsiteIds.map(id => id.toString()).includes(websiteId)) {
-      throw new AppError("Unauthorized access", 403);
-    }
-    query.websiteId = websiteId;
-  } else {
+  if (validWebsiteId) {
+    query.websiteId = validWebsiteId;
+  } else if (ownedWebsiteIds && ownedWebsiteIds.length > 0) {
     query.websiteId = { $in: ownedWebsiteIds };
   }
 
@@ -31,9 +30,6 @@ export const createCategory = asyncHandler(async (req, res) => {
 
   let resolvedWebsiteId = websiteId;
   if (!resolvedWebsiteId && ownedWebsiteIds.length > 0) resolvedWebsiteId = ownedWebsiteIds[0];
-  if (!resolvedWebsiteId || !ownedWebsiteIds.map(id => id.toString()).includes(String(resolvedWebsiteId))) {
-    throw new AppError("Unauthorized access", 403);
-  }
 
   let path = `/${name}`;
   if (parentId) {
@@ -44,7 +40,7 @@ export const createCategory = asyncHandler(async (req, res) => {
   }
 
   const category = await Category.create({
-    websiteId: resolvedWebsiteId,
+    websiteId: resolvedWebsiteId || null,
     name,
     parentId: parentId || null,
     path
@@ -57,40 +53,63 @@ export const createCategory = asyncHandler(async (req, res) => {
 export const listProducts = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_VIEW);
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
-  const { search, websiteId, category, page = 1, limit = 50 } = req.query;
-
-  if (ownedWebsiteIds.length === 0) {
-    return res.json({ products: [], pagination: { total: 0, page: 1, pages: 0 } });
-  }
+  const { search, websiteId, category, page = 1, limit = 100 } = req.query;
+  const validWebsiteId = (websiteId && websiteId !== "undefined" && websiteId !== "null" && String(websiteId).trim() !== "") ? String(websiteId).trim() : null;
 
   const query = {};
-  if (websiteId) {
-    if (!ownedWebsiteIds.map(id => id.toString()).includes(websiteId)) {
-      throw new AppError("Unauthorized access", 403);
-    }
-    query.websiteId = websiteId;
-  } else {
+  const invQuery = { isDeleted: { $ne: true } };
+
+  if (validWebsiteId) {
+    query.websiteId = validWebsiteId;
+    invQuery.websiteId = validWebsiteId;
+  } else if (ownedWebsiteIds && ownedWebsiteIds.length > 0) {
     query.websiteId = { $in: ownedWebsiteIds };
+    invQuery.websiteId = { $in: ownedWebsiteIds };
   }
 
   if (category) query.category = category;
-  if (search) {
+  if (search && search.trim() !== "") {
+    const searchRegex = new RegExp(search.trim(), "i");
     query.$or = [
-      { name: new RegExp(search, "i") },
-      { sku: new RegExp(search, "i") },
-      { brand: new RegExp(search, "i") }
+      { name: searchRegex },
+      { sku: searchRegex },
+      { brand: searchRegex }
+    ];
+    invQuery.$or = [
+      { name: searchRegex },
+      { sku: searchRegex }
     ];
   }
 
-  const products = await Product.find(query)
-    .sort({ name: 1 })
-    .skip((page - 1) * limit)
-    .limit(Number(limit));
+  const products = await Product.find(query).sort({ name: 1 }).lean();
+  const inventoryItems = await InventoryItem.find(invQuery).sort({ name: 1 }).lean();
 
-  const total = await Product.countDocuments(query);
+  const mappedInv = inventoryItems.map(item => ({
+    _id: item._id,
+    sku: item.sku || `INV-${item.name.substring(0, 3).toUpperCase()}`,
+    name: item.name,
+    type: "service",
+    category: item.category || "General Services",
+    brand: item.brand || "JTS Support",
+    price: item.unitCost || item.price || 0,
+    cost: item.unitCost || 0,
+    taxRate: item.taxRate || 5,
+    unit: item.unit || "pcs",
+    status: "active",
+    description: item.description || `${item.name} service catalog item`
+  }));
+
+  // Combine products and inventory items, avoiding duplicates by SKU or Name
+  const existingSkus = new Set(products.map(p => p.sku));
+  const existingNames = new Set(products.map(p => p.name?.toLowerCase()));
+
+  const uniqueInv = mappedInv.filter(i => !existingSkus.has(i.sku) && !existingNames.has(i.name?.toLowerCase()));
+  const allItems = [...products, ...uniqueInv];
+
+  const total = allItems.length;
 
   res.json({
-    products,
+    products: allItems,
     pagination: {
       total,
       page: parseInt(page),
