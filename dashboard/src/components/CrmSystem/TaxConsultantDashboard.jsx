@@ -6,6 +6,7 @@ import {
 import { api } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import SearchableCustomerSelect from "../SearchableCustomerSelect.jsx";
+import OverdueClientsSection from "./OverdueClientsSection.jsx";
 
 export default function TaxConsultantDashboard({ websiteId }) {
   const { user } = useAuth();
@@ -502,6 +503,9 @@ export default function TaxConsultantDashboard({ websiteId }) {
           </div>
         </div>
       </div>
+
+      {/* Overdue Clients Collapsible Modules Section */}
+      <OverdueClientsSection websiteId={websiteId} />
 
       {/* Prioritized Collapsible Module Cards */}
       <div className="space-y-4">

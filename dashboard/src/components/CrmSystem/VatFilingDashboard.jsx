@@ -260,29 +260,46 @@ export default function VatFilingDashboard({ websiteId, teamMembers = [], onOpen
           <table className="w-full text-left table-fixed">
             <thead>
               <tr className="bg-slate-50/50 border-b border-slate-100">
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[24%]">Client Company</th>
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[18%]">TRN Number</th>
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[15%]">VAT Due Date</th>
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[15%]">Work Status</th>
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[15%]">Assigned Consultant</th>
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[13%] text-right">Actions</th>
+                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[22%]">Client Company</th>
+                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[15%]">TRN Number</th>
+                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[16%]">Filing Period (Quarter)</th>
+                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[14%]">VAT Due Date</th>
+                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[12%]">Work Status</th>
+                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[13%]">Assigned Consultant</th>
+                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-[8%] text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <tr key={i} className="animate-pulse">
-                    <td colSpan={6} className="px-6 py-6"><div className="h-4 bg-slate-100 rounded-lg w-1/2" /></td>
+                    <td colSpan={7} className="px-6 py-6"><div className="h-4 bg-slate-100 rounded-lg w-1/2" /></td>
                   </tr>
                 ))
               ) : filteredClients.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-xs font-bold text-slate-400">
+                  <td colSpan={7} className="px-6 py-12 text-center text-xs font-bold text-slate-400">
                     No VAT filing clients found. Click <span className="text-indigo-600 cursor-pointer font-black" onClick={openAddModal}>"+ Add VAT Filing Record"</span> to create one.
                   </td>
                 </tr>
               ) : filteredClients.map((client) => {
                 const isOverdue = client.vatFilingDueDate && new Date(client.vatFilingDueDate) < new Date() && client.workStatus !== "Completed";
+                
+                // Helper for Filing Period Quarter Badge
+                let periodBadgeText = client.vatFilingPeriod ? client.vatFilingPeriod.trim() : "";
+                if (!periodBadgeText && client.vatFilingDueDate) {
+                  const d = new Date(client.vatFilingDueDate);
+                  if (!isNaN(d.getTime())) {
+                    const month = d.getMonth();
+                    const year = d.getFullYear();
+                    if (month >= 0 && month <= 2) periodBadgeText = `Q1 ${year} (Jan - Mar)`;
+                    else if (month >= 3 && month <= 5) periodBadgeText = `Q2 ${year} (Apr - Jun)`;
+                    else if (month >= 6 && month <= 8) periodBadgeText = `Q3 ${year} (Jul - Sep)`;
+                    else if (month >= 9 && month <= 11) periodBadgeText = `Q4 ${year} (Oct - Dec)`;
+                  }
+                }
+                if (!periodBadgeText) periodBadgeText = "Q1 2026";
+
                 return (
                   <tr
                     key={client._id}
@@ -298,6 +315,12 @@ export default function VatFilingDashboard({ websiteId, teamMembers = [], onOpen
                     <td className="px-6 py-4">
                       <span className="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg">
                         {client.trn || "N/A"}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center gap-1 bg-indigo-50 border border-indigo-100 text-indigo-700 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider">
+                        <Clock size={11} className="text-indigo-500 shrink-0" />
+                        {periodBadgeText}
                       </span>
                     </td>
                     <td className="px-6 py-4">

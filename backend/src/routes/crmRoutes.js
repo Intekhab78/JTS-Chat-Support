@@ -147,7 +147,7 @@ router.post("/quotations/:id/pdf", requireRole("admin", "client", "manager", "sa
 
 // Interactions & Activity
 router.get("/:id/activity", interactionController.getCustomerActivity);
-router.post("/:id/notes", requireRole("admin", "client", "manager", "sales", "tax_consultant"), interactionController.addCustomerNote);
+router.post("/:id/notes", requireRole("admin", "client", "manager", "sales", "agent", "accounts", "purchase", "tax_consultant"), interactionController.addCustomerNote);
 router.post("/:id/send-email", requireRole("admin", "client", "manager", "sales", "tax_consultant"), upload.single("attachment"), interactionController.sendCustomerEmail);
 router.get("/:id/invoices", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), invoiceController.getCustomerInvoices);
 
@@ -176,7 +176,8 @@ router.delete("/:id/services/:serviceId", requireRole("admin", "client", "manage
 
 // Parameterized Routes (Keep at bottom to avoid shadowing)
 router.get("/:id", customerController.getCustomerProfile);
-router.patch("/:id", requireRole("admin", "client", "manager", "sales"), validate(updateCustomerSchema), customerController.updateCustomer);
+router.patch("/:id", requireRole("admin", "client", "manager", "sales", "agent", "tax_consultant", "accounts"), customerController.updateCustomer);
+router.put("/:id", requireRole("admin", "client", "manager", "sales", "agent", "tax_consultant", "accounts"), customerController.updateCustomer);
 router.delete("/:id", requireRole("admin", "client", "manager"), customerController.deleteCustomer);
 router.post("/:id/archive", requireRole("admin", "client", "manager"), customerController.archiveCustomer);
 

@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   FileText, Download, Filter, Calendar, Users, Briefcase, RefreshCw, FileSpreadsheet,
-  ShieldCheck, Check, Search, Award, AlertTriangle, CreditCard, Landmark, Sparkles, ChevronRight, Layers, ArrowUpRight
+  ShieldCheck, Check, Search, Award, AlertTriangle, CreditCard, Landmark, Sparkles, ChevronRight, Layers, Eye, X, ArrowUpRight
 } from "lucide-react";
 import { api } from "../../api/client.js";
 import { exportToPDF, exportToExcel, exportToCSV } from "../../utils/exportUtils.js";
+import OverdueClientsSection from "./OverdueClientsSection.jsx";
 
 const COMPLIANCE_REPORTS = [
   {
@@ -13,6 +14,7 @@ const COMPLIANCE_REPORTS = [
     description: "Complete inventory of clients, TRN, Trade License & Work Status",
     icon: ShieldCheck,
     tag: "Directory",
+    color: "indigo",
     gradient: "from-blue-500/10 via-indigo-500/5 to-transparent"
   },
   {
@@ -21,6 +23,7 @@ const COMPLIANCE_REPORTS = [
     description: "VAT registration, period schedules, and filing deadline tracking",
     icon: Landmark,
     tag: "UAE VAT",
+    color: "emerald",
     gradient: "from-emerald-500/10 via-teal-500/5 to-transparent"
   },
   {
@@ -29,6 +32,7 @@ const COMPLIANCE_REPORTS = [
     description: "Corporate Tax filing deadlines & live days remaining countdowns",
     icon: Sparkles,
     tag: "Corporate Tax",
+    color: "purple",
     gradient: "from-violet-500/10 via-purple-500/5 to-transparent"
   },
   {
@@ -37,6 +41,7 @@ const COMPLIANCE_REPORTS = [
     description: "Commercial license expiry dates & color-coded warning buckets",
     icon: Award,
     tag: "DED License",
+    color: "amber",
     gradient: "from-amber-500/10 via-orange-500/5 to-transparent"
   },
   {
@@ -45,6 +50,7 @@ const COMPLIANCE_REPORTS = [
     description: "Workload matrix, completed jobs, and overdue escalation ratios",
     icon: Users,
     tag: "KPI Audit",
+    color: "sky",
     gradient: "from-sky-500/10 via-blue-500/5 to-transparent"
   },
   {
@@ -53,6 +59,7 @@ const COMPLIANCE_REPORTS = [
     description: "Comprehensive audit of overdue compliance tasks & escalation tiers",
     icon: AlertTriangle,
     tag: "Escalation",
+    color: "rose",
     gradient: "from-rose-500/10 via-pink-500/5 to-transparent"
   },
   {
@@ -61,6 +68,7 @@ const COMPLIANCE_REPORTS = [
     description: "Service fee payment statuses, budgets, and outstanding balances",
     icon: CreditCard,
     tag: "Financials",
+    color: "indigo",
     gradient: "from-indigo-500/10 via-purple-500/5 to-transparent"
   }
 ];
@@ -70,11 +78,16 @@ export default function ComplianceReportsHub({ websiteId, teamMembers = [] }) {
   const [reportData, setReportData] = useState({ reportTitle: "", columns: [], rows: [], totalRecords: 0 });
   const [loading, setLoading] = useState(false);
 
-  // Filter States
+  // Search & Filter States
+  const [reportSearch, setReportSearch] = useState("");
+  const [tableSearch, setTableSearch] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [consultantId, setConsultantId] = useState("");
   const [serviceType, setServiceType] = useState("");
+
+  // Selected Row Client Inspection Modal
+  const [inspectClient, setInspectClient] = useState(null);
 
   const fetchReport = async () => {
     setLoading(true);
@@ -99,19 +112,42 @@ export default function ComplianceReportsHub({ websiteId, teamMembers = [] }) {
     fetchReport();
   }, [websiteId, selectedReport, startDate, endDate, consultantId, serviceType]);
 
+  // Filter report types cards by search
+  const filteredReportTypes = useMemo(() => {
+    if (!reportSearch.trim()) return COMPLIANCE_REPORTS;
+    const q = reportSearch.toLowerCase();
+    return COMPLIANCE_REPORTS.filter(r => 
+      r.label.toLowerCase().includes(q) || 
+      r.description.toLowerCase().includes(q) || 
+      r.tag.toLowerCase().includes(q)
+    );
+  }, [reportSearch]);
+
+  // Filter rows inside live audit table by table search input
+  const filteredRows = useMemo(() => {
+    if (!reportData.rows || !Array.isArray(reportData.rows)) return [];
+    if (!tableSearch.trim()) return reportData.rows;
+    const q = tableSearch.toLowerCase();
+    return reportData.rows.filter(row => {
+      return Object.values(row).some(val => 
+        val !== null && val !== undefined && String(val).toLowerCase().includes(q)
+      );
+    });
+  }, [reportData.rows, tableSearch]);
+
   const handleExportPDF = () => {
-    if (!reportData.rows || !reportData.rows.length) return;
-    exportToPDF(reportData.rows, `${selectedReport}_${new Date().toISOString().substring(0, 10)}`, reportData.reportTitle);
+    if (!filteredRows.length) return;
+    exportToPDF(filteredRows, `${selectedReport}_${new Date().toISOString().substring(0, 10)}`, reportData.reportTitle);
   };
 
   const handleExportExcel = () => {
-    if (!reportData.rows || !reportData.rows.length) return;
-    exportToExcel(reportData.rows, `${selectedReport}_${new Date().toISOString().substring(0, 10)}`);
+    if (!filteredRows.length) return;
+    exportToExcel(filteredRows, `${selectedReport}_${new Date().toISOString().substring(0, 10)}`);
   };
 
   const handleExportCSV = () => {
-    if (!reportData.rows || !reportData.rows.length) return;
-    exportToCSV(reportData.rows, `${selectedReport}_${new Date().toISOString().substring(0, 10)}`);
+    if (!filteredRows.length) return;
+    exportToCSV(filteredRows, `${selectedReport}_${new Date().toISOString().substring(0, 10)}`);
   };
 
   const activeMeta = COMPLIANCE_REPORTS.find(r => r.id === selectedReport);
@@ -120,7 +156,6 @@ export default function ComplianceReportsHub({ websiteId, teamMembers = [] }) {
     <div className="space-y-8 animate-in fade-in duration-500">
       {/* ── Executive Header Banner ────────────────────────────── */}
       <div className="relative overflow-hidden rounded-[36px] bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 p-8 text-white shadow-[0_24px_70px_-20px_rgba(15,23,42,0.6)] border border-slate-800/80">
-        {/* Glow backdrop shapes */}
         <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-indigo-500/15 blur-3xl" />
         <div className="absolute -left-20 -bottom-20 h-72 w-72 rounded-full bg-violet-500/15 blur-3xl" />
 
@@ -133,15 +168,14 @@ export default function ComplianceReportsHub({ websiteId, teamMembers = [] }) {
               Compliance Reporting Hub
             </h2>
             <p className="max-w-xl text-xs font-bold text-slate-300/80 leading-relaxed">
-              Generate & download audit-ready PDF, Excel, and CSV reports for UAE VAT, Corporate Tax, DED Trade Licenses, and Consultant KPIs.
+              Clean, audit-ready compliance reporting for UAE VAT, Corporate Tax, DED Trade Licenses, and Consultant Performance.
             </p>
           </div>
 
-          {/* Action Export Buttons */}
           <div className="flex items-center gap-3 flex-wrap">
             <button
               onClick={handleExportPDF}
-              disabled={!reportData.rows?.length}
+              disabled={!filteredRows.length}
               className="group relative overflow-hidden rounded-2xl bg-gradient-to-r from-rose-600 via-rose-500 to-pink-600 px-5 py-3.5 text-xs font-black text-white uppercase tracking-wider shadow-[0_10px_30px_-5px_rgba(244,63,94,0.4)] transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:hover:scale-100"
             >
               <span className="flex items-center gap-2">
@@ -151,7 +185,7 @@ export default function ComplianceReportsHub({ websiteId, teamMembers = [] }) {
 
             <button
               onClick={handleExportExcel}
-              disabled={!reportData.rows?.length}
+              disabled={!filteredRows.length}
               className="group relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-700 px-5 py-3.5 text-xs font-black text-white uppercase tracking-wider shadow-[0_10px_30px_-5px_rgba(16,185,129,0.4)] transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:hover:scale-100"
             >
               <span className="flex items-center gap-2">
@@ -161,7 +195,7 @@ export default function ComplianceReportsHub({ websiteId, teamMembers = [] }) {
 
             <button
               onClick={handleExportCSV}
-              disabled={!reportData.rows?.length}
+              disabled={!filteredRows.length}
               className="group relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-800 via-slate-900 to-indigo-950 px-5 py-3.5 text-xs font-black text-white uppercase tracking-wider border border-slate-700/60 shadow-[0_10px_30px_-5px_rgba(15,23,42,0.6)] transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:hover:scale-100"
             >
               <span className="flex items-center gap-2">
@@ -172,15 +206,27 @@ export default function ComplianceReportsHub({ websiteId, teamMembers = [] }) {
         </div>
       </div>
 
-      {/* ── Report Cards Selection Grid ─────────────────────────── */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-indigo-500">Select Report Type</p>
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{COMPLIANCE_REPORTS.length} Reports Available</span>
+      {/* ── Report Type Selection Header & Search ───────────────── */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-4 rounded-[28px] border border-slate-200/80 shadow-sm">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-indigo-600">Compliance Modules</p>
+            <h3 className="text-sm font-black text-slate-900">Select Audit Report Type</h3>
+          </div>
+
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+            <input
+              value={reportSearch}
+              onChange={(e) => setReportSearch(e.target.value)}
+              placeholder="Filter report categories…"
+              className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/10 transition-all"
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {COMPLIANCE_REPORTS.map(r => {
+          {filteredReportTypes.map(r => {
             const isSelected = selectedReport === r.id;
             const Icon = r.icon;
 
@@ -194,7 +240,6 @@ export default function ComplianceReportsHub({ websiteId, teamMembers = [] }) {
                     : "bg-white border-slate-200/90 hover:border-indigo-300 hover:shadow-xl hover:-translate-y-0.5 text-slate-900"
                 }`}
               >
-                {/* Background Card Gradient Overlay */}
                 <div className={`absolute inset-0 bg-gradient-to-br ${r.gradient} opacity-50 pointer-events-none`} />
 
                 <div>
@@ -265,33 +310,26 @@ export default function ComplianceReportsHub({ websiteId, teamMembers = [] }) {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          {/* Start Date */}
           <div className="space-y-1.5">
             <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Start Date</label>
-            <div className="relative">
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-bold outline-none focus:border-indigo-500 transition-all text-slate-700"
-              />
-            </div>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-bold outline-none focus:border-indigo-500 transition-all text-slate-700"
+            />
           </div>
 
-          {/* End Date */}
           <div className="space-y-1.5">
             <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">End Date</label>
-            <div className="relative">
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-bold outline-none focus:border-indigo-500 transition-all text-slate-700"
-              />
-            </div>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-bold outline-none focus:border-indigo-500 transition-all text-slate-700"
+            />
           </div>
 
-          {/* Consultant Filter */}
           <div className="space-y-1.5">
             <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Assigned Consultant</label>
             <select
@@ -306,15 +344,14 @@ export default function ComplianceReportsHub({ websiteId, teamMembers = [] }) {
             </select>
           </div>
 
-          {/* Service Type Filter */}
           <div className="space-y-1.5">
-            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Service Scope</label>
+            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Service Category</label>
             <select
               value={serviceType}
               onChange={(e) => setServiceType(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-bold outline-none focus:border-indigo-500 transition-all text-slate-700 cursor-pointer"
             >
-              <option value="">All Services</option>
+              <option value="">All Service Categories</option>
               <option value="Corporate Tax Registration">Corporate Tax Registration</option>
               <option value="Corporate Tax Filing">Corporate Tax Filing</option>
               <option value="VAT Registration">VAT Registration</option>
@@ -327,112 +364,176 @@ export default function ComplianceReportsHub({ websiteId, teamMembers = [] }) {
         </div>
       </div>
 
-      {/* ── Live Data Audit Table ─────────────────────────────── */}
-      <div className="rounded-[34px] border border-slate-200/90 bg-white shadow-xl shadow-slate-200/40 overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
-              <h3 className="text-sm font-black uppercase tracking-wider text-slate-900">
-                {reportData.reportTitle || activeMeta?.label}
-              </h3>
+      {/* ── Overdue Clients Collapsible Modules or Standard Report Table ── */}
+      {selectedReport === "overdue_clients" ? (
+        <OverdueClientsSection websiteId={websiteId} />
+      ) : (
+        <div className="rounded-[34px] border border-slate-200/90 bg-white shadow-xl shadow-slate-200/40 overflow-hidden">
+          {/* Table Header & Search */}
+          <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <h3 className="text-sm font-black uppercase tracking-wider text-slate-900">
+                  {reportData.reportTitle || activeMeta?.label}
+                </h3>
+              </div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">
+                Showing <span className="text-indigo-600 font-black">{filteredRows.length}</span> of {reportData.totalRecords || 0} Records • Auto-synced
+              </p>
             </div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">
-              <span className="text-indigo-600 font-black">{reportData.totalRecords || 0}</span> Records compiled • Auto-synced at {new Date().toLocaleTimeString()}
-            </p>
+
+            <div className="flex items-center gap-3">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                <input
+                  value={tableSearch}
+                  onChange={(e) => setTableSearch(e.target.value)}
+                  placeholder="Search in audit table..."
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 transition-all"
+                />
+              </div>
+
+              <button
+                onClick={fetchReport}
+                className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-black uppercase tracking-wider border border-slate-200 transition-all shadow-sm active:scale-95 shrink-0"
+              >
+                <RefreshCw size={13} className={loading ? "animate-spin text-indigo-600" : ""} /> Refresh
+              </button>
+            </div>
           </div>
 
-          <button
-            onClick={fetchReport}
-            className="self-start sm:self-auto flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-black uppercase tracking-wider border border-slate-200 transition-all shadow-sm active:scale-95"
-          >
-            <RefreshCw size={13} className={loading ? "animate-spin text-indigo-600" : ""} /> Refresh Audit
-          </button>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[1350px]">
-            <thead>
-              <tr className="bg-slate-100/70 border-b border-slate-200">
-                {(reportData.columns || []).map((col, idx) => (
-                  <th key={idx} className="px-5 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 whitespace-nowrap">
-                    {col}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-xs font-bold text-slate-700">
-              {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="animate-pulse">
-                    <td colSpan={reportData.columns?.length || 5} className="px-5 py-5">
-                      <div className="h-4 bg-slate-100 rounded-xl w-3/4" />
+          {/* Audit Data Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[1200px]">
+              <thead>
+                <tr className="bg-slate-100/70 border-b border-slate-200">
+                  {(reportData.columns || []).map((col, idx) => (
+                    <th key={idx} className="px-5 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 whitespace-nowrap">
+                      {col}
+                    </th>
+                  ))}
+                  <th className="px-5 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-right whitespace-nowrap">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs font-bold text-slate-700">
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td colSpan={(reportData.columns?.length || 5) + 1} className="px-5 py-5">
+                        <div className="h-4 bg-slate-100 rounded-xl w-3/4" />
+                      </td>
+                    </tr>
+                  ))
+                ) : filteredRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={(reportData.columns?.length || 5) + 1} className="px-6 py-16 text-center">
+                      <div className="max-w-xs mx-auto space-y-3">
+                        <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto text-indigo-500">
+                          <FileText size={24} />
+                        </div>
+                        <p className="text-xs font-black uppercase tracking-wider text-slate-700">No Audit Records Found</p>
+                        <p className="text-[10px] font-bold text-slate-400">There are no compliance records matching the specified parameters.</p>
+                      </div>
                     </td>
                   </tr>
-                ))
-              ) : !reportData.rows || reportData.rows.length === 0 ? (
-                <tr>
-                  <td colSpan={reportData.columns?.length || 5} className="px-6 py-16 text-center">
-                    <div className="max-w-xs mx-auto space-y-3">
-                      <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto text-indigo-500">
-                        <FileText size={24} />
-                      </div>
-                      <p className="text-xs font-black uppercase tracking-wider text-slate-700">No Records Found</p>
-                      <p className="text-[10px] font-bold text-slate-400">There are no compliance records matching the specified filter parameters.</p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                reportData.rows.map((row, rIdx) => (
-                  <tr key={rIdx} className="hover:bg-indigo-50/30 transition-colors">
-                    {(reportData.columns || []).map((col, cIdx) => {
-                      const val = row[col] !== undefined && row[col] !== null ? String(row[col]) : "-";
-                      const colLower = col.toLowerCase();
-                      
-                      // Highlight Status Badges
-                      if (colLower.includes("status")) {
-                        const isCompleted = ["completed", "paid", "submitted", "active"].includes(val.toLowerCase());
-                        const isPending = ["pending", "unpaid", "renewal_pending"].includes(val.toLowerCase());
-                        const isOverdue = ["overdue", "failed", "expired", "dark_red", "red"].includes(val.toLowerCase());
+                ) : (
+                  filteredRows.map((row, rIdx) => (
+                    <tr
+                      key={rIdx}
+                      onClick={() => setInspectClient(row)}
+                      className="hover:bg-indigo-50/30 cursor-pointer transition-colors group"
+                    >
+                      {(reportData.columns || []).map((col, cIdx) => {
+                        const val = row[col] !== undefined && row[col] !== null ? String(row[col]) : "—";
+                        const colLower = col.toLowerCase();
+                        
+                        // Highlight Status Badges
+                        if (colLower.includes("status")) {
+                          const isCompleted = ["completed", "paid", "submitted", "active", "filed"].includes(val.toLowerCase());
+                          const isPending = ["pending", "unpaid", "renewal_pending"].includes(val.toLowerCase());
+                          const isOverdue = ["overdue", "failed", "expired", "dark_red", "red"].includes(val.toLowerCase());
+
+                          return (
+                            <td key={cIdx} className="px-5 py-4 whitespace-nowrap">
+                              <span className={`inline-flex items-center px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-sm ${
+                                isCompleted ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80" :
+                                isOverdue ? "bg-rose-50 text-rose-700 border border-rose-200/80" :
+                                isPending ? "bg-amber-50 text-amber-700 border border-amber-200/80" :
+                                "bg-slate-100 text-slate-700 border border-slate-200"
+                              }`}>
+                                {val}
+                              </span>
+                            </td>
+                          );
+                        }
+
+                        // Monospace styling for TRN or Trade License numbers
+                        if (colLower.includes("trn") || colLower.includes("license")) {
+                          return (
+                            <td key={cIdx} className="px-5 py-4 whitespace-nowrap">
+                              <span className="font-mono text-xs font-black text-indigo-950 bg-indigo-50/70 border border-indigo-100/80 px-2.5 py-1 rounded-lg">
+                                {val}
+                              </span>
+                            </td>
+                          );
+                        }
 
                         return (
                           <td key={cIdx} className="px-5 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-sm ${
-                              isCompleted ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80" :
-                              isOverdue ? "bg-rose-50 text-rose-700 border border-rose-200/80" :
-                              isPending ? "bg-amber-50 text-amber-700 border border-amber-200/80" :
-                              "bg-slate-100 text-slate-700 border border-slate-200"
-                            }`}>
-                              {val}
-                            </span>
+                            <span className={cIdx === 0 ? "font-black text-slate-900 group-hover:text-indigo-600 transition-colors" : ""}>{val}</span>
                           </td>
                         );
-                      }
+                      })}
 
-                      // Monospace styling for TRN or Trade License numbers
-                      if (colLower.includes("trn") || colLower.includes("license")) {
-                        return (
-                          <td key={cIdx} className="px-5 py-4 whitespace-nowrap">
-                            <span className="font-mono text-xs font-black text-indigo-950 bg-indigo-50/70 border border-indigo-100/80 px-2.5 py-1 rounded-lg">
-                              {val}
-                            </span>
-                          </td>
-                        );
-                      }
-
-                      return (
-                        <td key={cIdx} className="px-5 py-4 whitespace-nowrap text-slate-900 font-bold">
-                          {val}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                      <td className="px-5 py-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => setInspectClient(row)}
+                          className="p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-xl border border-indigo-100 transition-all"
+                          title="View Client Details"
+                        >
+                          <Eye size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* ── Client Audit Details Modal ──────────────────────────── */}
+      {inspectClient && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-[32px] max-w-lg w-full p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b pb-4 border-slate-100">
+              <div>
+                <h3 className="text-base font-black text-slate-900">{inspectClient["Client Name"] || inspectClient["Company Name"] || inspectClient["Consultant"] || "Compliance Client Record"}</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">{activeMeta?.label || "Compliance Audit Profile"}</p>
+              </div>
+              <button onClick={() => setInspectClient(null)} className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100"><X size={18} /></button>
+            </div>
+
+            <div className="space-y-3 text-xs font-bold text-slate-700">
+              <div className="bg-slate-50 border border-slate-100 p-4 rounded-2xl space-y-2">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Record Summary</span>
+                {Object.entries(inspectClient).map(([key, val]) => (
+                  <div key={key} className="flex justify-between items-center py-1 border-b border-slate-200/50 last:border-0">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">{key}</span>
+                    <span className="font-extrabold text-slate-900">{String(val || "—")}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4 border-t border-slate-100">
+              <button onClick={() => setInspectClient(null)} className="px-5 py-2.5 bg-indigo-600 text-white font-black text-xs uppercase rounded-xl shadow-lg shadow-indigo-100">Close Record</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

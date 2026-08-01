@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   X, User, Mail, Phone, Calendar, DollarSign, Clock, FileText, CheckCircle2,
-  Trash2, Plus, Edit3, Eye, ArrowLeft, Paperclip, MessageSquare, AlertCircle, BookOpen, Search, Filter, Download, Send, Globe, Building2, ShieldCheck, Tag, Layers, Check, CheckCircle, ChevronRight, ChevronLeft, Upload, File, Share2, MoreVertical, AlertTriangle, Star
+  Trash2, Plus, Edit3, Eye, ArrowLeft, Paperclip, MessageSquare, AlertCircle, BookOpen, Search, Filter, Download, Send, Globe, Building2, ShieldCheck, Tag, Layers, Check, CheckCircle, ChevronRight, ChevronLeft, Upload, File, Share2, MoreVertical, AlertTriangle, Star, Save, RefreshCw
 } from "lucide-react";
 import { api } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
@@ -140,28 +140,56 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
     }
   };
 
-  const handleUpdateWorkStatus = async (newStatus) => {
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [quickNoteText, setQuickNoteText] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+
+  useEffect(() => {
+    const fetchAgents = async () => {
+      try {
+        const res = await api(`/api/users?role=all`);
+        setTeamMembers(Array.isArray(res) ? res : (res.users || []));
+      } catch { /* silent */ }
+    };
+    fetchAgents();
+  }, []);
+
+  const handleUpdateCustomerFields = async (fields) => {
     try {
-      await api(`/api/crm/customers/${customerId}`, {
-        method: "PUT",
-        body: JSON.stringify({ workStatus: newStatus })
+      const updated = await api(`/api/crm/${customerId}`, {
+        method: "PATCH",
+        body: JSON.stringify(fields)
       });
-      setCustomer(prev => ({ ...prev, workStatus: newStatus }));
+      setCustomer(prev => ({ ...prev, ...fields, ...(updated.customer || updated) }));
     } catch (err) {
-      alert(err.message || "Failed to update Work Status");
+      alert(err.message || "Failed to update record");
     }
   };
 
-  const handleUpdatePaymentStatus = async (newStatus) => {
+  const handleAddQuickNote = async (e) => {
+    if (e) e.preventDefault();
+    if (!quickNoteText.trim()) return;
+    setSavingNote(true);
     try {
-      await api(`/api/crm/customers/${customerId}`, {
-        method: "PUT",
-        body: JSON.stringify({ paymentStatus: newStatus })
+      await api(`/api/crm/${customerId}/notes`, {
+        method: "POST",
+        body: JSON.stringify({ text: quickNoteText.trim() })
       });
-      setCustomer(prev => ({ ...prev, paymentStatus: newStatus }));
+      setQuickNoteText("");
+      fetchProfile();
     } catch (err) {
-      alert(err.message || "Failed to update Payment Status");
+      alert(err.message || "Failed to save note");
+    } finally {
+      setSavingNote(false);
     }
+  };
+
+  const handleUpdateWorkStatus = async (newStatus) => {
+    handleUpdateCustomerFields({ workStatus: newStatus });
+  };
+
+  const handleUpdatePaymentStatus = async (newStatus) => {
+    handleUpdateCustomerFields({ paymentStatus: newStatus });
   };
 
   const fetchTabData = async () => {
@@ -351,138 +379,373 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
       {/* Tab Contents */}
       <main className="flex-1 p-8 max-w-6xl mx-auto w-full">
         {activeTab === "overview" && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="md:col-span-2 space-y-8">
-              <div className="bg-white p-8 border border-slate-200 rounded-[30px] shadow-sm space-y-6">
-                <h4 className="text-sm font-black text-slate-900 uppercase tracking-wide border-b pb-3 border-slate-100">Ecosystem Properties</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs font-bold">
-                  <div><span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Ecosystem Ref CRN</span> {customer?.crn || "-"}</div>
-                  <div><span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Win Probability</span> {customer?.probability || 10}%</div>
-                  <div><span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Lead Temperature</span> <span className="uppercase text-amber-600 bg-amber-50 px-2 py-0.5 rounded">{customer?.leadTemperature || "warm"}</span></div>
-                  <div><span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Expected Revenue</span> ${customer?.expectedRevenue || 0}</div>
-                  <div><span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Campaign</span> {customer?.campaign || "Direct Traffic"}</div>
-                  <div><span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Competitor Mentioned</span> {customer?.competitor || "None"}</div>
+          <div className="space-y-8 animate-in fade-in duration-200">
+            {/* Quick Action & Contact Banner */}
+            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 rounded-[28px] text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden border border-indigo-900/50">
+              <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+              
+              <div className="flex items-center gap-4 relative z-10">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center text-white font-black text-xl shadow-lg border border-white/20 shrink-0">
+                  {(customer?.companyName || customer?.name || "C").charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-lg font-black tracking-tight">{customer?.companyName || customer?.name}</h3>
+                    
+                    {/* Live Record Type Toggle */}
+                    <select
+                      value={customer?.recordType || "lead"}
+                      onChange={(e) => handleUpdateCustomerFields({ recordType: e.target.value })}
+                      className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-full px-3 py-0.5 text-[9px] font-black uppercase outline-none cursor-pointer"
+                    >
+                      <option value="lead" className="bg-slate-900 text-white">LEAD</option>
+                      <option value="customer" className="bg-slate-900 text-white">CUSTOMER</option>
+                      <option value="deal" className="bg-slate-900 text-white">DEAL</option>
+                    </select>
+
+                    {/* Live Pipeline Stage Dropdown */}
+                    <select
+                      value={customer?.pipelineStage || "new"}
+                      onChange={(e) => handleUpdateCustomerFields({ pipelineStage: e.target.value })}
+                      className="bg-slate-800/80 text-white border border-slate-700 rounded-full px-3 py-0.5 text-[9px] font-black uppercase outline-none cursor-pointer hover:bg-slate-800"
+                    >
+                      <option value="new" className="bg-slate-900 text-white">STAGE: NEW</option>
+                      <option value="contacted" className="bg-slate-900 text-white">STAGE: CONTACTED</option>
+                      <option value="proposal_sent" className="bg-slate-900 text-white">STAGE: PROPOSAL SENT</option>
+                      <option value="under_review" className="bg-slate-900 text-white">STAGE: UNDER REVIEW</option>
+                      <option value="won" className="bg-slate-900 text-emerald-400 font-bold">STAGE: WON / CLOSED</option>
+                      <option value="lost" className="bg-slate-900 text-rose-400 font-bold">STAGE: LOST</option>
+                    </select>
+                  </div>
+                  <p className="text-xs text-slate-300 font-semibold mt-1 flex items-center gap-3">
+                    {customer?.name && <span>Contact: <strong>{customer.name}</strong></span>}
+                    {customer?.crn && <span className="font-mono text-indigo-300 font-bold">• CRN: {customer.crn}</span>}
+                  </p>
                 </div>
               </div>
 
-              {/* UAE Compliance & Licensing Properties Card */}
-              <div className="bg-white p-8 border border-slate-200 rounded-[30px] shadow-sm space-y-6">
-                <div className="flex items-center justify-between border-b pb-3 border-slate-100">
-                  <h4 className="text-sm font-black text-slate-900 uppercase tracking-wide">UAE Compliance & Licensing Properties</h4>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-black uppercase text-slate-400">Work Status:</span>
-                    <select
-                      value={customer?.workStatus || "Pending"}
-                      onChange={(e) => handleUpdateWorkStatus(e.target.value)}
-                      className={`px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest outline-none cursor-pointer border transition-all ${
-                        customer?.workStatus === "Completed" || customer?.workStatus === "Approved" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
-                        customer?.workStatus === "In Progress" ? "bg-sky-50 text-sky-600 border-sky-200" :
-                        customer?.workStatus === "Under Review" ? "bg-purple-50 text-purple-600 border-purple-200" :
-                        "bg-amber-50 text-amber-600 border-amber-200"
-                      }`}
-                    >
-                      <option value="Pending">Pending</option>
-                      <option value="In Progress">In Progress</option>
-                      <option value="Under Review">Under Review</option>
-                      <option value="Submitted">Submitted / Filed</option>
-                      <option value="Completed">Completed / Approved</option>
-                    </select>
-                  </div>
+              {/* Quick Communication Actions */}
+              <div className="flex items-center gap-2.5 relative z-10 flex-wrap justify-end">
+                {customer?.phone && (
+                  <a
+                    href={`https://wa.me/${customer.phone.replace(/[^0-9]/g, "")}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-emerald-900/30 transition-all hover:scale-105"
+                  >
+                    <MessageSquare size={14} /> WhatsApp
+                  </a>
+                )}
+                {customer?.email && (
+                  <a
+                    href={`mailto:${customer.email}`}
+                    className="px-3.5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-indigo-900/30 transition-all hover:scale-105"
+                  >
+                    <Mail size={14} /> Email Client
+                  </a>
+                )}
+                <button
+                  onClick={() => setActiveTab("tasks")}
+                  className="px-3.5 py-2.5 bg-white/10 hover:bg-white/20 text-white border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all"
+                >
+                  <CheckCircle2 size={14} /> Add Task
+                </button>
+                <button
+                  onClick={() => setActiveTab("meetings")}
+                  className="px-3.5 py-2.5 bg-white/10 hover:bg-white/20 text-white border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all"
+                >
+                  <Calendar size={14} /> Schedule Meeting
+                </button>
+              </div>
+            </div>
+
+            {/* 4 Key Executive KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {/* Financial Health */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all space-y-2">
+                <div className="flex items-center justify-between text-slate-400">
+                  <span className="text-[10px] font-black uppercase tracking-wider">Pipeline & Deal Value</span>
+                  <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl"><DollarSign size={16} /></div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 text-xs font-bold">
-                  <div>
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">TRN (Tax Reg No)</span>
-                    <span className="text-slate-900 font-mono font-bold">{customer?.trn || "Not Registered"}</span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Trade License No</span>
-                    <span className="text-slate-900 font-mono font-bold">{customer?.tradeLicenseNumber || "N/A"}</span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">License Expiry Date</span>
-                    <span className={`font-bold ${customer?.tradeLicenseExpiryDate && new Date(customer.tradeLicenseExpiryDate) < new Date() ? "text-rose-600" : "text-slate-900"}`}>
-                      {customer?.tradeLicenseExpiryDate ? new Date(customer.tradeLicenseExpiryDate).toLocaleDateString() : "N/A"}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Service Type</span>
-                    <span className="text-indigo-600 font-black">{customer?.serviceType || "Corporate Tax Registration"}</span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Payment Status</span>
-                    <select
-                      value={customer?.paymentStatus || "Pending"}
-                      onChange={(e) => handleUpdatePaymentStatus(e.target.value)}
-                      className={`px-2.5 py-1 rounded-xl text-[9px] font-black uppercase outline-none cursor-pointer border transition-all ${
-                        customer?.paymentStatus === "Paid" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
-                        customer?.paymentStatus === "Partial" ? "bg-sky-50 text-sky-600 border-sky-200" :
-                        customer?.paymentStatus === "Overdue" ? "bg-rose-50 text-rose-600 border-rose-200" : "bg-amber-50 text-amber-600 border-amber-200"
+                <div className="text-xl font-black text-slate-900">{formatCurrency(customer?.leadValue || customer?.expectedRevenue || 0)}</div>
+                <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                  <span>Win Probability: <strong className="text-emerald-600">{customer?.probability || 10}%</strong></span>
+                  <span className="uppercase text-slate-400">{customer?.pipelineStage || "New"}</span>
+                </div>
+              </div>
+
+              {/* UAE Compliance Health */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all space-y-2">
+                <div className="flex items-center justify-between text-slate-400">
+                  <span className="text-[10px] font-black uppercase tracking-wider">Compliance Readiness</span>
+                  <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl"><ShieldCheck size={16} /></div>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xl font-black text-slate-900">{setupPercentage}%</span>
+                  <span className="text-[10px] font-bold text-emerald-600">Setup Score</span>
+                </div>
+                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                  <div className="bg-gradient-to-r from-indigo-500 to-emerald-500 h-full transition-all duration-500" style={{ width: `${setupPercentage}%` }} />
+                </div>
+              </div>
+
+              {/* Lead Health & Temperature Interactive Selector */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all space-y-2">
+                <div className="flex items-center justify-between text-slate-400">
+                  <span className="text-[10px] font-black uppercase tracking-wider">AI Lead Temperature</span>
+                  <div className="p-2 bg-amber-50 text-amber-600 rounded-xl"><Star size={16} /></div>
+                </div>
+                
+                {/* Temperature Interactive Pill Selector */}
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                  {["hot", "warm", "cold"].map((temp) => (
+                    <button
+                      key={temp}
+                      onClick={() => handleUpdateCustomerFields({ leadTemperature: temp })}
+                      className={`flex-1 py-1 text-[9px] font-black uppercase rounded-lg transition-all ${
+                        (customer?.leadTemperature || "warm") === temp
+                          ? temp === "hot" ? "bg-rose-600 text-white shadow-sm" : temp === "warm" ? "bg-amber-500 text-white shadow-sm" : "bg-slate-700 text-white shadow-sm"
+                          : "text-slate-500 hover:text-slate-900"
                       }`}
                     >
-                      <option value="Pending">Pending</option>
-                      <option value="Partial">Partial</option>
-                      <option value="Paid">Paid</option>
-                      <option value="Overdue">Overdue</option>
-                    </select>
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">VAT Filing Due</span>
-                    <span>{customer?.vatFilingDueDate ? new Date(customer.vatFilingDueDate).toLocaleDateString() : "TBA"}</span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Corporate Tax Due</span>
-                    <span>{customer?.corporateTaxDueDate ? new Date(customer.corporateTaxDueDate).toLocaleDateString() : "TBA"}</span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-1">Last Activity</span>
-                    <span>{customer?.lastFollowUpActivityAt ? new Date(customer.lastFollowUpActivityAt).toLocaleDateString() : "Today"}</span>
-                  </div>
+                      {temp}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="text-[10px] font-bold text-slate-500 flex justify-between">
+                  <span>Score: <strong className="text-slate-800">{customer?.leadScore || 0} pts</strong></span>
+                  <span>Churn Risk: <strong className="text-slate-700">{customer?.churnRisk || 0}%</strong></span>
+                </div>
+              </div>
+
+              {/* Trade License Status */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all space-y-2">
+                <div className="flex items-center justify-between text-slate-400">
+                  <span className="text-[10px] font-black uppercase tracking-wider">Trade License</span>
+                  <div className="p-2 bg-sky-50 text-sky-600 rounded-xl"><Building2 size={16} /></div>
+                </div>
+                <div className="font-mono text-xs font-black text-slate-900 truncate">
+                  {customer?.tradeLicenseNumber || "N/A"}
+                </div>
+                <div className="text-[10px] font-bold flex items-center justify-between">
+                  <span className="text-slate-400">Expiry:</span>
+                  <span className={customer?.tradeLicenseExpiryDate && new Date(customer.tradeLicenseExpiryDate) < new Date() ? "text-rose-600 font-black" : "text-slate-700 font-bold"}>
+                    {customer?.tradeLicenseExpiryDate ? new Date(customer.tradeLicenseExpiryDate).toLocaleDateString() : "Not Registered"}
+                  </span>
                 </div>
               </div>
             </div>
-            <div className="space-y-6">
-              <div className="bg-white p-8 border border-slate-200 rounded-[30px] shadow-sm space-y-4">
-                <h4 className="text-sm font-black text-slate-900 uppercase tracking-wide border-b pb-3 border-slate-100">Lead Health</h4>
-                <div className="space-y-4 text-xs font-bold text-slate-600">
-                  <div><span className="text-[9px] font-black uppercase text-slate-400 block">Lead Score</span> {customer?.leadScore || 0} points</div>
-                  <div><span className="text-[9px] font-black uppercase text-slate-400 block">AI Win Rating</span> {customer?.winProbability || 10}%</div>
-                  <div><span className="text-[9px] font-black uppercase text-slate-400 block">Churn Risk</span> {customer?.churnRisk || 0}%</div>
+
+            {/* Main Information Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {/* Left Column (2 Cols wide) */}
+              <div className="md:col-span-2 space-y-8">
+                {/* UAE Tax & Compliance Master Properties */}
+                <div className="bg-white p-8 border border-slate-200/80 rounded-[30px] shadow-sm space-y-6">
+                  <div className="flex items-center justify-between border-b pb-4 border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                        <ShieldCheck size={18} />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-black text-slate-900 uppercase tracking-wide">UAE Tax & Compliance Properties</h4>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Real-time status of FTA filings & licensing</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-black uppercase text-slate-400">Work Status:</span>
+                      <select
+                        value={customer?.workStatus || "Pending"}
+                        onChange={(e) => handleUpdateWorkStatus(e.target.value)}
+                        className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest outline-none cursor-pointer border transition-all shadow-sm ${
+                          customer?.workStatus === "Completed" || customer?.workStatus === "Approved" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
+                          customer?.workStatus === "In Progress" ? "bg-sky-50 text-sky-600 border-sky-200" :
+                          customer?.workStatus === "Under Review" ? "bg-purple-50 text-purple-600 border-purple-200" :
+                          "bg-amber-50 text-amber-600 border-amber-200"
+                        }`}
+                      >
+                        <option value="Pending">Pending</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Under Review">Under Review</option>
+                        <option value="Submitted">Submitted / Filed</option>
+                        <option value="Completed">Completed / Approved</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                    <div className="p-3.5 bg-slate-50/70 border border-slate-100 rounded-2xl space-y-1">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">TRN (Tax Reg No)</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono font-black text-slate-900">{customer?.trn || "Not Registered"}</span>
+                        {customer?.trn && (
+                          <button
+                            onClick={() => { navigator.clipboard.writeText(customer.trn); alert("TRN copied to clipboard!"); }}
+                            className="text-[9px] text-indigo-600 font-bold hover:underline"
+                          >
+                            Copy
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 bg-slate-50/70 border border-slate-100 rounded-2xl space-y-1">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Service Scope</span>
+                      <span className="text-xs font-black text-indigo-600 block truncate">{customer?.serviceType || "Corporate Tax Registration"}</span>
+                    </div>
+
+                    <div className="p-3.5 bg-slate-50/70 border border-slate-100 rounded-2xl space-y-1">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Payment Status</span>
+                      <select
+                        value={customer?.paymentStatus || "Pending"}
+                        onChange={(e) => handleUpdatePaymentStatus(e.target.value)}
+                        className={`px-2.5 py-1 rounded-xl text-[9px] font-black uppercase outline-none cursor-pointer border transition-all ${
+                          customer?.paymentStatus === "Paid" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
+                          customer?.paymentStatus === "Partial" ? "bg-sky-50 text-sky-600 border-sky-200" :
+                          customer?.paymentStatus === "Overdue" ? "bg-rose-50 text-rose-600 border-rose-200" : "bg-amber-50 text-amber-600 border-amber-200"
+                        }`}
+                      >
+                        <option value="Pending">Pending</option>
+                        <option value="Partial">Partial</option>
+                        <option value="Paid">Paid</option>
+                        <option value="Overdue">Overdue</option>
+                      </select>
+                    </div>
+
+                    <div className="p-3.5 bg-slate-50/70 border border-slate-100 rounded-2xl space-y-1">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">VAT Filing Period</span>
+                      <span className="text-xs font-bold text-slate-800">{customer?.vatFilingPeriod || "Q1 2026"}</span>
+                    </div>
+
+                    <div className="p-3.5 bg-slate-50/70 border border-slate-100 rounded-2xl space-y-1">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">VAT Filing Due</span>
+                      <span className="text-xs font-bold text-slate-800">{customer?.vatFilingDueDate ? new Date(customer.vatFilingDueDate).toLocaleDateString() : "TBA"}</span>
+                    </div>
+
+                    <div className="p-3.5 bg-slate-50/70 border border-slate-100 rounded-2xl space-y-1">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Corporate Tax Due</span>
+                      <span className="text-xs font-bold text-slate-800">{customer?.corporateTaxDueDate ? new Date(customer.corporateTaxDueDate).toLocaleDateString() : "TBA"}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Inline Quick Follow-up Note Logger */}
+                <div className="bg-white p-8 border border-slate-200/80 rounded-[30px] shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b pb-3 border-slate-100">
+                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-wide flex items-center gap-2">
+                      <Edit3 size={16} className="text-indigo-600" />
+                      Quick Activity Follow-up Note
+                    </h4>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Saves to timeline</span>
+                  </div>
+
+                  <form onSubmit={handleAddQuickNote} className="space-y-3">
+                    <textarea
+                      rows={2}
+                      value={quickNoteText}
+                      onChange={(e) => setQuickNoteText(e.target.value)}
+                      placeholder="Type a quick client interaction note or update..."
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    />
+                    <div className="flex justify-end">
+                      <button
+                        type="submit"
+                        disabled={savingNote || !quickNoteText.trim()}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md shadow-indigo-600/20 transition-all flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        {savingNote ? <RefreshCw size={12} className="animate-spin" /> : <Save size={12} />}
+                        Save Note to Profile
+                      </button>
+                    </div>
+                  </form>
                 </div>
               </div>
 
-              {/* Portal Access Control */}
-              <div className="bg-white p-8 border border-slate-200 rounded-[30px] shadow-sm space-y-4">
-                <h4 className="text-sm font-black text-slate-900 uppercase tracking-wide border-b pb-3 border-slate-100">Client Portal Access</h4>
-                {portalLoading ? (
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">Loading portal details...</p>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between text-xs font-bold">
-                      <span className="text-[9px] font-black uppercase text-slate-400">Portal Status</span>
-                      <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${portalAccess.active ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>
-                        {portalAccess.active ? "Active" : "Inactive"}
-                      </span>
-                    </div>
-                    {!isReadOnly && (portalAccess.active ? (
-                      <div className="space-y-3">
-                        <p className="text-[10px] font-bold text-slate-500">Linked User: <strong className="text-slate-800 block mt-0.5 truncate">{portalAccess.email}</strong></p>
-                        <button
-                          onClick={handleRevokePortalAccess}
-                          className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-[9px] font-black uppercase rounded-xl transition-all"
-                        >
-                          Revoke Portal Access
-                        </button>
+              {/* Right Column (1 Col wide) */}
+              <div className="space-y-6">
+                {/* Account Owner & Live Consultant Assignment Dropdown */}
+                <div className="bg-white p-6 border border-slate-200/80 rounded-[28px] shadow-sm space-y-4">
+                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider border-b pb-3 border-slate-100 flex items-center justify-between">
+                    <span>Account Ownership</span>
+                    <User size={14} className="text-indigo-600" />
+                  </h4>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 font-black flex items-center justify-center text-sm shrink-0">
+                        {(customer?.ownerId?.name || "U").charAt(0)}
                       </div>
-                    ) : (
-                      <button
-                        onClick={handleGrantPortalAccess}
-                        className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[9px] font-black uppercase rounded-xl transition-all shadow-md"
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-black text-slate-900 truncate">{customer?.ownerId?.name || "Unassigned Consultant"}</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase truncate">{customer?.ownerId?.role || "Assigned Account Owner"}</p>
+                      </div>
+                    </div>
+
+                    {/* Live Reassign Dropdown */}
+                    <div className="pt-2 border-t border-slate-100">
+                      <label className="block text-[9px] font-black uppercase text-slate-400 tracking-wider mb-1">Reassign Owner</label>
+                      <select
+                        value={customer?.ownerId?._id || customer?.ownerId || ""}
+                        onChange={(e) => handleUpdateCustomerFields({ ownerId: e.target.value || null })}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/20"
                       >
-                        Grant Portal Access
-                      </button>
-                    ))}
+                        <option value="">Unassigned</option>
+                        {teamMembers.map(m => (
+                          <option key={m._id} value={m._id}>{m.name} ({m.role})</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
-                )}
+                </div>
+
+                {/* Client Portal & Security Desk */}
+                <div className="bg-white p-6 border border-slate-200/80 rounded-[28px] shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b pb-3 border-slate-100">
+                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">Client Portal Access</h4>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase ${portalAccess.active ? "bg-emerald-50 text-emerald-600 border border-emerald-200" : "bg-rose-50 text-rose-600 border border-rose-200"}`}>
+                      {portalAccess.active ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+
+                  {portalLoading ? (
+                    <p className="text-[10px] text-slate-400 font-bold uppercase text-center py-2 animate-pulse">Checking credentials...</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {portalAccess.active ? (
+                        <div className="space-y-3">
+                          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs">
+                            <span className="text-[9px] font-black uppercase text-slate-400 block mb-0.5">Linked Login Email</span>
+                            <span className="font-bold text-slate-800 block truncate">{portalAccess.email}</span>
+                          </div>
+                          {!isReadOnly && (
+                            <button
+                              onClick={handleRevokePortalAccess}
+                              className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all border border-rose-200/60"
+                            >
+                              Revoke Portal Access
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="text-[10px] font-semibold text-slate-500 mb-3 leading-relaxed">
+                            Granting access generates customer login credentials for the client portal.
+                          </p>
+                          {!isReadOnly && (
+                            <button
+                              onClick={handleGrantPortalAccess}
+                              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[9px] font-black uppercase tracking-wider rounded-xl transition-all shadow-md shadow-indigo-600/20"
+                            >
+                              Grant Portal Access
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
