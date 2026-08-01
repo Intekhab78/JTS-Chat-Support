@@ -119,11 +119,11 @@ export function ItemAutocomplete({ value, onChange, onSelect, websiteId, placeho
   }, []);
 
   const search = useCallback(async (q) => {
-    if (!q || q.trim().length < 1) { setSuggestions([]); setOpen(false); setSearched(false); return; }
     setLoading(true);
     setSearched(false);
     try {
-      const params = new URLSearchParams({ q: q.trim() });
+      const params = new URLSearchParams();
+      if (q && q.trim().length > 0) params.append("q", q.trim());
       if (websiteId) params.append("websiteId", websiteId);
       const results = await api.get(`/api/inventory/search?${params}`);
       setSuggestions(Array.isArray(results) ? results : []);
@@ -141,9 +141,8 @@ export function ItemAutocomplete({ value, onChange, onSelect, websiteId, placeho
     const val = e.target.value;
     setQuery(val);
     onChange(val);
-    if (!val.trim()) { setSearched(false); setSuggestions([]); setOpen(false); return; }
     clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => search(val), 280);
+    debounceRef.current = setTimeout(() => search(val), 200);
   };
 
   const handleSelect = (item) => {
@@ -162,19 +161,20 @@ export function ItemAutocomplete({ value, onChange, onSelect, websiteId, placeho
     if (e.key === "Escape") { setOpen(false); }
   };
 
-  // Show dropdown when: has typed, not loading, AND (has results OR search finished with no results)
+  // Show dropdown when open and not loading
   const hasResults = suggestions.length > 0;
-  const showDropdown = open && query.trim().length > 0 && !loading && (hasResults || searched);
+  const showDropdown = open && !loading;
 
   return (
     <div ref={wrapperRef} style={{ position: "relative", width: "100%" }}>
       <input
         type="text"
-        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-400 transition-colors"
-        placeholder={placeholder || "Search inventory items..."}
+        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-400 transition-colors cursor-pointer"
+        placeholder={placeholder || "Click to select or search items..."}
         value={query}
         onChange={handleChange}
-        onFocus={() => { if (query.trim()) search(query); }}
+        onFocus={() => { search(query); }}
+        onClick={() => { if (!open) search(query); }}
         onKeyDown={handleKeyDown}
         required
       />
@@ -192,7 +192,14 @@ export function ItemAutocomplete({ value, onChange, onSelect, websiteId, placeho
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className={`text-[11px] font-black ${i === highlighted ? "text-indigo-900" : "text-slate-900"}`}>{item.name}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className={`text-[11px] font-black ${i === highlighted ? "text-indigo-900" : "text-slate-900"}`}>{item.name}</p>
+                      {item.variantName && (
+                        <span className="text-[8px] font-black uppercase text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                          {item.variantName}
+                        </span>
+                      )}
+                    </div>
                     {item.sku && <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-0.5">{item.sku}</p>}
                   </div>
                   <div className="text-right">

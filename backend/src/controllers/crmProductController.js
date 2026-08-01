@@ -168,3 +168,99 @@ export const deleteProduct = asyncHandler(async (req, res) => {
   await Product.findByIdAndDelete(req.params.id);
   res.json({ message: "Product deleted successfully" });
 });
+
+// -- Product Variant Endpoints --
+export const addVariant = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  let product = await Product.findById(req.params.id);
+
+  if (!product) {
+    const invItem = await InventoryItem.findById(req.params.id);
+    if (invItem) {
+      const targetWebsiteId = invItem.websiteId || ownedWebsiteIds[0];
+      const existingProd = await Product.findOne({ websiteId: targetWebsiteId, sku: invItem.sku });
+      if (existingProd) {
+        product = existingProd;
+      } else {
+        product = await Product.create({
+          websiteId: targetWebsiteId,
+          sku: invItem.sku || `INV-${invItem.name.substring(0, 3).toUpperCase()}`,
+          name: invItem.name,
+          type: "service",
+          category: invItem.category || "General Services",
+          brand: invItem.brand || "JTS Support",
+          price: invItem.unitCost || 0,
+          cost: invItem.unitCost || 0,
+          taxRate: 5,
+          unit: invItem.unit || "pcs",
+          status: "active",
+          description: invItem.description || "",
+          hasVariants: true,
+          variantItems: []
+        });
+      }
+    } else {
+      throw new AppError("Product not found", 404);
+    }
+  }
+
+  if (!ownedWebsiteIds.map(id => id.toString()).includes(product.websiteId.toString())) {
+    throw new AppError("Unauthorized access", 403);
+  }
+
+  const { sku, variantName, price, costPrice, stockQuantity, attributes, barcode } = req.body;
+  if (!variantName || price === undefined) {
+    throw new AppError("Variant name and price are required", 400);
+  }
+
+  const generatedSku = sku || `${product.sku}-${(product.variantItems?.length || 0) + 1}`;
+  product.hasVariants = true;
+  product.variantItems.push({
+    sku: generatedSku,
+    variantName,
+    attributes: attributes || [],
+    price: parseFloat(price) || 0,
+    costPrice: parseFloat(costPrice) || 0,
+    stockQuantity: parseInt(stockQuantity) || 0,
+    barcode: barcode || ""
+  });
+
+  await product.save();
+  res.status(201).json(product);
+});
+
+export const updateVariant = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const product = await Product.findById(req.params.id);
+
+  if (!product) throw new AppError("Product not found", 404);
+  if (!ownedWebsiteIds.map(id => id.toString()).includes(product.websiteId.toString())) {
+    throw new AppError("Unauthorized access", 403);
+  }
+
+  const variant = product.variantItems.id(req.params.variantId);
+  if (!variant) throw new AppError("Variant not found", 404);
+
+  Object.assign(variant, req.body);
+  await product.save();
+  res.json(product);
+});
+
+export const deleteVariant = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_DELETE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const product = await Product.findById(req.params.id);
+
+  if (!product) throw new AppError("Product not found", 404);
+  if (!ownedWebsiteIds.map(id => id.toString()).includes(product.websiteId.toString())) {
+    throw new AppError("Unauthorized access", 403);
+  }
+
+  product.variantItems.pull({ _id: req.params.variantId });
+  if (product.variantItems.length === 0) product.hasVariants = false;
+
+  await product.save();
+  res.json(product);
+});

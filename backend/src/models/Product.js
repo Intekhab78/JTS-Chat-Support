@@ -1,9 +1,23 @@
 import mongoose from "mongoose";
 
 const productVariantOptionSchema = new mongoose.Schema({
-  name: { type: String, required: true }, // e.g. "Color", "Size"
-  options: [{ type: String }] // e.g. ["Red", "Blue"]
+  name: { type: String, required: true }, // e.g. "Tier", "Duration"
+  options: [{ type: String }] // e.g. ["Standard", "Premium"]
 }, { _id: false });
+
+const productVariantItemSchema = new mongoose.Schema({
+  sku: { type: String, trim: true, required: true },
+  variantName: { type: String, trim: true, required: true },
+  attributes: [{
+    name: { type: String, trim: true },
+    value: { type: String, trim: true }
+  }],
+  price: { type: Number, required: true, default: 0 },
+  costPrice: { type: Number, default: 0 },
+  stockQuantity: { type: Number, default: 0 },
+  barcode: { type: String, default: "" },
+  isActive: { type: Boolean, default: true }
+}, { timestamps: true });
 
 const productSchema = new mongoose.Schema(
   {
@@ -28,7 +42,9 @@ const productSchema = new mongoose.Schema(
     images: [{ type: String }],
     status: { type: String, enum: ["active", "draft", "archived"], default: "active", index: true },
     tags: [{ type: String }],
+    hasVariants: { type: Boolean, default: false },
     variants: [productVariantOptionSchema],
+    variantItems: [productVariantItemSchema],
     customFields: { type: Map, of: String, default: {} },
     inventoryPlaceholder: { type: Number, default: 0 } // Future ERP Integration placeholder
   },

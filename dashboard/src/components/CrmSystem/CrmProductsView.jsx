@@ -19,6 +19,33 @@ export default function CrmProductsView({ websiteId }) {
     sku: "", name: "", type: "product", category: "", price: 0, cost: 0, taxRate: 18, brand: "", unit: "pcs"
   });
 
+  // Variant State
+  const [showAddVariantForm, setShowAddVariantForm] = useState(false);
+  const [variantForm, setVariantForm] = useState({
+    sku: "",
+    variantName: "",
+    price: 0,
+    costPrice: 0,
+    stockQuantity: 10
+  });
+
+  const handleAddVariantSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedProduct?._id) return;
+    try {
+      const updated = await api(`/api/crm/products/${selectedProduct._id}/variants`, {
+        method: "POST",
+        body: JSON.stringify(variantForm)
+      });
+      setSelectedProduct(updated);
+      setShowAddVariantForm(false);
+      setVariantForm({ sku: "", variantName: "", price: 0, costPrice: 0, stockQuantity: 10 });
+      fetchData();
+    } catch (err) {
+      alert(err.message || "Failed to add variant");
+    }
+  };
+
   const [categoryForm, setCategoryForm] = useState({ name: "", parentId: "" });
 
   // Confirmation modal states
@@ -249,7 +276,14 @@ export default function CrmProductsView({ websiteId }) {
                 <div className="space-y-3">
                   <div className="flex justify-between items-start">
                     <span className="text-[9px] font-black uppercase text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded tracking-wide border border-indigo-100">{p.sku}</span>
-                    <span className="text-[9px] font-bold uppercase text-slate-500 bg-slate-100 px-2 py-0.5 rounded capitalize">{p.type || "product"}</span>
+                    <div className="flex items-center gap-1">
+                      {p.hasVariants && (
+                        <span className="text-[8px] font-black uppercase text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                          {p.variantItems?.length || 0} Variants
+                        </span>
+                      )}
+                      <span className="text-[9px] font-bold uppercase text-slate-500 bg-slate-100 px-2 py-0.5 rounded capitalize">{p.type || "product"}</span>
+                    </div>
                   </div>
                   <div>
                     <h4 className="text-xs font-black text-slate-800 leading-snug group-hover:text-indigo-600 transition-colors">{p.name}</h4>
@@ -261,7 +295,7 @@ export default function CrmProductsView({ websiteId }) {
                 </div>
                 <div className="flex justify-between items-end mt-6 pt-4 border-t border-slate-100">
                   <div>
-                    <span className="text-[8px] font-black uppercase tracking-wider text-slate-400 block mb-0.5">Price</span>
+                    <span className="text-[8px] font-black uppercase tracking-wider text-slate-400 block mb-0.5">Starting Price</span>
                     <span className="text-xs font-black text-indigo-600">${p.price ? p.price.toLocaleString() : 0}</span>
                   </div>
                   <button
@@ -277,11 +311,11 @@ export default function CrmProductsView({ websiteId }) {
         </div>
       )}
 
-      {/* Product Details Modal */}
+      {/* Product Details Modal with Variant Manager */}
       {selectedProduct && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setSelectedProduct(null)} />
-          <div className="relative w-full max-w-lg bg-white rounded-[32px] p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+          <div className="relative w-full max-w-xl bg-white rounded-[32px] p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="flex items-start justify-between border-b pb-4 border-slate-100">
               <div className="space-y-1 pr-6">
@@ -328,35 +362,110 @@ export default function CrmProductsView({ websiteId }) {
               </div>
             </div>
 
-            {/* Additional specifications */}
-            <div className="space-y-3 text-xs font-bold text-slate-600 border-t border-slate-100 pt-4">
-              <div className="flex justify-between py-1 border-b border-slate-50">
-                <span className="text-slate-400 font-bold uppercase text-[10px]">Unit of Measure:</span>
-                <span className="font-black text-slate-800 uppercase">{selectedProduct.unit || "pcs"}</span>
+            {/* Variant Section */}
+            <div className="space-y-3 border-t border-slate-100 pt-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase text-slate-900 tracking-wide flex items-center gap-1.5">
+                  <Tag size={14} className="text-indigo-600" />
+                  Product Variants ({selectedProduct.variantItems?.length || 0})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddVariantForm(!showAddVariantForm);
+                    setVariantForm({
+                      sku: `${selectedProduct.sku}-V${(selectedProduct.variantItems?.length || 0) + 1}`,
+                      variantName: "",
+                      price: selectedProduct.price || 0,
+                      costPrice: selectedProduct.cost || 0,
+                      stockQuantity: 10
+                    });
+                  }}
+                  className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all border border-indigo-200"
+                >
+                  <Plus size={12} /> Add Variant
+                </button>
               </div>
-              {selectedProduct.hsnSacCode && (
-                <div className="flex justify-between py-1 border-b border-slate-50">
-                  <span className="text-slate-400 font-bold uppercase text-[10px]">HSN / SAC Code:</span>
-                  <span className="font-black text-slate-800">{selectedProduct.hsnSacCode}</span>
-                </div>
+
+              {/* Inline Add Variant Form */}
+              {showAddVariantForm && (
+                <form onSubmit={handleAddVariantSubmit} className="p-4 bg-indigo-50/40 border border-indigo-100 rounded-2xl space-y-3">
+                  <span className="text-[9px] font-black uppercase text-indigo-600 tracking-wider block">Create New Item Variant</span>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      required
+                      placeholder="Variant SKU (e.g. VAT-Q-PREM)"
+                      value={variantForm.sku}
+                      onChange={(e) => setVariantForm({ ...variantForm, sku: e.target.value })}
+                      className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-mono font-bold outline-none"
+                    />
+                    <input
+                      type="text"
+                      required
+                      placeholder="Variant Name (e.g. Premium Retainer)"
+                      value={variantForm.variantName}
+                      onChange={(e) => setVariantForm({ ...variantForm, variantName: e.target.value })}
+                      className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold outline-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[8px] font-black uppercase text-slate-400">Variant Price ($)</label>
+                      <input
+                        type="number"
+                        required
+                        value={variantForm.price}
+                        onChange={(e) => setVariantForm({ ...variantForm, price: Number(e.target.value) })}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[8px] font-black uppercase text-slate-400">Stock Qty</label>
+                      <input
+                        type="number"
+                        value={variantForm.stockQuantity}
+                        onChange={(e) => setVariantForm({ ...variantForm, stockQuantity: Number(e.target.value) })}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddVariantForm(false)}
+                      className="px-3 py-1 text-[9px] font-bold text-slate-500 hover:text-slate-700 bg-slate-100 rounded-lg"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-3.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[9px] font-black uppercase rounded-lg shadow-sm"
+                    >
+                      Save Variant
+                    </button>
+                  </div>
+                </form>
               )}
-              {selectedProduct.barcode && (
-                <div className="flex justify-between py-1 border-b border-slate-50">
-                  <span className="text-slate-400 font-bold uppercase text-[10px]">Barcode / Serial:</span>
-                  <span className="font-black text-slate-800">{selectedProduct.barcode}</span>
+
+              {(!selectedProduct.variantItems || selectedProduct.variantItems.length === 0) ? (
+                <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl text-center text-xs font-bold text-slate-400">
+                  No variants defined for this product yet. Click "+ Add Variant" above to create one!
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {selectedProduct.variantItems.map((v) => (
+                    <div key={v._id || v.sku} className="p-3 bg-slate-50/80 border border-slate-200 rounded-2xl flex items-center justify-between text-xs">
+                      <div>
+                        <span className="font-mono text-[9px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 mr-2">{v.sku}</span>
+                        <span className="font-black text-slate-900">{v.variantName}</span>
+                      </div>
+                      <span className="font-black text-indigo-600">${v.price ? v.price.toLocaleString() : 0}</span>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
-
-            {/* Description */}
-            {(selectedProduct.description || selectedProduct.shortDescription) && (
-              <div className="space-y-1 border-t border-slate-100 pt-3">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Description & Specs</span>
-                <p className="text-xs font-medium text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
-                  {selectedProduct.description || selectedProduct.shortDescription}
-                </p>
-              </div>
-            )}
 
             {/* Modal Actions */}
             <div className="flex gap-3 pt-4 border-t border-slate-100">
@@ -382,7 +491,7 @@ export default function CrmProductsView({ websiteId }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowProductForm(false)} />
           <form onSubmit={handleCreateProduct} className="relative w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl space-y-6">
-            <h3 className="text-base font-black text-slate-900">Add Product</h3>
+            <h3 className="text-base font-black text-slate-900">Add Product Catalog Item</h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">SKU</label>

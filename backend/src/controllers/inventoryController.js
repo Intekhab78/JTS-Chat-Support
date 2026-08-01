@@ -1,5 +1,7 @@
+import mongoose from "mongoose";
 import { InventoryItem } from "../models/InventoryItem.js";
 import { InventoryMovement } from "../models/InventoryMovement.js";
+import { Product } from "../models/Product.js";
 import { Website } from "../models/Website.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import { Notification } from "../models/Notification.js";
@@ -119,13 +121,25 @@ export const listInventoryItems = asyncHandler(async (req, res) => {
 export const searchInventoryItems = asyncHandler(async (req, res) => {
   const accessibleWebsiteIds = await getAccessibleWebsiteIds(req.user);
   const q = normalizeText(req.query.q);
-  const websiteId = req.query.websiteId;
+  const rawWebsiteId = req.query.websiteId;
 
-  const filter = { websiteId: { $in: accessibleWebsiteIds }, isActive: true, isDeleted: { $ne: true } };
+  let validWebsiteId = null;
+  if (rawWebsiteId && rawWebsiteId !== "undefined" && rawWebsiteId !== "null" && String(rawWebsiteId).trim() !== "") {
+    const candidate = String(rawWebsiteId).trim();
+    if (mongoose.Types.ObjectId.isValid(candidate) && accessibleWebsiteIds.includes(candidate)) {
+      validWebsiteId = candidate;
+    }
+  }
 
-  if (websiteId) {
-    const checkedId = await assertWebsiteAccess(req.user, websiteId);
-    filter.websiteId = checkedId;
+  const filter = { isActive: true, isDeleted: { $ne: true } };
+  const prodFilter = { status: { $ne: "archived" } };
+
+  if (validWebsiteId) {
+    filter.websiteId = validWebsiteId;
+    prodFilter.websiteId = validWebsiteId;
+  } else if (accessibleWebsiteIds && accessibleWebsiteIds.length > 0) {
+    filter.websiteId = { $in: accessibleWebsiteIds };
+    prodFilter.websiteId = { $in: accessibleWebsiteIds };
   }
 
   if (q) {
@@ -139,18 +153,65 @@ export const searchInventoryItems = asyncHandler(async (req, res) => {
     ];
   }
 
-  const items = await InventoryItem.find(filter)
-    .populate("categoryId", "name")
-    .populate("subcategoryId", "name")
-    .populate("brandId", "name")
-    .populate("sizeId", "name")
-    .populate("colorId", "name")
-    .populate("unitId", "name")
-    .populate("supplierId", "companyName")
-    .sort({ name: 1 })
-    .limit(15);
+  let items = [];
+  try {
+    items = await InventoryItem.find(filter)
+      .populate("categoryId", "name")
+      .populate("subcategoryId", "name")
+      .populate("brandId", "name")
+      .populate("sizeId", "name")
+      .populate("colorId", "name")
+      .populate("unitId", "name")
+      .populate("supplierId", "companyName")
+      .sort({ name: 1 })
+      .limit(15);
+  } catch (invErr) {
+    console.error("Error finding inventory items:", invErr);
+  }
 
-  res.json(items);
+  let products = [];
+  try {
+    products = await Product.find(prodFilter).lean();
+  } catch (prodErr) {
+    console.error("Error finding products:", prodErr);
+  }
+
+  const productVariantResults = [];
+  const searchRegex = q ? new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') : null;
+
+  products.forEach(p => {
+    if (p.hasVariants && p.variantItems && p.variantItems.length > 0) {
+      p.variantItems.forEach(v => {
+        if (!searchRegex || searchRegex.test(p.name) || searchRegex.test(v.variantName) || searchRegex.test(v.sku)) {
+          productVariantResults.push({
+            _id: `${p._id}_${v._id}`,
+            name: `${p.name} - ${v.variantName}`,
+            variantName: v.variantName,
+            sku: v.sku,
+            unitCost: v.price || p.price || 0,
+            quantity: v.stockQuantity || 10,
+            unit: p.unit || "pcs",
+            category: p.category || "Service"
+          });
+        }
+      });
+    } else {
+      if (!searchRegex || searchRegex.test(p.name) || searchRegex.test(p.sku)) {
+        productVariantResults.push({
+          _id: p._id,
+          name: p.name,
+          sku: p.sku,
+          unitCost: p.price || 0,
+          quantity: 100,
+          unit: p.unit || "pcs",
+          category: p.category || "General"
+        });
+      }
+    }
+  });
+
+  const combined = [...productVariantResults, ...items];
+  res.json(combined.slice(0, 15));
 });
 
 export const getInventoryItem = asyncHandler(async (req, res) => {

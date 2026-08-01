@@ -98,7 +98,11 @@ export const UAE_SERVICES = Object.freeze([
 export const UAE_WORK_STATUSES = Object.freeze([
   "Pending",
   "In Progress",
-  "Completed"
+  "Under Review",
+  "Submitted",
+  "Completed",
+  "Approved",
+  "Cancelled"
 ]);
 
 export const UAE_PAYMENT_STATUSES = Object.freeze([
