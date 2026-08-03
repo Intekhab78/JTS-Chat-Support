@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { FileText, Plus, Check, ChevronRight, DollarSign, Clock, AlertCircle, RefreshCw, Download, X, CreditCard } from "lucide-react";
 import { api, API_BASE } from "../../api/client.js";
 
@@ -645,7 +646,7 @@ export default function CrmInvoicesView({ websiteId }) {
       )}
 
       {/* Payment Allocation Modal */}
-      {showPaymentModal && (
+      {showPaymentModal && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm" onClick={() => setShowPaymentModal(false)} />
           <form onSubmit={handleAllocatePayment} className="relative w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl space-y-6 border border-slate-100 animate-in zoom-in-95 duration-150">
@@ -723,10 +724,11 @@ export default function CrmInvoicesView({ websiteId }) {
               Confirm Payment
             </button>
           </form>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {showRefundForm && (
+      {showRefundForm && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm" onClick={() => setShowRefundForm(false)} />
           <form onSubmit={handleIssueRefund} className="relative w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl space-y-6 border border-slate-100 animate-in zoom-in-95 duration-150">
@@ -761,9 +763,10 @@ export default function CrmInvoicesView({ websiteId }) {
               Confirm Refund
             </button>
           </form>
-        </div>
+        </div>,
+        document.body
       )}
-      {confirmModal.show && (
+      {confirmModal.show && createPortal(
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
           <div 
             className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-200" 
@@ -812,7 +815,8 @@ export default function CrmInvoicesView({ websiteId }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

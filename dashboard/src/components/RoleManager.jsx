@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { api } from "../api/client.js";
 import { 
   Shield, 
@@ -304,10 +305,10 @@ export default function RoleManager() {
       </div>
 
       {/* Modal Overlay */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8">
-          <div className="absolute inset-0 bg-slate-950/20 backdrop-blur-xl animate-in fade-in duration-500" onClick={() => setIsModalOpen(false)} />
-          <div className="relative bg-white/90 backdrop-blur-2xl rounded-[48px] shadow-2xl w-full max-w-6xl max-h-[92vh] overflow-hidden flex flex-col animate-in zoom-in-95 slide-in-from-bottom-10 duration-500 border border-white/40">
+      {isModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-8">
+          <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-xl animate-in fade-in duration-500" onClick={() => setIsModalOpen(false)} />
+          <div className="relative bg-white/90 backdrop-blur-2xl rounded-[48px] shadow-2xl w-full max-w-6xl max-h-[92vh] overflow-hidden flex flex-col animate-in zoom-in-95 slide-in-from-bottom-10 duration-500 border border-white/40 z-10">
             
             {/* Modal Header */}
             <div className="px-10 py-10 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white/50">
@@ -493,7 +494,8 @@ export default function RoleManager() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

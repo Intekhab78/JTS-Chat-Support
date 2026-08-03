@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Plus, Check, X, FileText, ChevronRight, Eye, RefreshCw, Send, HelpCircle, Download, Search, Filter, DollarSign, CheckCircle2, PackageCheck } from "lucide-react";
 import { api, API_BASE } from "../../api/client.js";
 
@@ -448,11 +449,20 @@ export default function CrmQuotationsView({ websiteId }) {
       )}
 
       {/* Create Quotation Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowCreateModal(false)} />
-          <form onSubmit={handleCreateQuotation} className="relative w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl space-y-6">
-            <h3 className="text-base font-black text-slate-900">Create Quotation</h3>
+      {showCreateModal && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowCreateModal(false)} />
+          <form onSubmit={handleCreateQuotation} className="relative w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl space-y-6 z-10 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b pb-4 border-slate-100">
+              <h3 className="text-base font-black text-slate-900">Create Quotation</h3>
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                className="p-2 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-full transition-all shrink-0"
+              >
+                <X size={16} />
+              </button>
+            </div>
             <div className="space-y-1">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Customer ID (ObjectId)</label>
               <input required value={createForm.customerId} onChange={(e) => setCreateForm({ ...createForm, customerId: e.target.value })} className="w-full bg-slate-50 border px-4 py-3 rounded-xl text-xs font-bold" />
@@ -475,9 +485,10 @@ export default function CrmQuotationsView({ websiteId }) {
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Items JSON List</label>
               <textarea placeholder='[{"description":"Gaming Laptop","quantity":1,"price":1200,"taxRate":18}]' value={createForm.itemsJson} onChange={(e) => setCreateForm({ ...createForm, itemsJson: e.target.value })} className="w-full bg-slate-50 border p-3 rounded-xl text-xs font-bold h-24 outline-none resize-none font-mono" />
             </div>
-            <button type="submit" className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-black uppercase">Save Quotation</button>
+            <button type="submit" className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-black uppercase shadow-lg shadow-indigo-100 transition-all">Save Quotation</button>
           </form>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

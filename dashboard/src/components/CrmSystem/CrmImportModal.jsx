@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { X, Upload, FileText, CheckCircle2, AlertCircle } from "lucide-react";
 import { api } from "../../api/client.js";
 
@@ -80,8 +81,8 @@ export default function CrmImportModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+  return createPortal(
+    <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4 animate-in fade-in duration-200">
       <div className="bg-white border border-slate-200 rounded-[28px] max-w-lg w-full p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
         
         {/* Header */}
@@ -264,6 +265,7 @@ export default function CrmImportModal({
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

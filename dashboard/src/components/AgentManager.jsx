@@ -399,12 +399,25 @@ export default function AgentManager({ websiteId = "" }) {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {paginatedAgents.pageItems.map((agent) => (
-          <div key={agent._id} className="premium-card p-8 group hover:shadow-2xl hover:shadow-indigo-500/5 transition-all relative bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
-             <div className="flex items-start justify-between mb-8">
-                <div className={`w-14 h-14 rounded-2xl bg-slate-900 dark:bg-black flex items-center justify-center text-white text-xl font-black shadow-xl group-hover:bg-indigo-600 transition-all border border-white/5`}>
-                   {agent.name.split(" ").map(n => n[0]).join("")}
-                </div>
+        {paginatedAgents.pageItems.map((agent) => {
+          const rawName = (agent.name || "").trim();
+          const words = rawName.split(/\s+/).filter(Boolean);
+          const avatarText = words.length > 1
+            ? words.map(w => w[0]).join("").toUpperCase()
+            : rawName.toUpperCase();
+
+          const fontClass = 
+            avatarText.length <= 2 ? "text-xl" :
+            avatarText.length === 3 ? "text-base" :
+            avatarText.length === 4 ? "text-xs tracking-tight" :
+            "text-[10px] tracking-tighter";
+
+          return (
+            <div key={agent._id} className="premium-card p-8 group hover:shadow-2xl hover:shadow-indigo-500/5 transition-all relative bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+               <div className="flex items-start justify-between mb-8">
+                  <div className={`w-14 h-14 rounded-2xl bg-slate-900 dark:bg-black flex items-center justify-center text-white font-black shadow-xl group-hover:bg-indigo-600 transition-all border border-white/5 whitespace-nowrap px-1 overflow-hidden ${fontClass}`}>
+                     {avatarText}
+                  </div>
                 <div className="relative h-10 flex items-center justify-end w-[100px]">
                    <div className={`absolute right-0 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm transition-all duration-300 pointer-events-none group-hover:opacity-0 group-hover:translate-x-4 ${agent.isOnline ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' : 'bg-slate-50 dark:bg-white/5 text-slate-400'}`}>
                       {agent.isOnline ? 'Active' : 'Offline'}
@@ -500,8 +513,9 @@ export default function AgentManager({ websiteId = "" }) {
                    </button>
                 </div>
              </div>
-          </div>
-        ))}
+           </div>
+        ); 
+      })}
 
         {filteredAgents.length === 0 && !isAdding && (
           <div className="col-span-full p-24 border-2 border-dashed border-slate-100 dark:border-white/5 rounded-[40px] text-center space-y-4">

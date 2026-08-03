@@ -1190,7 +1190,7 @@ export default function CrmContainer({
                   <h2 className="text-xl font-black tracking-tight text-slate-950">Ecosystem Analytics</h2>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5 xl:w-180">
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 xl:grid-cols-5 w-full xl:w-auto xl:max-w-4xl flex-1">
                   {[
                     { label: "Open Pipeline", value: summary.totalLeads || pagination.total, color: "text-slate-950" },
                     { label: "Pipeline Value", value: formatCurrency(summary.pipelineValue), color: "text-slate-950" },
@@ -1198,9 +1198,9 @@ export default function CrmContainer({
                     { label: "Conv. Rate", value: `${summary.conversionRate || 0}%`, color: "text-emerald-600" },
                     { label: "Won Revenue", value: formatCurrency(summary.revenue), color: "text-amber-600" }
                   ].map(card => (
-                    <div key={card.label} className={`rounded-2xl border border-slate-200 px-4 py-3 ${card.bg || "bg-slate-50"}`}>
-                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">{card.label}</p>
-                      <p className={`mt-2 text-lg font-black ${card.color}`}>{card.value}</p>
+                    <div key={card.label} className={`min-w-0 rounded-2xl border border-slate-200 px-3.5 py-3 ${card.bg || "bg-slate-50"}`}>
+                      <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400 truncate">{card.label}</p>
+                      <p className={`mt-1.5 text-xs sm:text-sm xl:text-base font-black tracking-tight whitespace-nowrap truncate ${card.color}`} title={String(card.value)}>{card.value}</p>
                     </div>
                   ))}
                 </div>
@@ -1273,7 +1273,7 @@ export default function CrmContainer({
                   <h2 className="text-xl font-black tracking-tight text-slate-950">Pipeline Management</h2>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5 xl:w-180">
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 xl:grid-cols-5 w-full xl:w-auto xl:max-w-4xl flex-1">
                   {[
                     { label: "Open Pipeline", value: summary.totalLeads || pagination.total, color: "text-slate-950" },
                     { label: "Pipeline Value", value: formatCurrency(summary.pipelineValue), color: "text-slate-950" },
@@ -1281,9 +1281,9 @@ export default function CrmContainer({
                     { label: "Conv. Rate", value: `${summary.conversionRate || 0}%`, color: "text-emerald-600" },
                     { label: "Won Revenue", value: formatCurrency(summary.revenue), color: "text-amber-600" }
                   ].map(card => (
-                    <div key={card.label} className={`rounded-2xl border border-slate-200 px-4 py-3 ${card.bg || "bg-slate-50"}`}>
-                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">{card.label}</p>
-                      <p className={`mt-2 text-lg font-black ${card.color}`}>{card.value}</p>
+                    <div key={card.label} className={`min-w-0 rounded-2xl border border-slate-200 px-3.5 py-3 ${card.bg || "bg-slate-50"}`}>
+                      <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400 truncate">{card.label}</p>
+                      <p className={`mt-1.5 text-xs sm:text-sm xl:text-base font-black tracking-tight whitespace-nowrap truncate ${card.color}`} title={String(card.value)}>{card.value}</p>
                     </div>
                   ))}
                 </div>

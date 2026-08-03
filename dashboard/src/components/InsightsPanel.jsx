@@ -486,7 +486,7 @@ function KpiCard({ label, value, icon, subValue, color, onClick }) {
             </div>
          </div>
          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">{label}</h4>
-         <p className="text-2xl font-black text-slate-900 tracking-tighter">{value}</p>
+         <p className="text-xl sm:text-2xl font-black text-slate-900 tracking-tighter whitespace-nowrap truncate" title={String(value)}>{value}</p>
          <p className="text-[10px] font-bold text-slate-500 mt-2 flex items-center gap-1.5 uppercase tracking-widest">
             {subValue}
          </p>

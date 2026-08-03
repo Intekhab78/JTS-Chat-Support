@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { AlertTriangle, Trash2, X } from "lucide-react";
 
 /**
@@ -63,7 +64,7 @@ export default function ConfirmModal({
 
   const s = variantStyles[variant] || variantStyles.default;
 
-  return (
+  return createPortal(
     <>
       {/* Backdrop */}
       <div
@@ -138,6 +139,7 @@ export default function ConfirmModal({
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }

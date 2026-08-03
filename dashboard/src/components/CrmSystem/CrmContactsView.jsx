@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Search, UserPlus, Grid, List, Mail, Phone, Building, Trash2, Edit3, X, Check, Eye, Users, ChevronRight, MessageSquare, Briefcase, ShieldCheck } from "lucide-react";
 import { api } from "../../api/client.js";
 import ConfirmModal from "../ConfirmModal.jsx";
@@ -460,8 +461,8 @@ export default function CrmContactsView({ websiteId }) {
       )}
 
       {/* DETAILED 360 CUSTOMER & CONTACT PROFILE VIEW MODAL */}
-      {viewingContact && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      {viewingContact && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-[32px] max-w-2xl w-full p-6 shadow-2xl space-y-6 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b pb-4 border-slate-100">
@@ -580,12 +581,13 @@ export default function CrmContactsView({ websiteId }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* CREATE / EDIT CONTACT MODAL */}
-      {showModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      {showModal && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-[32px] max-w-md w-full p-6 shadow-2xl space-y-6 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b pb-4 border-slate-100">
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">{editingContact ? "Edit Contact" : "Create New Contact"}</h3>
@@ -681,7 +683,8 @@ export default function CrmContactsView({ websiteId }) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* CONFIRMATION MODAL */}
