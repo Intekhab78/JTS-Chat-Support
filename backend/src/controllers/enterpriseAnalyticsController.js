@@ -21,11 +21,34 @@ const getDateFilter = (range) => {
   return { $gte: startDate, $lte: now };
 };
 
+function formatServiceLabel(str) {
+  if (!str || typeof str !== "string") return "General Inquiry";
+  const trimmed = str.trim();
+  if (!trimmed) return "General Inquiry";
+
+  const lower = trimmed.toLowerCase();
+  if (lower.includes("chat widget") || lower.includes("consumer support") || lower.includes("implementing")) return "Chat Widget Integration";
+  if (lower.includes("crm pipeline") || lower.includes("integration with crm") || lower.includes("pipeline")) return "CRM Pipeline Integration";
+  if (lower.includes("help desk") || lower.includes("canned response") || lower.includes("exploring standard")) return "Help Desk & Canned Replies";
+  if (lower.includes("multi-language") || lower.includes("arabic") || lower.includes("english")) return "Multi-Language Live Chat";
+  if (lower.includes("ticketing system") || lower.includes("audit log") || lower.includes("secure")) return "Secure Ticketing & Audit";
+  if (lower.includes("agent scheduling") || lower.includes("student")) return "Agent Scheduling";
+  if (lower.includes("custom integration") || lower.includes("high-volume")) return "Custom Enterprise Integration";
+  if (lower.includes("page tracking") || lower.includes("automated chat")) return "Automated Chat Triggers";
+  if (lower.includes("sla response") || lower.includes("ticket assignment")) return "SLA Response & Routing";
+  if (lower.includes("workspace") || lower.includes("hipaa")) return "Workspace SLA & Audit";
+  if (lower.includes("tax") || lower.includes("vat")) return "Tax & VAT Services";
+
+  if (/^\+?\d[\d\s-]{6,}$/.test(trimmed)) return "Phone Inquiry";
+
+  return trimmed.length > 25 ? trimmed.substring(0, 25) + "…" : trimmed;
+}
+
 const getPrevDateFilter = (range) => {
   const now = new Date();
   let endDate = new Date();
   let startDate = new Date();
-  
+
   if (range === 'today') {
     endDate.setHours(0, 0, 0, 0);
     startDate.setDate(now.getDate() - 1);
@@ -58,22 +81,22 @@ export const getExecutiveSummary = async (req, res) => {
 
     const totalClients = await User.countDocuments({ role: "client", createdAt: currentFilter });
     const prevClients = await User.countDocuments({ role: "client", createdAt: prevFilter });
-    
+
     const activeWebsites = await Website.countDocuments({ isActive: true, createdAt: currentFilter });
     const prevWebsites = await Website.countDocuments({ isActive: true, createdAt: prevFilter });
-    
+
     const totalLeads = await Customer.countDocuments({ recordType: "lead", createdAt: currentFilter });
     const prevLeads = await Customer.countDocuments({ recordType: "lead", createdAt: prevFilter });
 
-    const newLeadsToday = await Customer.countDocuments({ 
-      recordType: "lead", 
-      createdAt: getDateFilter('today') 
+    const newLeadsToday = await Customer.countDocuments({
+      recordType: "lead",
+      createdAt: getDateFilter('today')
     });
 
     const openTickets = await Ticket.countDocuments({ status: { $in: ["open", "pending", "in_progress"] } });
     const resolvedTickets = await Ticket.countDocuments({ status: { $in: ["resolved", "closed"] }, updatedAt: currentFilter });
     const prevResolvedTickets = await Ticket.countDocuments({ status: { $in: ["resolved", "closed"] }, updatedAt: prevFilter });
-    
+
     const activeAgents = await User.countDocuments({ role: "agent" });
 
     const leadsWithRevenue = await Customer.aggregate([
@@ -87,10 +110,10 @@ export const getExecutiveSummary = async (req, res) => {
 
     const revenue = leadsWithRevenue[0]?.totalRevenue || 0;
     const prevRevenue = prevLeadsWithRevenue[0]?.totalRevenue || 0;
-    
-    const mrr = revenue > 0 ? Math.round(revenue / 12) : 0; 
+
+    const mrr = revenue > 0 ? Math.round(revenue / 12) : 0;
     const prevMrr = prevRevenue > 0 ? Math.round(prevRevenue / 12) : 0;
-    
+
     const csat = 94.5;
     const prevCsat = 92.1;
 
@@ -118,7 +141,7 @@ export const getLeadAnalytics = async (req, res) => {
     const dateFilter = getDateFilter(range);
 
     const matchQuery = { createdAt: dateFilter };
-    
+
     if (websiteId) {
       matchQuery.websiteId = new mongoose.Types.ObjectId(websiteId);
     } else if (clientId) {
@@ -150,21 +173,31 @@ export const getLeadAnalytics = async (req, res) => {
       { $sort: { count: -1 } }
     ]);
 
-    const leadsByService = await Customer.aggregate([
+    const rawLeadsByService = await Customer.aggregate([
       { $match: { recordType: "lead", ...matchQuery } },
-      { $group: { _id: { $cond: [{ $eq: ["$requirement", ""] }, "General", "$requirement"] }, count: { $sum: 1 } } },
+      { $group: { _id: { $cond: [{ $eq: ["$requirement", ""] }, "General Inquiry", "$requirement"] }, count: { $sum: 1 } } },
       { $project: { name: "$_id", count: 1, _id: 0 } },
-      { $sort: { count: -1 } },
-      { $limit: 10 }
+      { $sort: { count: -1 } }
     ]);
+
+    const serviceMap = {};
+    for (const item of rawLeadsByService) {
+      const label = formatServiceLabel(item.name);
+      serviceMap[label] = (serviceMap[label] || 0) + item.count;
+    }
+
+    const leadsByService = Object.entries(serviceMap)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 7);
 
     const leadsOverTime = await Customer.aggregate([
       { $match: { recordType: "lead", ...matchQuery } },
-      { 
-        $group: { 
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, 
-          leads: { $sum: 1 } 
-        } 
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+          leads: { $sum: 1 }
+        }
       },
       { $sort: { _id: 1 } },
       { $project: { date: "$_id", leads: 1, _id: 0 } }
@@ -236,11 +269,11 @@ export const getTicketAnalytics = async (req, res) => {
 
     const ticketsOverTime = await Ticket.aggregate([
       { $match: matchQuery },
-      { 
-        $group: { 
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, 
-          count: { $sum: 1 } 
-        } 
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+          count: { $sum: 1 }
+        }
       },
       { $sort: { _id: 1 } },
       { $project: { date: "$_id", count: 1, _id: 0 } }
@@ -293,15 +326,15 @@ export const getAgentPerformanceAnalytics = async (req, res) => {
 
     // Agent aggregations
     const agents = await User.find({ role: { $in: ["agent", "sales"] } });
-    
+
     const performanceData = await Promise.all(agents.map(async (agent) => {
       const agentMatchQuery = { ...matchQuery, assignedAgent: agent._id };
-      
+
       const assignedTickets = await Ticket.countDocuments(agentMatchQuery);
       const resolvedTickets = await Ticket.countDocuments({ ...agentMatchQuery, status: { $in: ["resolved", "closed"] } });
-      
+
       const wonDeals = await Customer.countDocuments({ ownerId: agent._id, status: "won", createdAt: dateFilter });
-      
+
       // Calculate fake productivity score for demo purposes (can be based on tickets + deals)
       const productivityScore = Math.min(100, Math.round(((resolvedTickets * 2) + (wonDeals * 5)) + 40));
       const csat = 85 + Math.floor(Math.random() * 15); // Simulated CSAT 85-100
@@ -348,8 +381,8 @@ export const getRevenueAnalytics = async (req, res) => {
     const mrr = 12500 + Math.floor(Math.random() * 2000);
     const arr = mrr * 12;
     const totalRevenue = arr * 2.5; // Lifetime/total
-    const subscriptionRevenue = totalRevenue * 0.8; 
-    
+    const subscriptionRevenue = totalRevenue * 0.8;
+
     // Revenue by Client (mock distribution)
     const revenueByClient = [
       { name: "Acme Corp", value: 34000 },
@@ -392,15 +425,15 @@ export const getWebsiteAnalytics = async (req, res) => {
     }
 
     const websites = await Website.find(matchQuery).select('_id domainName name');
-    
+
     const performanceData = await Promise.all(websites.map(async (site) => {
       // Simulate/aggregate visitors and chat sessions (if we don't have true tracking models, simulate or mock some based on leads)
       const leadsGenerated = await Customer.countDocuments({ recordType: "lead", websiteId: site._id, createdAt: dateFilter });
       const ticketsCreated = await Ticket.countDocuments({ websiteId: site._id, createdAt: dateFilter });
-      
+
       const visitors = leadsGenerated * 14 + ticketsCreated * 5 + Math.floor(Math.random() * 500);
       const chatSessions = leadsGenerated * 3 + ticketsCreated * 2 + Math.floor(Math.random() * 100);
-      
+
       const conversionRate = visitors > 0 ? ((leadsGenerated / visitors) * 100).toFixed(1) : 0;
 
       return {
@@ -446,13 +479,13 @@ export const getCustomerInsightsAnalytics = async (req, res) => {
     const dateFilter = getDateFilter(range);
 
     const matchQuery = { recordType: "customer" };
-    
+
     // Total historical customers
     const totalCustomers = await Customer.countDocuments(matchQuery);
-    
+
     // Active customers
     const activeCustomers = await Customer.countDocuments({ ...matchQuery, status: "won" }); // Assume "won" means active
-    
+
     // Retention & Churn (mock logic or calculated)
     const churnedCustomers = await Customer.countDocuments({ ...matchQuery, status: "lost" }); // Suppose lost status on a customer means churned
     const churnRate = totalCustomers > 0 ? ((churnedCustomers / totalCustomers) * 100).toFixed(1) : 0;
@@ -464,11 +497,11 @@ export const getCustomerInsightsAnalytics = async (req, res) => {
     // Growth over time
     const growthTrend = await Customer.aggregate([
       { $match: matchQuery },
-      { 
-        $group: { 
-          _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } }, 
-          count: { $sum: 1 } 
-        } 
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
+          count: { $sum: 1 }
+        }
       },
       { $sort: { _id: 1 } },
       { $limit: 6 },

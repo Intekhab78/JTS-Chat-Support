@@ -327,11 +327,22 @@ function LeadAnalytics({ reportRange, onDataLoaded }) {
           <h3 className="text-lg font-black text-slate-900 mb-6">Leads by Service</h3>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.leadsByService} layout="vertical">
+              <BarChart data={data.leadsByService} layout="vertical" margin={{ left: 10, right: 30, top: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                 <XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 700, fill: "#64748b" }} width={80} />
-                <Tooltip contentStyle={{ borderRadius: "16px", border: "none", boxShadow: "0 10px 40px -10px rgba(0,0,0,0.1)", fontWeight: 700, fontSize: "12px" }} />
+                <YAxis
+                  dataKey="name"
+                  type="category"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fontWeight: 700, fill: "#64748b" }}
+                  width={150}
+                  tickFormatter={(val) => (val && val.length > 22 ? `${val.substring(0, 22)}…` : val)}
+                />
+                <Tooltip
+                  contentStyle={{ borderRadius: "16px", border: "none", boxShadow: "0 10px 40px -10px rgba(0,0,0,0.1)", fontWeight: 700, fontSize: "12px" }}
+                  formatter={(value, name, item) => [`${value} Leads`, item.payload.name]}
+                />
                 <Bar dataKey="count" radius={[0, 8, 8, 0]} barSize={20}>
                   {data.leadsByService.map((_, i) => <Cell key={i} fill={REPORT_COLORS[i % REPORT_COLORS.length]} />)}
                 </Bar>
@@ -344,12 +355,23 @@ function LeadAnalytics({ reportRange, onDataLoaded }) {
           <h3 className="text-lg font-black text-slate-900 mb-6">Leads by Website</h3>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.leadsByWebsite} layout="vertical">
+              <BarChart data={data.leadsByWebsite} layout="vertical" margin={{ left: 10, right: 30, top: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                 <XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 700, fill: "#64748b" }} width={100} />
-                <Tooltip contentStyle={{ borderRadius: "16px", border: "none", boxShadow: "0 10px 40px -10px rgba(0,0,0,0.1)", fontWeight: 700, fontSize: "12px" }} />
-                <Bar dataKey="count" radius={[0, 8, 8, 0]} barSize={30}>
+                <YAxis
+                  dataKey="name"
+                  type="category"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fontWeight: 700, fill: "#64748b" }}
+                  width={140}
+                  tickFormatter={(val) => (val && val.length > 20 ? `${val.substring(0, 20)}…` : val)}
+                />
+                <Tooltip
+                  contentStyle={{ borderRadius: "16px", border: "none", boxShadow: "0 10px 40px -10px rgba(0,0,0,0.1)", fontWeight: 700, fontSize: "12px" }}
+                  formatter={(value, name, item) => [`${value} Leads`, item.payload.name]}
+                />
+                <Bar dataKey="count" radius={[0, 8, 8, 0]} barSize={24}>
                   {data.leadsByWebsite.map((_, i) => <Cell key={i} fill={REPORT_COLORS[i % REPORT_COLORS.length]} />)}
                 </Bar>
               </BarChart>
@@ -450,11 +472,22 @@ function TicketAnalytics({ reportRange, onDataLoaded }) {
           <h3 className="text-lg font-black text-slate-900 mb-6">Tickets by Category</h3>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.ticketsByCategory} layout="vertical">
+              <BarChart data={data.ticketsByCategory} layout="vertical" margin={{ left: 10, right: 30, top: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                 <XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 700, fill: "#64748b" }} width={100} />
-                <Tooltip contentStyle={{ borderRadius: "16px", border: "none", boxShadow: "0 10px 40px -10px rgba(0,0,0,0.1)", fontWeight: 700, fontSize: "12px" }} />
+                <YAxis
+                  dataKey="name"
+                  type="category"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fontWeight: 700, fill: "#64748b" }}
+                  width={140}
+                  tickFormatter={(val) => (val && val.length > 20 ? `${val.substring(0, 20)}…` : val)}
+                />
+                <Tooltip
+                  contentStyle={{ borderRadius: "16px", border: "none", boxShadow: "0 10px 40px -10px rgba(0,0,0,0.1)", fontWeight: 700, fontSize: "12px" }}
+                  formatter={(value, name, item) => [`${value} Tickets`, item.payload.name]}
+                />
                 <Bar dataKey="count" radius={[0, 8, 8, 0]} barSize={20}>
                   {data.ticketsByCategory?.map((_, i) => <Cell key={i} fill={REPORT_COLORS[i % REPORT_COLORS.length]} />)}
                 </Bar>
