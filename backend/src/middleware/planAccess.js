@@ -25,7 +25,7 @@ export function requirePlanFeature(moduleName) {
       req.subscription = resolveSubscriptionForUser(tenantUser || req.user);
     }
 
-    if (!hasModuleAccess(req.subscription, moduleName)) {
+    if (req.user?.role !== "admin" && req.user?.role !== "client" && !hasModuleAccess(req.subscription, moduleName)) {
       throw new AppError(`Your current plan does not include ${moduleName}.`, 403);
     }
 

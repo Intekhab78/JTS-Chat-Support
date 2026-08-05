@@ -593,11 +593,33 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
     { label: "Role Master", href: "/admin?tab=roles" }
   ];
 
+  const clientMenuItems = [
+    { label: "Dashboard", href: "/client" },
+    { label: "Websites", href: "/client?tab=websites" },
+    { label: "Billing", href: "/client?tab=billing" },
+    { label: "Agents", href: "/client?tab=agents" },
+    { label: "Chats", href: "/client?tab=chats" },
+    { label: "Tickets", href: "/client?tab=tickets" },
+    { label: "Customer Master", href: "/client?tab=inventory-customer" },
+    { label: "CRM", href: "/client?tab=crm" },
+    // { label: "VAT Compliance", href: "/client?tab=vat-compliance" },
+    // { label: "Corporate Tax", href: "/client?tab=corporate-tax" },
+    // { label: "Trade License", href: "/client?tab=trade-license" },
+    // { label: "Compliance Reports", href: "/client?tab=compliance-reports" },
+    { label: "Departments", href: "/client?tab=departments" },
+    { label: "Categories", href: "/client?tab=categories" },
+    { label: "Shortcuts", href: "/client?tab=shortcuts" },
+    { label: "Reports", href: "/client?tab=reports" },
+    { label: "History", href: "/client?tab=history" },
+    { label: "Security", href: "/client?tab=security" },
+    { label: "Role Master", href: "/client?tab=roles" }
+  ];
+
   const userRole = (user?.role || role || "").toLowerCase();
   const allowedVatRoles = ["admin", "client", "sales", "manager", "management", "purchase"];
   const isVatAllowed = allowedVatRoles.includes(userRole);
 
-  const rawLinks = (menuItems && menuItems.length > 0) ? menuItems : (role === "admin" ? adminMenuItems : fallback);
+  const rawLinks = (menuItems && menuItems.length > 0) ? menuItems : (role === "admin" ? adminMenuItems : role === "client" ? clientMenuItems : fallback);
 
   const links = rawLinks.map(item => {
     if (item.children && Array.isArray(item.children)) {

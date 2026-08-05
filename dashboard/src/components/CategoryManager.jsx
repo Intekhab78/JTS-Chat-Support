@@ -18,7 +18,8 @@ export default function CategoryManager({ websiteId }) {
   const [formData, setFormData] = useState({
     department: "general",
     name: "",
-    subcategories: [""]
+    subcategories: [""],
+    createDashboard: true
   });
 
   const fetchCategories = async () => {
@@ -74,7 +75,8 @@ export default function CategoryManager({ websiteId }) {
     setFormData({
       department: cat.department || "general",
       name: cat.name,
-      subcategories: cat.subcategories.length > 0 ? [...cat.subcategories] : [""]
+      subcategories: cat.subcategories.length > 0 ? [...cat.subcategories] : [""],
+      createDashboard: typeof cat.createDashboard !== "undefined" ? cat.createDashboard : true
     });
     setIsAdding(true);
   };
@@ -102,7 +104,7 @@ export default function CategoryManager({ websiteId }) {
 
       setIsAdding(false);
       setEditingId(null);
-      setFormData({ department: "general", name: "", subcategories: [""] });
+      setFormData({ department: "general", name: "", subcategories: [""], createDashboard: true });
       fetchCategories();
     } catch (err) {
       setError(err.message);
@@ -141,7 +143,7 @@ export default function CategoryManager({ websiteId }) {
           onClick={() => {
             setIsAdding(!isAdding);
             setEditingId(null);
-            setFormData({ department: "general", name: "", subcategories: [""] });
+            setFormData({ department: "general", name: "", subcategories: [""], createDashboard: true });
           }}
           className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-indigo-500/20 flex items-center gap-2 transition-all active:scale-95"
         >
@@ -221,6 +223,30 @@ export default function CategoryManager({ websiteId }) {
                 </button>
               </div>
 
+              {/* SINGLE CHECKBOX FOR AUTOMATIC CATEGORY DASHBOARD CREATION (BOSS REQUIREMENT) */}
+              <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 flex items-start gap-3.5 cursor-pointer" onClick={() => setFormData(prev => ({ ...prev, createDashboard: !prev.createDashboard }))}>
+                <input
+                  type="checkbox"
+                  id="createDashboard"
+                  checked={formData.createDashboard}
+                  onChange={e => setFormData({ ...formData, createDashboard: e.target.checked })}
+                  className="w-5 h-5 mt-0.5 rounded-lg text-indigo-600 focus:ring-indigo-500 border-slate-300 dark:border-white/20 cursor-pointer"
+                />
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="createDashboard" className="text-xs font-black text-slate-900 dark:text-white cursor-pointer block">
+                      Auto-Generate Category Analytics Dashboard
+                    </label>
+                    <span className="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-700 text-[9px] font-black uppercase tracking-wider">
+                      ✨ Recommended
+                    </span>
+                  </div>
+                  <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                    Automatically builds & maps a dedicated analytics dashboard for this category and all its mapped items.
+                  </p>
+                </div>
+              </div>
+
               <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-[0.2em] py-5 rounded-2xl transition-all shadow-xl flex items-center justify-center gap-3">
                 <Check size={18} /> {editingId ? "Update Category" : "Save Category"}
               </button>
@@ -269,10 +295,15 @@ export default function CategoryManager({ websiteId }) {
               </div>
             </div>
             
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold rounded-lg border border-indigo-100 dark:border-indigo-500/20 uppercase tracking-widest">
                 {cat.department || "general"}
               </span>
+              {cat.createDashboard && (
+                <span className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-black rounded-lg border border-emerald-100 dark:border-emerald-500/20 uppercase tracking-widest flex items-center gap-1">
+                  📊 Auto-Dashboard Active
+                </span>
+              )}
               {cat.subcategories?.map((sub, i) => (
                 <span key={i} className="px-3 py-1.5 bg-slate-50 dark:bg-white/5 text-slate-500 dark:text-slate-400 text-[10px] font-bold rounded-lg border border-slate-100 dark:border-white/5">
                   {sub}

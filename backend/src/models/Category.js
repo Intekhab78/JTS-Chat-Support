@@ -8,6 +8,7 @@ const categorySchema = new mongoose.Schema(
     path: { type: String, default: "", index: true }, // e.g. "/Electronics/Laptop"
     department: { type: String, default: "general", trim: true, lowercase: true, index: true },
     subcategories: [{ type: String, trim: true }],
+    createDashboard: { type: Boolean, default: false },
     managerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true }
   },
   { timestamps: true }

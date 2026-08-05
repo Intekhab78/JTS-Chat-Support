@@ -14,7 +14,7 @@ export default function MasterManager({ type, websiteId, title, label }) {
   const [editingId, setEditingId] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [form, setForm] = useState({ name: "", categoryId: "", rate: 0, taxCode: "", description: "", isActive: true });
+  const [form, setForm] = useState({ name: "", categoryId: "", rate: 0, taxCode: "", description: "", isActive: true, createDashboard: true });
 
   async function loadData() {
     if (!websiteId) return;
@@ -315,6 +315,31 @@ export default function MasterManager({ type, websiteId, title, label }) {
             </>
           )}
 
+          {type === "category" && (
+            <div className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 flex items-start gap-3 cursor-pointer" onClick={() => setForm(prev => ({ ...prev, createDashboard: !prev.createDashboard }))}>
+              <input
+                type="checkbox"
+                id="createDashboard"
+                checked={form.createDashboard !== false}
+                onChange={(e) => setForm({ ...form, createDashboard: e.target.checked })}
+                className="w-4 h-4 mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer"
+              />
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="createDashboard" className="text-xs font-black text-slate-900 cursor-pointer block">
+                    Auto-Generate Category Analytics Dashboard
+                  </label>
+                  <span className="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-700 text-[9px] font-black uppercase tracking-wider">
+                    ✨ Recommended
+                  </span>
+                </div>
+                <p className="text-[10px] font-bold text-slate-500">
+                  Automatically builds & maps a dedicated analytics dashboard for this category and all its mapped items.
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center gap-3 pt-2">
             <label className="inline-flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 cursor-pointer">
               <input 
@@ -366,6 +391,11 @@ export default function MasterManager({ type, websiteId, title, label }) {
                   <td className="px-6 py-4">
                     <p className="text-sm font-black text-slate-900">{item.name}</p>
                     {item.description ? <p className="text-[10px] font-bold text-slate-400 truncate max-w-xs">{item.description}</p> : null}
+                    {type === "category" && item.createDashboard !== false && (
+                      <span className="inline-flex items-center gap-1 mt-1 rounded-md bg-indigo-50 border border-indigo-100 px-2 py-0.5 text-[9px] font-black text-indigo-600">
+                        📊 Dashboard Active
+                      </span>
+                    )}
                   </td>
                   {type === "subcategory" && (
                     <td className="px-6 py-4">

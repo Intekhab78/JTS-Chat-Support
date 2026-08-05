@@ -699,23 +699,24 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                     )}
                   </div>
 
-                  {/* Item View Drawer */}
+                  {/* Item View Center Modal (User Request) */}
                   {showViewDrawer && (
-                    <div className="fixed inset-0 z-[100] flex justify-end overflow-hidden bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-300">
                       <div 
                         className="absolute inset-0" 
                         onClick={() => setShowViewDrawer(false)}
                       />
-                      <div className="relative w-full max-w-xl bg-white shadow-2xl animate-in slide-in-from-right duration-500 flex flex-col h-full">
-                        <div className="flex items-center justify-between p-6 border-b border-slate-100">
+                      <div className="relative w-full max-w-2xl bg-white rounded-[36px] shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh] overflow-hidden">
+                        {/* Header */}
+                        <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-slate-50/50">
                           <div>
                             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-500">Inventory Intelligence</p>
-                            <h3 className="text-xl font-black text-slate-900 tracking-tight">{selectedItem?.name || "Item Details"}</h3>
+                            <h3 className="text-xl font-black text-slate-900 tracking-tight">{selectedItem?.name || "Item Full Specification"}</h3>
                           </div>
                           <div className="flex items-center gap-3">
                             <button 
-                               onClick={() => loadItemView(selectedItemId)}
-                              className="p-3 rounded-2xl bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-all"
+                              onClick={() => loadItemView(selectedItemId)}
+                              className="p-3 rounded-2xl bg-white border border-slate-200 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-sm"
                             >
                               <RefreshCw size={16} />
                             </button>
@@ -728,90 +729,127 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                           </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                        {/* Content */}
+                        <div className="flex-1 overflow-y-auto p-7 space-y-6">
                           {viewLoading ? (
-                            <div className="py-20 text-center text-[10px] font-black uppercase tracking-[0.3em] text-slate-300 animate-pulse">Loading item view...</div>
+                            <div className="py-20 text-center text-[10px] font-black uppercase tracking-[0.3em] text-slate-300 animate-pulse">Loading item intelligence...</div>
                           ) : viewData?.item ? (
                             <div className="space-y-6">
+                              {/* Hero Item Banner */}
                               <div className="rounded-[32px] border border-indigo-100 bg-[linear-gradient(135deg,#eef2ff_0%,#ffffff_50%,#ecfeff_100%)] p-6 shadow-sm">
                                 <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
                                   <div className="space-y-2">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-500">Identity</p>
-                                    <h5 className="text-2xl font-black tracking-tight text-slate-900">{viewData.item.name}</h5>
-                                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{viewData.item.sku}</p>
-                                    <div className="flex flex-wrap gap-2 mt-3">
-                                      {(viewData.item.categoryId?.name || viewData.item.category) && <span className="px-3 py-1.5 bg-white/80 text-slate-600 text-[10px] font-black rounded-xl border border-white uppercase tracking-widest">{viewData.item.categoryId?.name || viewData.item.category}</span>}
-                                      {(viewData.item.brandId?.name || viewData.item.brand) && <span className="px-3 py-1.5 bg-white/80 text-slate-600 text-[10px] font-black rounded-xl border border-white uppercase tracking-widest">{viewData.item.brandId?.name || viewData.item.brand}</span>}
-                                      {(viewData.item.unitId?.name || viewData.item.unit) && <span className="px-3 py-1.5 bg-white/80 text-slate-600 text-[10px] font-black rounded-xl border border-white uppercase tracking-widest">{viewData.item.unitId?.name || viewData.item.unit}</span>}
-                                    </div>
+                                    <span className="px-3 py-1 rounded-full bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest">
+                                      {viewData.item.isActive !== false ? "ACTIVE ITEM" : "INACTIVE"}
+                                    </span>
+                                    <h5 className="text-2xl font-black tracking-tight text-slate-900 mt-1">{viewData.item.name}</h5>
+                                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-indigo-600">SKU: {viewData.item.sku || "N/A"}</p>
                                   </div>
-                                  <div className="grid grid-cols-1 gap-3 sm:min-w-[200px]">
-                                    <div className="rounded-2xl border border-white bg-white/50 px-4 py-3 shadow-sm">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-[220px]">
+                                    <div className="rounded-2xl border border-white bg-white/70 px-4 py-3 shadow-sm">
                                       <p className="text-[9px] font-black uppercase tracking-[0.24em] text-slate-400">Available Stock</p>
-                                      <p className="mt-1 text-2xl font-black text-slate-900">{viewData.item.quantity} <span className="text-xs text-slate-400">{viewData.item.unitId?.name || viewData.item.unit}</span></p>
+                                      <p className="mt-1 text-2xl font-black text-slate-900">{viewData.item.quantity} <span className="text-xs text-slate-400 font-bold">{viewData.item.unitId?.name || viewData.item.unit || "UNIT"}</span></p>
                                     </div>
-                                    <div className="rounded-2xl border border-white bg-white/50 px-4 py-3 shadow-sm">
-                                      <p className="text-[9px] font-black uppercase tracking-[0.24em] text-slate-400">Asset Value</p>
-                                      <p className="mt-1 text-xl font-black text-slate-900">{formatCurrency(Number(viewData.item.unitCost || 0) * Number(viewData.item.quantity || 0))}</p>
+                                    <div className="rounded-2xl border border-white bg-white/70 px-4 py-3 shadow-sm">
+                                      <p className="text-[9px] font-black uppercase tracking-[0.24em] text-slate-400">Asset Valuation</p>
+                                      <p className="mt-1 text-xl font-black text-indigo-900">{formatCurrency(Number(viewData.item.unitCost || 0) * Number(viewData.item.quantity || 0))}</p>
                                     </div>
                                   </div>
                                 </div>
                               </div>
 
-                              <div className="grid grid-cols-2 gap-4">
+                              {/* FULL TAXONOMY & CLASSIFICATION GRID */}
+                              <div className="space-y-2">
+                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Full Classification & Taxonomies</p>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Main Category</p>
+                                    <p className="text-xs font-black text-slate-900 mt-1">{viewData.item.categoryId?.name || viewData.item.category || "General"}</p>
+                                  </div>
+                                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Subcategory</p>
+                                    <p className="text-xs font-black text-slate-900 mt-1">{viewData.item.subcategoryId?.name || "No Subcategory"}</p>
+                                  </div>
+                                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Brand Master</p>
+                                    <p className="text-xs font-black text-slate-900 mt-1">{viewData.item.brandId?.name || viewData.item.brand || "Al Reza Global"}</p>
+                                  </div>
+                                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Size Specification</p>
+                                    <p className="text-xs font-black text-slate-900 mt-1">{viewData.item.sizeId?.name || "NA / Standard"}</p>
+                                  </div>
+                                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Color Variation</p>
+                                    <p className="text-xs font-black text-slate-900 mt-1">{viewData.item.colorId?.name || "NA / Standard"}</p>
+                                  </div>
+                                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Unit of Measure</p>
+                                    <p className="text-xs font-black text-slate-900 mt-1">{viewData.item.unitId?.name || viewData.item.unit || "UNIT"}</p>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* PRICING, STOCK & SUPPLIER DETAILS */}
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                 <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
-                                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Reorder Level</p>
-                                  <p className="mt-2 text-sm font-black text-slate-900">{viewData.item.reorderLevel} {viewData.item.unitId?.name || viewData.item.unit}</p>
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Unit Cost (Price)</p>
+                                  <p className="mt-1 text-sm font-black text-slate-900">{formatCurrency(viewData.item.unitCost)}</p>
                                 </div>
                                 <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
-                                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Unit Cost</p>
-                                  <p className="mt-2 text-sm font-black text-slate-900">{formatCurrency(viewData.item.unitCost)}</p>
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Reorder Level Threshold</p>
+                                  <p className="mt-1 text-sm font-black text-slate-900">{viewData.item.reorderLevel} {viewData.item.unitId?.name || viewData.item.unit}</p>
+                                </div>
+                                <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Date Added / Expiry</p>
+                                  <p className="mt-1 text-sm font-black text-slate-900">{formatDate(viewData.item.createdAt)}</p>
                                 </div>
                               </div>
 
                               {viewData.item.supplierId?.companyName && (
-                                <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
-                                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Preferred Supplier</p>
-                                  <p className="mt-2 text-sm font-black text-slate-900">{viewData.item.supplierId.companyName}</p>
+                                <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4">
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-indigo-500">Preferred Supplier / Vendor</p>
+                                  <p className="mt-1 text-sm font-black text-slate-900">{viewData.item.supplierId.companyName}</p>
                                 </div>
                               )}
 
-                              <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 space-y-4">
+                              {/* DESCRIPTION & NOTES */}
+                              <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 space-y-3">
                                 <div>
-                                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Description</p>
-                                  <p className="mt-2 text-xs font-bold text-slate-600 leading-relaxed">{viewData.item.description || "No descriptive data available."}</p>
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Full Description</p>
+                                  <p className="mt-1 text-xs font-bold text-slate-700 leading-relaxed">{viewData.item.description || "No descriptive data available."}</p>
                                 </div>
                                 {viewData.item.notes && (
-                                  <div>
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Internal Notes</p>
-                                    <p className="mt-2 text-xs font-bold text-slate-600 leading-relaxed italic">{viewData.item.notes}</p>
+                                  <div className="pt-2 border-t border-slate-200/60">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Internal Remarks & Notes</p>
+                                    <p className="mt-1 text-xs font-bold text-slate-600 leading-relaxed italic">{viewData.item.notes}</p>
                                   </div>
                                 )}
                               </div>
 
-                              <div className="space-y-4">
+                              {/* RECENT MOVEMENT AUDIT */}
+                              <div className="space-y-3">
                                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
                                   <RefreshCw size={12} className="text-indigo-500" />
                                   Recent Movement Audit
                                 </p>
-                                <div className="space-y-3">
+                                <div className="space-y-2.5 max-h-48 overflow-y-auto">
                                   {(viewData.movements || []).slice(0, 10).map((movement) => (
                                     <div key={movement._id} className="rounded-2xl bg-white border border-slate-100 p-4 shadow-sm hover:border-indigo-100 transition-all">
-                                      <div className="flex items-center justify-between gap-3 mb-3">
+                                      <div className="flex items-center justify-between gap-3 mb-2">
                                         <MovementBadge type={movement.type} />
                                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{formatDate(movement.createdAt)}</span>
                                       </div>
                                       <div className="flex items-center justify-between">
                                         <p className="text-[12px] font-black text-slate-900">Qty {movement.quantity} → {movement.balanceAfter}</p>
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-300">{movement.createdBy?.name || "System"}</p>
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{movement.createdBy?.name || "System"}</p>
                                       </div>
                                       {(movement.notes || movement.reference) && (
-                                        <p className="mt-2 text-[10px] font-bold text-slate-500 border-t border-slate-50 pt-2">{movement.notes || movement.reference}</p>
+                                        <p className="mt-1 text-[10px] font-bold text-slate-500 border-t border-slate-50 pt-1.5">{movement.notes || movement.reference}</p>
                                       )}
                                     </div>
                                   ))}
                                   {(!viewData.movements || viewData.movements.length === 0) && (
-                                    <div className="py-10 text-center border-2 border-dashed border-slate-100 rounded-2xl">
+                                    <div className="py-8 text-center border-2 border-dashed border-slate-100 rounded-2xl">
                                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">No history records</p>
                                     </div>
                                   )}
@@ -824,6 +862,17 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Failed to load item intelligence</p>
                             </div>
                           )}
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => setShowViewDrawer(false)}
+                            className="px-6 py-3 rounded-2xl bg-slate-900 hover:bg-black text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-md"
+                          >
+                            Close Modal
+                          </button>
                         </div>
                       </div>
                     </div>

@@ -9,11 +9,12 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 
 const router = express.Router();
 
-router.use(requireAuth);
-
+// Public route for landing page & checkout pricing
 router.get("/", listSubscriptionPlans);
-router.post("/", requireRole("admin"), createSubscriptionPlan);
-router.patch("/:id", requireRole("admin"), updateSubscriptionPlan);
-router.delete("/:id", requireRole("admin"), deleteSubscriptionPlan);
+
+// Protected Admin CRUD operations
+router.post("/", requireAuth, requireRole("admin"), createSubscriptionPlan);
+router.patch("/:id", requireAuth, requireRole("admin"), updateSubscriptionPlan);
+router.delete("/:id", requireAuth, requireRole("admin"), deleteSubscriptionPlan);
 
 export default router;

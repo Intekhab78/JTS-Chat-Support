@@ -35,7 +35,7 @@ export const getCategories = async (req, res) => {
 
 export const createCategory = async (req, res) => {
   try {
-    const { name, subcategories, websiteId, department } = req.body;
+    const { name, subcategories, websiteId, department, createDashboard } = req.body;
     
     // Verify website ownership
     const website = await Website.findById(websiteId);
@@ -47,6 +47,7 @@ export const createCategory = async (req, res) => {
       department: String(department || "general").trim().toLowerCase(),
       name,
       subcategories: subcategories || [],
+      createDashboard: Boolean(createDashboard),
       websiteId,
       managerId: website.managerId
     });
@@ -62,7 +63,7 @@ export const createCategory = async (req, res) => {
 export const updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, subcategories, department } = req.body;
+    const { name, subcategories, department, createDashboard } = req.body;
 
     const category = await Category.findById(id);
     if (!category) return res.status(404).json({ message: "Category not found" });
@@ -75,6 +76,7 @@ export const updateCategory = async (req, res) => {
     if (department) category.department = String(department).trim().toLowerCase();
     if (name) category.name = name;
     if (subcategories) category.subcategories = subcategories;
+    if (typeof createDashboard !== "undefined") category.createDashboard = Boolean(createDashboard);
 
     await category.save();
     broadcastDataChange({ entity: "category", action: "updated", websiteId: category.websiteId, data: { id: category._id } });
