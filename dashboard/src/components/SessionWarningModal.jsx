@@ -73,7 +73,7 @@ export default function SessionWarningModal({
                             id="session-modal-desc"
                             className="text-[12px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed"
                         >
-                            Your session will expire in 5 minutes. Would you like to extend your session or log out now?
+                            Your session will expire in 30 minutes. Would you like to extend your session or log out now?
                         </p>
                     </div>
 

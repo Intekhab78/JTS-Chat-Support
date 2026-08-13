@@ -17,7 +17,13 @@ const messageSchema = new mongoose.Schema(
     },
     deliveredAt: { type: Date, default: null },
     readAt: { type: Date, default: null },
-    providerMessageId: { type: String, index: true, default: null }
+    providerMessageId: { type: String, index: true, default: null },
+
+    // Multilingual Translation Engine
+    translatedText: { type: String, default: "" },
+    detectedLanguage: { type: String, default: "en" },
+    detectedLanguageName: { type: String, default: "English" },
+    flagSymbol: { type: String, default: "🇬🇧" }
   },
   { timestamps: true }
 );

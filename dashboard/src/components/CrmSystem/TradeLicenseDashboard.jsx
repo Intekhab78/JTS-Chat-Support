@@ -12,6 +12,8 @@ export default function TradeLicenseDashboard({ websiteId, teamMembers = [], onO
   const [data, setData] = useState({ summary: {}, licenses: [] });
   const [loading, setLoading] = useState(true);
   const [consultantFilter, setConsultantFilter] = useState("");
+  const [bucketFilter, setBucketFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [highlightFilter, setHighlightFilter] = useState(""); // "" | "red" | "orange" | "yellow" | "green"
   const [search, setSearch] = useState("");
 
@@ -174,12 +176,42 @@ export default function TradeLicenseDashboard({ websiteId, teamMembers = [], onO
   };
 
   const filteredLicenses = (data.licenses || []).filter(l => {
-    if (!search) return true;
+    // 1. Consultant Filter
+    if (consultantFilter) {
+      const ownerIdStr = String(l.ownerId?._id || l.ownerId || "");
+      const ownerName = String(l.assignedConsultant || l.ownerId?.name || "").toLowerCase();
+      const isMatch = ownerIdStr === consultantFilter || ownerName.includes(consultantFilter.toLowerCase());
+      if (!isMatch) return false;
+    }
+
+    // 2. Expiry Bucket Filter
+    if (bucketFilter !== "all" && l.tradeLicenseExpiryDate) {
+      const exp = new Date(l.tradeLicenseExpiryDate);
+      const now = new Date();
+      const days = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (bucketFilter === "expired" && days >= 0) return false;
+      if (bucketFilter === "30" && (days < 0 || days > 30)) return false;
+      if (bucketFilter === "60" && (days < 0 || days > 60)) return false;
+      if (bucketFilter === "90" && (days < 0 || days > 90)) return false;
+      if (bucketFilter === "healthy" && days <= 60) return false;
+    }
+
+    // 3. Work Status Filter
+    if (statusFilter !== "all") {
+      const st = (l.workStatus || "").toLowerCase();
+      if (!st.includes(statusFilter.toLowerCase())) return false;
+    }
+
+    // 4. Keyword Search
+    if (!search.trim()) return true;
     const query = search.toLowerCase();
     return (
       (l.name && l.name.toLowerCase().includes(query)) ||
       (l.companyName && l.companyName.toLowerCase().includes(query)) ||
-      (l.tradeLicenseNumber && l.tradeLicenseNumber.toLowerCase().includes(query))
+      (l.tradeLicenseNumber && l.tradeLicenseNumber.toLowerCase().includes(query)) ||
+      (l.workStatus && l.workStatus.toLowerCase().includes(query)) ||
+      (l.assignedConsultant && l.assignedConsultant.toLowerCase().includes(query))
     );
   });
 
@@ -247,21 +279,6 @@ export default function TradeLicenseDashboard({ websiteId, teamMembers = [], onO
             <Plus size={16} /> Add Trade License
           </button>
 
-          {/* Consultant Filter */}
-          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl">
-            <Users size={14} className="text-slate-400" />
-            <select
-              value={consultantFilter}
-              onChange={(e) => setConsultantFilter(e.target.value)}
-              className="bg-transparent text-xs font-bold text-slate-700 outline-none"
-            >
-              <option value="">All Consultants</option>
-              {teamMembers.map(m => (
-                <option key={m._id} value={m._id}>{m.name}</option>
-              ))}
-            </select>
-          </div>
-
           <button
             onClick={fetchTlStats}
             className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-colors"
@@ -269,6 +286,98 @@ export default function TradeLicenseDashboard({ websiteId, teamMembers = [], onO
           >
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           </button>
+        </div>
+      </div>
+
+      {/* ── INTERACTIVE MULTI-FILTER CONSOLE BAR ───────────────── */}
+      <div className="bg-white p-6 rounded-[28px] border border-slate-200 shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
+              <Filter size={16} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-black uppercase tracking-wider text-slate-900">Custom Report Parameters & Filters</h3>
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[9px] font-black uppercase tracking-wider">
+                  ⚡ {filteredLicenses.length} Records Matched
+                </span>
+              </div>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Instant multi-column search & license expiry warning buckets</p>
+            </div>
+          </div>
+
+          {(consultantFilter || bucketFilter !== "all" || statusFilter !== "all" || search.trim()) && (
+            <button
+              onClick={() => {
+                setConsultantFilter("");
+                setBucketFilter("all");
+                setStatusFilter("all");
+                setSearch("");
+              }}
+              className="text-[9px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-700 flex items-center gap-1 transition-colors"
+            >
+              <X size={12} /> Clear All Filters
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* Keyword Search */}
+          <div className="relative">
+            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search company, License No..."
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-amber-500 focus:bg-white"
+            />
+          </div>
+
+          {/* Assigned Consultant */}
+          <div>
+            <select
+              value={consultantFilter}
+              onChange={(e) => setConsultantFilter(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-amber-500"
+            >
+              <option value="">👤 Consultant: All Staff</option>
+              {teamMembers.map(m => (
+                <option key={m._id} value={m._id}>{m.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Expiry Bucket Filter */}
+          <div>
+            <select
+              value={bucketFilter}
+              onChange={(e) => setBucketFilter(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-amber-500"
+            >
+              <option value="all">🛡️ Expiry Window: All</option>
+              <option value="expired">🔴 Already Expired</option>
+              <option value="30">🟠 Expiring &lt;30 Days</option>
+              <option value="60">🟡 Expiring &lt;60 Days</option>
+              <option value="90">🔵 Expiring &lt;90 Days</option>
+              <option value="healthy">🟢 Active / Healthy (&gt;60 Days)</option>
+            </select>
+          </div>
+
+          {/* Work Status */}
+          <div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-amber-500"
+            >
+              <option value="all">💳 Work Status: All</option>
+              <option value="pending">Pending Renewal</option>
+              <option value="in progress">In Progress</option>
+              <option value="completed">Renewed / Healthy</option>
+            </select>
+          </div>
         </div>
       </div>
 

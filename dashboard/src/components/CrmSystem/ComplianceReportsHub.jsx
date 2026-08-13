@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   FileText, Download, Filter, Calendar, Users, Briefcase, RefreshCw, FileSpreadsheet,
-  ShieldCheck, Check, Search, Award, AlertTriangle, CreditCard, Landmark, Sparkles, ChevronRight, Layers, Eye, X, ArrowUpRight, Printer
+  ShieldCheck, Check, Search, Award, AlertTriangle, CreditCard, Landmark, Sparkles, ChevronRight, Layers, Eye, X, ArrowUpRight, Printer, Activity
 } from "lucide-react";
 import { api } from "../../api/client.js";
 import { exportToPDF, exportToExcel, exportToCSV, exportSingleRecordPDF } from "../../utils/exportUtils.js";
@@ -70,6 +70,15 @@ const COMPLIANCE_REPORTS = [
     tag: "Financials",
     color: "indigo",
     gradient: "from-indigo-500/10 via-purple-500/5 to-transparent"
+  },
+  {
+    id: "renewals_health",
+    label: "360° Health & Risk Matrix",
+    description: "Holistic compliance rating, upcoming deadline alerts & risk score",
+    icon: Activity,
+    tag: "Risk Matrix",
+    color: "teal",
+    gradient: "from-teal-500/10 via-emerald-500/5 to-transparent"
   }
 ];
 
@@ -116,9 +125,9 @@ export default function ComplianceReportsHub({ websiteId, teamMembers = [] }) {
   const filteredReportTypes = useMemo(() => {
     if (!reportSearch.trim()) return COMPLIANCE_REPORTS;
     const q = reportSearch.toLowerCase();
-    return COMPLIANCE_REPORTS.filter(r => 
-      r.label.toLowerCase().includes(q) || 
-      r.description.toLowerCase().includes(q) || 
+    return COMPLIANCE_REPORTS.filter(r =>
+      r.label.toLowerCase().includes(q) ||
+      r.description.toLowerCase().includes(q) ||
       r.tag.toLowerCase().includes(q)
     );
   }, [reportSearch]);
@@ -129,7 +138,7 @@ export default function ComplianceReportsHub({ websiteId, teamMembers = [] }) {
     if (!tableSearch.trim()) return reportData.rows;
     const q = tableSearch.toLowerCase();
     return reportData.rows.filter(row => {
-      return Object.values(row).some(val => 
+      return Object.values(row).some(val =>
         val !== null && val !== undefined && String(val).toLowerCase().includes(q)
       );
     });
@@ -206,27 +215,10 @@ export default function ComplianceReportsHub({ websiteId, teamMembers = [] }) {
         </div>
       </div>
 
-      {/* ── Report Type Selection Header & Search ───────────────── */}
+      {/* ── Report Type Selection Cards ───────────────── */}
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-4 rounded-[28px] border border-slate-200/80 shadow-sm">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-indigo-600">Compliance Modules</p>
-            <h3 className="text-sm font-black text-slate-900">Select Audit Report Type</h3>
-          </div>
-
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-            <input
-              value={reportSearch}
-              onChange={(e) => setReportSearch(e.target.value)}
-              placeholder="Filter report categories…"
-              className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/10 transition-all"
-            />
-          </div>
-        </div>
-
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {filteredReportTypes.map(r => {
+          {COMPLIANCE_REPORTS.map(r => {
             const isSelected = selectedReport === r.id;
             const Icon = r.icon;
 
@@ -234,25 +226,22 @@ export default function ComplianceReportsHub({ websiteId, teamMembers = [] }) {
               <div
                 key={r.id}
                 onClick={() => setSelectedReport(r.id)}
-                className={`group relative overflow-hidden p-5 rounded-[28px] border transition-all duration-300 cursor-pointer flex flex-col justify-between ${
-                  isSelected
-                    ? "bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 text-white border-indigo-400/40 shadow-[0_20px_45px_-12px_rgba(79,70,229,0.5)] ring-2 ring-indigo-500/40 scale-[1.02]"
-                    : "bg-white border-slate-200/90 hover:border-indigo-300 hover:shadow-xl hover:-translate-y-0.5 text-slate-900"
-                }`}
+                className={`group relative overflow-hidden p-5 rounded-[28px] border transition-all duration-300 cursor-pointer flex flex-col justify-between ${isSelected
+                  ? "bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 text-white border-indigo-400/40 shadow-[0_20px_45px_-12px_rgba(79,70,229,0.5)] ring-2 ring-indigo-500/40 scale-[1.02]"
+                  : "bg-white border-slate-200/90 hover:border-indigo-300 hover:shadow-xl hover:-translate-y-0.5 text-slate-900"
+                  }`}
               >
                 <div className={`absolute inset-0 bg-gradient-to-br ${r.gradient} opacity-50 pointer-events-none`} />
 
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <div className={`p-2.5 rounded-2xl transition-transform group-hover:scale-110 ${
-                      isSelected ? "bg-white/20 text-white shadow-inner" : "bg-indigo-50 text-indigo-600"
-                    }`}>
+                    <div className={`p-2.5 rounded-2xl transition-transform group-hover:scale-110 ${isSelected ? "bg-white/20 text-white shadow-inner" : "bg-indigo-50 text-indigo-600"
+                      }`}>
                       <Icon size={18} />
                     </div>
 
-                    <span className={`text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${
-                      isSelected ? "bg-white/20 text-white border-white/30" : "bg-slate-100 text-slate-500 border-slate-200/60"
-                    }`}>
+                    <span className={`text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${isSelected ? "bg-white/20 text-white border-white/30" : "bg-slate-100 text-slate-500 border-slate-200/60"
+                      }`}>
                       {r.tag}
                     </span>
                   </div>
@@ -289,8 +278,13 @@ export default function ComplianceReportsHub({ websiteId, teamMembers = [] }) {
               <Filter size={16} />
             </div>
             <div>
-              <h3 className="text-xs font-black uppercase tracking-wider text-slate-900">Custom Report Parameters</h3>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Filter by date window, consultant owner, and service category</p>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-black uppercase tracking-wider text-slate-900">Custom Report Parameters & Filters</h3>
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] font-black uppercase tracking-wider">
+                  ⚡ {filteredRows.length} Records Matched
+                </span>
+              </div>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Filter by date window, consultant owner, and service category</p>
             </div>
           </div>
 
@@ -447,7 +441,7 @@ export default function ComplianceReportsHub({ websiteId, teamMembers = [] }) {
                       {(reportData.columns || []).map((col, cIdx) => {
                         const val = row[col] !== undefined && row[col] !== null ? String(row[col]) : "—";
                         const colLower = col.toLowerCase();
-                        
+
                         // Highlight Status Badges
                         if (colLower.includes("status")) {
                           const isCompleted = ["completed", "paid", "submitted", "active", "filed"].includes(val.toLowerCase());
@@ -456,12 +450,11 @@ export default function ComplianceReportsHub({ websiteId, teamMembers = [] }) {
 
                           return (
                             <td key={cIdx} className="px-5 py-4 whitespace-nowrap">
-                              <span className={`inline-flex items-center px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-sm ${
-                                isCompleted ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80" :
+                              <span className={`inline-flex items-center px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-sm ${isCompleted ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80" :
                                 isOverdue ? "bg-rose-50 text-rose-700 border border-rose-200/80" :
-                                isPending ? "bg-amber-50 text-amber-700 border border-amber-200/80" :
-                                "bg-slate-100 text-slate-700 border border-slate-200"
-                              }`}>
+                                  isPending ? "bg-amber-50 text-amber-700 border border-amber-200/80" :
+                                    "bg-slate-100 text-slate-700 border border-slate-200"
+                                }`}>
                                 {val}
                               </span>
                             </td>

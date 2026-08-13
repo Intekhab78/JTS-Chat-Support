@@ -1,208 +1,186 @@
-import jsPDF from "jspdf";
+import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
-import Papa from "papaparse";
 
-// Helper to flatten nested objects into clean key-value primitives
-const flattenObject = (obj, prefix = "") => {
-  const result = {};
-  if (!obj || typeof obj !== "object") return result;
+/**
+ * Helper to export any array of data to CSV / Excel format.
+ * @param {Array} data - Array of objects or arrays to export
+ * @param {Array|String} columns - Array of column specs [{ key: 'name', label: 'Item Name' }, ...] or filename if columns omitted
+ * @param {String} filename - Output filename without extension
+ */
+export function exportToCsv(data = [], columns = [], filename = "export") {
+  if (!data || data.length === 0) {
+    alert("No data available to export.");
+    return;
+  }
 
-  Object.keys(obj).forEach((key) => {
-    const value = obj[key];
-    const newKey = prefix ? `${prefix} - ${key}` : key;
+  let actualColumns = columns;
+  let actualFilename = filename;
 
-    if (value === null || value === undefined) {
-      result[newKey] = "";
-    } else if (typeof value === "object" && !(value instanceof Date) && !Array.isArray(value)) {
-      if ("value" in value && ("trend" in value || Object.keys(value).length <= 3)) {
-        // Handle metric object like { value: 10, trend: 5 }
-        result[newKey] = String(value.value ?? "");
-        if (value.trend !== undefined) {
-          result[`${newKey} (Trend)`] = `${value.trend}%`;
-        }
-      } else {
-        Object.assign(result, flattenObject(value, newKey));
-      }
-    } else if (Array.isArray(value)) {
-      result[newKey] = value.map(v => (typeof v === "object" ? JSON.stringify(v) : String(v))).join("; ");
-    } else {
-      result[newKey] = String(value);
+  // Handle signature exportToCsv(data, filename)
+  if (typeof columns === "string") {
+    actualFilename = columns;
+    actualColumns = [];
+  }
+
+  // Auto-derive columns from first row if not provided
+  if (!Array.isArray(actualColumns) || actualColumns.length === 0) {
+    const firstRow = data[0] || {};
+    if (typeof firstRow === "object" && !Array.isArray(firstRow)) {
+      actualColumns = Object.keys(firstRow).map(k => ({ key: k, label: k }));
+    } else if (Array.isArray(firstRow)) {
+      actualColumns = firstRow.map((_, idx) => ({ key: idx, label: `Column ${idx + 1}` }));
     }
+  }
+
+  // Normalize columns array
+  actualColumns = (actualColumns || []).map(col => {
+    if (typeof col === "string") return { key: col, label: col };
+    return col;
   });
 
-  return result;
-};
+  // Generate Headers
+  const headers = actualColumns.map(c => `"${String(c.label || c.key || "").replace(/"/g, '""')}"`).join(",");
 
-// Normalize data array for clean tabular export
-const normalizeExportData = (data) => {
-  if (!data) return [];
+  // Generate Rows
+  const rows = data.map(item => {
+    return actualColumns.map(col => {
+      let val = col.accessor ? col.accessor(item) : (Array.isArray(item) ? item[col.key] : item?.[col.key]);
+      if (val === null || val === undefined) val = "";
+      if (typeof val === "object") val = JSON.stringify(val);
+      const strVal = String(val).replace(/"/g, '""');
+      return `"${strVal}"`;
+    }).join(",");
+  });
+
+  const csvContent = "\uFEFF" + [headers, ...rows].join("\r\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
   
-  let rawList = [];
-  if (Array.isArray(data)) {
-    rawList = data;
-  } else if (typeof data === "object") {
-    // If it has array properties, extract them or flatten the object
-    const keys = Object.keys(data);
-    const arrayKey = keys.find(k => Array.isArray(data[k]) && data[k].length > 0);
-    if (arrayKey) {
-      rawList = data[arrayKey];
-    } else {
-      rawList = [data];
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", `${actualFilename.endsWith(".csv") ? actualFilename : `${actualFilename}.csv`}`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+export const exportToCSV = exportToCsv;
+export const exportToExcel = exportToCsv;
+
+export function downloadCSV(content = "", filename = "export.csv") {
+  if (typeof content === "object" && Array.isArray(content)) {
+    return exportToCsv(content, Object.keys(content[0] || {}).map(k => ({ key: k, label: k })), filename);
+  }
+  const blob = new Blob(["\uFEFF" + content], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename.endsWith(".csv") ? filename : `${filename}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Helper to export any array of data to a real PDF document using jsPDF & autoTable.
+ */
+export function exportToPDF(data = [], columns = [], filename = "export", reportTitle = "ENTERPRISE COMPLIANCE & INTELLIGENCE REPORT") {
+  if (!data || data.length === 0) {
+    alert("No data available to export.");
+    return;
+  }
+
+  let actualColumns = columns;
+  let actualFilename = filename;
+  let titleText = reportTitle;
+
+  // Handle signature exportToPDF(data, filename, reportTitle)
+  if (typeof columns === "string") {
+    if (typeof filename === "string" && filename !== "export") {
+      titleText = filename;
+    }
+    actualFilename = columns;
+    actualColumns = [];
+  }
+
+  // Auto-derive columns from first row if not provided
+  if (!Array.isArray(actualColumns) || actualColumns.length === 0) {
+    const firstRow = data[0] || {};
+    if (typeof firstRow === "object" && !Array.isArray(firstRow)) {
+      actualColumns = Object.keys(firstRow).map(k => ({ key: k, label: k }));
+    } else if (Array.isArray(firstRow)) {
+      actualColumns = firstRow.map((_, idx) => ({ key: idx, label: `Column ${idx + 1}` }));
     }
   }
 
-  if (!rawList.length) return [];
-
-  // Flatten every row item
-  return rawList.map(item => {
-    if (typeof item !== "object" || item === null) {
-      return { Value: String(item) };
-    }
-    return flattenObject(item);
+  // Normalize columns array
+  actualColumns = (actualColumns || []).map(col => {
+    if (typeof col === "string") return { key: col, label: col };
+    return col;
   });
-};
 
-export const exportToCSV = (data, filename = "Report") => {
-  const cleanData = normalizeExportData(data);
-  if (!cleanData.length) {
-    alert("No records found to export for CSV.");
-    return;
-  }
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const reportDate = new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 
-  try {
-    const csv = Papa.unparse(cleanData);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `${filename.replace(/[^a-zA-Z0-9_-]/g, "_")}.csv`);
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  } catch (err) {
-    console.error("CSV Export error:", err);
-    alert("Export CSV Error: " + err.message);
-  }
-};
+  // Top Dark Header Bar
+  doc.setFillColor(15, 23, 42); // slate-900
+  doc.rect(0, 0, 210, 32, "F");
 
-export const downloadCSV = exportToCSV;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(14);
+  doc.setTextColor(255, 255, 255);
+  doc.text("JTS SUPPORT CRM", 14, 13);
 
-export const exportToExcel = (data, filename = "Report") => {
-  const cleanData = normalizeExportData(data);
-  if (!cleanData.length) {
-    alert("No records found to export for Excel.");
-    return;
-  }
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(199, 210, 254);
+  doc.text(String(titleText || "FILTERED ENTERPRISE COMPLIANCE REPORT").toUpperCase(), 14, 21);
 
-  try {
-    const worksheet = XLSX.utils.json_to_sheet(cleanData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Analytics Report");
-    XLSX.writeFile(workbook, `${filename.replace(/[^a-zA-Z0-9_-]/g, "_")}.xlsx`);
-  } catch (err) {
-    console.error("Excel Export error:", err);
-    alert("Export Excel Error: " + err.message);
-  }
-};
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(255, 255, 255);
+  doc.text(`DATE: ${reportDate}`, 196, 13, { align: "right" });
+  doc.text(`RECORDS: ${data.length}`, 196, 21, { align: "right" });
 
-export const exportToPDF = (data, filename = "Report", title = "Executive Analytics Report") => {
-  const cleanData = normalizeExportData(data);
-  if (!cleanData.length) {
-    alert("No records found to export for PDF.");
-    return;
-  }
-
-  try {
-    const doc = new jsPDF("p", "mm", "a4");
-
-    // Header Band
-    doc.setFillColor(15, 23, 42); // Slate 900
-    doc.rect(0, 0, 210, 28, "F");
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.setTextColor(255, 255, 255);
-    doc.text(String(title).toUpperCase(), 14, 16);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(148, 163, 184); // Slate 400
-    doc.text(`ENTERPRISE ANALYTICS SYSTEM • GENERATED ON: ${new Date().toLocaleString()}`, 14, 23);
-
-    // Get Table Headers & Rows
-    const headersSet = new Set();
-    cleanData.forEach(row => Object.keys(row).forEach(k => headersSet.add(k)));
-    const headers = Array.from(headersSet);
-
-    const rows = cleanData.map(row => 
-      headers.map(h => (row[h] !== undefined && row[h] !== null ? String(row[h]) : "-"))
-    );
-
-    autoTable(doc, {
-      startY: 34,
-      head: [headers.map(h => h.toUpperCase())],
-      body: rows,
-      theme: "grid",
-      styles: { fontSize: 8, cellPadding: 3, font: "helvetica" },
-      headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: "bold" },
-      alternateRowStyles: { fillColor: [248, 250, 252] },
-      didDrawPage: (dataArg) => {
-        // Footer
-        doc.setFontSize(8);
-        doc.setTextColor(148, 163, 184);
-        doc.text("CONFIDENTIAL - ENTERPRISE BUSINESS REPORTING HUB", 14, 287);
-        doc.text(`Page ${doc.internal.getNumberOfPages()}`, 196, 287, { align: "right" });
-      }
+  // Prepare table headers & body
+  const tableHeaders = [actualColumns.map(c => String(c.label || c.key || "").toUpperCase())];
+  const tableBody = data.map(item => {
+    return actualColumns.map(col => {
+      let val = col.accessor ? col.accessor(item) : (Array.isArray(item) ? item[col.key] : item?.[col.key]);
+      if (val === null || val === undefined) val = "-";
+      if (typeof val === "object") val = JSON.stringify(val);
+      return String(val);
     });
+  });
 
-    doc.save(`${filename.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`);
-  } catch (err) {
-    console.error("PDF Export error:", err);
-    alert("Export PDF Error: " + err.message);
-  }
-};
+  autoTable(doc, {
+    startY: 38,
+    head: tableHeaders,
+    body: tableBody,
+    theme: "grid",
+    headStyles: {
+      fillColor: [30, 41, 59], // slate-800
+      textColor: [255, 255, 255],
+      fontSize: 7.5,
+      fontStyle: "bold",
+      halign: "left"
+    },
+    bodyStyles: {
+      fontSize: 7.5,
+      textColor: [51, 65, 85]
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252]
+    },
+    margin: { top: 38, left: 14, right: 14 }
+  });
 
-export const exportSingleRecordPDF = (title, keyValues, filename = "Single_Record_Report") => {
-  try {
-    const doc = new jsPDF();
-    
-    // Header Branding
-    doc.setFillColor(79, 70, 229); // Indigo 600
-    doc.rect(0, 0, 210, 30, 'F');
-    
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text(String(title).toUpperCase(), 14, 18);
+  const pdfName = actualFilename.toLowerCase().endsWith(".pdf") ? actualFilename : `${actualFilename}.pdf`;
+  doc.save(pdfName);
+}
 
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 25);
-
-    // AutoTable Key-Value Grid
-    const rows = Object.entries(keyValues || {}).map(([key, val]) => [
-      String(key).toUpperCase(),
-      val !== undefined && val !== null ? String(val) : "-"
-    ]);
-
-    autoTable(doc, {
-      startY: 38,
-      head: [["FIELD / PROPERTY", "VALUE / DETAILS"]],
-      body: rows,
-      theme: 'striped',
-      styles: { fontSize: 10, cellPadding: 4 },
-      headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold' },
-      columnStyles: {
-        0: { fontStyle: 'bold', cellWidth: 70 },
-        1: { cellWidth: 110 }
-      }
-    });
-
-    doc.save(`${filename.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`);
-  } catch (err) {
-    console.error("Single Record PDF Export error:", err);
-    alert("Export PDF Error: " + err.message);
-  }
-};
+export function exportSingleRecordPDF(record = {}, filename = "record") {
+  exportToPDF([record], Object.keys(record).map(k => ({ key: k, label: k })), filename, "SINGLE COMPLIANCE RECORD PDF");
+}

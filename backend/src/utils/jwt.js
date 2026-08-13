@@ -5,7 +5,7 @@ export function signToken(user) {
   return jwt.sign(
     { id: user._id.toString(), role: user.role, email: user.email },
     env.jwtSecret,
-    { expiresIn: "1h" } // Standardized for professional use
+    { expiresIn: "10h" } // Extended to 10 hours per user request
   );
 }
 

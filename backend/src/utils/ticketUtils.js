@@ -89,11 +89,28 @@ export async function syncSalesOwnerFromTicket(ticket, actorId, reason = "sales_
 export async function buildTicketScopeFilter(user) {
   const role = normalizeRole(user.role);
   if (role === "admin") return {};
-  if (["client", "manager"].includes(role)) {
+  if (["client", "manager", "sales", "purchase", "tax_consultant"].includes(role)) {
     const ownedWebsiteIds = await getOwnedWebsiteIds(user);
-    return { websiteId: { $in: ownedWebsiteIds } };
+    if (ownedWebsiteIds && ownedWebsiteIds.length > 0) {
+      return { websiteId: { $in: ownedWebsiteIds } };
+    }
   }
-  return { assignedAgent: user._id };
+  const ownedWebsiteIds = await getOwnedWebsiteIds(user);
+  if (ownedWebsiteIds && ownedWebsiteIds.length > 0) {
+    return {
+      $or: [
+        { websiteId: { $in: ownedWebsiteIds } },
+        { assignedAgent: user._id },
+        { assignedAgent: null }
+      ]
+    };
+  }
+  return {
+    $or: [
+      { assignedAgent: user._id },
+      { assignedAgent: null }
+    ]
+  };
 }
 
 export async function buildSessionScopeFilter(user) {
@@ -106,8 +123,24 @@ export async function buildSessionScopeFilter(user) {
 }
 
 export async function findScopedTicketById(ticketId, user) {
+  const role = normalizeRole(user.role);
+  const isMongoId = ticketId && ticketId.length === 24 && /^[0-9a-fA-F]{24}$/.test(ticketId);
+  const idQuery = isMongoId ? { $or: [{ _id: ticketId }, { ticketId }] } : { ticketId };
+
+  if (role === "admin" || role === "client" || role === "manager") {
+    return Ticket.findOne(idQuery)
+      .populate("visitorId", "name email")
+      .populate("customerId", "name email crn")
+      .populate("assignedAgent", "name email")
+      .populate("websiteId", "websiteName domain");
+  }
+
   const scope = await buildTicketScopeFilter(user);
-  return Ticket.findOne({ _id: ticketId, ...scope });
+  return Ticket.findOne({ ...idQuery, ...scope })
+    .populate("visitorId", "name email")
+    .populate("customerId", "name email crn")
+    .populate("assignedAgent", "name email")
+    .populate("websiteId", "websiteName domain");
 }
 
 export async function ensureSessionTicketAccess(session, user) {

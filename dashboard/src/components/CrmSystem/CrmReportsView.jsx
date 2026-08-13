@@ -74,16 +74,77 @@ export default function CRMReportsView({ summary, customers = [], websiteId, onD
   const [previewSearch, setPreviewSearch] = useState("");
   const [loadingPreview, setLoadingPreview] = useState(false);
 
-  useEffect(() => {
-    if (previewModal) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [previewModal]);
+  // Filter States for Filter-wise Report Generation & Downloads
+  const [filterDateRange, setFilterDateRange] = useState("all");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
+  const [filterStage, setFilterStage] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterSearchQuery, setFilterSearchQuery] = useState("");
+
+  const getFilteredCustomers = useCallback(() => {
+    return (customers || []).filter((item) => {
+      // 1. Keyword Search Filter
+      if (filterSearchQuery.trim()) {
+        const q = filterSearchQuery.toLowerCase();
+        const matchName = String(item.name || "").toLowerCase().includes(q);
+        const matchComp = String(item.companyName || "").toLowerCase().includes(q);
+        const matchEmail = String(item.email || "").toLowerCase().includes(q);
+        const matchPhone = String(item.phone || item.whatsApp || "").toLowerCase().includes(q);
+        const matchTrn = String(item.trn || "").toLowerCase().includes(q);
+        if (!matchName && !matchComp && !matchEmail && !matchPhone && !matchTrn) return false;
+      }
+
+      // 2. Stage Filter
+      if (filterStage !== "all") {
+        const itemStage = String(item.pipelineStage || item.stage || item.status || "").toLowerCase();
+        if (itemStage !== filterStage.toLowerCase()) return false;
+      }
+
+      // 3. Status Filter
+      if (filterStatus !== "all") {
+        const itemStatus = String(item.workStatus || item.paymentStatus || item.status || "").toLowerCase();
+        if (!itemStatus.includes(filterStatus.toLowerCase())) return false;
+      }
+
+      // 4. Date Range Filter
+      if (filterDateRange !== "all") {
+        const itemDate = item.createdAt ? new Date(item.createdAt) : null;
+        if (itemDate && !isNaN(itemDate.getTime())) {
+          const now = new Date();
+          if (filterDateRange === "today") {
+            if (itemDate.toDateString() !== now.toDateString()) return false;
+          } else if (filterDateRange === "week") {
+            const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            if (itemDate < sevenDaysAgo) return false;
+          } else if (filterDateRange === "month") {
+            const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            if (itemDate < thirtyDaysAgo) return false;
+          } else if (filterDateRange === "quarter") {
+            const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+            if (itemDate < ninetyDaysAgo) return false;
+          } else if (filterDateRange === "year") {
+            const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+            if (itemDate < yearAgo) return false;
+          } else if (filterDateRange === "custom") {
+            if (customStartDate) {
+              const start = new Date(customStartDate);
+              if (itemDate < start) return false;
+            }
+            if (customEndDate) {
+              const end = new Date(customEndDate);
+              end.setHours(23, 59, 59, 999);
+              if (itemDate > end) return false;
+            }
+          }
+        }
+      }
+
+      return true;
+    });
+  }, [customers, filterSearchQuery, filterStage, filterStatus, filterDateRange, customStartDate, customEndDate]);
+
+  const activeFilteredCustomers = getFilteredCustomers();
   
   const aging = summary?.aging || { recent: 0, stale: 0, dormant: 0 };
   const breakdown = summary?.stageBreakdown || [];
@@ -196,7 +257,7 @@ export default function CRMReportsView({ summary, customers = [], websiteId, onD
       [],
       ["--- SECTION 6: MASTER CUSTOMER & LEAD DIRECTORY REGISTER ---"],
       ["Client / Lead Name", "Company Name", "Email Address", "Phone / Contact", "TRN / Tax ID", "Pipeline Stage", "CRM Status", "Lead Value ($)", "Work Status", "Payment Status", "Assigned Owner", "Created Date"],
-      ...((customers || []).map(c => [
+      ...((activeFilteredCustomers || []).map(c => [
         c.name || "-",
         c.companyName || "-",
         c.email || "-",
@@ -387,7 +448,7 @@ export default function CRMReportsView({ summary, customers = [], websiteId, onD
       title = moduleId === "leads" ? "CRM LEADS REGISTER" : moduleId === "contacts" ? "CONTACTS MASTER DIRECTORY" : "COMPANIES REGISTER";
       filename = `${moduleId.toUpperCase()}_Report_${new Date().toISOString().slice(0, 10)}`;
       columns = ["Name", "Company", "Email", "Phone", "TRN", "Stage", "Status", "Value ($)", "Owner"];
-      rows = (customers || []).map(c => [
+      rows = (activeFilteredCustomers || []).map(c => [
         c.name || "-",
         c.companyName || "-",
         c.email || "-",
@@ -664,8 +725,33 @@ export default function CRMReportsView({ summary, customers = [], websiteId, onD
         w.createdAt ? new Date(w.createdAt).toLocaleString() : "-"
       ]);
     }
+
+    // Apply active filter controls to generated rows
+    if (filterStage !== "all" || filterStatus !== "all" || filterSearchQuery.trim()) {
+      rows = rows.filter((row) => {
+        const rowText = row.map(cell => String(cell || "")).join(" ").toLowerCase();
+
+        if (filterSearchQuery.trim()) {
+          const q = filterSearchQuery.toLowerCase();
+          if (!rowText.includes(q)) return false;
+        }
+
+        if (filterStage !== "all") {
+          const targetStage = filterStage.toLowerCase();
+          if (!rowText.includes(targetStage)) return false;
+        }
+
+        if (filterStatus !== "all") {
+          const targetStatus = filterStatus.toLowerCase();
+          if (!rowText.includes(targetStatus)) return false;
+        }
+
+        return true;
+      });
+    }
+
     return { title, filename, columns, rows };
-  }, [customers, websiteId, summary]);
+  }, [customers, activeFilteredCustomers, websiteId, summary, filterStage, filterStatus, filterSearchQuery, filterDateRange]);
 
   // ── VIEW MODAL HANDLER ──────────────────────────────────────────────
   const handleViewModule = async (moduleId) => {
@@ -803,6 +889,120 @@ export default function CRMReportsView({ summary, customers = [], websiteId, onD
               <Printer size={14} /> Master PDF Report (All {totalModulesCount})
             </button>
           </div>
+        </div>
+
+        {/* EXECUTIVE REPORT FILTER BAR */}
+        <div className="mb-6 p-5 rounded-2xl bg-slate-800/80 border border-slate-700/80 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Filter size={15} className="text-indigo-400" />
+              <span className="text-xs font-black uppercase tracking-wider text-slate-200">Interactive Report Filter Controls</span>
+              {(filterDateRange !== "all" || filterStage !== "all" || filterStatus !== "all" || filterSearchQuery.trim()) && (
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-black uppercase tracking-wider">
+                  ⚡ {activeFilteredCustomers.length} Records Matched
+                </span>
+              )}
+            </div>
+            {(filterDateRange !== "all" || filterStage !== "all" || filterStatus !== "all" || filterSearchQuery.trim()) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterDateRange("all");
+                  setCustomStartDate("");
+                  setCustomEndDate("");
+                  setFilterStage("all");
+                  setFilterStatus("all");
+                  setFilterSearchQuery("");
+                }}
+                className="text-[10px] font-black text-rose-400 hover:text-rose-300 uppercase tracking-widest flex items-center gap-1 transition-all"
+              >
+                <X size={12} /> Clear All Filters
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+            {/* Search Keyword */}
+            <div className="relative">
+              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={filterSearchQuery}
+                onChange={(e) => setFilterSearchQuery(e.target.value)}
+                placeholder="Search company, TRN, email..."
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-400 outline-none focus:border-indigo-500 font-bold"
+              />
+            </div>
+
+            {/* Date Range Selector */}
+            <div>
+              <select
+                value={filterDateRange}
+                onChange={(e) => setFilterDateRange(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-500 font-bold"
+              >
+                <option value="all">📅 Date Range: All Time</option>
+                <option value="today">Today</option>
+                <option value="week">Last 7 Days</option>
+                <option value="month">Last 30 Days</option>
+                <option value="quarter">This Quarter (90 Days)</option>
+                <option value="year">This Year (365 Days)</option>
+                <option value="custom">Custom Date Range...</option>
+              </select>
+            </div>
+
+            {/* Pipeline Stage */}
+            <div>
+              <select
+                value={filterStage}
+                onChange={(e) => setFilterStage(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-500 font-bold"
+              >
+                <option value="all">🏷️ Stage: All Stages</option>
+                <option value="new">New Lead</option>
+                <option value="contacted">Contacted</option>
+                <option value="qualified">Qualified</option>
+                <option value="proposal">Proposal Sent</option>
+                <option value="negotiation">Negotiation</option>
+                <option value="won">Won Deals</option>
+                <option value="lost">Lost Deals</option>
+              </select>
+            </div>
+
+            {/* Status Filter */}
+            <div>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-500 font-bold"
+              >
+                <option value="all">💳 Status: All Statuses</option>
+                <option value="paid">Paid / Completed</option>
+                <option value="pending">Pending / In Progress</option>
+                <option value="overdue">Overdue / Expired</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Custom Date Pickers */}
+          {filterDateRange === "custom" && (
+            <div className="flex items-center gap-3 pt-2 border-t border-slate-700/60 animate-in fade-in duration-300">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Start Date:</span>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white outline-none font-bold"
+              />
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">End Date:</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white outline-none font-bold"
+              />
+            </div>
+          )}
         </div>
 
         {/* Category Tabs */}

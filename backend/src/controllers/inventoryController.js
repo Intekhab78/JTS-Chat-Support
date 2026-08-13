@@ -283,6 +283,10 @@ export const createInventoryItem = asyncHandler(async (req, res) => {
     reorderLevel: Number(req.body.reorderLevel || 0),
     description: normalizeText(req.body.description),
     notes: normalizeText(req.body.notes),
+    batchNumber: normalizeText(req.body.batchNumber),
+    serialNumber: normalizeText(req.body.serialNumber),
+    warrantyEndDate: req.body.warrantyEndDate ? new Date(req.body.warrantyEndDate) : null,
+    expiryDate: req.body.expiryDate ? new Date(req.body.expiryDate) : null,
     isActive: req.body.isActive !== false,
     createdBy: req.user._id
   });
@@ -335,6 +339,10 @@ export const updateInventoryItem = asyncHandler(async (req, res) => {
   if (req.body.unitCost !== undefined) item.unitCost = Number(req.body.unitCost || 0);
   if (req.body.quantity !== undefined) item.quantity = Number(req.body.quantity || 0);
   if (req.body.reorderLevel !== undefined) item.reorderLevel = Number(req.body.reorderLevel || 0);
+  if (req.body.batchNumber !== undefined) item.batchNumber = normalizeText(req.body.batchNumber);
+  if (req.body.serialNumber !== undefined) item.serialNumber = normalizeText(req.body.serialNumber);
+  if (req.body.warrantyEndDate !== undefined) item.warrantyEndDate = req.body.warrantyEndDate ? new Date(req.body.warrantyEndDate) : null;
+  if (req.body.expiryDate !== undefined) item.expiryDate = req.body.expiryDate ? new Date(req.body.expiryDate) : null;
   item.description = normalizeText(req.body.description ?? item.description);
   item.notes = normalizeText(req.body.notes ?? item.notes);
   if (typeof req.body.isActive === "boolean") item.isActive = req.body.isActive;
@@ -440,7 +448,14 @@ export const createInventoryMovement = asyncHandler(async (req, res) => {
     .populate("itemId", "name sku unit quantity")
     .populate("createdBy", "name email");
 
-  if (item.reorderLevel > 0 && nextQuantity <= item.reorderLevel) {
+  // Reset 1-time alert flag if stock is restored above reorder level
+  if (nextQuantity > item.reorderLevel && item.lowStockAlertSent) {
+    item.lowStockAlertSent = false;
+  }
+
+  // Trigger 1-time Low Stock Alert ONLY when transitioning to low stock (User instruction: "only one time not daily remainder")
+  if (item.reorderLevel > 0 && nextQuantity <= item.reorderLevel && !item.lowStockAlertSent) {
+    item.lowStockAlertSent = true;
     try {
       const website = await Website.findById(item.websiteId);
       const io = getSocketServer();
@@ -499,6 +514,8 @@ export const createInventoryMovement = asyncHandler(async (req, res) => {
       console.error("Failed to trigger low stock notifications:", notifyErr);
     }
   }
+
+  await item.save();
 
   res.status(201).json({
     ...populatedMovement.toObject(),

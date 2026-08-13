@@ -5,7 +5,7 @@ import {
    Clock, AlertTriangle, X, MessageSquare, Globe, User,
    Link, Copy, CheckCheck, ChevronRight, Tag, Activity,
    ArrowUpRight, History, Settings2, Edit3, Layers, LayoutGrid, List,
-   Sliders, ArrowUp, ArrowDown, PlusCircle, Trash2, RotateCcw
+   Sliders, ArrowUp, ArrowDown, PlusCircle, Trash2, RotateCcw, FileSpreadsheet
 } from "lucide-react";
 import { api, apiUrl } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -13,6 +13,7 @@ import PaginationControls from "./PaginationControls.jsx";
 import { getPaginationMeta } from "../utils/pagination.js";
 import { cleanString } from "../utils/stringUtils.js";
 import ActivityTimeline from "./ActivityTimeline.jsx";
+import { exportToCsv } from "../utils/exportUtils.js";
 import { HeatIndicator, NBARecommendationCard, CRMStageBadge, LEAD_STATUS_STYLES } from "./CrmSystem/CrmUIComponents.jsx";
 import { Brain } from "lucide-react";
 import { useToast } from "../context/ToastContext.jsx";
@@ -587,6 +588,20 @@ export default function TicketManager({ websiteId }) {
       window.open(await apiUrl(`/api/tickets/export?token=${encodeURIComponent(token || "")}`), "_blank");
    };
 
+   const handleExportTickets = () => {
+      const columns = [
+         { key: "ticketId", label: "Ticket ID" },
+         { key: "subject", label: "Subject" },
+         { key: "status", label: "Status" },
+         { key: "priority", label: "Priority" },
+         { key: "crmStage", label: "CRM Stage" },
+         { key: "visitorName", label: "Customer Name", accessor: t => t.visitorId?.name || "N/A" },
+         { key: "visitorEmail", label: "Customer Email", accessor: t => t.visitorId?.email || "N/A" },
+         { key: "createdAt", label: "Created Date" }
+      ];
+      exportToCsv(filtered, columns, "Tickets_Master_Report");
+   };
+
    const filtered = tickets.filter(t => {
       const matchSearch = !searchTerm ||
          t.ticketId.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -654,6 +669,14 @@ export default function TicketManager({ websiteId }) {
                         List
                      </button>
                   </div>
+                  <button
+                     type="button"
+                     onClick={handleExportTickets}
+                     className="bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-all rounded-2xl px-5 py-4 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-sm"
+                  >
+                     <FileSpreadsheet size={14} />
+                     Export Tickets (.csv)
+                  </button>
                   {user && ["manager", "client", "admin"].includes(user.role) && (
                      <button
                         onClick={() => setShowManageStages(true)}

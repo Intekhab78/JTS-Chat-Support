@@ -41,6 +41,8 @@ export async function createWebsite(req, res) {
     enableKnowledgeBase: req.body.enableKnowledgeBase !== undefined ? req.body.enableKnowledgeBase : true,
     enableLiveAgent: req.body.enableLiveAgent !== undefined ? req.body.enableLiveAgent : true,
     enableAutomation: req.body.enableAutomation !== undefined ? req.body.enableAutomation : true,
+    autoCreateVoiceTicket: req.body.autoCreateVoiceTicket || false,
+    voiceSettings: req.body.voiceSettings,
     ...(Array.isArray(req.body.enabledModules) ? { enabledModules: req.body.enabledModules } : {}),
     businessHours: req.body.businessHours,
     webhooks: req.body.webhooks,
@@ -81,7 +83,8 @@ export async function updateWebsite(req, res) {
     "websiteName", "domain", "primaryColor", "accentColor", "launcherIcon",
     "welcomeMessage", "awayMessage", "position", "businessHours", "webhooks",
     "isActive", "enableChat", "enableLeadGeneration", "enableTicketing",
-    "enableKnowledgeBase", "enableLiveAgent", "enableAutomation", "currencySettings", "enabledModules"
+    "enableKnowledgeBase", "enableLiveAgent", "enableAutomation", "autoCreateVoiceTicket",
+    "voiceSettings", "currencySettings", "enabledModules"
   ];
   
   fields.forEach(field => {

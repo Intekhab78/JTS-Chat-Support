@@ -9,6 +9,7 @@ import { getOrCreateCustomer, findDefaultCrmOwner } from "./customerService.js";
 import geoip from "geoip-lite";
 import { UAParser } from "ua-parser-js";
 import { getSocketServer } from "../sockets/index.js";
+import { translateChatMessage } from "./translationService.js";
 
 export async function registerVisitor({ website, visitorToken, ipAddress, deviceInfo, name, email }) {
   // Strip literal "undefined" / "null" strings that may come from the widget
@@ -178,6 +179,22 @@ export async function addMessage({ chatSession, sender, message, attachmentUrl =
     // Gracefully handle empty message if attachment exists to satisfy Mongoose validation
     const msgText = (message && message.trim()) ? message : (attachmentUrl ? "Sent an attachment" : "");
 
+    // Real-time Multilingual Translation
+    let translation = {
+      translatedText: msgText,
+      detectedLanguage: "en",
+      detectedLanguageName: "English",
+      flagSymbol: "🇬🇧"
+    };
+
+    if (msgText && msgText !== "Sent an attachment") {
+      try {
+        translation = await translateChatMessage({ text: msgText, targetLang: "en" });
+      } catch (tErr) {
+        console.error("[Translation Trigger Error]", tErr);
+      }
+    }
+
     logger.log(`[SERVICE_TRACE]: Attempting to create message for session ${chatSession._id} from ${sender}`);
     const savedMessage = await Message.create({
       sessionId: chatSession._id,
@@ -185,7 +202,11 @@ export async function addMessage({ chatSession, sender, message, attachmentUrl =
       message: msgText,
       attachmentUrl,
       attachmentType,
-      agentId: agentId || null
+      agentId: agentId || null,
+      translatedText: translation.translatedText || msgText,
+      detectedLanguage: translation.detectedLanguage || "en",
+      detectedLanguageName: translation.detectedLanguageName || "English",
+      flagSymbol: translation.flagSymbol || "🇬🇧"
     });
 
     logger.log(`[SERVICE_TRACE]: Message created successfully: ${savedMessage._id}`);

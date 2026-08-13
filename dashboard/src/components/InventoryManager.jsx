@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Boxes, Eye, Edit2, Trash2, Plus, X, Save, ArrowDownToLine, ArrowUpFromLine, RefreshCw, SlidersHorizontal, Package, MoreHorizontal, Search } from "lucide-react";
+import { Boxes, Eye, Edit2, Trash2, Plus, X, Save, ArrowDownToLine, ArrowUpFromLine, RefreshCw, SlidersHorizontal, Package, MoreHorizontal, Search, FileSpreadsheet, FileText, Truck, Sparkles } from "lucide-react";
 import { api } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import MasterManager from "./MasterManager.jsx";
 import MasterModal from "./MasterModal.jsx";
 import { formatCurrency } from "../utils/currencyFormatter.js";
+import { exportToCsv, exportToPDF } from "../utils/exportUtils.js";
+import { hasModule } from "../utils/planAccess.js";
+import InvoiceGeneratorModal from "./InvoiceGeneratorModal.jsx";
 
 const initialItemForm = {
   name: "",
@@ -23,6 +26,10 @@ const initialItemForm = {
   unit: "pcs",
   unitId: "",
   notes: "",
+  batchNumber: "",
+  serialNumber: "",
+  warrantyEndDate: "",
+  expiryDate: "",
   preferredSupplierId: "",
   supplierId: "",
   isActive: true
@@ -107,6 +114,14 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
   const [showViewDrawer, setShowViewDrawer] = useState(false);
   const [movementSearch, setMovementSearch] = useState("");
   const [movementTypeFilter, setMovementTypeFilter] = useState("all");
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [selectedInvoiceItem, setSelectedInvoiceItem] = useState(null);
+
+  // Master Table Multi-Filter States
+  const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [stockStatusFilter, setStockStatusFilter] = useState("all");
+  const [expiryFilter, setExpiryFilter] = useState("all");
 
   const selectedItem = useMemo(() => items.find((item) => item._id === selectedItemId) || null, [items, selectedItemId]);
   const lowStockCount = useMemo(() => items.filter((item) => Number(item.quantity || 0) <= Number(item.reorderLevel || 0)).length, [items]);
@@ -115,6 +130,116 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
   const movementInCount = useMemo(() => movements.filter(m => m.type === "in").length, [movements]);
   const movementOutCount = useMemo(() => movements.filter(m => m.type === "out").length, [movements]);
   const movementAdjustCount = useMemo(() => movements.filter(m => m.type === "adjust").length, [movements]);
+
+  const expiringCount = useMemo(() => {
+    return items.filter(item => {
+      if (!item.expiryDate) return false;
+      const daysLeft = Math.ceil((new Date(item.expiryDate) - new Date()) / (1000 * 60 * 60 * 24));
+      return daysLeft <= 30;
+    }).length;
+  }, [items]);
+
+  const filteredItems = useMemo(() => {
+    return items.filter(item => {
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase().trim();
+        const name = item.name?.toLowerCase() || "";
+        const sku = item.sku?.toLowerCase() || "";
+        const cat = (item.categoryId?.name || item.category || "").toLowerCase();
+        const brand = (item.brandId?.name || item.brand || "").toLowerCase();
+        const batch = item.batchNumber?.toLowerCase() || "";
+        const serial = item.serialNumber?.toLowerCase() || "";
+        if (!name.includes(q) && !sku.includes(q) && !cat.includes(q) && !brand.includes(q) && !batch.includes(q) && !serial.includes(q)) {
+          return false;
+        }
+      }
+      if (categoryFilter !== "all") {
+        const catName = item.categoryId?.name || item.category || "";
+        if (catName !== categoryFilter) return false;
+      }
+      if (stockStatusFilter !== "all") {
+        const qty = Number(item.quantity || 0);
+        const reorder = Number(item.reorderLevel || 0);
+        if (stockStatusFilter === "out_of_stock" && qty > 0) return false;
+        if (stockStatusFilter === "low_stock" && (qty === 0 || qty > reorder)) return false;
+        if (stockStatusFilter === "healthy" && qty <= reorder) return false;
+      }
+      if (expiryFilter !== "all") {
+        if (!item.expiryDate) {
+          if (expiryFilter !== "non_expiring") return false;
+        } else {
+          const expDate = new Date(item.expiryDate);
+          const today = new Date();
+          const daysLeft = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+          if (expiryFilter === "expired" && daysLeft > 0) return false;
+          if (expiryFilter === "expiring_soon" && (daysLeft <= 0 || daysLeft > 30)) return false;
+          if (expiryFilter === "healthy" && daysLeft <= 30) return false;
+        }
+      }
+      return true;
+    });
+  }, [items, searchQuery, categoryFilter, stockStatusFilter, expiryFilter]);
+
+  const handleExportInventoryCSV = () => {
+    const columns = [
+      { key: "name", label: "Item Name" },
+      { key: "sku", label: "SKU" },
+      { key: "category", label: "Category", accessor: i => i.categoryId?.name || i.category || "General" },
+      { key: "brand", label: "Brand", accessor: i => i.brandId?.name || i.brand || "N/A" },
+      { key: "batchNumber", label: "Batch No" },
+      { key: "serialNumber", label: "Serial No" },
+      { key: "quantity", label: "Stock Quantity" },
+      { key: "unit", label: "Unit", accessor: i => i.unitId?.name || i.unit || "pcs" },
+      { key: "unitCost", label: "Unit Cost (AED)" },
+      { key: "reorderLevel", label: "Reorder Threshold" },
+      { key: "supplier", label: "Supplier", accessor: i => i.supplierId?.companyName || "N/A" }
+    ];
+    exportToCsv(filteredItems, columns, "Inventory_Master_Report");
+  };
+
+  const handleExportInventoryPDF = () => {
+    if (!filteredItems || filteredItems.length === 0) {
+      alert("No inventory records found for export.");
+      return;
+    }
+    const exportData = filteredItems.map((item, idx) => ({
+      "#": idx + 1,
+      "ITEM NAME": item.name || "-",
+      "SKU": item.sku || "-",
+      "CATEGORY": item.categoryId?.name || item.category || "General",
+      "BRAND": item.brandId?.name || item.brand || "-",
+      "STOCK": `${item.quantity || 0} ${item.unitId?.name || item.unit || "pcs"}`,
+      "REORDER": item.reorderLevel || 0,
+      "UNIT COST": formatCurrency(item.unitCost || 0),
+      "VALUATION": formatCurrency((item.unitCost || 0) * (item.quantity || 0)),
+      "BATCH NO": item.batchNumber || "-",
+      "EXPIRY": item.expiryDate ? new Date(item.expiryDate).toLocaleDateString() : "N/A"
+    }));
+
+    exportToPDF(
+      exportData,
+      `Inventory_Master_Report_${new Date().toISOString().slice(0, 10)}.pdf`,
+      "INVENTORY MASTER & STOCK VALUATION REPORT"
+    );
+  };
+
+  const generateBatchNumber = () => {
+    const yearMonth = new Date().toISOString().slice(0, 7).replace("-", "");
+    const randomNum = Math.floor(1000 + Math.random() * 9000);
+    const code = `BATCH-${yearMonth}-${randomNum}`;
+    setItemForm(current => ({ ...current, batchNumber: code }));
+  };
+
+  const generateSerialNumber = () => {
+    const year = new Date().getFullYear();
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let randomStr = "";
+    for (let i = 0; i < 6; i++) {
+      randomStr += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    const code = `SN-${year}-${randomStr}`;
+    setItemForm(current => ({ ...current, serialNumber: code }));
+  };
 
   async function loadData() {
     if (!websiteId) {
@@ -290,6 +415,10 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
       unit: item.unit || "pcs",
       unitId: item.unitId?._id || item.unitId || "",
       notes: item.notes || "",
+      batchNumber: item.batchNumber || "",
+      serialNumber: item.serialNumber || "",
+      warrantyEndDate: item.warrantyEndDate ? String(item.warrantyEndDate).split("T")[0] : "",
+      expiryDate: item.expiryDate ? String(item.expiryDate).split("T")[0] : "",
       preferredSupplierId: item.preferredSupplierId?._id || item.preferredSupplierId || item.supplierId?._id || item.supplierId || "",
       supplierId: item.supplierId?._id || item.supplierId || item.preferredSupplierId?._id || item.preferredSupplierId || "",
       isActive: item.isActive !== false
@@ -302,6 +431,7 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
     try {
       setError("");
       setSuccess("");
+      const currentEditingId = editingId;
       const payload = {
         ...itemForm,
         websiteId,
@@ -315,7 +445,11 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
         brandId: itemForm.brandId || null,
         unitId: itemForm.unitId || null,
         supplierId: itemForm.supplierId || itemForm.preferredSupplierId || null,
-        preferredSupplierId: itemForm.preferredSupplierId || itemForm.supplierId || null
+        preferredSupplierId: itemForm.preferredSupplierId || itemForm.supplierId || null,
+        batchNumber: itemForm.batchNumber || "",
+        serialNumber: itemForm.serialNumber || "",
+        warrantyEndDate: itemForm.warrantyEndDate || null,
+        expiryDate: itemForm.expiryDate || null
       };
       if (editingId) {
         await api(`/api/inventory/items/${editingId}`, { method: "PATCH", body: JSON.stringify(payload) });
@@ -326,6 +460,9 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
       }
       resetItemForm();
       await loadData();
+      if (currentEditingId && selectedItemId === currentEditingId) {
+        await loadItemView(currentEditingId);
+      }
     } catch (err) {
       setError(err.message || "Failed to save item.");
     }
@@ -411,7 +548,7 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
           {success ? <div className="p-4 bg-emerald-50 text-emerald-700 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-emerald-100">{success}</div> : null}
           {forcedTab === "master" ? (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="rounded-[28px] border border-indigo-100 bg-[linear-gradient(135deg,#eef2ff_0%,#ffffff_100%)] px-5 py-5 shadow-[0_24px_60px_-42px_rgba(79,70,229,0.9)]">
                   <p className="text-[10px] font-black uppercase tracking-[0.24em] text-indigo-500">Inventory Count</p>
                   <div className="mt-3 flex items-end justify-between gap-3">
@@ -432,6 +569,89 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                     <p className="text-2xl font-black tracking-tight text-slate-900">{formatCurrency(inventoryValue)}</p>
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Live estimate</p>
                   </div>
+                </div>
+                <div className="rounded-[28px] border border-rose-100 bg-[linear-gradient(135deg,#fff1f2_0%,#ffffff_100%)] px-5 py-5 shadow-[0_24px_60px_-42px_rgba(244,63,94,0.8)]">
+                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-rose-600">Expiry Risk Alert</p>
+                  <div className="mt-3 flex items-end justify-between gap-3">
+                    <p className="text-3xl font-black tracking-tight text-slate-900">{expiringCount}</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">&lt;30 Days / Expired</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* MULTI-FILTER CONSOLE BAR */}
+              <div className="rounded-[28px] border border-slate-200/80 bg-white p-5 shadow-sm space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-2">
+                    <SlidersHorizontal size={16} className="text-indigo-600" />
+                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-wide">Multi-Filter & Report Console</h4>
+                    <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-black">{filteredItems.length} Records</span>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={handleExportInventoryPDF}
+                      className="rounded-2xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-all px-4 py-2.5 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+                    >
+                      <FileText size={14} /> Export PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExportInventoryCSV}
+                      className="rounded-2xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-all px-4 py-2.5 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+                    >
+                      <FileSpreadsheet size={14} /> Export CSV
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* Search Bar */}
+                  <div className="relative">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search Item, SKU, Batch..."
+                      className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 placeholder-slate-400 outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                    />
+                  </div>
+
+                  {/* Category Filter */}
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 transition-all"
+                  >
+                    <option value="all">All Categories ({masters.categories.length})</option>
+                    {masters.categories.map(c => <option key={c._id} value={c.name}>{c.name}</option>)}
+                  </select>
+
+                  {/* Stock Status Filter */}
+                  <select
+                    value={stockStatusFilter}
+                    onChange={(e) => setStockStatusFilter(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 transition-all"
+                  >
+                    <option value="all">All Stock Statuses</option>
+                    <option value="healthy">🟢 Healthy Stock</option>
+                    <option value="low_stock">🟠 Low Stock Alert</option>
+                    <option value="out_of_stock">🔴 Out of Stock</option>
+                  </select>
+
+                  {/* Expiry Filter */}
+                  <select
+                    value={expiryFilter}
+                    onChange={(e) => setExpiryFilter(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 transition-all"
+                  >
+                    <option value="all">All Expiry Statuses</option>
+                    <option value="expired">🔴 Expired Stock</option>
+                    <option value="expiring_soon">🟠 Expiring &lt;30 Days</option>
+                    <option value="healthy">🟢 Healthy Expiry</option>
+                    <option value="non_expiring">♾️ Non-Perishable</option>
+                  </select>
                 </div>
               </div>
 
@@ -538,6 +758,53 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                     <input type="number" min="0" value={itemForm.reorderLevel} onChange={(event) => setItemForm((current) => ({ ...current, reorderLevel: event.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500" />
                   </label>
                   <label className="space-y-2 block">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Batch Number</span>
+                      <button
+                        type="button"
+                        onClick={generateBatchNumber}
+                        className="text-[8px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-lg transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
+                      >
+                        <Sparkles size={10} /> Auto-Generate
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={itemForm.batchNumber || ""}
+                      onChange={(event) => setItemForm((current) => ({ ...current, batchNumber: event.target.value }))}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500"
+                      placeholder="e.g. BATCH-202608-4912"
+                    />
+                  </label>
+
+                  <label className="space-y-2 block">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Serial Number</span>
+                      <button
+                        type="button"
+                        onClick={generateSerialNumber}
+                        className="text-[8px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-lg transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
+                      >
+                        <Sparkles size={10} /> Auto-Generate
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={itemForm.serialNumber || ""}
+                      onChange={(event) => setItemForm((current) => ({ ...current, serialNumber: event.target.value }))}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500"
+                      placeholder="e.g. SN-2026-X892K4"
+                    />
+                  </label>
+                  <label className="space-y-2 block">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Warranty End Date</span>
+                    <input type="date" value={itemForm.warrantyEndDate ? itemForm.warrantyEndDate.split("T")[0] : ""} onChange={(event) => setItemForm((current) => ({ ...current, warrantyEndDate: event.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500" />
+                  </label>
+                  <label className="space-y-2 block">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Expiry Date</span>
+                    <input type="date" value={itemForm.expiryDate ? itemForm.expiryDate.split("T")[0] : ""} onChange={(event) => setItemForm((current) => ({ ...current, expiryDate: event.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500" />
+                  </label>
+                  <label className="space-y-2 block">
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Preferred Supplier</span>
                     <select value={itemForm.preferredSupplierId} onChange={(event) => setItemForm((current) => ({ ...current, preferredSupplierId: event.target.value, supplierId: event.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500">
                       <option value="">No Automatic PO</option>
@@ -581,8 +848,24 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                               <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-500">Inventory Table</p>
                               <h4 className="mt-2 text-xl font-black tracking-tight text-slate-900">Clean item register with quick actions</h4>
                             </div>
-                            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                              Click a row to preview details
+                            <div className="flex items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={handleExportInventoryPDF}
+                                className="rounded-2xl border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-all px-4 py-2.5 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-sm cursor-pointer"
+                              >
+                                <FileText size={14} /> Export PDF
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleExportInventoryCSV}
+                                className="rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-all px-4 py-2.5 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-sm cursor-pointer"
+                              >
+                                <FileSpreadsheet size={14} /> Export CSV
+                              </button>
+                              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                                Click row to view
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -601,7 +884,7 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                              {items.map((item) => {
+                              {filteredItems.map((item) => {
                                 const lowStock = Number(item.quantity || 0) <= Number(item.reorderLevel || 0);
                                 const selected = selectedItemId === item._id;
                                 return (
@@ -706,7 +989,7 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                         className="absolute inset-0" 
                         onClick={() => setShowViewDrawer(false)}
                       />
-                      <div className="relative w-full max-w-2xl bg-white rounded-[36px] shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh] overflow-hidden">
+                      <div className="relative w-full max-w-4xl bg-white rounded-[36px] shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh] overflow-hidden">
                         {/* Header */}
                         <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-slate-50/50">
                           <div>
@@ -789,7 +1072,7 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                                 </div>
                               </div>
 
-                              {/* PRICING, STOCK & SUPPLIER DETAILS */}
+                              {/* PRICING, BATCH, SERIAL, WARRANTY & EXPIRY DETAILS */}
                               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                 <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
                                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Unit Cost (Price)</p>
@@ -800,8 +1083,20 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                                   <p className="mt-1 text-sm font-black text-slate-900">{viewData.item.reorderLevel} {viewData.item.unitId?.name || viewData.item.unit}</p>
                                 </div>
                                 <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
-                                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Date Added / Expiry</p>
-                                  <p className="mt-1 text-sm font-black text-slate-900">{formatDate(viewData.item.createdAt)}</p>
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Batch Number</p>
+                                  <p className="mt-1 text-sm font-black text-slate-900">{viewData.item.batchNumber || "N/A"}</p>
+                                </div>
+                                <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Serial Number</p>
+                                  <p className="mt-1 text-sm font-black text-slate-900">{viewData.item.serialNumber || "N/A"}</p>
+                                </div>
+                                <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Warranty End Date</p>
+                                  <p className="mt-1 text-sm font-black text-slate-900">{viewData.item.warrantyEndDate ? formatDate(viewData.item.warrantyEndDate) : "N/A"}</p>
+                                </div>
+                                <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Expiry Date</p>
+                                  <p className="mt-1 text-sm font-black text-rose-600 font-extrabold">{viewData.item.expiryDate ? formatDate(viewData.item.expiryDate) : "N/A"}</p>
                                 </div>
                               </div>
 
@@ -865,13 +1160,96 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                         </div>
 
                         {/* Modal Footer */}
-                        <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-end">
+                        <div className="p-5 border-t border-slate-100 bg-slate-50/80 flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!viewData?.item) return;
+                                const item = viewData.item;
+                                const exportRows = [
+                                  { Parameter: "Item Name", Value: item.name || "-" },
+                                  { Parameter: "SKU Code", Value: item.sku || "-" },
+                                  { Parameter: "Category", Value: item.categoryId?.name || item.category || "General" },
+                                  { Parameter: "Brand", Value: item.brandId?.name || item.brand || "-" },
+                                  { Parameter: "Available Quantity", Value: `${item.quantity || 0} ${item.unitId?.name || item.unit || "pcs"}` },
+                                  { Parameter: "Reorder Threshold", Value: `${item.reorderLevel || 0} ${item.unitId?.name || item.unit || "pcs"}` },
+                                  { Parameter: "Unit Cost", Value: formatCurrency(item.unitCost || 0) },
+                                  { Parameter: "Asset Valuation", Value: formatCurrency((item.unitCost || 0) * (item.quantity || 0)) },
+                                  { Parameter: "Batch Number", Value: item.batchNumber || "N/A" },
+                                  { Parameter: "Serial Number", Value: item.serialNumber || "N/A" },
+                                  { Parameter: "Warranty End Date", Value: item.warrantyEndDate ? formatDate(item.warrantyEndDate) : "N/A" },
+                                  { Parameter: "Expiry Date", Value: item.expiryDate ? formatDate(item.expiryDate) : "N/A" },
+                                  { Parameter: "Preferred Supplier", Value: item.supplierId?.companyName || "N/A" }
+                                ];
+                                exportToCsv(exportRows, `Item_Record_${item.sku || "SKU"}_${new Date().toISOString().slice(0, 10)}`);
+                              }}
+                              className="px-3.5 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-extrabold transition-all flex items-center gap-1.5 active:scale-95"
+                              title="Export item profile to CSV"
+                            >
+                              <FileSpreadsheet size={14} /> Item CSV
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!viewData?.item) return;
+                                const item = viewData.item;
+                                const exportRows = [
+                                  { Parameter: "Item Name", Value: item.name || "-" },
+                                  { Parameter: "SKU Code", Value: item.sku || "-" },
+                                  { Parameter: "Category", Value: item.categoryId?.name || item.category || "General" },
+                                  { Parameter: "Brand", Value: item.brandId?.name || item.brand || "-" },
+                                  { Parameter: "Available Quantity", Value: `${item.quantity || 0} ${item.unitId?.name || item.unit || "pcs"}` },
+                                  { Parameter: "Reorder Threshold", Value: `${item.reorderLevel || 0} ${item.unitId?.name || item.unit || "pcs"}` },
+                                  { Parameter: "Unit Cost", Value: formatCurrency(item.unitCost || 0) },
+                                  { Parameter: "Asset Valuation", Value: formatCurrency((item.unitCost || 0) * (item.quantity || 0)) },
+                                  { Parameter: "Batch Number", Value: item.batchNumber || "N/A" },
+                                  { Parameter: "Serial Number", Value: item.serialNumber || "N/A" },
+                                  { Parameter: "Warranty End Date", Value: item.warrantyEndDate ? formatDate(item.warrantyEndDate) : "N/A" },
+                                  { Parameter: "Expiry Date", Value: item.expiryDate ? formatDate(item.expiryDate) : "N/A" },
+                                  { Parameter: "Preferred Supplier", Value: item.supplierId?.companyName || "N/A" }
+                                ];
+                                exportToPDF(exportRows, `Item_Record_${item.sku || "SKU"}_${new Date().toISOString().slice(0, 10)}`, `FULL ITEM AUDIT PROFILE: ${item.name}`);
+                              }}
+                              className="px-3.5 py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-extrabold transition-all flex items-center gap-1.5 active:scale-95"
+                              title="Export item profile to PDF"
+                            >
+                              <FileText size={14} /> Item PDF
+                            </button>
+
+                            {user?.role === "admin" || user?.role === "client" || user?.role === "manager" || hasModule(user, "vat") || hasModule(user, "inventory") ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedInvoiceItem(viewData?.item);
+                                    setShowInvoiceModal(true);
+                                  }}
+                                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white text-xs font-extrabold transition-all shadow-sm hover:shadow-md flex items-center gap-2 active:scale-95"
+                                >
+                                  <FileText size={15} /> Issue Tax Invoice
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedInvoiceItem(viewData?.item);
+                                    setShowInvoiceModal(true);
+                                  }}
+                                  className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-extrabold transition-all flex items-center gap-2 shadow-xs active:scale-95"
+                                >
+                                  <Truck size={15} className="text-indigo-600" /> Delivery Challan
+                                </button>
+                              </>
+                            ) : null}
+                          </div>
+
                           <button
                             type="button"
                             onClick={() => setShowViewDrawer(false)}
-                            className="px-6 py-3 rounded-2xl bg-slate-900 hover:bg-black text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-md"
+                            className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-extrabold transition-all shadow-sm active:scale-95"
                           >
-                            Close Modal
+                            Close
                           </button>
                         </div>
                       </div>
@@ -1103,6 +1481,12 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
             <MasterManager type="tax" websiteId={websiteId} title="Inventory Master" label="VAT Rate" />
           ) : null}
         </div>
+
+        <InvoiceGeneratorModal
+          isOpen={showInvoiceModal}
+          onClose={() => setShowInvoiceModal(false)}
+          defaultItem={selectedInvoiceItem}
+        />
       </div>
     </div>
   );

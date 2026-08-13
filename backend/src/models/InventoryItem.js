@@ -110,6 +110,39 @@ const inventoryItemSchema = new mongoose.Schema(
       default: null
     },
 
+    // Batch, Serial, Warranty & Expiry tracking
+    batchNumber: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    serialNumber: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    warrantyEndDate: {
+      type: Date,
+      default: null
+    },
+    expiryDate: {
+      type: Date,
+      default: null
+    },
+    lowStockAlertSent: {
+      type: Boolean,
+      default: false
+    },
+    vatRate: {
+      type: Number,
+      default: 5
+    },
+    vatSlab: {
+      type: String,
+      enum: ["standard_5", "zero_rated_0", "exempt_0"],
+      default: "standard_5"
+    },
+
     // Snake_case foreign keys as requested
     category_id: {
       type: mongoose.Schema.Types.ObjectId,

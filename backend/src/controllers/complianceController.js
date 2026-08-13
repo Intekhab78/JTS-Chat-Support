@@ -614,9 +614,22 @@ export const getComplianceReportData = asyncHandler(async (req, res) => {
   }
 
   if (startDate || endDate) {
-    query.createdAt = {};
-    if (startDate) query.createdAt.$gte = new Date(startDate);
-    if (endDate) query.createdAt.$lte = new Date(endDate);
+    const start = startDate ? new Date(startDate) : new Date(0);
+    const end = endDate ? new Date(endDate) : new Date(8640000000000000);
+    if (endDate) end.setHours(23, 59, 59, 999);
+
+    const dateQuery = [
+      { createdAt: { $gte: start, $lte: end } },
+      { vatFilingDueDate: { $gte: start, $lte: end } },
+      { corporateTaxDueDate: { $gte: start, $lte: end } },
+      { tradeLicenseExpiryDate: { $gte: start, $lte: end } }
+    ];
+    if (query.$or) {
+      query.$and = [{ $or: query.$or }, { $or: dateQuery }];
+      delete query.$or;
+    } else {
+      query.$or = dateQuery;
+    }
   }
 
   const now = new Date();
@@ -764,6 +777,36 @@ export const getComplianceReportData = asyncHandler(async (req, res) => {
       "Work Status": c.workStatus || "Pending",
       "Consultant": c.ownerId?.name || "Unassigned"
     }));
+  } else if (reportType === "renewals_health") {
+    reportTitle = "360° Compliance Health & Risk Assessment Matrix Report";
+    columns = ["Company Name", "TRN / License No", "Service Type", "Overall Health Score", "Risk Tier", "Work Status", "Consultant"];
+    const clients = await Customer.find(query).populate("ownerId", "name").sort({ name: 1 }).lean();
+    rows = clients.map(c => {
+      let riskTier = "Low Risk (Healthy)";
+      let healthScore = "95%";
+
+      const hasOverdueVat = c.vatFilingDueDate && new Date(c.vatFilingDueDate) < now && c.workStatus !== "Completed";
+      const hasOverdueCt = c.corporateTaxDueDate && new Date(c.corporateTaxDueDate) < now && c.workStatus !== "Completed";
+      const hasExpiredTl = c.tradeLicenseExpiryDate && new Date(c.tradeLicenseExpiryDate) < now;
+
+      if (hasOverdueVat || hasOverdueCt || hasExpiredTl) {
+        riskTier = "High Risk (Critical Overdue)";
+        healthScore = "35%";
+      } else if (c.workStatus === "Pending") {
+        riskTier = "Medium Risk (Pending Action)";
+        healthScore = "70%";
+      }
+
+      return {
+        "Company Name": c.companyName || c.name,
+        "TRN / License No": c.trn || c.tradeLicenseNumber || "N/A",
+        "Service Type": c.serviceType,
+        "Overall Health Score": healthScore,
+        "Risk Tier": riskTier,
+        "Work Status": c.workStatus || "Pending",
+        "Consultant": c.ownerId?.name || "Unassigned"
+      };
+    });
   }
 
   res.json({

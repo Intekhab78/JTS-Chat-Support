@@ -40,8 +40,8 @@ export class AiProviderManager {
               };
             }
 
-            let resolvedModel = modelName || "gemini-1.5-flash";
-            const candidateModels = [resolvedModel, "gemini-1.5-flash", "gemini-2.0-flash", "gemini-2.5-flash"];
+            let resolvedModel = modelName || "gemini-flash-lite-latest";
+            const candidateModels = [resolvedModel, "gemini-flash-lite-latest", "gemini-flash-latest", "gemini-2.0-flash-lite", "gemini-2.0-flash"];
 
             console.log(`[LLM Driver - Google Gemini] Querying real Gemini AI model...`);
             const latencyStart = Date.now();

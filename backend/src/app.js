@@ -54,6 +54,7 @@ import enterpriseBiAnalyticsRoutes from "./routes/enterpriseBiAnalyticsRoutes.js
 import multiOrganizationRoutes from "./routes/multiOrganizationRoutes.js";
 import missionControlRoutes from "./routes/missionControlRoutes.js";
 import reminderRoutes from "./routes/reminderRoutes.js";
+import voiceCallRoutes from "./routes/voiceCallRoutes.js";
 import healthRoutes from "./routes/health.js";
 import { env } from "./config/env.js";
 
@@ -72,6 +73,8 @@ export function createApp() {
     "/api/tickets/submit",
     "/api/tickets/public/",
     "/api/tracking/",
+    "/api/voice/",
+    "/api/voice-calls/",
     "/uploads/"
   ];
 
@@ -198,6 +201,9 @@ export function createApp() {
   app.use("/api/canned-responses", cannedResponseRoutes);
   app.use("/api/notifications", notificationRoutes);
   app.use("/api/categories", categoryRoutes);
+  app.use("/api/flows", flowRoutes);
+  app.use("/api/voice-calls", voiceCallRoutes);
+  app.use("/api/voice", voiceCallRoutes);
   app.use("/api/departments", departmentRoutes);
   app.use("/api/crm", crmRoutes);
   app.use("/api/crm/reminders", reminderRoutes);

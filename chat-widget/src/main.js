@@ -117,7 +117,29 @@ import "./style.css";
           <div id="csw-header-title">Support Chat</div>
           <div id="csw-header-subtitle">We usually reply in a few minutes</div>
         </div>
+        <button id="csw-voice-btn" title="Call 24/7 AI Voice Agent" type="button" style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.3); color:#fff; cursor:pointer; font-size:11px; padding:6px 12px; border-radius:12px; display:inline-flex; align-items:center; gap:5px; font-weight:800; transition:all 0.2s; white-space:nowrap; margin-right:4px;">
+          📞 Call AI
+        </button>
         <button id="csw-close-chat" title="End Chat">&times;</button>
+      </div>
+
+      <!-- VOICE CALL OVERLAY -->
+      <div id="csw-voice-overlay" style="display:none; position:absolute; inset:0; background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%); z-index:9999; padding:24px; color:#fff; flex-direction:column; align-items:center; justify-content:center; text-align:center;">
+        <div style="width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg,#10b981,#06b6d4); display:flex; align-items:center; justify-content:center; font-size:28px; margin-bottom:16px; box-shadow:0 0 30px rgba(16,185,129,0.5);">
+          🎙️
+        </div>
+        <div style="font-size:18px; font-weight:900; margin-bottom:6px; letter-spacing:-0.02em;">24/7 AI Telephone Voice Agent</div>
+        <div style="font-size:11px; color:#cbd5e1; margin-bottom:20px; line-height:1.5; max-width:280px;">Speak directly with our AI Agent for instant support, visa status, or billing queries.</div>
+        
+        <a href="tel:+971508492019" style="display:inline-flex; align-items:center; justify-content:center; gap:8px; width:100%; max-width:260px; background:linear-gradient(135deg,#10b981,#059669); color:#fff; font-weight:800; font-size:12px; text-decoration:none; padding:13px 18px; border-radius:14px; box-shadow:0 10px 25px rgba(16,185,129,0.4); margin-bottom:10px;">
+          📞 Phone Call: +971-50-8492019
+        </a>
+        <button id="csw-start-web-call" type="button" style="width:100%; max-width:260px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2); color:#fff; font-weight:800; font-size:12px; padding:12px 18px; border-radius:14px; cursor:pointer; transition:all 0.2s;">
+          🎙️ Web Browser Voice Call
+        </button>
+        <button id="csw-close-voice" type="button" style="margin-top:18px; background:none; border:none; color:#94a3b8; font-size:12px; font-weight:700; cursor:pointer; text-decoration:underline;">
+          Close & Back to Chat
+        </button>
       </div>
       <div id="csw-prechat">
         <div style="font-size:14px; color:var(--csw-text-muted); margin-bottom:12px; line-height:1.6">
@@ -158,6 +180,385 @@ import "./style.css";
     if (isPanelOpen) {
       panel.classList.add("open");
     }
+
+    const voiceBtn = panel.querySelector("#csw-voice-btn");
+    const voiceOverlay = panel.querySelector("#csw-voice-overlay");
+    const closeVoiceBtn = panel.querySelector("#csw-close-voice");
+    const startWebCallBtn = panel.querySelector("#csw-start-web-call");
+
+    function renderDefaultVoiceUI() {
+      if (!voiceOverlay) return;
+      voiceOverlay.innerHTML = `
+        <div style="width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg,#10b981,#06b6d4); display:flex; align-items:center; justify-content:center; font-size:28px; margin-bottom:16px; box-shadow:0 0 30px rgba(16,185,129,0.5);">
+          🎙️
+        </div>
+        <div style="font-size:18px; font-weight:900; margin-bottom:6px; letter-spacing:-0.02em;">24/7 AI Telephone Voice Agent</div>
+        <div style="font-size:11px; color:#cbd5e1; margin-bottom:20px; line-height:1.5; max-width:280px;">Speak directly with our AI Agent for instant support, visa status, or billing queries.</div>
+        
+        <a href="tel:+971508492019" style="display:inline-flex; align-items:center; justify-content:center; gap:8px; width:100%; max-width:260px; background:linear-gradient(135deg,#10b981,#059669); color:#fff; font-weight:800; font-size:12px; text-decoration:none; padding:13px 18px; border-radius:14px; box-shadow:0 10px 25px rgba(16,185,129,0.4); margin-bottom:10px;">
+          📞 Phone Call: +971-50-8492019
+        </a>
+        <button id="csw-start-web-call" type="button" style="width:100%; max-width:260px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2); color:#fff; font-weight:800; font-size:12px; padding:12px 18px; border-radius:14px; cursor:pointer; transition:all 0.2s;">
+          🎙️ Web Browser Voice Call
+        </button>
+        <button id="csw-close-voice" type="button" style="margin-top:18px; background:none; border:none; color:#94a3b8; font-size:12px; font-weight:700; cursor:pointer; text-decoration:underline;">
+          Close & Back to Chat
+        </button>
+      `;
+      bindVoiceOverlayEvents();
+    }
+
+    function bindVoiceOverlayEvents() {
+      const btnClose = voiceOverlay.querySelector("#csw-close-voice");
+      const btnStart = voiceOverlay.querySelector("#csw-start-web-call");
+
+      if (btnClose) {
+        btnClose.onclick = () => {
+          voiceOverlay.style.display = "none";
+        };
+      }
+
+      if (btnStart) {
+        btnStart.onclick = async () => {
+          try {
+            voiceOverlay.innerHTML = `
+              <!-- Compact Top Glass Navigation Bar -->
+              <div style="width:100%; display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; padding:0 4px;">
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <span style="width:8px; height:8px; border-radius:50%; background:#10b981; box-shadow:0 0 10px #10b981;"></span>
+                  <span style="font-size:10px; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:0.08em;">LIVE AI VOICE SESSION</span>
+                </div>
+                <button id="csw-close-live-top-btn" type="button" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:#cbd5e1; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:12px; transition:all 0.2s;">✕</button>
+              </div>
+
+              <!-- Animated Soundwave Avatar Sphere -->
+              <div style="position:relative; margin-bottom:8px; display:flex; flex-direction:column; align-items:center;">
+                <div style="width:70px; height:70px; border-radius:50%; background:radial-gradient(circle at 30% 30%, #38bdf8, #10b981, #6366f1); display:flex; align-items:center; justify-content:center; font-size:32px; animation:csw-voice-pulse-ring 2.5s infinite ease-in-out; margin:0 auto; cursor:pointer; border:2px solid rgba(255,255,255,0.3);">
+                  🎙️
+                </div>
+                
+                <!-- Audio Frequency Equalizer Waves -->
+                <div style="display:flex; align-items:flex-end; gap:4px; height:18px; margin-top:6px;">
+                  <div class="csw-voice-eq-bar"></div>
+                  <div class="csw-voice-eq-bar"></div>
+                  <div class="csw-voice-eq-bar"></div>
+                  <div class="csw-voice-eq-bar"></div>
+                  <div class="csw-voice-eq-bar"></div>
+                </div>
+              </div>
+
+              <!-- Sleek Glass Status Pill -->
+              <div id="csw-voice-status-badge" style="display:inline-flex; align-items:center; gap:6px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.3); color:#34d399; font-size:9px; font-weight:800; padding:4px 14px; border-radius:20px; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px; backdrop-filter:blur(10px);">
+                <span style="width:6px; height:6px; border-radius:50%; background:#34d399; display:inline-block; box-shadow:0 0 8px #34d399;"></span>
+                MIC LISTENING... (SPEAK NOW)
+              </div>
+
+              <!-- Full Scrollable Voice Conversation History Feed -->
+              <div id="csw-voice-conversation-feed" style="width:100%; max-width:320px; height:240px; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:10px; margin-bottom:10px; background:rgba(15,23,42,0.5); border:1px solid rgba(255,255,255,0.08); border-radius:18px; backdrop-filter:blur(16px);">
+                <div style="text-align:center; padding:30px 10px; color:#94a3b8; font-size:11px; font-weight:600;">
+                  <span style="font-size:22px; display:block; margin-bottom:6px;">🎙️</span>
+                  Live AI Voice Call Connected.<br/><span style="color:#a7f3d0; font-size:10px; font-weight:700;">Speak your query into your microphone!</span>
+                </div>
+              </div>
+
+              <!-- Apple-Style Action Dock -->
+              <div style="display:flex; gap:8px; width:100%; max-width:320px;">
+                <button id="csw-speak-mic-btn" type="button" style="flex:1.2; background:linear-gradient(135deg,#10b981,#059669); color:#fff; font-weight:800; font-size:11px; padding:11px 14px; border-radius:14px; cursor:pointer; border:none; box-shadow:0 6px 20px rgba(16,185,129,0.35); display:flex; align-items:center; justify-content:center; gap:6px;">
+                  🎙️ Speak Now (Mic Active)
+                </button>
+                <button id="csw-end-live-call" type="button" style="flex:0.8; background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff; font-weight:800; font-size:11px; padding:11px 14px; border-radius:14px; cursor:pointer; border:none; box-shadow:0 6px 20px rgba(239,68,68,0.35); display:flex; align-items:center; justify-content:center; gap:4px;">
+                  🔴 End Call
+                </button>
+              </div>
+            `;
+
+            const feedContainer = voiceOverlay.querySelector("#csw-voice-conversation-feed");
+            const speakMicBtn = voiceOverlay.querySelector("#csw-speak-mic-btn");
+            const statusBadge = voiceOverlay.querySelector("#csw-voice-status-badge");
+            const endBtn = voiceOverlay.querySelector("#csw-end-live-call");
+            const topCloseBtn = voiceOverlay.querySelector("#csw-close-live-top-btn");
+
+            let isCallActive = true;
+            let isAiSpeaking = false;
+            let voiceHistory = []; // Persistent Spoken Conversation History
+
+            function renderVoiceFeed(isThinking = false) {
+              const feedEl = voiceOverlay.querySelector("#csw-voice-conversation-feed");
+              if (!feedEl) return;
+
+              if (voiceHistory.length === 0 && !isThinking) {
+                feedEl.innerHTML = `
+                  <div style="text-align:center; padding:30px 10px; color:#94a3b8; font-size:11px; font-weight:600;">
+                    <span style="font-size:22px; display:block; margin-bottom:6px;">🎙️</span>
+                    Live AI Voice Call Connected.<br/><span style="color:#a7f3d0; font-size:10px; font-weight:700;">Speak your query into your microphone!</span>
+                  </div>
+                `;
+                return;
+              }
+
+              let html = voiceHistory.map(item => {
+                if (item.role === 'user') {
+                  return `
+                    <div style="display:flex; flex-direction:column; align-items:flex-end; margin-bottom:4px;">
+                      <div style="font-size:8.5px; font-weight:800; color:#a7f3d0; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:3px; display:flex; align-items:center; gap:4px;">
+                        <span>🗣️</span> YOU (CALLER SPOKEN VOICE)
+                      </div>
+                      <div style="background:rgba(16,185,129,0.18); border:1px solid rgba(16,185,129,0.35); color:#f8fafc; font-size:11.5px; font-weight:600; padding:10px 14px; border-radius:16px 16px 4px 16px; max-width:90%; line-height:1.45; backdrop-filter:blur(10px); box-shadow:0 4px 15px rgba(0,0,0,0.2);">
+                        "${item.text}"
+                      </div>
+                    </div>
+                  `;
+                } else {
+                  return `
+                    <div style="display:flex; flex-direction:column; align-items:flex-start; margin-bottom:6px;">
+                      <div style="font-size:8.5px; font-weight:800; color:#38bdf8; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:3px; display:flex; align-items:center; gap:4px;">
+                        <span>🤖</span> AI VOICE AGENT <span style="font-size:7.5px; background:rgba(56,189,248,0.18); color:#38bdf8; padding:1px 5px; border-radius:4px;">Gemini Live</span>
+                      </div>
+                      <div style="background:linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,41,59,0.95)); border:1px solid rgba(56,189,248,0.35); color:#f1f5f9; font-size:11.5px; font-weight:700; padding:12px 14px; border-radius:16px 16px 16px 4px; max-width:92%; line-height:1.5; box-shadow:0 8px 24px rgba(0,0,0,0.35);">
+                        "${item.text}"
+                        ${item.ticketId ? `<div style="margin-top:6px; font-size:9px; color:#34d399; font-weight:800; background:rgba(16,185,129,0.15); padding:3px 8px; border-radius:6px; display:inline-block; border:1px solid rgba(16,185,129,0.25);">🎫 Ticket Logged: ${item.ticketId}</div>` : ''}
+                      </div>
+                    </div>
+                  `;
+                }
+              }).join("");
+
+              if (isThinking) {
+                html += `
+                  <div style="display:flex; flex-direction:column; align-items:flex-start; margin-bottom:6px;">
+                    <div style="font-size:8.5px; font-weight:800; color:#38bdf8; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:3px; display:flex; align-items:center; gap:4px;">
+                      <span>🤖</span> AI THINKING...
+                    </div>
+                    <div style="background:rgba(56,189,248,0.1); border:1px dashed rgba(56,189,248,0.35); color:#38bdf8; font-size:11px; font-style:italic; padding:10px 14px; border-radius:14px;">
+                      Generating spoken response from system database...
+                    </div>
+                  </div>
+                `;
+              }
+
+              feedEl.innerHTML = html;
+              feedEl.scrollTop = feedEl.scrollHeight;
+            }
+
+            if (topCloseBtn) {
+              topCloseBtn.onclick = () => {
+                isCallActive = false;
+                isAiSpeaking = false;
+                if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+                if (recognition) {
+                  try { recognition.stop(); } catch(e) {}
+                }
+                voiceOverlay.style.display = "none";
+                renderDefaultVoiceUI();
+              };
+            }
+
+            // Request explicit browser mic access
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+              try {
+                await navigator.mediaDevices.getUserMedia({ audio: true });
+              } catch (permErr) {
+                console.log("Microphone access prompt:", permErr);
+              }
+            }
+
+            async function processQueryAndRespond(promptText) {
+              voiceHistory.push({ role: 'user', text: promptText });
+              renderVoiceFeed(true);
+
+              statusBadge.innerHTML = `<span style="width:7px; height:7px; border-radius:50%; background:#38bdf8; display:inline-block; box-shadow:0 0 8px #38bdf8;"></span> AI THINKING & RESPONDING...`;
+
+              // Mute mic while AI thinks and speaks
+              isAiSpeaking = true;
+              if (recognition) {
+                try { recognition.stop(); } catch(e) {}
+              }
+
+              try {
+                const res = await fetch(`${API_BASE}/api/voice/call-simulated`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ websiteId: apiKey, prompt: promptText })
+                });
+                const data = await res.json();
+
+                if (data && data.voiceResponse) {
+                  const ticketId = data.ticket?.ticketId || null;
+                  voiceHistory.push({ role: 'ai', text: data.voiceResponse, ticketId });
+                  renderVoiceFeed(false);
+
+                  statusBadge.innerHTML = `<span style="width:7px; height:7px; border-radius:50%; background:#38bdf8; display:inline-block; box-shadow:0 0 8px #38bdf8;"></span> 🔊 AI SPEAKING RESPONSE...`;
+
+                  let speechFinished = false;
+                  const onSpeechDone = () => {
+                    if (speechFinished) return;
+                    speechFinished = true;
+                    isAiSpeaking = false;
+                    if (isCallActive) {
+                      statusBadge.innerHTML = `<span style="width:7px; height:7px; border-radius:50%; background:#34d399; display:inline-block; box-shadow:0 0 8px #34d399;"></span> 🟢 MIC LISTENING (SPEAK NOW)...`;
+                      setTimeout(() => {
+                        if (isCallActive && !isAiSpeaking) startListening();
+                      }, 500);
+                    }
+                  };
+
+                  // Speak response using Web Speech API
+                  if ("speechSynthesis" in window) {
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(data.voiceResponse);
+                    utterance.rate = data.voiceSettings?.speed || 0.95;
+                    
+                    const targetGender = data.voiceSettings?.gender || "female";
+                    if (targetGender === "male") {
+                      utterance.pitch = 0.75; // Deep male pitch frequency
+                    } else {
+                      utterance.pitch = 1.05; // Higher female pitch frequency
+                    }
+
+                    if (data.detectedLanguage) {
+                      utterance.lang = data.detectedLanguage;
+                    }
+                    
+                    let availableVoices = window.speechSynthesis.getVoices();
+                    if (availableVoices && availableVoices.length > 0) {
+                      const matchVoice = availableVoices.find(v => {
+                        const name = v.name.toLowerCase();
+                        if (targetGender === "male") {
+                          return name.includes("david") || name.includes("male") || name.includes("george") || name.includes("mark") || name.includes("guy") || name.includes("ravi") || name.includes("hemant") || name.includes("james") || name.includes("richard") || name.includes("alex");
+                        } else {
+                          return name.includes("zira") || name.includes("female") || name.includes("samantha") || name.includes("victoria") || name.includes("heera") || name.includes("kalpana") || name.includes("karen");
+                        }
+                      });
+                      if (matchVoice) utterance.voice = matchVoice;
+                    }
+
+                    utterance.onend = onSpeechDone;
+                    utterance.onerror = onSpeechDone;
+                    window.speechSynthesis.speak(utterance);
+                    setTimeout(onSpeechDone, 5000);
+                  } else {
+                    onSpeechDone();
+                  }
+                }
+              } catch (err) {
+                console.error("Voice response error:", err);
+                isAiSpeaking = false;
+                renderVoiceFeed(false);
+                statusBadge.innerHTML = `<span style="width:7px; height:7px; border-radius:50%; background:#34d399; display:inline-block; box-shadow:0 0 8px #34d399;"></span> 🟢 MIC LISTENING (SPEAK NOW)...`;
+              }
+            }
+
+            let recognition = null;
+            let silenceTimer = null;
+            let accumulatedTranscript = "";
+
+            function startListening() {
+              if (!isCallActive || isAiSpeaking) return;
+
+              const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+              if (!SpeechRecognition) {
+                console.warn("SpeechRecognition not supported");
+                return;
+              }
+
+              try {
+                if (recognition) {
+                  try { recognition.stop(); } catch(e) {}
+                }
+
+                recognition = new SpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = true;
+                recognition.lang = "en-US";
+
+                recognition.onstart = () => {
+                  if (speakMicBtn) {
+                    speakMicBtn.textContent = "🟢 Mic Active - Listening...";
+                    speakMicBtn.style.background = "linear-gradient(135deg, #10b981, #059669)";
+                  }
+                  statusBadge.innerHTML = `<span style="width:7px; height:7px; border-radius:50%; background:#10b981; display:inline-block;"></span> 🟢 MIC LISTENING... (SPEAK NOW)`;
+                };
+
+                recognition.onresult = (event) => {
+                  if (isAiSpeaking) return;
+                  let interimText = "";
+                  let finalText = "";
+
+                  for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                      finalText += event.results[i][0].transcript;
+                    } else {
+                      interimText += event.results[i][0].transcript;
+                    }
+                  }
+
+                  const liveText = finalText || interimText;
+                  if (liveText && liveText.trim()) {
+                    accumulatedTranscript = liveText.trim();
+                    statusBadge.innerHTML = `<span style="width:6px; height:6px; border-radius:50%; background:#10b981; display:inline-block; box-shadow:0 0 8px #10b981;"></span> 🗣️ HEARD: "${accumulatedTranscript}"`;
+
+                    if (silenceTimer) clearTimeout(silenceTimer);
+                    silenceTimer = setTimeout(() => {
+                      if (accumulatedTranscript && accumulatedTranscript.length > 2 && !isAiSpeaking) {
+                        const sendText = accumulatedTranscript;
+                        accumulatedTranscript = "";
+                        try { recognition.stop(); } catch(e) {}
+                        processQueryAndRespond(sendText);
+                      }
+                    }, 1200);
+                  }
+                };
+
+                recognition.onerror = (err) => {
+                  console.log("Mic recognition notice/status:", err);
+                };
+
+                recognition.onend = () => {
+                  if (isCallActive && !isAiSpeaking) {
+                    try { recognition.start(); } catch(e) {}
+                  }
+                };
+
+                recognition.start();
+              } catch (e) {
+                console.warn("SpeechRecognition start exception:", e);
+              }
+            }
+
+            if (speakMicBtn) {
+              speakMicBtn.onclick = () => {
+                startListening();
+              };
+            }
+
+            if (endBtn) {
+              endBtn.onclick = () => {
+                isCallActive = false;
+                isAiSpeaking = false;
+                if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+                if (recognition) {
+                  try { recognition.stop(); } catch(e) {}
+                }
+                voiceOverlay.style.display = "none";
+                renderDefaultVoiceUI();
+              };
+            }
+
+            // Start initial mic listening on call connect
+            startListening();
+          } catch (err) {
+            console.error("Live call error:", err);
+          }
+        };
+      }
+    }
+
+    if (voiceBtn && voiceOverlay) {
+      voiceBtn.onclick = () => {
+        voiceOverlay.style.display = "flex";
+      };
+    }
+    bindVoiceOverlayEvents();
 
     const emojiGrid = panel.querySelector("#csw-emoji-grid");
     const emojis = "😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😛 😝 😜 🤪 🤨 🧐 🤓 😎 🤩 🥳 😏 😒 😞 😔 😟 😕 🙁 ☹️ 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤬 🤯 😳 🥵 🥶 😱 😨 😰 😥 😓 🤗 🤔 🤭 🤫 🤥 😶 😐 😑 😬 🙄 😯 😦 😧 😮 😲 🥱 😴 🤤 😪 😵 🤐 🥴 🤢 🤮 🤧 😷 🤒 🤕 🤑 🤠 😈 👿 👹 👺 🤡 💩 👻 💀 ☠️ 👽 👾 🤖 🎃 😺 😸 😹 😻 😼 😽 🙀 😿 😾".split(" ");

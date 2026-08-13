@@ -71,6 +71,7 @@ export default function ChatPanel({
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [shortcutQuery, setShortcutQuery] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [autoTranslate, setAutoTranslate] = useState(true);
 
   // Enterprise additions
   const [localViewers, setLocalViewers] = useState([]);
@@ -398,6 +399,21 @@ export default function ChatPanel({
           </div>
 
           <div className="flex items-center justify-between sm:justify-start gap-2 shrink-0 w-full sm:w-auto">
+            {/* Auto-Translate AI Toggle */}
+            <button
+              type="button"
+              onClick={() => setAutoTranslate(prev => !prev)}
+              className={`px-3 py-1.5 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 shadow-sm ${
+                autoTranslate 
+                  ? "bg-indigo-600 border-indigo-600 text-white shadow-indigo-500/20" 
+                  : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
+              }`}
+              title="Toggle Real-time Multilingual Auto-Translation"
+            >
+              <span>🌐</span>
+              <span>{autoTranslate ? "Auto-Translate ON" : "Translate OFF"}</span>
+            </button>
+
             {otherViewers.length > 0 && (
               <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50/50 dark:bg-indigo-500/5 rounded-xl border border-indigo-100/50 dark:border-indigo-500/10 shrink-0">
                 <span className="relative flex h-1.5 w-1.5">
@@ -563,6 +579,17 @@ export default function ChatPanel({
                         </div>
                       ) : (
                         linkify(msg.message)
+                      )}
+
+                      {/* Real-time Multilingual Translation Badge */}
+                      {autoTranslate && msg.translatedText && msg.detectedLanguage && msg.detectedLanguage !== "en" && (
+                        <div className="mt-2 text-[11px] font-bold p-2.5 rounded-xl border bg-indigo-50/70 border-indigo-100 text-indigo-900 dark:bg-indigo-950/40 dark:border-indigo-500/20 dark:text-indigo-200">
+                          <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-indigo-500 mb-1">
+                            <span>{msg.flagSymbol || "🌐"}</span>
+                            <span>Auto-Translated from {msg.detectedLanguageName || msg.detectedLanguage}:</span>
+                          </div>
+                          <p className="leading-relaxed font-semibold">"{msg.translatedText}"</p>
+                        </div>
                       )}
                     </div>
                     <div className="flex items-center gap-2 mt-1.5">

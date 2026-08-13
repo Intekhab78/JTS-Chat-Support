@@ -2,11 +2,12 @@ import React, { useState, useEffect } from "react";
 import {
   Plus, Search, Edit2, Trash2, Save, X, User, Mail, Phone,
   Building2, Calendar, ShieldCheck, MapPin, Briefcase,
-  DollarSign, Hash, Layers, Info, CheckCircle2, Clock, Eye, AlertCircle
+  DollarSign, Hash, Layers, Info, CheckCircle2, Clock, Eye, AlertCircle, FileSpreadsheet
 } from "lucide-react";
 import { api } from "../api/client";
 import Customer360View from "./CrmSystem/Customer360View.jsx";
 import { useDataSync } from "../hooks/useDataSync.js";
+import { exportToCsv } from "../utils/exportUtils.js";
 
 const getDisplayTerritory = (item) => {
   if (item.territory && item.territory.trim() !== "") return item.territory;
@@ -284,14 +285,35 @@ export default function CustomerManager({ websiteId }) {
           </button>
         </div>
 
-        <button
-          type="button"
-          onClick={() => openDrawer()}
-          className="rounded-[22px] bg-slate-950 px-6 py-3 text-white font-black text-[9px] uppercase tracking-[0.2em] shadow-lg flex items-center gap-2 transition-all hover:bg-black group"
-        >
-          <Plus size={14} />
-          Register Account
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              const columns = [
+                { key: "name", label: "Customer Name" },
+                { key: "email", label: "Email Gateway" },
+                { key: "phone", label: "Phone" },
+                { key: "companyName", label: "Company Name" },
+                { key: "territory", label: "Territory", accessor: i => getDisplayTerritory(i) },
+                { key: "pipelineStage", label: "CRM Stage" },
+                { key: "budget", label: "Budget (AED)" }
+              ];
+              exportToCsv(filteredItems, columns, "Customer_Master_Registry");
+            }}
+            className="rounded-[22px] bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 px-5 py-3 font-black text-[9px] uppercase tracking-[0.18em] shadow-sm flex items-center gap-2 transition-all"
+          >
+            <FileSpreadsheet size={14} />
+            Export Customers (.csv)
+          </button>
+          <button
+            type="button"
+            onClick={() => openDrawer()}
+            className="rounded-[22px] bg-slate-950 px-6 py-3 text-white font-black text-[9px] uppercase tracking-[0.2em] shadow-lg flex items-center gap-2 transition-all hover:bg-black group"
+          >
+            <Plus size={14} />
+            Register Account
+          </button>
+        </div>
       </div>
 
       {/* Main Table View */}

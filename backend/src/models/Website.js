@@ -45,6 +45,15 @@ const websiteSchema = new mongoose.Schema(
     enableKnowledgeBase: { type: Boolean, default: true },
     enableLiveAgent: { type: Boolean, default: true },
     enableAutomation: { type: Boolean, default: true },
+    autoCreateVoiceTicket: { type: Boolean, default: false },
+    voiceSettings: {
+      gender: { type: String, enum: ["female", "male"], default: "female" },
+      speed: { type: Number, default: 1.0 },
+      pitch: { type: Number, default: 1.0 },
+      alertPhoneNumber: { type: String, default: "" },
+      enableWhatsAppAlerts: { type: Boolean, default: true },
+      enableSmsAlerts: { type: Boolean, default: true }
+    },
     enabledModules: {
       type: [String],
       default: ["crm", "operations", "finance", "compliance", "service", "automation"]

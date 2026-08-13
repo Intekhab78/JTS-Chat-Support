@@ -24,8 +24,8 @@ export function AuthProvider({ children }) {
       const timeUntilExpiry = expTime - now;
 
       if (timeUntilExpiry > 0) {
-        // Show warning 5 minutes before expiry
-        const warningTime = Math.max(timeUntilExpiry - 5 * 60 * 1000, 1000);
+        // Show warning 30 minutes before expiry
+        const warningTime = Math.max(timeUntilExpiry - 30 * 60 * 1000, 1000);
         const warningTimer = setTimeout(() => setSessionWarning(true), warningTime);
 
         // Auto logout at expiry
@@ -89,7 +89,7 @@ export function AuthProvider({ children }) {
         const expTime = payload.exp * 1000;
         const now = Date.now();
         const timeUntilExpiry = expTime - now;
-        const warningTime = Math.max(timeUntilExpiry - 5 * 60 * 1000, 1000);
+        const warningTime = Math.max(timeUntilExpiry - 30 * 60 * 1000, 1000);
         const warningTimer = setTimeout(() => setSessionWarning(true), warningTime);
         const logoutTimer = setTimeout(() => {
           logout();

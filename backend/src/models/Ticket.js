@@ -39,7 +39,7 @@ const ticketSchema = new mongoose.Schema(
     subcategory: { type: String, trim: true },
     department: { type: String, trim: true, lowercase: true, default: "general" },
     lastMessagePreview: { type: String },
-    channel: { type: String, enum: ["chat", "web", "email"], default: "chat" },
+    channel: { type: String, enum: ["chat", "web", "email", "phone"], default: "chat" },
     isRead: { type: Boolean, default: false },
     firstResponseAt: { type: Date },
     firstResponseDueAt: { type: Date, default: null },

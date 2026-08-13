@@ -116,6 +116,15 @@ export default function WebsiteManager() {
       enableKnowledgeBase: true,
       enableLiveAgent: true,
       enableAutomation: true,
+      autoCreateVoiceTicket: false,
+      voiceSettings: {
+        gender: "female",
+        speed: 1.0,
+        pitch: 1.0,
+        alertPhoneNumber: "",
+        enableWhatsAppAlerts: true,
+        enableSmsAlerts: true
+      },
       enabledModules: ["crm", "operations", "finance", "compliance", "service", "automation"],
       businessHours: createDefaultBusinessHours(),
       webhooks: []
@@ -150,6 +159,15 @@ export default function WebsiteManager() {
       enableKnowledgeBase: website.enableKnowledgeBase !== false,
       enableLiveAgent: website.enableLiveAgent !== false,
       enableAutomation: website.enableAutomation !== false,
+      autoCreateVoiceTicket: website.autoCreateVoiceTicket || false,
+      voiceSettings: website.voiceSettings || {
+        gender: "female",
+        speed: 1.0,
+        pitch: 1.0,
+        alertPhoneNumber: "",
+        enableWhatsAppAlerts: true,
+        enableSmsAlerts: true
+      },
       enabledModules: website.enabledModules || ["crm", "operations", "finance", "compliance", "service", "automation"],
       businessHours: website.businessHours || createDefaultBusinessHours(),
       webhooks: website.webhooks || []
@@ -499,6 +517,128 @@ export default function WebsiteManager() {
                           </button>
                         );
                       })}
+                    </div>
+                  </div>
+
+                  {/* AI Voice Call Ticketing Strategy */}
+                  <div className="pt-6 border-t border-slate-50 dark:border-white/5 space-y-4">
+                    <div>
+                      <h4 className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                        <span>🎙️</span> AI Voice Call Ticketing Strategy
+                      </h4>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                        Control whether every AI voice call creates a ticket or only when human follow-up is requested.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, autoCreateVoiceTicket: false })}
+                        className={`p-4 rounded-[20px] border-2 text-left transition-all ${!formData.autoCreateVoiceTicket ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-500/40 shadow-lg' : 'bg-slate-50 dark:bg-black/20 border-slate-100 dark:border-white/5 opacity-60'}`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+                            🎯 Smart Intent Mode (Recommended)
+                          </span>
+                          {!formData.autoCreateVoiceTicket && <Check size={14} className="text-indigo-600" />}
+                        </div>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                          Tickets created ONLY when human action / callback / quotation is requested. Prevents FAQ ticket spam.
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, autoCreateVoiceTicket: true })}
+                        className={`p-4 rounded-[20px] border-2 text-left transition-all ${formData.autoCreateVoiceTicket ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-500/40 shadow-lg' : 'bg-slate-50 dark:bg-black/20 border-slate-100 dark:border-white/5 opacity-60'}`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">
+                            🎫 Always Create Tickets
+                          </span>
+                          {formData.autoCreateVoiceTicket && <Check size={14} className="text-amber-600" />}
+                        </div>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                          Automatically generates a support ticket for EVERY voice call, even simple resolved inquiries.
+                        </p>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Voice Customization & Real-Time Alerts */}
+                  <div className="pt-6 border-t border-slate-50 dark:border-white/5 space-y-4">
+                    <div>
+                      <h4 className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                        <span>🔊</span> AI Voice Customization & WhatsApp/SMS Alerts
+                      </h4>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                        Configure AI voice persona (gender & speed) and mobile alert notifications.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Voice Gender */}
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">AI Voice Persona</label>
+                        <select
+                          value={formData.voiceSettings?.gender || "female"}
+                          onChange={(e) => setFormData({ ...formData, voiceSettings: { ...formData.voiceSettings, gender: e.target.value } })}
+                          className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-xs font-bold text-slate-900 dark:text-white"
+                        >
+                          <option value="female">👧 Natural Female Voice</option>
+                          <option value="male">👨 Professional Male Voice</option>
+                        </select>
+                      </div>
+
+                      {/* Speech Speed */}
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Speech Speed Rate</label>
+                        <select
+                          value={formData.voiceSettings?.speed || 1.0}
+                          onChange={(e) => setFormData({ ...formData, voiceSettings: { ...formData.voiceSettings, speed: parseFloat(e.target.value) } })}
+                          className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-xs font-bold text-slate-900 dark:text-white"
+                        >
+                          <option value={0.85}>🐢 0.85x (Calm & Clear)</option>
+                          <option value={1.0}>⚡ 1.0x (Normal Pace)</option>
+                          <option value={1.15}>🚀 1.15x (Fast Pace)</option>
+                        </select>
+                      </div>
+
+                      {/* Alert Mobile Phone */}
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Alert Mobile Number</label>
+                        <input
+                          type="text"
+                          placeholder="+971-50-9876543"
+                          value={formData.voiceSettings?.alertPhoneNumber || ""}
+                          onChange={(e) => setFormData({ ...formData, voiceSettings: { ...formData.voiceSettings, alertPhoneNumber: e.target.value } })}
+                          className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-xs font-bold text-slate-900 dark:text-white"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Alert Toggles */}
+                    <div className="flex flex-wrap gap-4 pt-2">
+                      <label className="flex items-center gap-2 cursor-pointer bg-slate-50 dark:bg-black/20 px-4 py-2.5 rounded-xl border border-slate-100 dark:border-white/5">
+                        <input
+                          type="checkbox"
+                          checked={formData.voiceSettings?.enableWhatsAppAlerts !== false}
+                          onChange={(e) => setFormData({ ...formData, voiceSettings: { ...formData.voiceSettings, enableWhatsAppAlerts: e.target.checked } })}
+                          className="rounded text-emerald-500"
+                        />
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">📲 WhatsApp Alerts</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer bg-slate-50 dark:bg-black/20 px-4 py-2.5 rounded-xl border border-slate-100 dark:border-white/5">
+                        <input
+                          type="checkbox"
+                          checked={formData.voiceSettings?.enableSmsAlerts !== false}
+                          onChange={(e) => setFormData({ ...formData, voiceSettings: { ...formData.voiceSettings, enableSmsAlerts: e.target.checked } })}
+                          className="rounded text-indigo-500"
+                        />
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">💬 SMS Text Alerts</span>
+                      </label>
                     </div>
                   </div>
 

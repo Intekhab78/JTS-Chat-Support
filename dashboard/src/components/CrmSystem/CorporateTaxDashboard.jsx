@@ -12,6 +12,8 @@ export default function CorporateTaxDashboard({ websiteId, teamMembers = [], onO
   const [data, setData] = useState({ summary: {}, filings: [] });
   const [loading, setLoading] = useState(true);
   const [consultantFilter, setConsultantFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [datePreset, setDatePreset] = useState("all");
   const [search, setSearch] = useState("");
 
   // Modal State
@@ -135,12 +137,51 @@ export default function CorporateTaxDashboard({ websiteId, teamMembers = [], onO
   };
 
   const filteredFilings = (data.filings || []).filter(f => {
-    if (!search) return true;
+    // 1. Consultant Filter
+    if (consultantFilter) {
+      const ownerIdStr = String(f.ownerId?._id || f.ownerId || "");
+      const ownerName = String(f.assignedConsultant || f.ownerId?.name || "").toLowerCase();
+      const isMatch = ownerIdStr === consultantFilter || ownerName.includes(consultantFilter.toLowerCase());
+      if (!isMatch) return false;
+    }
+
+    // 2. Status Filter
+    if (statusFilter !== "all") {
+      const st = (f.workStatus || f.corporateTaxStatus || "").toLowerCase();
+      if (statusFilter === "overdue") {
+        const isOverdue = f.corporateTaxDueDate && new Date(f.corporateTaxDueDate) < new Date() && f.workStatus !== "Completed";
+        if (!isOverdue) return false;
+      } else if (!st.includes(statusFilter.toLowerCase())) {
+        return false;
+      }
+    }
+
+    // 3. Date Preset Filter
+    if (datePreset !== "all" && f.corporateTaxDueDate) {
+      const dueDate = new Date(f.corporateTaxDueDate);
+      const now = new Date();
+      if (datePreset === "today") {
+        if (dueDate.toDateString() !== now.toDateString()) return false;
+      } else if (datePreset === "month") {
+        const next30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        if (dueDate < now || dueDate > next30) return false;
+      } else if (datePreset === "quarter") {
+        const next90 = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+        if (dueDate < now || dueDate > next90) return false;
+      } else if (datePreset === "overdue") {
+        if (dueDate >= now || f.workStatus === "Completed") return false;
+      }
+    }
+
+    // 4. Keyword Search
+    if (!search.trim()) return true;
     const query = search.toLowerCase();
     return (
       (f.name && f.name.toLowerCase().includes(query)) ||
       (f.companyName && f.companyName.toLowerCase().includes(query)) ||
-      (f.trn && f.trn.toLowerCase().includes(query))
+      (f.trn && f.trn.toLowerCase().includes(query)) ||
+      (f.workStatus && f.workStatus.toLowerCase().includes(query)) ||
+      (f.assignedConsultant && f.assignedConsultant.toLowerCase().includes(query))
     );
   });
 
@@ -205,21 +246,6 @@ export default function CorporateTaxDashboard({ websiteId, teamMembers = [], onO
             <Plus size={16} /> Add CT Filing Record
           </button>
 
-          {/* Consultant Filter */}
-          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl">
-            <Users size={14} className="text-slate-400" />
-            <select
-              value={consultantFilter}
-              onChange={(e) => setConsultantFilter(e.target.value)}
-              className="bg-transparent text-xs font-bold text-slate-700 outline-none"
-            >
-              <option value="">All Consultants</option>
-              {teamMembers.map(m => (
-                <option key={m._id} value={m._id}>{m.name}</option>
-              ))}
-            </select>
-          </div>
-
           <button
             onClick={fetchCtStats}
             className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-colors"
@@ -227,6 +253,98 @@ export default function CorporateTaxDashboard({ websiteId, teamMembers = [], onO
           >
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           </button>
+        </div>
+      </div>
+
+      {/* ── INTERACTIVE MULTI-FILTER CONSOLE BAR ───────────────── */}
+      <div className="bg-white p-6 rounded-[28px] border border-slate-200 shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+              <Filter size={16} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-black uppercase tracking-wider text-slate-900">Custom Report Parameters & Filters</h3>
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] font-black uppercase tracking-wider">
+                  ⚡ {filteredFilings.length} Records Matched
+                </span>
+              </div>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Instant multi-column search & Corporate Tax deadline window filters</p>
+            </div>
+          </div>
+
+          {(consultantFilter || statusFilter !== "all" || datePreset !== "all" || search.trim()) && (
+            <button
+              onClick={() => {
+                setConsultantFilter("");
+                setStatusFilter("all");
+                setDatePreset("all");
+                setSearch("");
+              }}
+              className="text-[9px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-700 flex items-center gap-1 transition-colors"
+            >
+              <X size={12} /> Clear All Filters
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* Keyword Search */}
+          <div className="relative">
+            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search company, TRN, name..."
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white"
+            />
+          </div>
+
+          {/* Assigned Consultant */}
+          <div>
+            <select
+              value={consultantFilter}
+              onChange={(e) => setConsultantFilter(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
+            >
+              <option value="">👤 Consultant: All Staff</option>
+              {teamMembers.map(m => (
+                <option key={m._id} value={m._id}>{m.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filing Work Status */}
+          <div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
+            >
+              <option value="all">💳 Work Status: All</option>
+              <option value="pending">Pending Registration</option>
+              <option value="submitted">Submitted Return</option>
+              <option value="completed">Completed / Clean</option>
+              <option value="overdue">Overdue Filings</option>
+            </select>
+          </div>
+
+          {/* Date Window Preset */}
+          <div>
+            <select
+              value={datePreset}
+              onChange={(e) => setDatePreset(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
+            >
+              <option value="all">📅 CT Due Date: All Time</option>
+              <option value="today">Due Today</option>
+              <option value="month">Due Next 30 Days</option>
+              <option value="quarter">Due Next 90 Days</option>
+              <option value="overdue">Passed Deadline (Overdue)</option>
+            </select>
+          </div>
         </div>
       </div>
 

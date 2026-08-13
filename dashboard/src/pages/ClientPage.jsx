@@ -55,6 +55,8 @@ import CustomCrmModuleCenter from "../components/CustomCrmModuleCenter.jsx";
 import EnterpriseBiCenter from "../components/EnterpriseBiCenter.jsx";
 import MultiOrganizationCenter from "../components/MultiOrganizationCenter.jsx";
 import MissionControlCenter from "../components/MissionControlCenter.jsx";
+import VisualFlowBuilder from "../components/VisualFlowBuilder.jsx";
+import VoiceCallLogsTab from "../components/VoiceCallLogsTab.jsx";
 import { api } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useWebsite } from "../context/WebsiteContext.jsx";
@@ -781,6 +783,8 @@ export default function ClientPage() {
     });
     menuItems.push({ label: "Customer Master", href: "/client?tab=inventory-customer" });
     menuItems.push({ label: "CRM", href: "/client?tab=crm" });
+    menuItems.push({ label: "Flow Builder", href: "/client?tab=flow-builder" });
+    menuItems.push({ label: "AI Voice Logs", href: "/client?tab=voice-logs" });
     menuItems.push({ label: "Departments", href: "/client?tab=departments" });
     menuItems.push({ label: "Categories", href: "/client?tab=categories" });
     menuItems.push({ label: "Shortcuts", href: "/client?tab=shortcuts" });
@@ -829,6 +833,18 @@ export default function ClientPage() {
     title = "Executive Flow Analytics";
     subtitle = "Aggregated funnel performance, conversion tracking, and drop-off hotspots";
     content = <ExecutiveFlowDashboard websiteId={selectedWebsiteId} />;
+  }
+
+  if (tab === "flow-builder" || tab === "flows") {
+    title = "Visual Chatbot Decision Builder";
+    subtitle = "Design automated decision tree chatbot flows visually for non-coders";
+    content = <VisualFlowBuilder websiteId={selectedWebsiteId} />;
+  }
+
+  if (tab === "voice-logs" || tab === "voice-calls") {
+    title = "AI Telephone Voice Agent";
+    subtitle = "View telephone call logs, transcripts, and auto-generated tickets";
+    content = <VoiceCallLogsTab websiteId={selectedWebsiteId} />;
   }
 
   if (tab === "clients") {
@@ -1206,7 +1222,7 @@ export default function ClientPage() {
   }
 
   // Handle other tabs generically for now
-  if (!["overview", "tax-consultant-dashboard", "chats", "websites", "agents", "clients", "reports", "tickets", "shortcuts", "history", "categories", "departments", "crm", "security", "billing", "subscriptions", "roles", "inventory-customer", "flow-analytics", "help-center", "inventory", "inventory-master", "inventory-stock-in", "inventory-stock-out", "inventory-adjustment", "inventory-history", "inventory-category", "inventory-subcategory", "inventory-brand", "inventory-size", "inventory-color", "inventory-unit", "inventory-supplier", "inventory-vat", "inventory-tax", "vat-compliance", "corporate-tax", "trade-license", "compliance-reports", "risk-register", "financial-analytics", "sla-center", "observability", "load-testing", "release-management", "developer-portal", "product-management", "ai-automation", "compliance-governance", "mobile-readiness", "enterprise-integrations", "workflow-builder", "app-marketplace", "lowcode-studio", "custom-crm-modules", "enterprise-bi", "multi-organization", "mission-control"].includes(tab)) {
+  if (!["overview", "tax-consultant-dashboard", "chats", "websites", "agents", "clients", "reports", "tickets", "shortcuts", "history", "categories", "departments", "crm", "security", "billing", "subscriptions", "roles", "inventory-customer", "flow-analytics", "flow-builder", "flows", "voice-logs", "voice-calls", "help-center", "inventory", "inventory-master", "inventory-stock-in", "inventory-stock-out", "inventory-adjustment", "inventory-history", "inventory-category", "inventory-subcategory", "inventory-brand", "inventory-size", "inventory-color", "inventory-unit", "inventory-supplier", "inventory-vat", "inventory-tax", "vat-compliance", "corporate-tax", "trade-license", "compliance-reports", "risk-register", "financial-analytics", "sla-center", "observability", "load-testing", "release-management", "developer-portal", "product-management", "ai-automation", "compliance-governance", "mobile-readiness", "enterprise-integrations", "workflow-builder", "app-marketplace", "lowcode-studio", "custom-crm-modules", "enterprise-bi", "multi-organization", "mission-control"].includes(tab)) {
     content = (
       <div className="bg-white p-24 rounded-[40px] border border-slate-200/60 shadow-sm text-center">
         <div className="max-w-xs mx-auto space-y-4">
