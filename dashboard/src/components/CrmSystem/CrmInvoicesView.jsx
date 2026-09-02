@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { FileText, Check, X, CreditCard, DollarSign, Send, HelpCircle, Download, Clock, Search, Filter, AlertTriangle, ArrowRight, ShieldCheck, CheckCircle2, RefreshCw, Printer, ChevronRight } from "lucide-react";
+import { FileText, Check, X, CreditCard, DollarSign, Send, HelpCircle, Download, Clock, Search, Filter, AlertTriangle, ArrowRight, ShieldCheck, CheckCircle2, RefreshCw, Printer, ChevronRight, MessageCircle } from "lucide-react";
 import { api, API_BASE } from "../../api/client.js";
 import { exportToCSV, exportToPDF } from "../../utils/exportUtils.js";
+
 
 export default function CrmInvoicesView({ websiteId }) {
   const [invoices, setInvoices] = useState([]);
@@ -58,6 +59,29 @@ export default function CrmInvoicesView({ websiteId }) {
     setCurrentPage(1);
     fetchInvoices();
   }, [websiteId]);
+
+  const handleSendWhatsAppInvoice = (inv) => {
+    if (!inv) return;
+    const phone = inv.customerId?.phone || inv.customerId?.whatsApp || inv.phone || "";
+    const cleanPhone = phone.replace(/[^0-9]/g, "");
+    const clientName = inv.customerId?.companyName || inv.customerId?.name || "Valued Client";
+    const dueAmount = (inv.total - (inv.paidAmount || 0)).toLocaleString();
+    const invNum = inv.invoiceId || inv._id?.slice(-6).toUpperCase();
+    const dueDate = inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : "Immediate";
+
+    const text = encodeURIComponent(
+      `Hello ${clientName},\n\n` +
+      `This is a payment reminder for Invoice *#${invNum}*.\n` +
+      `• Outstanding Due: *$${dueAmount}*\n` +
+      `• Due Date: *${dueDate}*\n\n` +
+      `You can review & complete payment directly on the portal:\nhttps://chat.jtsmiddleeast.com/client\n\n` +
+      `Thank you for your business!`
+    );
+
+    const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${text}` : `https://wa.me/?text=${text}`;
+    window.open(waUrl, "_blank");
+  };
+
 
   const handleSimulateRazorpayPayment = async () => {
     if (!selectedInvoice) return;
@@ -597,6 +621,16 @@ export default function CrmInvoicesView({ websiteId }) {
                       className="w-full py-3 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border border-rose-100 flex items-center justify-center gap-1.5"
                     >
                       <RefreshCw size={12} /> Issue Refund
+                    </button>
+                  )}
+
+                  {/* WhatsApp Reminder Button */}
+                  {selectedInvoice.status !== "paid" && selectedInvoice.status !== "cancelled" && (
+                    <button
+                      onClick={() => handleSendWhatsAppInvoice(selectedInvoice)}
+                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-100"
+                    >
+                      <MessageCircle size={13} /> 1-Click WhatsApp Reminder
                     </button>
                   )}
 

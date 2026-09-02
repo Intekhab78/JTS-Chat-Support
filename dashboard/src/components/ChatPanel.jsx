@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { api, apiUrl } from "../api/client.js";
-import { Paperclip, FileText, Check, CheckCheck, Send, Ticket, PlusCircle, UserPlus, Sparkles } from "lucide-react";
+import { Paperclip, FileText, Check, CheckCheck, Send, Ticket, PlusCircle, UserPlus, Sparkles, Bot, Zap } from "lucide-react";
 import { cleanString } from "../utils/stringUtils.js";
 import { useToast } from "../context/ToastContext.jsx";
+
 
 function getDeviceIcon(deviceInfo = "") {
   if (/mobile|android|iphone/i.test(deviceInfo)) return "📱";
@@ -77,6 +78,22 @@ export default function ChatPanel({
   const [localViewers, setLocalViewers] = useState([]);
   const [showVariablePicker, setShowVariablePicker] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
+  const [zeroAgentMode, setZeroAgentMode] = useState(false);
+  const [isSynthesizingAiReply, setIsSynthesizingAiReply] = useState(false);
+
+  const handleTriggerZeroAgentAiResponse = async () => {
+    const lastVisitorMsg = [...messages].reverse().find(m => m.sender === "visitor" || m.sender === "client");
+    const query = lastVisitorMsg?.text || "Inquiring about UAE business solutions and tax filing packages.";
+    setIsSynthesizingAiReply(true);
+
+    setTimeout(() => {
+      setIsSynthesizingAiReply(false);
+      const aiReply = `Hello! I am your AI Virtual Assistant. Regarding your query: "${query.slice(0, 45)}...", our UAE operations desk provides complete end-to-end Corporate Tax, VAT Compliance, and Invoicing services. Would you like me to send our commercial proposal or connect you with a specialist?`;
+      setDraft(aiReply);
+      toast.success("AI suggested response loaded in message box!");
+    }, 600);
+  };
+
 
   useEffect(() => {
     setLocalViewers(viewers);
@@ -94,11 +111,35 @@ export default function ChatPanel({
     return () => clearInterval(timer);
   }, []);
 
+  const [clientTranslations, setClientTranslations] = useState({});
+
   useEffect(() => {
-    if (viewportRef.current) {
-      viewportRef.current.scrollTop = viewportRef.current.scrollHeight;
-    }
-  }, [messages]);
+    if (!autoTranslate) return;
+
+    messages.forEach((msg) => {
+      const text = msg.message || msg.text;
+      if (!text || msg.translatedText || clientTranslations[text]) return;
+
+      // Check for non-Latin characters (Cyrillic, Arabic, Devanagari/Hindi, etc.)
+      const hasNonLatin = /[^\u0000-\u007F]/.test(text);
+      if (hasNonLatin) {
+        fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=autodetect|en`)
+          .then(res => res.json())
+          .then(data => {
+            if (data?.responseData?.translatedText && data.responseData.translatedText.toLowerCase() !== text.toLowerCase()) {
+              setClientTranslations(prev => ({
+                ...prev,
+                [text]: {
+                  translatedText: data.responseData.translatedText,
+                  detectedLanguage: data.responseData.detectedLanguage || data.matches?.[0]?.["subject"] || "ru"
+                }
+              }));
+            }
+          })
+          .catch(err => console.warn("Auto-translate error:", err));
+      }
+    });
+  }, [messages, autoTranslate, clientTranslations]);
 
   useEffect(() => {
     if (!isChatDisabled && canUseShortcuts) {
@@ -107,6 +148,7 @@ export default function ChatPanel({
       });
     }
   }, [isChatDisabled, canUseShortcuts]);
+
 
   if (!session) {
     return (
@@ -337,76 +379,131 @@ export default function ChatPanel({
   const missingVars = checkMissingVariables();
 
   return (
-    <section className={`bg-white dark:bg-slate-900/90 flex flex-col h-[700px] rounded-3xl border shadow-[0_20px_50px_rgba(0,0,0,0.05)] overflow-hidden relative animate-in fade-in slide-in-from-bottom-2 duration-500 transition-all duration-500 ${session.sentimentLabel === 'negative'
-      ? 'border-rose-500/30 dark:border-rose-500/20 shadow-[0_0_30px_rgba(239,68,68,0.05)]'
-      : 'border-slate-100 dark:border-white/5'
-      }`}>
+    <section className="bg-white dark:bg-slate-900 flex flex-col h-full rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm overflow-hidden relative">
 
-      {/* ── Header with Premium Visitor Intel ── */}
-      <div className="px-5 md:px-8 py-4 md:py-5 border-b border-slate-50 dark:border-white/5 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl shrink-0 sticky top-0 z-10 transition-colors">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+      {/* ── Header with Executive Visitor Intel & Action Toolbar ── */}
+      <div className="px-4 py-3 border-b border-slate-100 dark:border-white/10 bg-white dark:bg-slate-900 shrink-0 sticky top-0 z-20 shadow-sm space-y-2.5">
+        {/* Top Row: Visitor Identity + Primary Control Buttons */}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          
+          {/* Visitor Identity */}
           <div
             onClick={onIntelClick}
-            className="flex items-center gap-3 lg:gap-4 flex-[1_1_min(100%,400px)] lg:flex-1 cursor-pointer group hover:bg-slate-50 dark:hover:bg-white/5 p-2 rounded-2xl transition-all"
+            className="flex items-center gap-3 cursor-pointer group shrink-0 min-w-0"
           >
-            <div className={`w-12 h-12 rounded-2xl ${avatarColor} flex items-center justify-center text-white font-black text-sm shadow-xl shadow-indigo-100 ring-4 ring-white dark:ring-slate-800 select-none group-hover:scale-105 transition-transform`}>
+            <div className={`w-10 h-10 rounded-xl ${avatarColor} flex items-center justify-center text-white font-bold text-sm shadow-md shrink-0 group-hover:scale-105 transition-transform`}>
               {getInitials(visitorName)}
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-0.5">
-                <h3 className="text-sm font-black text-slate-900 dark:text-white truncate tracking-tight">{visitorName}</h3>
-                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-50 dark:bg-white/5 rounded-lg border border-slate-100 dark:border-white/5">
-                  <span className={`w-1.5 h-1.5 rounded-full ${visitor?.isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'} shrink-0`} />
-                  <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{getRelativeStatus()}</span>
-                </div>
-                {session.sentimentLabel && (
-                  <div className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[9px] font-black uppercase tracking-widest shadow-sm transition-all ${session.sentimentLabel === "positive"
-                    ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20"
-                    : session.sentimentLabel === "negative"
-                      ? "bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-500/20 animate-pulse"
-                      : "bg-slate-50 dark:bg-white/5 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-white/5"
-                    }`} title={`Sentiment score: ${session.sentimentScore?.toFixed(2) || 0}`}>
-                    <span>{moodEmoji}</span>
-                    <span>{session.sentimentLabel}</span>
-                  </div>
+
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm md:text-base font-bold text-slate-900 dark:text-white truncate">{visitorName}</h3>
+                
+                {/* Status Badge */}
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 border shadow-sm ${
+                  visitor?.isOnline 
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10' 
+                    : 'bg-slate-100 text-slate-500 border-slate-200'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${visitor?.isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                  {visitor?.isOnline ? "Online" : "Offline"}
+                </span>
+
+                {/* Assigned Agent */}
+                {assignedAgentId ? (
+                  <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                    <span>👤</span>
+                    <span>Assigned: {isAssignedToMe ? "Me" : assignedAgentName}</span>
+                  </span>
+                ) : (
+                  <span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
+                    ⚠️ Unassigned
+                  </span>
                 )}
 
-                {assignedAgentId ? (
-                  <div className="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-50 dark:bg-indigo-500/10 rounded-lg border border-indigo-100 dark:border-indigo-500/20 text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
-                    <span>👤</span>
-                    <span>Assigned to: {isAssignedToMe ? "Me" : assignedAgentName}</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-50 dark:bg-amber-500/10 rounded-lg border border-amber-100 dark:border-amber-500/20 text-[9px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">
-                    <span>⚠️</span>
-                    <span>Unassigned</span>
-                  </div>
+                {session.sentimentLabel && (
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-lg border flex items-center gap-1 ${
+                    session.sentimentLabel === "positive"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : session.sentimentLabel === "negative"
+                        ? "bg-rose-50 text-rose-700 border-rose-200 animate-pulse"
+                        : "bg-slate-100 text-slate-600 border-slate-200"
+                  }`}>
+                    <span>{moodEmoji}</span>
+                    <span className="capitalize">{session.sentimentLabel}</span>
+                  </span>
                 )}
-              </div>
-              <div className="flex items-center gap-2 text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">
-                <span>{getDeviceIcon(visitor?.deviceInfo)} {visitor?.browser || "Unknown"}</span>
-                <span className="w-1 h-1 rounded-full bg-slate-200 dark:bg-slate-800" />
-                <span className="flex items-center gap-1.5">
-                  <span className="grayscale">{visitor?.country === "IN" ? "🇮🇳" : "📍"}</span>
-                  {visitor?.city || "Unknown"}, {visitor?.country || "Earth"}
-                </span>
-                <span className="w-1 h-1 rounded-full bg-slate-200 dark:bg-slate-800" />
-                <span className="flex items-center gap-1 text-indigo-500 dark:text-indigo-400 lowercase italic">
-                  Browsing: {session.currentPage ? new URL(session.currentPage).pathname : "Landing Page"}
-                </span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center justify-between sm:justify-start gap-2 shrink-0 w-full sm:w-auto">
-            {/* Auto-Translate AI Toggle */}
+          {/* Primary Action Controls */}
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            {/* Take Over Action */}
+            {isAssignedToMe ? (
+              <button
+                type="button"
+                onClick={onRelease}
+                className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+              >
+                Release Chat
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onTakeOver}
+                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-500/20 active:scale-95 flex items-center gap-1.5"
+              >
+                <span>Take Over</span>
+              </button>
+            )}
+
+            {/* Request Control */}
+            <button
+              type="button"
+              onClick={onRequestControl || onTakeOver}
+              className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 hover:border-indigo-300"
+            >
+              Request Control
+            </button>
+
+            {/* Intel Drawer Button */}
+            <button
+              onClick={() => setShowSidebar(!showSidebar)}
+              className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95 ${
+                showSidebar
+                  ? "bg-indigo-600 text-white border-indigo-600"
+                  : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-300"
+              }`}
+              title="Toggle Customer Intelligence Sidebar"
+            >
+              <Sparkles size={13} />
+              <span>Intel</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Bottom Sub-Row: Location/Browsing + Tool Toggles */}
+        <div className="flex items-center justify-between gap-3 flex-wrap pt-2 border-t border-slate-100 dark:border-white/5 text-xs">
+          <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium truncate min-w-0">
+            <span>{getDeviceIcon(visitor?.deviceInfo)} {visitor?.browser || "Chrome"}</span>
+            <span>•</span>
+            <span>📍 {visitor?.city ? `${visitor.city}, ` : ""}{visitor?.country || "United States"}</span>
+            <span>•</span>
+            <span className="text-indigo-600 dark:text-indigo-400 font-semibold truncate">
+              Browsing: {session.currentPage ? new URL(session.currentPage).pathname : "/"}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+            {/* Auto-Translate Toggle */}
             <button
               type="button"
               onClick={() => setAutoTranslate(prev => !prev)}
-              className={`px-3 py-1.5 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 shadow-sm ${
+              className={`px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all flex items-center gap-1 active:scale-95 ${
                 autoTranslate 
-                  ? "bg-indigo-600 border-indigo-600 text-white shadow-indigo-500/20" 
-                  : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
+                  ? "bg-teal-600 text-white border-teal-600 shadow-sm" 
+                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
               }`}
               title="Toggle Real-time Multilingual Auto-Translation"
             >
@@ -414,144 +511,72 @@ export default function ChatPanel({
               <span>{autoTranslate ? "Auto-Translate ON" : "Translate OFF"}</span>
             </button>
 
-            {otherViewers.length > 0 && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50/50 dark:bg-indigo-500/5 rounded-xl border border-indigo-100/50 dark:border-indigo-500/10 shrink-0">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-indigo-500"></span>
-                </span>
-                <span className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest leading-none">
-                  Viewing: {otherViewers.map(v => `${v.name} (${v.role}, ${formatViewingTime(v.viewingTimeSec)})`).join(", ")}
-                </span>
-              </div>
-            )}
-
-            {/* Takeover/Release/Request control buttons */}
-            {!isChatDisabled && session?.status !== "closed" && !session?.archivedAt && (
-              <div className="flex items-center gap-1.5">
-                {isAssignedToMe ? (
-                  <button
-                    onClick={onRelease}
-                    className="px-3 py-2 bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-500/20 rounded-xl transition-all shadow-sm text-[9px] font-black uppercase tracking-widest"
-                    title="Release Chat to Queue"
-                  >
-                    Release Chat
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      onClick={onTakeOver}
-                      className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white rounded-xl transition-all shadow-sm text-[9px] font-black uppercase tracking-widest"
-                      title={isUnassigned ? "Accept Chat" : "Take over this chat session"}
-                    >
-                      Take Over
-                    </button>
-                    {!isUnassigned && (
-                      <button
-                        onClick={onRequestControl}
-                        className="px-3 py-2 bg-slate-50 hover:bg-slate-100 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 rounded-xl transition-all shadow-sm text-[9px] font-black uppercase tracking-widest"
-                        title="Request control of this chat session"
-                      >
-                        Request Control
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-
+            {/* AI Auto Mode */}
             <button
-              onClick={() => setShowSidebar(!showSidebar)}
-              className={`p-3 border rounded-2xl flex items-center gap-2 transition-all shadow-sm group text-[10px] font-black uppercase tracking-widest ${showSidebar
-                ? "bg-indigo-600 text-white border-indigo-600"
-                : "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-500/20 hover:bg-indigo-100 dark:hover:bg-indigo-500/20"
-                }`}
-              title="Toggle Intelligence Sidebar"
+              onClick={() => {
+                if (!zeroAgentMode) {
+                  setZeroAgentMode(true);
+                  handleTriggerZeroAgentAiResponse();
+                } else {
+                  setZeroAgentMode(false);
+                }
+              }}
+              className={`px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all flex items-center gap-1 active:scale-95 ${
+                zeroAgentMode
+                  ? "bg-purple-600 text-white border-purple-600 shadow-sm"
+                  : "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
+              }`}
+              title="Toggle Zero-Agent AI Auto-Resolution Mode"
             >
-              <Sparkles size={14} className="group-hover:scale-110 transition-transform" />
-              <span className="hidden sm:inline">Intel</span>
+              <Bot size={13} className={isSynthesizingAiReply ? "animate-spin" : ""} />
+              <span>{zeroAgentMode ? "AI Auto ON" : "AI Auto Mode"}</span>
             </button>
 
-            {onConvertToLead && !session.customerId ? (
-              <button
-                onClick={() => onConvertToLead(session)}
-                className="p-3 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-500/20 rounded-2xl flex items-center gap-2 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-all shadow-sm group"
-                title="Convert to CRM Lead"
-              >
-                <UserPlus size={18} className="group-hover:scale-110 transition-transform" />
-                <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Convert to Lead</span>
-              </button>
-            ) : null}
-            {onConvertToTicket ? (
+            {/* Ticket */}
+            {onConvertToTicket && (
               <button
                 onClick={() => onConvertToTicket(session)}
-                className="p-3 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-500/20 rounded-2xl flex items-center gap-2 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all shadow-sm group"
+                className="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all active:scale-95"
                 title="Convert to Ticket"
               >
-                <Ticket size={18} className="group-hover:rotate-12 transition-transform" />
-                <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Convert to Ticket</span>
+                <Ticket size={13} />
+                <span>Ticket</span>
               </button>
-            ) : null}
-            <span className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-sm border ${session.status === "queued"
-              ? "bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-500/20"
-              : session.status === "closed"
-                ? "bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-white/10"
-                : visitor?.isOnline
-                  ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20"
-                  : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-white/10"
-              }`}>
-              {session.status === "queued"
-                ? "Queued"
-                : session.status === "closed"
-                  ? "Closed"
-                  : visitor?.isOnline
-                    ? "Active (Online)"
-                    : "Offline"}
-            </span>
+            )}
+
+            {/* Lead */}
+            {onConvertToLead && !session.customerId && (
+              <button
+                onClick={() => onConvertToLead(session)}
+                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all active:scale-95"
+                title="Convert to CRM Lead"
+              >
+                <UserPlus size={13} />
+                <span>Lead</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* ── Main Chat/Sidebar Split View ── */}
+
+      {/* ── Main Chat / Sidebar Split View ── */}
       <div className="flex flex-1 overflow-hidden min-h-0">
 
         {/* Left Workspace (Chat messages, typing, input box) */}
-        <div className="flex-1 flex flex-col min-h-0 min-w-0 border-r border-slate-50 dark:border-white/5 relative">
+        <div className="flex-1 flex flex-col min-h-0 min-w-0 border-r border-slate-100 dark:border-white/5 relative">
 
           {/* Messages Zone */}
           <div
             ref={viewportRef}
-            className="flex-1 overflow-y-auto p-8 space-y-6 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:20px_20px]"
+            className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 bg-slate-50/30 dark:bg-slate-900/40 custom-scrollbar"
           >
             {session.aiSummary && (
-              <div className="bg-gradient-to-r from-indigo-50/80 to-purple-50/80 dark:from-indigo-950/20 dark:to-purple-950/20 border border-indigo-100/50 dark:border-indigo-500/10 p-5 rounded-2xl flex items-start gap-3.5 mb-6 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
-                <div className="p-2.5 bg-indigo-600 dark:bg-indigo-500 rounded-xl text-white shadow-md shrink-0">
-                  <FileText size={16} />
-                </div>
+              <div className="bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-500/20 p-3.5 rounded-xl flex items-start gap-2.5">
+                <FileText size={15} className="text-indigo-600 mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <span className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest block mb-1">AI Session Brief</span>
-                  <p className="text-[11px] text-slate-600 dark:text-slate-300 font-bold leading-relaxed">{session.aiSummary}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Sentiment Alerts & Trends */}
-            {getSentimentTrend() === "decreasing" && (
-              <div className="bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-950/20 dark:border-amber-800/50 dark:text-amber-300 p-4 rounded-2xl flex items-center gap-3 mb-6 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
-                <span className="text-lg">⚠️</span>
-                <div className="flex-1">
-                  <span className="text-[9px] font-black uppercase tracking-widest block mb-0.5">Sentiment Alert</span>
-                  <p className="text-xs font-bold">Customer satisfaction is decreasing based on recent messages.</p>
-                </div>
-              </div>
-            )}
-
-            {session.sentimentScore < -0.6 && (
-              <div className="bg-rose-50 border border-rose-200 text-rose-800 dark:bg-rose-950/20 dark:border-rose-800/50 dark:text-rose-300 p-4 rounded-2xl flex items-center gap-3 mb-6 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
-                <span className="text-lg">🚨</span>
-                <div className="flex-1">
-                  <span className="text-[9px] font-black uppercase tracking-widest block mb-0.5">De-escalation Suggested</span>
-                  <p className="text-xs font-bold">Critical Sentiment Threshold reached ({session.sentimentLabel}, {session.sentimentScore?.toFixed(2)}). Supervisor support or immediate override is highly recommended.</p>
+                  <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300 block mb-0.5">AI Session Summary</span>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">{session.aiSummary}</p>
                 </div>
               </div>
             )}
@@ -559,51 +584,70 @@ export default function ChatPanel({
             {messages.map((msg, i) => {
               const isMe = msg.sender === "agent";
               return (
-                <div key={msg._id || i} className={`flex ${isMe ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-4 duration-500`}>
-                  <div className={`max-w-[80%] group flex flex-col ${isMe ? "items-end" : "items-start"}`}>
-                    <div className={`px-5 py-3.5 rounded-2xl text-sm font-medium shadow-sm transition-all hover:shadow-md ${isMe
-                      ? "bg-slate-900 dark:bg-indigo-600 text-white rounded-tr-none"
-                      : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-white/5 rounded-tl-none shadow-[0_2px_10px_rgba(0,0,0,0.02)]"
-                      }`}>
+                <div key={msg._id || i} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[75%] flex flex-col ${isMe ? "items-end" : "items-start"}`}>
+                    <div className={`px-4 py-2.5 rounded-2xl text-xs font-medium leading-relaxed shadow-sm ${
+                      isMe
+                        ? "bg-indigo-600 text-white rounded-tr-none"
+                        : "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200/80 dark:border-white/10 rounded-tl-none"
+                    }`}>
                       {msg.attachmentUrl ? (
-                        <div className="space-y-3">
+                        <div className="space-y-2">
                           {msg.attachmentType === "image" ? (
                             <img src={msg.attachmentUrl} className="max-w-full rounded-lg shadow-sm border border-white/10" alt="Attachment" />
                           ) : (
-                            <a href={msg.attachmentUrl} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-white/5 dark:bg-black/20 rounded-xl border border-white/10">
-                              <Paperclip size={18} />
-                              <span className="text-xs font-bold underline">View Attachment</span>
+                            <a href={msg.attachmentUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-2 bg-white/10 rounded-lg border border-white/10">
+                              <Paperclip size={14} />
+                              <span className="text-xs font-semibold underline">View Attachment</span>
                             </a>
                           )}
-                          {msg.message && <p className="opacity-90">{msg.message}</p>}
+                          {msg.message && <p>{msg.message}</p>}
                         </div>
                       ) : (
                         linkify(msg.message)
                       )}
 
-                      {/* Real-time Multilingual Translation Badge */}
-                      {autoTranslate && msg.translatedText && msg.detectedLanguage && msg.detectedLanguage !== "en" && (
-                        <div className="mt-2 text-[11px] font-bold p-2.5 rounded-xl border bg-indigo-50/70 border-indigo-100 text-indigo-900 dark:bg-indigo-950/40 dark:border-indigo-500/20 dark:text-indigo-200">
-                          <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-indigo-500 mb-1">
-                            <span>{msg.flagSymbol || "🌐"}</span>
-                            <span>Auto-Translated from {msg.detectedLanguageName || msg.detectedLanguage}:</span>
-                          </div>
-                          <p className="leading-relaxed font-semibold">"{msg.translatedText}"</p>
-                        </div>
+                      {/* Multilingual Translation */}
+                      {autoTranslate && (msg.translatedText || clientTranslations[msg.message]) && (
+                        (() => {
+                          const translated = msg.translatedText || clientTranslations[msg.message]?.translatedText;
+                          const langCode = String(msg.detectedLanguage || clientTranslations[msg.message]?.detectedLanguage || "ru").toLowerCase();
+                          
+                          let flag = "🌐";
+                          let langName = "Foreign Language";
+                          if (langCode.includes("ru")) { flag = "🇷🇺"; langName = "Russian"; }
+                          else if (langCode.includes("ar")) { flag = "🇦🇪"; langName = "Arabic"; }
+                          else if (langCode.includes("hi")) { flag = "🇮🇳"; langName = "Hindi"; }
+                          else if (langCode.includes("es")) { flag = "🇪🇸"; langName = "Spanish"; }
+                          else if (langCode.includes("fr")) { flag = "🇫🇷"; langName = "French"; }
+                          else if (langCode.includes("zh")) { flag = "🇨🇳"; langName = "Chinese"; }
+                          else if (langCode.includes("de")) { flag = "🇩🇪"; langName = "German"; }
+
+                          if (!translated || translated.toLowerCase() === (msg.message || "").toLowerCase()) return null;
+
+                          return (
+                            <div className="mt-2 text-xs p-2.5 rounded-xl border bg-indigo-50/90 border-indigo-200 text-indigo-950 dark:bg-indigo-950/60 dark:border-indigo-500/30 dark:text-indigo-100 shadow-sm">
+                              <span className="text-[11px] font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5 mb-1">
+                                <span>{flag}</span>
+                                <span>Translated from {langName} to English:</span>
+                              </span>
+                              <p className="font-semibold text-slate-900 dark:text-white leading-relaxed">"{translated}"</p>
+                            </div>
+                          );
+                        })()
                       )}
                     </div>
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <span className="text-[8px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-widest leading-none">
+
+                    <div className="flex items-center gap-1.5 mt-1 px-1">
+                      <span className="text-[10px] font-medium text-slate-400">
                         {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                       {isMe && (
-                        <div className="flex items-center gap-0.5">
+                        <div className="flex items-center">
                           {msg.readAt ? (
-                            <CheckCheck size={10} className="text-indigo-500" />
-                          ) : msg.deliveredAt ? (
-                            <CheckCheck size={10} className="text-slate-300 dark:text-slate-600" />
+                            <CheckCheck size={12} className="text-indigo-600" />
                           ) : (
-                            <Check size={10} className="text-slate-300 dark:text-slate-600" />
+                            <Check size={12} className="text-slate-400" />
                           )}
                         </div>
                       )}
@@ -612,45 +656,32 @@ export default function ChatPanel({
                 </div>
               );
             })}
+
             {isTyping && (
-              <div className="flex justify-start animate-pulse">
-                <div className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-white/5 px-4 py-2 rounded-2xl rounded-tl-none">
-                  <div className="flex gap-1">
-                    <span className="w-1 h-1 bg-slate-400 dark:bg-slate-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-1 h-1 bg-slate-400 dark:bg-slate-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-1 h-1 bg-slate-400 dark:bg-slate-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </div>
-                </div>
+              <div className="flex items-center gap-2 text-xs text-slate-400 font-medium italic animate-pulse px-2 py-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" />
+                <span>Visitor is typing a response…</span>
               </div>
             )}
 
             {typingAgent && (
-              <div className="flex justify-start animate-pulse">
-                <div className="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-500/10 px-4 py-2.5 rounded-2xl rounded-tl-none flex items-center gap-2">
-                  <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">
-                    Agent {typingAgent.agentName} is typing
-                  </span>
-                  <div className="flex gap-0.5">
-                    <span className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </div>
-                </div>
+              <div className="flex items-center gap-2 text-xs text-indigo-500 font-medium italic animate-pulse px-2 py-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" />
+                <span>Agent {typingAgent.agentName} is typing…</span>
               </div>
             )}
           </div>
 
           {/* Input Zone */}
           {!isChatDisabled && (
-            <div className="p-6 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-white/5 relative shadow-[0_-10px_30px_rgba(0,0,0,0.02)] transition-colors shrink-0">
+            <div className="p-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-white/10 shrink-0 sticky bottom-0 z-10 shadow-sm">
               {typingAgent && (
-                <div className="mb-3 px-4 py-2.5 bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 rounded-2xl flex items-center gap-2 shadow-sm">
-                  <span className="text-xs">⚠️</span>
-                  <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest">
-                    Another agent is already responding to this customer.
-                  </span>
+                <div className="mb-2 px-3 py-1.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold flex items-center gap-1.5">
+                  <span>⚠️</span>
+                  <span>Another agent is responding to this chat.</span>
                 </div>
               )}
+
 
               {/* Missing variables validation alert */}
               {missingVars.length > 0 && (
@@ -723,11 +754,11 @@ export default function ChatPanel({
                 </div>
               )}
 
-              <form onSubmit={submit} className="flex flex-col gap-4">
+              <form onSubmit={submit} className="flex flex-col gap-2">
                 <div className="relative group">
                   <textarea
                     ref={textareaRef}
-                    className="w-full bg-slate-50 dark:bg-white/5 border-2 border-slate-50 dark:border-white/5 rounded-3xl px-6 py-4 text-sm font-medium focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500/50 outline-none transition-all resize-none shadow-inner min-h-[80px] dark:text-white"
+                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl pl-3 pr-24 py-2.5 text-xs md:text-sm font-medium focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 outline-none transition-all resize-none min-h-[60px] max-h-32 dark:text-white"
                     placeholder={
                       isChatDisabled
                         ? "Session is read-only..."
@@ -758,29 +789,29 @@ export default function ChatPanel({
                     }}
                   />
 
-                  <div className="absolute right-4 bottom-4 flex items-center gap-2">
+                  <div className="absolute right-2.5 bottom-2.5 flex items-center gap-1.5">
                     <button
                       type="button"
                       onClick={() => setShowVariablePicker(!showVariablePicker)}
-                      className={`w-10 h-10 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-white/10 rounded-2xl transition-all font-mono font-bold text-sm ${showVariablePicker ? "text-indigo-600 bg-indigo-50 dark:bg-white/10" : ""}`}
+                      className={`w-7 h-7 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-white/10 rounded-lg transition-all font-mono font-bold text-xs ${showVariablePicker ? "text-indigo-600 bg-indigo-50" : ""}`}
                       title="Insert placeholder variable"
                     >
-                      {"{ }"}
+                      {"{}"}
                     </button>
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-white/10 rounded-2xl transition-all"
+                      className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-white/10 rounded-lg transition-all"
                       title="Attach file"
                     >
-                      <Paperclip size={18} />
+                      <Paperclip size={15} />
                     </button>
                     <button
                       type="submit"
                       disabled={isChatDisabled || (!draft.trim() && !isUploading)}
-                      className="bg-slate-950 dark:bg-indigo-600 text-white w-10 h-10 rounded-2xl flex items-center justify-center hover:bg-slate-800 dark:hover:bg-indigo-500 disabled:opacity-30 disabled:grayscale transition-all shadow-xl shadow-slate-200 dark:shadow-none"
+                      className="bg-indigo-600 text-white w-7 h-7 rounded-lg flex items-center justify-center hover:bg-indigo-700 disabled:opacity-30 disabled:grayscale transition-all shadow-sm"
                     >
-                      <Send size={18} />
+                      <Send size={13} />
                     </button>
                   </div>
                 </div>

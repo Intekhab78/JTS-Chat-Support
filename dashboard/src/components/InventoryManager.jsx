@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { Boxes, Eye, Edit2, Trash2, Plus, X, Save, ArrowDownToLine, ArrowUpFromLine, RefreshCw, SlidersHorizontal, Package, MoreHorizontal, Search, FileSpreadsheet, FileText, Truck, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { Boxes, Eye, Edit2, Trash2, Plus, X, Save, ArrowDownToLine, ArrowUpFromLine, RefreshCw, SlidersHorizontal, Package, MoreHorizontal, Search, FileSpreadsheet, FileText, Truck, Sparkles, QrCode, Camera, CheckCircle2, AlertCircle } from "lucide-react";
+
 import { api } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import MasterManager from "./MasterManager.jsx";
@@ -117,11 +118,50 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [selectedInvoiceItem, setSelectedInvoiceItem] = useState(null);
 
+  // Camera QR & Barcode Scanner State
+  const [showScannerModal, setShowScannerModal] = useState(false);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [scannedSkuInput, setScannedSkuInput] = useState("");
+  const [scannedMatchItem, setScannedMatchItem] = useState(null);
+  const videoRef = useRef(null);
+
+  const startCamera = async () => {
+    setCameraActive(true);
+    setScannedMatchItem(null);
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      }
+    } catch {
+      // Camera permission or desktop fallback
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const tracks = videoRef.current.srcObject.getTracks();
+      tracks.forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setCameraActive(false);
+  };
+
+  const handleLookupSku = (querySku) => {
+    const term = (querySku || scannedSkuInput).trim().toLowerCase();
+    if (!term) return;
+    const match = items.find(it => (it.sku && it.sku.toLowerCase().includes(term)) || (it.name && it.name.toLowerCase().includes(term)) || (it.batchNumber && it.batchNumber.toLowerCase().includes(term)));
+    setScannedMatchItem(match || "not_found");
+  };
+
   // Master Table Multi-Filter States
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [stockStatusFilter, setStockStatusFilter] = useState("all");
   const [expiryFilter, setExpiryFilter] = useState("all");
+
 
   const selectedItem = useMemo(() => items.find((item) => item._id === selectedItemId) || null, [items, selectedItemId]);
   const lowStockCount = useMemo(() => items.filter((item) => Number(item.quantity || 0) <= Number(item.reorderLevel || 0)).length, [items]);
@@ -588,6 +628,16 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                     <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-black">{filteredItems.length} Records</span>
                   </div>
                   <div className="flex items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowScannerModal(true);
+                        startCamera();
+                      }}
+                      className="rounded-2xl border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 transition-all px-4 py-2.5 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+                    >
+                      <QrCode size={14} className="text-purple-600" /> QR / Barcode Scanner
+                    </button>
                     <button
                       type="button"
                       onClick={handleExportInventoryPDF}
@@ -1487,6 +1537,105 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
           onClose={() => setShowInvoiceModal(false)}
           defaultItem={selectedInvoiceItem}
         />
+
+        {/* Camera QR & Barcode Scanner Modal */}
+        {showScannerModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white rounded-[32px] max-w-lg w-full p-8 shadow-2xl space-y-6 animate-scale-in border border-purple-100">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2.5 bg-purple-600 text-white rounded-2xl">
+                    <Camera size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900">QR & Barcode Scanner</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Instant SKU Lookup & Stock Operations</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    stopCamera();
+                    setShowScannerModal(false);
+                  }}
+                  className="p-2 text-slate-400 hover:text-slate-800 rounded-xl transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Camera Viewport */}
+                <div className="relative w-full h-52 bg-slate-900 rounded-2xl overflow-hidden flex items-center justify-center border-2 border-dashed border-purple-300">
+                  <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                    <div className="w-40 h-28 border-2 border-purple-400 rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.5)] animate-pulse" />
+                  </div>
+                  <div className="absolute bottom-2 left-0 right-0 text-center">
+                    <span className="text-[9px] font-black uppercase text-purple-200 bg-slate-900/80 px-3 py-1 rounded-full backdrop-blur-sm">
+                      Align Barcode / QR Inside Box
+                    </span>
+                  </div>
+                </div>
+
+                {/* Manual SKU Input fallback */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Or Enter / Paste Barcode SKU</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={scannedSkuInput}
+                      onChange={(e) => setScannedSkuInput(e.target.value)}
+                      placeholder="e.g. SKU-1049, LAP-PRO-01..."
+                      className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleLookupSku()}
+                      className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all"
+                    >
+                      Lookup
+                    </button>
+                  </div>
+                </div>
+
+                {/* Scanned Result Card */}
+                {scannedMatchItem && scannedMatchItem !== "not_found" && (
+                  <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-2 animate-in fade-in">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black uppercase text-emerald-700">Matched Product Found</span>
+                      <span className="text-xs font-black text-emerald-800 bg-white px-2 py-0.5 rounded-md shadow-sm">{scannedMatchItem.sku}</span>
+                    </div>
+                    <p className="text-sm font-black text-slate-900">{scannedMatchItem.name}</p>
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-600">
+                      <span>In Stock: <strong className="text-emerald-700">{scannedMatchItem.quantity || 0} {scannedMatchItem.unit || "pcs"}</strong></span>
+                      <span>Unit Cost: <strong>${scannedMatchItem.unitCost || 0}</strong></span>
+                    </div>
+
+                    <div className="flex gap-2 pt-2 border-t border-emerald-100">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          stopCamera();
+                          setShowScannerModal(false);
+                          loadItemView(scannedMatchItem._id);
+                        }}
+                        className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                      >
+                        Open Item & Stock In/Out
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {scannedMatchItem === "not_found" && (
+                  <div className="p-3 bg-rose-50 rounded-xl border border-rose-200 text-center text-rose-700 text-xs font-bold">
+                    No product found with SKU &quot;{scannedSkuInput}&quot;. Please verify and retry.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

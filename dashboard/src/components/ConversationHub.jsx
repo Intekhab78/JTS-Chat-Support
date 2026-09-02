@@ -213,8 +213,8 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
   }, [sessions, websiteId, searchTerm]);
 
   return (
-    <section className="relative h-[calc(100vh-180px)] min-h-[600px]">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-full animate-in slide-in-from-bottom-4 duration-700">
+    <section className="relative h-full min-h-0 flex flex-col flex-1 overflow-hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 h-full min-h-0 flex-1 overflow-hidden animate-in fade-in duration-300">
         
         {/* Session List Component */}
         <SessionList 
@@ -232,7 +232,8 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
           extraHeader={extraHeader}
         />
 
-        <div className="lg:col-span-8 h-full relative">
+        {/* ChatPanel Component */}
+        <div className="lg:col-span-8 h-full min-h-0 flex flex-col overflow-hidden relative">
           <ChatPanel
             session={selectedSession}
             messages={messages}
@@ -253,6 +254,8 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
           />
         </div>
       </div>
+
+
 
       {/* Bulk Action Bar */}
       {selectedIds.length > 0 && (

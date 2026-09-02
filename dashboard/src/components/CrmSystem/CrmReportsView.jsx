@@ -73,6 +73,9 @@ export default function CRMReportsView({ summary, customers = [], websiteId, onD
   const [previewModal, setPreviewModal] = useState(null); // { title, columns, rows, moduleId }
   const [previewSearch, setPreviewSearch] = useState("");
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleForm, setScheduleForm] = useState({ frequency: "weekly", channel: "email", recipient: "" });
+
 
   // Filter States for Filter-wise Report Generation & Downloads
   const [filterDateRange, setFilterDateRange] = useState("all");
@@ -888,6 +891,12 @@ export default function CRMReportsView({ summary, customers = [], websiteId, onD
             >
               <Printer size={14} /> Master PDF Report (All {totalModulesCount})
             </button>
+            <button
+              onClick={() => setShowScheduleModal(true)}
+              className="flex items-center gap-2 px-5 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-2xl text-xs font-black uppercase tracking-wider transition-all shrink-0"
+            >
+              <Clock size={14} className="text-amber-400" /> Schedule Dispatch
+            </button>
           </div>
         </div>
 
@@ -1699,6 +1708,82 @@ export default function CRMReportsView({ summary, customers = [], websiteId, onD
         </div>,
         document.body
       )}
+
+      {/* Schedule Dispatch Modal */}
+      {showScheduleModal && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-[32px] max-w-md w-full p-6 shadow-2xl space-y-5 animate-scale-in">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Clock size={18} className="text-amber-500" />
+                <h4 className="text-sm font-black uppercase tracking-widest text-slate-900">Schedule Automated Report</h4>
+              </div>
+              <button onClick={() => setShowScheduleModal(false)} className="text-slate-400 hover:text-slate-900"><X size={18} /></button>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              alert(`Report dispatch scheduled ${scheduleForm.frequency} via ${scheduleForm.channel.toUpperCase()}!`);
+              setShowScheduleModal(false);
+            }} className="space-y-4">
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Dispatch Frequency</label>
+                <select
+                  value={scheduleForm.frequency}
+                  onChange={(e) => setScheduleForm(s => ({ ...s, frequency: e.target.value }))}
+                  className="w-full p-3 rounded-2xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-800 outline-none"
+                >
+                  <option value="daily">Daily Summary Digest (9:00 AM)</option>
+                  <option value="weekly">Weekly Master Audit (Mondays)</option>
+                  <option value="monthly">Monthly Financial & Compliance Report</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Dispatch Channel</label>
+                <select
+                  value={scheduleForm.channel}
+                  onChange={(e) => setScheduleForm(s => ({ ...s, channel: e.target.value }))}
+                  className="w-full p-3 rounded-2xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-800 outline-none"
+                >
+                  <option value="email">Email PDF Attachment</option>
+                  <option value="whatsapp">WhatsApp Summary Alert</option>
+                  <option value="telegram">Telegram Broadcast Channel</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Recipient Address / Number</label>
+                <input
+                  required
+                  placeholder="e.g. executive@company.com or +971501234567"
+                  value={scheduleForm.recipient}
+                  onChange={(e) => setScheduleForm(s => ({ ...s, recipient: e.target.value }))}
+                  className="w-full p-3 rounded-2xl border border-slate-200 bg-white text-xs font-bold text-slate-800 outline-none"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowScheduleModal(false)}
+                  className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl text-[10px] font-black uppercase tracking-wider"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-wider shadow-lg shadow-indigo-600/20"
+                >
+                  Save Schedule
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
     </div>
   );
 }

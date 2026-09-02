@@ -418,6 +418,49 @@ export function createSocketServer(httpServer) {
       });
     });
 
+    
+    socket.on("visitor:bot-prompt", async ({ sessionId, message, nodeKey }) => {
+      try {
+        const { website } = socket.data;
+        if (!website || !message?.trim()) return;
+
+        const session = await ChatSession.findOne({ sessionId }).populate("websiteId");
+        if (!session) return;
+
+        const existingPrompt = await Message.findOne({
+          sessionId: session._id,
+          sender: "agent",
+          message: message.trim()
+        });
+        if (existingPrompt) return;
+
+        const botSaved = await addMessage({
+          chatSession: session,
+          sender: "agent",
+          message: message.trim(),
+          isAi: true
+        });
+
+        const botPayload = {
+          _id: botSaved._id,
+          sessionId: session.sessionId,
+          message: botSaved.message,
+          sender: "agent",
+          senderName: session.websiteId?.websiteName ? `${session.websiteId.websiteName} AI` : "AI Assistant",
+          isAi: true,
+          createdAt: botSaved.createdAt
+        };
+
+        io.to(session.sessionId).emit("chat:message", botPayload);
+        io.to(`ws_${session.websiteId._id || session.websiteId}`).emit("chat:new-message", botPayload);
+        if (session.assignedAgent) {
+          io.to(`us_${session.assignedAgent._id || session.assignedAgent}`).emit("chat:message", botPayload);
+        }
+      } catch (err) {
+        console.error("visitor:bot-prompt error:", err);
+      }
+    });
+
     socket.on("visitor:message", async ({ sessionId, message, attachmentUrl = null, attachmentType = null, tempId = null }) => {
       try {
         const { website, visitorId } = socket.data;

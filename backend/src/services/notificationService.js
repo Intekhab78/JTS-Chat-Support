@@ -1,17 +1,35 @@
 import { logger } from "../utils/logger.js";
 import { Notification } from "../models/Notification.js";
+import { User } from "../models/User.js";
+import { NOTIFICATION_TYPES } from "../constants/domain.js";
 
-/**
- * Creates in-app Notification document for agents/clients/admins
- */
-export async function createNotification({ userId, title, message, type = "info", link = "" }) {
+export async function createNotification( { userId, recipient, title, message, type = "system_alert", link = "", actorId, actorName, entityType, entityId, metadata }) {
   try {
+    let targetRecipient = recipient || userId;
+
+    if (!targetRecipient) {
+      const admin = await User.findOne({ role: "admin" }).select("_id");
+      if (admin) targetRecipient = admin._id;
+    }
+
+    if (!targetRecipient) {
+      return null;
+    }
+
+    const validTypes = Array.isArray(NOTIFICATION_TYPES) ? NOTIFICATION_TYPES : [];
+    const validCategoryType = validTypes.includes(type) ? type : "system_alert";
+
     const notif = await Notification.create({
-      userId,
-      title,
-      message,
-      type,
-      link,
+      recipient: targetRecipient,
+      title: title || "System Alert",
+      message: message || "",
+      type: validCategoryType,
+      link: link || "",
+      actorId: actorId || null,
+      actorName: actorName || "",
+      entityType: entityType || "",
+      entityId: entityId || "",
+      metadata: metadata || {},
       isRead: false
     });
     return notif;
@@ -20,45 +38,12 @@ export async function createNotification({ userId, title, message, type = "info"
   }
 }
 
-/**
- * Enterprise Notification Service (WhatsApp, SMS, Email Alerts)
- */
 export async function sendTicketAlert({ website, ticket, callLog }) {
   if (!ticket) return;
-
   const phone = website?.voiceSettings?.alertPhoneNumber || "+971-50-9876543";
   const enableWhatsApp = website?.voiceSettings?.enableWhatsAppAlerts !== false;
   const enableSms = website?.voiceSettings?.enableSmsAlerts !== false;
-
-  const alertMessage = `🚨 [URGENT SUPPORT ALERT - ${website?.websiteName || 'JTS Enterprise'}]
-🎫 Ticket ID: ${ticket.ticketId}
-📌 Subject: ${ticket.subject}
-⚡ Priority: ${String(ticket.priority || 'medium').toUpperCase()}
-📞 Caller Phone: ${callLog?.callerPhone || 'Website Voice Visitor'}
-💬 Summary: ${ticket.description?.split('\n\n[AI Summary]\n')[1] || ticket.subject}
-🕒 Time: ${new Date().toLocaleTimeString()}
-
-Please log in to your dashboard to process this ticket immediately.`;
-
-  if (enableWhatsApp) {
-    logger.log(`[WHATSAPP ALERT SENT] to ${phone} -> Ticket ${ticket.ticketId}`);
-    console.log(`\n📲 --- SIMULATED WHATSAPP OUTBOUND ALERT ---`);
-    console.log(`TO: ${phone}`);
-    console.log(`MESSAGE:\n${alertMessage}`);
-    console.log(`-------------------------------------------\n`);
-  }
-
-  if (enableSms) {
-    logger.log(`[SMS ALERT SENT] to ${phone} -> Ticket ${ticket.ticketId}`);
-    console.log(`\n💬 --- SIMULATED SMS OUTBOUND ALERT ---`);
-    console.log(`TO: ${phone}`);
-    console.log(`MESSAGE: Ticket ${ticket.ticketId} created for ${ticket.subject}. Check Dashboard.`);
-    console.log(`---------------------------------------\n`);
-  }
-
-  return {
-    whatsappSent: enableWhatsApp,
-    smsSent: enableSms,
-    alertPhone: phone
-  };
+  if (enableWhatsApp) { logger.log(`[WHATSAPP ALERT SENT] to ${phone} -> Ticket ${ticket.ticketId}`); }
+  if (enableSms) { logger.log(`[SMS ALERT SENT] to ${phone} -> Ticket ${ticket.ticketId}`); }
+  return { whatsappSent: enableWhatsApp, smsSent: enableSms, alertPhone: phone };
 }

@@ -33,7 +33,7 @@ export async function connectDatabase() {
     if (error?.name === "MongooseServerSelectionError") {
       logger.log("Atlas IP whitelist blocked. Attempting local MongoDB fallback...");
       try {
-        await mongoose.connect(process.env.LOCAL_MONGODB_URI || "mongodb://127.0.0.1:27017/jts_chat_support", {
+        await mongoose.connect(process.env.LOCAL_MONGODB_URI || "mongodb://127.0.0.1:27017/chat-support", {
           family: 4,
           serverSelectionTimeoutMS: 5000
         });

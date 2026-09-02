@@ -690,10 +690,11 @@ import "./style.css";
     };
   }
 
-  function appendMessage(ui, sender, message, attachmentUrl, attachmentType, senderName, isAi, msgId, deliveredAt, readAt) {
+  function appendMessage(ui, sender, message, attachmentUrl, attachmentType, senderName, isAi, msgId, deliveredAt, readAt, tempId) {
     const item = document.createElement("div");
     item.className = `csw-message ${sender === "visitor" ? "csw-visitor" : "csw-agent"}`;
     if (msgId) item.setAttribute('data-msg-id', msgId);
+    if (tempId) item.setAttribute('data-temp-id', tempId);
 
     if (sender !== "visitor") {
       const nameTag = document.createElement("div");
@@ -967,6 +968,13 @@ import "./style.css";
 
     if (node.message) {
       appendMessage(ui, "agent", node.message, null, null, latestConfig.websiteName || "Support Bot", true);
+      if (socket && activeSessionId) {
+        socket.emit("visitor:bot-prompt", {
+          sessionId: activeSessionId,
+          message: node.message,
+          nodeKey: nodeKey
+        });
+      }
     }
 
     ui.quickReplies.innerHTML = "";
@@ -1085,13 +1093,21 @@ import "./style.css";
       pill.textContent = opt.text;
       pill.style.animationDelay = `${idx * 0.1}s`;
       pill.onclick = () => {
-        // ── DEBUG: Button Rendered & clicked ───────────────────────────
-        console.log('[FlowBot] 🖱️ Button clicked:', opt.text, '→ next node:', opt.next);
-        ui.quickReplies.innerHTML = "";
-        ui.quickReplies.classList.remove("bot-mode");
-        appendMessage(ui, "visitor", opt.text, null, null, "You", false);
-        botPath.push(opt.text);
-        botSelections[nodeKey] = opt.text;
+          ui.quickReplies.innerHTML = "";
+          ui.quickReplies.classList.remove("bot-mode");
+          const tempOptId = "flow-opt-" + Date.now();
+          appendMessage(ui, "visitor", opt.text, null, null, "You", false, null, null, null, tempOptId);
+          botPath.push(opt.text);
+          botSelections[nodeKey] = opt.text;
+
+          // Emit to backend socket so Agent sees the visitor's choice in real time!
+          if (socket && activeSessionId) {
+            socket.emit("visitor:message", {
+              sessionId: activeSessionId,
+              message: opt.text,
+              tempId: tempOptId
+            });
+          }
         if (!opt.next || !latestConfig.botFlow.nodes[opt.next]) {
           console.error('[FlowBot] ❌ Broken link! next node not found:', opt.next,
             '| Available:', Object.keys(latestConfig.botFlow.nodes));

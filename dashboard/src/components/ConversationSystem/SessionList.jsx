@@ -1,132 +1,178 @@
-import React from "react";
-import { Search, ChevronRight, MessageSquare, Check, Smile, Meh, Frown } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { Search, ChevronRight, MessageSquare, Check, Smile, Meh, Frown, Users } from "lucide-react";
 import { cleanString } from "../../utils/stringUtils.js";
 
 export default function SessionList({ 
-  sessions, 
-  searchTerm, 
+  sessions = [], 
+  searchTerm = "", 
   setSearchTerm, 
   selectedSessionId, 
   onSelectSession,
-  selectedIds,
+  selectedIds = [],
   toggleSelection,
   extraHeader = null
 }) {
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  const displayedSessions = useMemo(() => {
+    return sessions.filter(session => {
+      if (statusFilter === "active") return session.status !== "closed" && !session.archivedAt;
+      if (statusFilter === "closed") return session.status === "closed" || session.archivedAt;
+      return true;
+    });
+  }, [sessions, statusFilter]);
+
+  const activeCount = useMemo(() => sessions.filter(s => s.status !== "closed" && !s.archivedAt).length, [sessions]);
+
   return (
-    <div className="lg:col-span-4 premium-card p-0 flex flex-col border-none shadow-2xl bg-white dark:bg-slate-900 overflow-hidden transition-colors">
-      <div className="p-8 border-b border-slate-50 dark:border-white/5 space-y-5 bg-slate-50/20 dark:bg-black/10">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex flex-col gap-1.5">
-            <h3 className="heading-md dark:text-white">Active Streams</h3>
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
-              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-black uppercase tracking-[0.2em]">{sessions.length} Live Connections</span>
-            </div>
+    <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col h-full overflow-hidden">
+      {/* Header */}
+      <div className="p-3.5 border-b border-slate-100 dark:border-white/10 space-y-2.5 bg-slate-50/50 dark:bg-slate-800/40">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Conversations</h3>
+            <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              {activeCount} Active
+            </span>
           </div>
           {extraHeader}
         </div>
-        <div className="relative group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={14} />
+
+        {/* Search Input */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
           <input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Filter frequency spectrum..."
-            className="w-full bg-white dark:bg-black/20 border border-slate-100 dark:border-white/5 rounded-xl pl-10 pr-4 py-3.5 text-[11px] font-black focus:outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500/50 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-800 dark:text-white uppercase tracking-wider"
+            placeholder="Search visitor or messages..."
+            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs font-medium text-slate-800 dark:text-white placeholder:text-slate-400 outline-none focus:border-indigo-500 transition-all"
           />
+        </div>
+
+        {/* Status Filter Tabs */}
+        <div className="flex items-center gap-1.5 pt-0.5">
+          {[
+            { id: "all", label: `All (${sessions.length})` },
+            { id: "active", label: `Active (${activeCount})` },
+            { id: "closed", label: `Closed (${sessions.length - activeCount})` }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setStatusFilter(tab.id)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                statusFilter === tab.id
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "bg-white dark:bg-slate-800 text-slate-500 hover:bg-slate-100 border border-slate-200 dark:border-white/5"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/10 dark:bg-black/5 custom-scrollbar">
-        {sessions.map(session => (
-          <div
-            key={session._id}
-            className="flex items-center gap-3 group"
-          >
-            {/* Multi-select Checkbox */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleSelection(session.sessionId);
-              }}
-              className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all shrink-0 ${
-                selectedIds.includes(session.sessionId)
-                  ? "bg-indigo-600 border-indigo-600 shadow-lg shadow-indigo-100 dark:shadow-none"
-                  : "border-slate-100 dark:border-white/5 bg-white dark:bg-black/20"
-              }`}
-            >
-              {selectedIds.includes(session.sessionId) && <Check size={12} className="text-white" />}
-            </button>
+      {/* Session List */}
+      <div className="flex-1 overflow-y-auto p-2 space-y-1.5 custom-scrollbar">
+        {displayedSessions.map(session => {
+          const isSelected = selectedSessionId === session.sessionId;
+          const visitorName = cleanString(session.visitorId?.name) || cleanString(session.visitorId?.visitorId, 'Visitor');
+          const siteName = session.websiteId?.websiteName || 'General Website';
+          const timeStr = new Date(session.updatedAt || session.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+
+          return (
             <div
-              onClick={() => onSelectSession(session.sessionId)}
-              className={`flex-1 p-5 rounded-[24px] border transition-all duration-500 cursor-pointer relative overflow-hidden ${
-                selectedSessionId === session.sessionId
-                  ? "bg-white dark:bg-slate-800 border-indigo-200 dark:border-indigo-500/30 shadow-2xl translate-x-1"
-                  : "bg-white/50 dark:bg-white/5 border-slate-50 dark:border-white/5 hover:border-slate-200 dark:hover:border-white/10"
-              }`}
+              key={session._id || session.sessionId}
+              className="flex items-center gap-1.5 group"
             >
-              <div className="relative z-10 space-y-3">
-                <div className="flex items-center justify-between">
-                  <strong className={`text-[10px] font-black tracking-[0.15em] block uppercase transition-colors shrink-0 ${selectedSessionId === session.sessionId ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-900 dark:text-slate-200'}`}>
-                    {session.websiteId?.websiteName || 'Global Source'}
-                  </strong>
-                  <div className="flex items-center gap-2">
-                    {session.unreadCount > 0 ? (
-                      <span className="rounded-md bg-rose-500 px-2 py-0.5 text-[8px] font-black text-white">{session.unreadCount}</span>
-                    ) : null}
-                    {session.sentimentLabel && (
-                      <span className={`flex items-center justify-center p-1 rounded-md ${
-                        session.sentimentLabel === 'positive' ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10' :
-                        session.sentimentLabel === 'negative' ? 'text-rose-500 bg-rose-50 dark:bg-rose-500/10' :
-                        'text-slate-400 bg-slate-50 dark:bg-white/5'
-                      }`}>
-                        {session.sentimentLabel === 'positive' && <Smile size={10} />}
-                        {session.sentimentLabel === 'neutral' && <Meh size={10} />}
-                        {session.sentimentLabel === 'negative' && <Frown size={10} />}
-                      </span>
-                    )}
-                    <span className={`text-[8px] font-black px-2 py-0.5 rounded-md ${selectedSessionId === session.sessionId ? 'bg-indigo-600 text-white' : 'text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-white/5'}`}>
-                      {new Date(session.updatedAt || session.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+              {/* Multi-select Checkbox */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleSelection(session.sessionId);
+                }}
+                className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all shrink-0 ml-1 ${
+                  selectedIds.includes(session.sessionId)
+                    ? "bg-indigo-600 border-indigo-600 text-white"
+                    : "border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 hover:border-slate-300"
+                }`}
+              >
+                {selectedIds.includes(session.sessionId) && <Check size={11} />}
+              </button>
+
+              <div
+                onClick={() => onSelectSession(session.sessionId)}
+                className={`flex-1 p-3 rounded-xl border transition-all cursor-pointer relative ${
+                  isSelected
+                    ? "bg-indigo-50/70 dark:bg-indigo-500/10 border-indigo-300 dark:border-indigo-500/30 shadow-sm"
+                    : "bg-white dark:bg-slate-800/50 border-slate-100 dark:border-white/5 hover:border-slate-200 dark:hover:border-white/15 hover:bg-slate-50/60"
+                }`}
+              >
+                <div className="flex items-start gap-2.5">
+                  {/* Avatar */}
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+                    isSelected 
+                      ? "bg-indigo-600 text-white shadow-sm" 
+                      : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                  }`}>
+                    {visitorName.slice(0, 2).toUpperCase()}
                   </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[10px] transition-all ${selectedSessionId === session.sessionId ? 'bg-indigo-600 text-white shadow-lg rotate-3' : 'bg-slate-100 dark:bg-white/5 text-slate-400'}`}>
-                    {(cleanString(session.visitorId?.name) || cleanString(session.visitorId?.visitorId) || 'AN').slice(0, 2).toUpperCase()}
-                  </div>
+
+                  {/* Content */}
                   <div className="flex-1 min-w-0">
-                    <span className="text-[10px] text-slate-900 dark:text-slate-300 font-black tracking-widest uppercase truncate block">
-                      {cleanString(session.visitorId?.name) || cleanString(session.visitorId?.visitorId, 'Anonymous User')}
-                    </span>
-                    {session.lastMessagePreview ? (
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 line-clamp-1 opacity-80 font-bold mt-0.5">
-                        {session.lastMessagePreview}
-                      </p>
-                    ) : (
-                      <span className="text-[9px] text-slate-300 dark:text-slate-700 font-bold uppercase tracking-widest">Waiting for signal...</span>
-                    )}
+                    <div className="flex items-center justify-between gap-1 mb-0.5">
+                      <span className={`text-xs font-bold truncate ${isSelected ? "text-indigo-900 dark:text-indigo-200" : "text-slate-800 dark:text-slate-200"}`}>
+                        {visitorName}
+                      </span>
+                      <span className="text-[10px] font-medium text-slate-400 shrink-0">
+                        {timeStr}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mb-1">
+                      <span className="font-semibold text-slate-600 dark:text-slate-400 truncate max-w-[130px]">
+                        {siteName}
+                      </span>
+                      {session.unreadCount > 0 && (
+                        <span className="bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.2 rounded-full">
+                          {session.unreadCount}
+                        </span>
+                      )}
+                      {session.sentimentLabel && (
+                        <span className={`text-[10px] ml-auto ${
+                          session.sentimentLabel === 'positive' ? 'text-emerald-600' :
+                          session.sentimentLabel === 'negative' ? 'text-rose-500' : 'text-slate-400'
+                        }`}>
+                          {session.sentimentLabel === 'positive' && '😊'}
+                          {session.sentimentLabel === 'neutral' && '😐'}
+                          {session.sentimentLabel === 'negative' && '🚨'}
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 leading-normal font-normal">
+                      {session.lastMessagePreview || "Chat connected"}
+                    </p>
                   </div>
-                  <ChevronRight size={14} className={`text-slate-200 dark:text-slate-800 group-hover:text-indigo-500 transition-colors ${selectedSessionId === session.sessionId ? 'opacity-0' : ''}`} />
                 </div>
               </div>
-              {selectedSessionId === session.sessionId && (
-                <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-indigo-600 dark:bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.6)]" />
-              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
+
         {sessions.length === 0 && (
-          <div className="text-center py-24 text-slate-300 dark:text-slate-800 flex flex-col items-center gap-6 animate-in fade-in zoom-in duration-500">
-            <div className="w-16 h-16 rounded-3xl bg-slate-50 dark:bg-white/5 flex items-center justify-center shadow-inner">
-              <MessageSquare size={32} strokeWidth={1.5} />
+          <div className="text-center py-16 text-slate-400 flex flex-col items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-white/5 flex items-center justify-center text-slate-300">
+              <MessageSquare size={24} />
             </div>
-            <div className="space-y-1">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-600">Zero active transmissions</p>
-              <p className="text-[8px] font-bold uppercase tracking-widest text-slate-300 dark:text-slate-800">Stand by for incoming signals...</p>
-            </div>
+            <p className="text-xs font-bold text-slate-600 dark:text-slate-400">No active conversations</p>
+            <p className="text-xs text-slate-400">Incoming visitor chats will appear here in real-time.</p>
           </div>
         )}
       </div>
     </div>
   );
 }
+

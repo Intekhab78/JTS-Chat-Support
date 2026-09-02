@@ -500,242 +500,174 @@ export default function AgentPage() {
   ];
 
   const [mobileView, setMobileView] = useState("queue");
-
   const content = tab === "chats" ? (
-    <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[700px] lg:h-[750px] animate-in slide-in-from-bottom-4 duration-700">
-      <div className={`lg:col-span-4 premium-card overflow-hidden flex flex-col p-0 border-none shadow-2xl ${mobileView === "chat" ? "hidden lg:flex" : "flex"}`}>
-        <div className="p-6 border-b border-slate-50 flex items-center justify-between">
-          <div className="flex flex-col gap-0.5">
-            <h3 className="heading-md">My Chats</h3>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{sessions.length} total sessions</span>
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-3 h-full min-h-0 flex-1 overflow-hidden animate-fade-in">
+        {/* Left Column: My Chats Session List */}
+        <div className={`lg:col-span-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm overflow-hidden flex flex-col h-full min-h-0 ${mobileView === "chat" ? "hidden lg:flex" : "flex"}`}>
+          {/* Header */}
+          <div className="p-3.5 border-b border-slate-100 dark:border-white/10 space-y-2.5 bg-slate-50/50 dark:bg-slate-800/40">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Operation Chats</h3>
+                <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  {sessions.length} Total
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={toggleAvailability}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1 ${user?.isAvailable
+                  ? "bg-slate-900 text-white hover:bg-slate-800"
+                  : "bg-indigo-600 text-white hover:bg-indigo-700"
+                  }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${user?.isAvailable ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
+                <span>{user?.isAvailable ? "Online" : "Go Online"}</span>
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="relative">
+              <input
+                value={sessionSearch}
+                onChange={e => setSessionSearch(e.target.value)}
+                placeholder="Search visitor, CRN, or website..."
+                className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs font-medium text-slate-800 dark:text-white placeholder:text-slate-400 outline-none focus:border-indigo-500 transition-all"
+              />
+            </div>
+
+            {/* Status Tabs */}
+            <div className="flex items-center gap-1">
+              {SESSION_TABS.map(t => (
+                <button
+                  key={t.key}
+                  onClick={() => setSessionTab(t.key)}
+                  className={`flex-1 py-1 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${sessionTab === t.key
+                    ? "bg-indigo-600 text-white shadow-sm"
+                    : "bg-white dark:bg-slate-800 text-slate-500 hover:bg-slate-100 border border-slate-200 dark:border-white/5"
+                    }`}
+                >
+                  <span>{t.label}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${sessionTab === t.key ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"}`}>
+                    {t.count}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={toggleAvailability}
-            className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] transition-all shadow ${user?.isAvailable
-              ? "bg-slate-950 text-white hover:bg-black"
-              : "bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-200"
-              }`}
-          >
-            {user?.isAvailable ? "Deactivate" : "Activate"}
-          </button>
+
+          {/* Sessions Scrollable List */}
+          <div className="flex-1 overflow-y-auto p-2 space-y-1.5 custom-scrollbar">
+            {loadingSessions ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="p-3 rounded-xl border border-slate-100 bg-slate-50/50 animate-pulse space-y-2">
+                  <div className="h-3 bg-slate-200 rounded w-3/4" />
+                  <div className="h-2 bg-slate-200 rounded w-1/2" />
+                </div>
+              ))
+            ) : paginatedVisibleSessions.pageItems.length === 0 ? (
+              <div className="py-12 text-center text-xs text-slate-400 font-medium">
+                No conversations found under this filter.
+              </div>
+            ) : (
+              paginatedVisibleSessions.pageItems.map((session) => (
+                <div
+                  key={session._id}
+                  onClick={() => { setSelectedSessionId(session.sessionId); setMobileView("chat"); }}
+                  className={`p-3 rounded-xl border transition-all cursor-pointer relative ${selectedSessionId === session.sessionId
+                    ? "bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-300 dark:border-indigo-500/30 shadow-sm"
+                    : "bg-white dark:bg-slate-800 border-slate-200 dark:border-white/5 hover:border-slate-300"
+                    }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`text-xs font-bold truncate ${selectedSessionId === session.sessionId ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-900 dark:text-white'}`}>
+                      {session.visitorId?.name || session.visitorId?.visitorId || "Visitor"}
+                    </span>
+                    
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                      session.status === 'queued'
+                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : session.status === 'closed'
+                          ? 'bg-slate-100 text-slate-500 border-slate-200'
+                          : session.visitorId?.isOnline
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-slate-100 text-slate-500 border-slate-200'
+                    }`}>
+                      {session.status === 'queued' ? "Queued" : session.status === 'closed' ? "Closed" : session.visitorId?.isOnline ? "Online" : "Offline"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                    <span className="truncate max-w-[150px]">{session.websiteId?.websiteName || "General Website"}</span>
+                    {session.crn && (
+                      <span className="text-[10px] font-semibold bg-purple-50 text-purple-600 px-1.5 py-0.2 rounded border border-purple-100">
+                        {session.crn}
+                      </span>
+                    )}
+                  </div>
+
+                  {session.lastMessagePreview && (
+                    <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-1 mt-1 font-medium">
+                      {session.lastMessagePreview}
+                    </p>
+                  )}
+
+                  {typingSessions[session.sessionId] && (
+                    <p className="text-xs text-indigo-600 font-bold animate-pulse mt-0.5">Visitor is typing...</p>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Pagination */}
+          {!loadingSessions && paginatedVisibleSessions.totalPages > 1 && (
+            <div className="p-2 border-t border-slate-100 dark:border-white/5">
+              <PaginationControls
+                currentPage={paginatedVisibleSessions.currentPage}
+                totalPages={paginatedVisibleSessions.totalPages}
+                totalItems={paginatedVisibleSessions.totalItems}
+                itemLabel="chats"
+                onPageChange={setChatPage}
+              />
+            </div>
+          )}
         </div>
 
-        <div className="flex border-b border-slate-100 bg-slate-50/40">
-          {SESSION_TABS.map(t => (
+        {/* Right Column: Chat Panel */}
+        <div className={`lg:col-span-8 h-full min-h-0 flex flex-col overflow-hidden relative ${mobileView === "queue" ? "hidden lg:flex" : "flex"}`}>
+          <div className="lg:hidden flex items-center justify-between bg-white border border-slate-100 rounded-xl px-3 py-2 shadow-sm mb-2">
             <button
-              key={t.key}
-              onClick={() => setSessionTab(t.key)}
-              className={`flex-1 py-3 flex flex-col items-center gap-0.5 text-[9px] font-black uppercase tracking-widest transition-all border-b-2 ${sessionTab === t.key
-                ? "border-indigo-600 text-indigo-600 bg-white"
-                : "border-transparent text-slate-400 hover:text-slate-600"
-                }`}
+              type="button"
+              onClick={() => setMobileView("queue")}
+              className="px-3 py-1 rounded-lg bg-indigo-600 text-white text-xs font-bold"
             >
-              <span className="flex items-center gap-1.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${t.dot}`} />
-                {t.label}
-              </span>
-              <span className={`text-base font-black leading-none ${sessionTab === t.key ? "text-indigo-600" : "text-slate-500"}`}>{t.count}</span>
+              ← Back to Chats
             </button>
-          ))}
-        </div>
+            <span className="text-xs font-bold text-slate-700">
+              {selectedSession?.websiteId?.websiteName || "Chat Panel"}
+            </span>
+          </div>
 
-        <div className="px-4 pt-3 pb-2">
-          <input
-            value={sessionSearch}
-            onChange={e => setSessionSearch(e.target.value)}
-            placeholder="Search by name or visitor ID…"
-            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-[10px] font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-300 transition-all placeholder:text-slate-300"
+          <ChatPanel
+            session={selectedSession}
+            messages={messages}
+            onSend={sendMessage}
+            onTyping={sendTyping}
+            isTyping={typingSessions[selectedSessionId]}
+            viewers={sessionViewers[selectedSessionId] || []}
+            typingAgent={typingAgents[selectedSessionId]}
+            currentUser={user}
+            onConvertToTicket={isBasicUser || !canUseTickets ? null : () => { setTicketModal(true); setTicketResult(null); }}
+            canUseShortcuts={!isBasicUser && canUseShortcuts}
+            onTakeOver={() => socket.emit("agent:take-over-chat", { sessionId: selectedSessionId })}
+            onRelease={() => socket.emit("agent:release-chat", { sessionId: selectedSessionId })}
+            onRequestControl={() => socket.emit("agent:request-control", { sessionId: selectedSessionId })}
           />
         </div>
-
-        <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50/30">
-          {loadingSessions ? (
-            Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="p-5 rounded-2xl border border-slate-100 bg-white animate-pulse space-y-2">
-                <div className="h-3 bg-slate-100 rounded-lg w-3/4" />
-                <div className="h-2 bg-slate-100 rounded-lg w-1/2" />
-              </div>
-            ))
-          ) : paginatedVisibleSessions.pageItems.map((session) => (
-            <div
-              key={session._id}
-              onClick={() => { setSelectedSessionId(session.sessionId); setMobileView("chat"); }}
-              className={`p-4 rounded-2xl border transition-all cursor-pointer relative overflow-hidden group ${selectedSessionId === session.sessionId
-                ? "bg-white border-indigo-200 shadow-xl translate-x-1"
-                : "bg-white border-slate-100 hover:border-slate-200"
-                }`}
-            >
-              {selectedSessionId === session.sessionId && <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-600 rounded-l-2xl" />}
-              <div className="relative z-10 space-y-1 pl-1">
-                <div className="flex items-center justify-between">
-                  <strong className={`text-[10px] font-black tracking-wide block uppercase transition-colors ${selectedSessionId === session.sessionId ? 'text-indigo-600' : 'text-slate-900'}`}>
-                    {session.websiteId?.websiteName || "—"}
-                  </strong>
-                  {session.crn && (
-                    <span className="text-[7px] font-black bg-purple-50 text-purple-500 px-1.5 py-0.5 rounded border border-purple-100 uppercase tracking-tighter">
-                      {session.crn}
-                    </span>
-                  )}
-                  <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${(session.archivedAt || isLegacyTrashSession(session))
-                    ? 'bg-red-50 text-red-600 border-red-100'
-                    : session.status === 'queued'
-                      ? 'bg-amber-50 text-amber-600 border-amber-100'
-                      : session.status === 'closed'
-                        ? 'bg-slate-50 text-slate-400 border-slate-100'
-                        : session.visitorId?.isOnline
-                          ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                          : 'bg-slate-100 text-slate-500 border-slate-200'
-                    }`}>
-                    {(session.archivedAt || isLegacyTrashSession(session))
-                      ? "Trash"
-                      : session.status === 'queued'
-                        ? "Queued"
-                        : session.status === 'closed'
-                          ? "Closed"
-                          : session.visitorId?.isOnline
-                            ? "Active"
-                            : "Offline"}
-                  </span>
-                </div>
-                <span className="text-[9px] text-slate-400 font-bold tracking-widest uppercase block truncate">
-                  {session.visitorId?.visitorId}
-                </span>
-                {session.lastMessagePreview && (
-                  <p className="text-[9px] text-slate-400 line-clamp-1 opacity-80">{session.lastMessagePreview}</p>
-                )}
-                {typingSessions[session.sessionId] && (
-                  <p className="text-[9px] text-indigo-500 font-bold uppercase tracking-widest animate-pulse">typing...</p>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-        {!loadingSessions && (
-          <div className="px-3 pb-3">
-            <PaginationControls
-              currentPage={paginatedVisibleSessions.currentPage}
-              totalPages={paginatedVisibleSessions.totalPages}
-              totalItems={paginatedVisibleSessions.totalItems}
-              itemLabel="sessions"
-              onPageChange={setChatPage}
-            />
-          </div>
-        )}
-      </div>
-
-      <div className={`lg:col-span-8 flex flex-col gap-6 ${mobileView === "queue" ? "hidden lg:flex" : "flex"}`}>
-        <div className="lg:hidden flex items-center justify-between bg-white border border-slate-100 rounded-2xl px-4 py-2 shadow-sm">
-          <button
-            type="button"
-            onClick={() => setMobileView("queue")}
-            className="px-3.5 py-1.5 rounded-xl bg-indigo-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-md shadow-indigo-500/20"
-          >
-            ← Back to Active Queue ({sessions.length})
-          </button>
-          <span className="text-[10px] font-black uppercase text-slate-500">
-            {selectedSession?.websiteId?.websiteName || "Active Chat"}
-          </span>
-        </div>
-        <ChatPanel
-          session={selectedSession}
-          messages={messages}
-          onSend={sendMessage}
-          onTyping={sendTyping}
-          isTyping={typingSessions[selectedSessionId]}
-          viewers={sessionViewers[selectedSessionId] || []}
-          typingAgent={typingAgents[selectedSessionId]}
-          currentUser={user}
-          onConvertToTicket={isBasicUser || !canUseTickets ? null : () => { setTicketModal(true); setTicketResult(null); }}
-          canUseShortcuts={!isBasicUser && canUseShortcuts}
-          disabled={!user?.isAvailable}
-          onTakeOver={() => socket.emit("agent:take-over-chat", { sessionId: selectedSessionId })}
-          onRelease={() => socket.emit("agent:release-chat", { sessionId: selectedSessionId })}
-          onRequestControl={() => socket.emit("agent:request-control", { sessionId: selectedSessionId })}
-        />
-
-        {selectedSession && (
-          <div className="premium-card p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 animate-in zoom-in-95 duration-500 overflow-hidden">
-            <div className="space-y-1">
-              <h3 className="heading-md">Session Control</h3>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest max-w-xs">
-                {(selectedSession.archivedAt || isLegacyTrashSession(selectedSession))
-                  ? "Restore this chat from trash or delete it permanently."
-                  : selectedSession.status === "closed"
-                    ? "Move this closed chat to trash for cleanup."
-                    : isBasicUser
-                      ? "Reply to and close your assigned chats."
-                      : "Convert this chat to a ticket or close the session."}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-3 shrink-0">
-              {!(selectedSession.archivedAt || isLegacyTrashSession(selectedSession)) && selectedSession.status !== "closed" && !isBasicUser ? (
-                <>
-                  {canUseTickets ? (
-                    <button
-                      type="button"
-                      onClick={() => setHistoryModal(true)}
-                      className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-5 py-3 rounded-2xl font-black text-[9px] uppercase tracking-[0.2em] transition-all shadow-sm flex items-center gap-2 relative whitespace-nowrap"
-                    >
-                      <History size={14} /> Customer Profile
-                      {customerHistory?.tickets?.some(t => t.status === 'open') && (
-                        <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-red-500 border-2 border-white rounded-full shadow-lg shadow-red-500/50 animate-pulse" />
-                      )}
-                    </button>
-                  ) : null}
-                  {canUseTickets ? (
-                    <button
-                      type="button"
-                      onClick={() => { setTicketModal(true); setTicketResult(null); }}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-2xl font-black text-[9px] uppercase tracking-[0.2em] transition-all shadow-xl shadow-indigo-200 flex items-center gap-2 whitespace-nowrap"
-                    >
-                      <Ticket size={14} /> Generate Ticket
-                    </button>
-                  ) : null}
-                </>
-              ) : null}
-              {!(selectedSession.archivedAt || isLegacyTrashSession(selectedSession)) && selectedSession.status !== "closed" ? (
-                <button
-                  type="button"
-                  onClick={closeChat}
-                  className="bg-slate-50 border border-slate-200 hover:bg-red-50 hover:text-red-700 hover:border-red-100 text-slate-500 px-5 py-3 rounded-2xl font-black text-[9px] uppercase tracking-[0.2em] transition-all whitespace-nowrap"
-                >
-                  Close Session
-                </button>
-              ) : null}
-              {!(selectedSession.archivedAt || isLegacyTrashSession(selectedSession)) && selectedSession.status === "closed" ? (
-                <button
-                  type="button"
-                  onClick={moveChatToTrash}
-                  className="bg-amber-500 hover:bg-amber-600 text-white px-5 py-3 rounded-2xl font-black text-[9px] uppercase tracking-[0.2em] transition-all shadow-xl shadow-amber-200 flex items-center gap-2 whitespace-nowrap"
-                >
-                  <Archive size={14} /> Move To Trash
-                </button>
-              ) : null}
-              {(selectedSession.archivedAt || isLegacyTrashSession(selectedSession)) ? (
-                <button
-                  type="button"
-                  onClick={restoreChat}
-                  className="bg-sky-600 hover:bg-sky-700 text-white px-5 py-3 rounded-2xl font-black text-[9px] uppercase tracking-[0.2em] transition-all shadow-xl shadow-sky-200 flex items-center gap-2 whitespace-nowrap"
-                >
-                  <RotateCcw size={14} /> Restore Chat
-                </button>
-              ) : null}
-              {(selectedSession.archivedAt || isLegacyTrashSession(selectedSession)) && canDeleteChats ? (
-                <button
-                  type="button"
-                  onClick={deleteChatPermanently}
-                  className="bg-red-600 hover:bg-red-700 text-white px-5 py-3 rounded-2xl font-black text-[9px] uppercase tracking-[0.2em] transition-all shadow-xl shadow-red-200 flex items-center gap-2 whitespace-nowrap"
-                >
-                  <Trash2 size={14} /> Delete Permanently
-                </button>
-              ) : null}
-            </div>
-          </div>
-        )}
-      </div>
-    </section>
-  ) : tab === "settings" ? (
+      </section>
+    ) : tab === "settings" ? (
     <section className="max-w-xl animate-in slide-in-from-bottom-4 duration-700">
       <form className="premium-card p-10 space-y-8" onSubmit={updateProfile}>
         <div className="flex flex-col gap-1">

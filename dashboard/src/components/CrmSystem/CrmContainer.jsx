@@ -62,6 +62,9 @@ import VatFilingDashboard from "./VatFilingDashboard.jsx";
 import CorporateTaxDashboard from "./CorporateTaxDashboard.jsx";
 import TradeLicenseDashboard from "./TradeLicenseDashboard.jsx";
 import ComplianceReportsHub from "./ComplianceReportsHub.jsx";
+import HelpCenterView from "./HelpCenterView.jsx";
+import { BookOpen } from "lucide-react";
+
 
 const crmGroups = [
   {
@@ -122,6 +125,7 @@ const crmGroups = [
       { id: "inbox", label: "Unified Inbox", icon: Inbox },
       { id: "canned", label: "Canned Replies", icon: MessageSquare },
       { id: "helpdesk", label: "Helpdesk", icon: LifeBuoy },
+      { id: "help-center", label: "Knowledge Hub", icon: BookOpen },
       { id: "success", label: "Customer Success", icon: Award },
     ]
   },
@@ -1583,6 +1587,10 @@ export default function CrmContainer({
 
       {workspaceTab === "helpdesk" && (
         <CrmHelpdeskView websiteId={websiteId} />
+      )}
+
+      {workspaceTab === "help-center" && (
+        <HelpCenterView websiteId={websiteId} />
       )}
 
       {workspaceTab === "success" && (

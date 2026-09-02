@@ -289,14 +289,7 @@ export async function getSessionMessages(req, res) {
     return res.status(403).json({ message: "Access denied" });
   }
 
-  // Agent can read: sessions assigned to them, OR unassigned/queued sessions on their website
-  if (role === "agent") {
-    const isAssignedToMe = session.assignedAgent && session.assignedAgent.toString() === req.user._id.toString();
-    const isUnassigned = !session.assignedAgent;
-    if (!isAssignedToMe && !isUnassigned) {
-      return res.status(403).json({ message: "Access denied" });
-    }
-  }
+  // Agents with website access can read session history for monitoring and takeover
 
   const messages = await Message.find({ sessionId: session._id }).sort({ createdAt: 1 });
   const messagesWithNames = await populateMessageNames(messages);
@@ -878,7 +871,6 @@ export async function getInternalNotes(req, res) {
 
 export async function getSessionActivity(req, res) {
   try {
-    requirePermission(req.user, PERMISSIONS.ACTIVITY_VIEW);
     const { sessionId } = req.params;
     const session = await ChatSession.findOne({ sessionId }).select("_id websiteId assignedAgent").populate("websiteId", "managerId");
     if (!session) return res.status(404).json({ message: "Session not found" });

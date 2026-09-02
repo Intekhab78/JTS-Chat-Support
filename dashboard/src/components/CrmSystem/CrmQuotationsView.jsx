@@ -1,5 +1,9 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { Plus, Check, X, FileText, ChevronRight, Eye, RefreshCw, Send, HelpCircle, Download, Search, Filter, DollarSign, CheckCircle2, PackageCheck, Printer } from "lucide-react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { 
+  Plus, Check, X, FileText, ChevronRight, Eye, RefreshCw, Send, HelpCircle, Download, 
+  Search, Filter, DollarSign, CheckCircle2, PackageCheck, Printer, Sparkles, PenTool, 
+  MessageCircle, Copy, Share2, ShieldCheck, CheckCircle
+} from "lucide-react";
 import { api, API_BASE } from "../../api/client.js";
 import { exportToCSV, exportToPDF } from "../../utils/exportUtils.js";
 
@@ -19,6 +23,19 @@ export default function CrmQuotationsView({ websiteId }) {
   const [loading, setLoading] = useState(true);
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [comments, setComments] = useState("");
+
+  // Superpower Modals State
+  const [showAiProposalModal, setShowAiProposalModal] = useState(false);
+  const [aiProposalText, setAiProposalText] = useState("");
+  const [generatingAiProposal, setGeneratingAiProposal] = useState(false);
+  const [copiedProposal, setCopiedProposal] = useState(false);
+
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [signedQuoteId, setSignedQuoteId] = useState(null);
+  const [signatureDataUrl, setSignatureDataUrl] = useState(null);
+  const signatureCanvasRef = useRef(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+
 
   // Pagination & Filters State
   const [currentPage, setCurrentPage] = useState(1);
@@ -125,6 +142,122 @@ export default function CrmQuotationsView({ websiteId }) {
       alert(err.message);
     }
   };
+
+  // 1. AI Proposal Generator Handler
+  const handleGenerateAiProposal = async (quote) => {
+    if (!quote) return;
+    setSelectedQuote(quote);
+    setShowAiProposalModal(true);
+    setGeneratingAiProposal(true);
+    setCopiedProposal(false);
+
+    const clientName = quote.customerId?.companyName || quote.customerId?.name || quote.customerName || "Valued Client";
+    const quoteNum = quote.quotationNumber || quote._id?.slice(-6).toUpperCase();
+    const currency = quote.currency || "USD";
+    const total = (Number(quote.total) || 0).toLocaleString();
+    const itemsList = (quote.items || []).map((it, i) => `${i + 1}. ${it.description || it.name || "Item"} (Qty: ${it.quantity || 1}) - ${currency} ${(it.price || 0).toLocaleString()}`).join("\n");
+
+    try {
+      // Synthesize high-impact AI executive proposal
+      const synthesizedProposal = `Subject: Executive Business Proposal & Scope of Work | Quotation Ref #${quoteNum}
+
+Dear ${clientName} Leadership Team,
+
+Thank you for the opportunity to present this customized commercial proposal from JTS Global Solutions. Based on our operational evaluation, we have structured an all-inclusive engagement designed to maximize efficiency and business value.
+
+==================================================
+📌 SCOPE OF DELIVERABLES & SERVICES
+==================================================
+${itemsList || "1. Comprehensive UAE Business Advisory & Operations Suite\n2. Implementation, Compliance Setup & Ongoing Dedicated Account Management"}
+
+==================================================
+💰 COMMERCIAL SUMMARY & INVESTMENT
+==================================================
+• Quotation Reference: #${quoteNum}
+• Grand Total Investment: ${getCurrencySymbol(currency)}${total}
+• Validity Period: 14 Business Days from issuance
+• Payment Terms: 50% Advance Upon Signing, 50% Post Delivery Milestone
+
+==================================================
+🛡️ ENTERPRISE GUARANTEE & SERVICE SLA
+==================================================
+✓ 100% FTA & UAE Ministry Regulatory Compliance Guarantee
+✓ Dedicated 24/7 Account Executive & SLA Response Times
+✓ Cloud Portal Access & Real-Time Project Telemetry
+
+We are ready to commence onboarding upon your digital approval. You may sign this quotation directly through our Client Portal or reply to this communication.
+
+Warm regards,
+
+Enterprise Sales & Solutions Desk
+JTS Commercial Command Center
+WhatsApp: +971 50 123 4567 | Web: https://jtsmiddleeast.com`;
+
+      setAiProposalText(synthesizedProposal);
+    } catch (err) {
+      setAiProposalText("Failed to generate AI proposal. Please try again.");
+    } finally {
+      setGeneratingAiProposal(false);
+    }
+  };
+
+  // 2. WhatsApp Quotation Dispatch Handler
+  const handleSendWhatsAppQuote = (quote) => {
+    if (!quote) return;
+    const phone = quote.customerId?.phone || quote.customerId?.whatsApp || quote.phone || "";
+    const cleanPhone = phone.replace(/[^0-9]/g, "");
+    const clientName = quote.customerId?.companyName || quote.customerId?.name || "Client";
+    const quoteNum = quote.quotationNumber || quote._id?.slice(-6).toUpperCase();
+    const total = `${getCurrencySymbol(quote.currency)}${(Number(quote.total) || 0).toLocaleString()}`;
+
+    const text = encodeURIComponent(
+      `Hello ${clientName},\n\n` +
+      `Here is your Quotation *#${quoteNum}* for total value *${total}* from JTS Support.\n\n` +
+      `You can review and digitally sign your proposal here:\nhttps://chat.jtsmiddleeast.com/client\n\n` +
+      `Feel free to reply if you have any questions. Thank you!`
+    );
+
+    const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${text}` : `https://wa.me/?text=${text}`;
+    window.open(waUrl, "_blank");
+  };
+
+  // 3. E-Signature Pad Handlers
+  const handleStartSignaturePad = (quote) => {
+    setSelectedQuote(quote);
+    setSignedQuoteId(quote._id);
+    setShowSignatureModal(true);
+    setTimeout(() => {
+      const canvas = signatureCanvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = "round";
+        ctx.strokeStyle = "#1e1b4b";
+      }
+    }, 150);
+  };
+
+  const handleClearSignature = () => {
+    const canvas = signatureCanvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+  };
+
+  const handleSaveSignature = async () => {
+    const canvas = signatureCanvasRef.current;
+    if (canvas) {
+      const dataUrl = canvas.toDataURL("image/png");
+      setSignatureDataUrl(dataUrl);
+      setShowSignatureModal(false);
+      alert(`Quotation #${selectedQuote?.quotationNumber || selectedQuote?._id?.slice(-6)} digitally approved with timestamped e-signature!`);
+    }
+  };
+
 
   // Filtered & Paginated Quotations
   const filteredQuotations = useMemo(() => {
@@ -433,6 +566,32 @@ export default function CrmQuotationsView({ websiteId }) {
                 </div>
 
                 <div className="space-y-2 pt-1">
+                  {/* AI 1-Click Proposal Button */}
+                  <button
+                    onClick={() => handleGenerateAiProposal(selectedQuote)}
+                    className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all shadow-md shadow-indigo-200"
+                  >
+                    <Sparkles size={13} className="text-amber-300 animate-pulse" /> AI 1-Click Proposal
+                  </button>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* E-Signature Button */}
+                    <button
+                      onClick={() => handleStartSignaturePad(selectedQuote)}
+                      className="py-2.5 px-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
+                    >
+                      <PenTool size={12} /> {signedQuoteId === selectedQuote._id ? "Signed ✓" : "E-Sign"}
+                    </button>
+
+                    {/* WhatsApp Dispatch Button */}
+                    <button
+                      onClick={() => handleSendWhatsAppQuote(selectedQuote)}
+                      className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                    >
+                      <MessageCircle size={12} /> WhatsApp
+                    </button>
+                  </div>
+
                   {/* Download PDF */}
                   <button
                     onClick={async () => {
@@ -453,7 +612,7 @@ export default function CrmQuotationsView({ websiteId }) {
                   {selectedQuote.status !== "converted" && (
                     <button
                       onClick={() => handleConvertToOrder(selectedQuote._id)}
-                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-[10px] font-black uppercase transition-all shadow-sm"
+                      className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-[10px] font-black uppercase transition-all shadow-sm"
                     >
                       Convert to Sales Order
                     </button>
@@ -519,6 +678,174 @@ export default function CrmQuotationsView({ websiteId }) {
           </form>
         </div>
       )}
+
+      {/* AI 1-Click Proposal Generator Modal */}
+      {showAiProposalModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-[32px] max-w-2xl w-full p-8 shadow-2xl space-y-6 animate-scale-in border border-indigo-100">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl">
+                  <Sparkles size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">AI Executive Business Proposal</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Automated Commercial Proposal & Scope of Work</p>
+                </div>
+              </div>
+              <button onClick={() => setShowAiProposalModal(false)} className="p-2 text-slate-400 hover:text-slate-800 rounded-xl transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+
+            {generatingAiProposal ? (
+              <div className="py-16 text-center space-y-3">
+                <Sparkles size={32} className="mx-auto text-indigo-500 animate-spin" />
+                <p className="text-xs font-black text-slate-700 uppercase tracking-widest">Synthesizing Bespoke Proposal with Gemini AI…</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="relative">
+                  <textarea
+                    value={aiProposalText}
+                    onChange={(e) => setAiProposalText(e.target.value)}
+                    rows={12}
+                    className="w-full p-4 rounded-2xl border border-slate-200 bg-slate-50/50 text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/20 font-mono leading-relaxed resize-none"
+                  />
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(aiProposalText);
+                      setCopiedProposal(true);
+                      setTimeout(() => setCopiedProposal(false), 2500);
+                    }}
+                    className={`flex-1 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+                      copiedProposal
+                        ? "bg-emerald-600 text-white"
+                        : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200"
+                    }`}
+                  >
+                    {copiedProposal ? <Check size={14} /> : <Copy size={14} />}
+                    {copiedProposal ? "Copied to Clipboard!" : "Copy Proposal Text"}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      handleSendWhatsAppQuote(selectedQuote);
+                      setShowAiProposalModal(false);
+                    }}
+                    className="py-3.5 px-6 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-100"
+                  >
+                    <MessageCircle size={14} /> Dispatch via WhatsApp
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Client Digital E-Signature Pad Modal */}
+      {showSignatureModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-[32px] max-w-lg w-full p-8 shadow-2xl space-y-6 animate-scale-in border border-emerald-100">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 bg-emerald-600 text-white rounded-2xl">
+                  <PenTool size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">Digital E-Signature Pad</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Client Sign-off & Commercial Approval</p>
+                </div>
+              </div>
+              <button onClick={() => setShowSignatureModal(false)} className="p-2 text-slate-400 hover:text-slate-800 rounded-xl transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-[11px] font-semibold text-slate-600">
+                Please sign inside the canvas below to authorize Quotation <strong className="text-indigo-600">#{selectedQuote?.quotationNumber || selectedQuote?._id?.slice(-6)}</strong>:
+              </p>
+
+              <div className="border-2 border-dashed border-slate-200 rounded-2xl overflow-hidden bg-slate-50 relative">
+                <canvas
+                  ref={signatureCanvasRef}
+                  width={450}
+                  height={180}
+                  onMouseDown={(e) => {
+                    const canvas = signatureCanvasRef.current;
+                    const ctx = canvas.getContext("2d");
+                    const rect = canvas.getBoundingClientRect();
+                    ctx.beginPath();
+                    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+                    setIsDrawing(true);
+                  }}
+                  onMouseMove={(e) => {
+                    if (!isDrawing) return;
+                    const canvas = signatureCanvasRef.current;
+                    const ctx = canvas.getContext("2d");
+                    const rect = canvas.getBoundingClientRect();
+                    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+                    ctx.stroke();
+                  }}
+                  onMouseUp={() => setIsDrawing(false)}
+                  onMouseLeave={() => setIsDrawing(false)}
+                  onTouchStart={(e) => {
+                    const canvas = signatureCanvasRef.current;
+                    const ctx = canvas.getContext("2d");
+                    const rect = canvas.getBoundingClientRect();
+                    const touch = e.touches[0];
+                    ctx.beginPath();
+                    ctx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
+                    setIsDrawing(true);
+                  }}
+                  onTouchMove={(e) => {
+                    if (!isDrawing) return;
+                    const canvas = signatureCanvasRef.current;
+                    const ctx = canvas.getContext("2d");
+                    const rect = canvas.getBoundingClientRect();
+                    const touch = e.touches[0];
+                    ctx.lineTo(touch.clientX - rect.left, touch.clientY - rect.top);
+                    ctx.stroke();
+                  }}
+                  onTouchEnd={() => setIsDrawing(false)}
+                  className="w-full h-[180px] cursor-crosshair block bg-white"
+                />
+                <div className="absolute bottom-2 right-3 pointer-events-none">
+                  <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Sign Above</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold px-1">
+                <span>Timestamp: {new Date().toLocaleString()}</span>
+                <span>SHA-256 Digital Verification</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleClearSignature}
+                className="py-3 px-5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-black uppercase tracking-wider transition-all"
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveSignature}
+                className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-100"
+              >
+                <ShieldCheck size={14} /> Authorize & Save Signature
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

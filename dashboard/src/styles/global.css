@@ -11,6 +11,28 @@
   --color-accent: #06b6d4;
 }
 
+[data-accent="emerald"] {
+  --color-indigo-500: #10b981;
+  --color-indigo-600: #059669;
+  --accent: #10b981;
+}
+[data-accent="cyberpunk"] {
+  --color-indigo-500: #06b6d4;
+  --color-indigo-600: #0891b2;
+  --accent: #06b6d4;
+}
+[data-accent="rose"] {
+  --color-indigo-500: #f43f5e;
+  --color-indigo-600: #e11d48;
+  --accent: #f43f5e;
+}
+[data-accent="violet"] {
+  --color-indigo-500: #8b5cf6;
+  --color-indigo-600: #7c3aed;
+  --accent: #8b5cf6;
+}
+
+
 @layer base {
   :root {
     --bg-main: #f8fafc;

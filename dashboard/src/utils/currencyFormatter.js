@@ -104,6 +104,33 @@ export function formatCurrencyCompact(amount, override = {}) {
   return s.symbolPosition === "after" ? `${label}${sym}` : `${sym}${label}`;
 }
 
+/** Exchange rates relative to USD base */
+export const EXCHANGE_RATES = {
+  USD: 1.0,
+  AED: 3.67,
+  INR: 83.5,
+  EUR: 0.92,
+  GBP: 0.79,
+  SAR: 3.75,
+  CAD: 1.36,
+  AUD: 1.52
+};
+
+/**
+ * Converts an amount from one currency code to another based on standard exchange rates.
+ */
+export function convertCurrency(amount, fromCode = "USD", toCode = "INR") {
+  const num = Number(amount || 0);
+  if (isNaN(num) || num === 0) return 0;
+  const fromRate = EXCHANGE_RATES[fromCode?.toUpperCase()] || 1.0;
+  const toRate = EXCHANGE_RATES[toCode?.toUpperCase()] || 1.0;
+  
+  // Convert from source currency to USD, then from USD to target currency
+  const inUSD = num / fromRate;
+  const converted = inUSD * toRate;
+  return Number(converted.toFixed(2));
+}
+
 /** Returns just the symbol for the active currency. */
 export function getCurrencySymbol(override = {}) {
   return { ...getSettings(), ...override }.currencySymbol ?? "₹";
@@ -113,3 +140,4 @@ export function getCurrencySymbol(override = {}) {
 export function getCurrencyCode(override = {}) {
   return { ...getSettings(), ...override }.currencyCode ?? "INR";
 }
+

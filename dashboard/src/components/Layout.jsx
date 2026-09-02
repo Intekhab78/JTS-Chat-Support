@@ -360,6 +360,8 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem("theme") === "dark");
+  const [accentTheme, setAccentTheme] = useState(() => localStorage.getItem("themeAccent") || "indigo");
+  const [showAccentPicker, setShowAccentPicker] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notificationFilter, setNotificationFilter] = useState("all");
@@ -372,6 +374,13 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
     document.documentElement.classList.toggle("dark", isDarkMode);
     localStorage.setItem("theme", isDarkMode ? "dark" : "light");
   }, [isDarkMode]);
+
+  /* Accent theme */
+  useEffect(() => {
+    document.documentElement.setAttribute("data-accent", accentTheme);
+    localStorage.setItem("themeAccent", accentTheme);
+  }, [accentTheme]);
+
 
   /* Browser Notification Permissions */
   useEffect(() => {
@@ -764,46 +773,93 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
               aria-label="Open global search"
               aria-keyshortcuts="Control+K Meta+K"
               onClick={() => window.dispatchEvent(new Event("app:open-global-search"))}
-              className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-200 transition-all shrink-0"
+              className="hidden sm:flex items-center gap-2 px-2.5 py-1.5 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-200 transition-all shrink-0"
             >
               <Search size={14} />
-              <span className="text-[10px] font-black uppercase tracking-widest">Search</span>
-              <div className="flex items-center gap-0.5 ml-2 px-1.5 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded text-[8px] font-black text-slate-400">
-                <Command size={8} /> K
-              </div>
+              <span className="text-xs font-semibold">Search</span>
+              <kbd className="flex items-center gap-0.5 ml-1 px-1.5 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded text-[10px] font-semibold text-slate-400">
+                ⌘K
+              </kbd>
             </button>
 
             <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-500 leading-none mb-0.5 truncate">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight truncate leading-tight">
                 {title}
-              </p>
-              <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight truncate leading-tight">
-                {subtitle}
               </h2>
+              {subtitle && (
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate hidden md:block">
+                  {subtitle}
+                </p>
+              )}
             </div>
           </div>
 
           {/* Right: global website selector + notification bell + avatar */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2.5 shrink-0">
 
             {/* Global Ecosystem Website Filter Selector */}
             {websites && websites.length > 0 && (
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-3 py-1.5 rounded-2xl shrink-0 shadow-sm">
-                <Globe size={15} className="text-indigo-500 shrink-0" />
+              <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-2.5 py-1.5 rounded-xl shrink-0">
+                <Globe size={14} className="text-indigo-600 shrink-0" />
                 <select
                   value={selectedWebsiteId}
                   onChange={(e) => setSelectedWebsiteId(e.target.value)}
-                  className="bg-transparent text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 outline-none cursor-pointer pr-1 max-w-[150px] sm:max-w-[220px] truncate"
+                  className="bg-transparent text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none cursor-pointer pr-1 max-w-[140px] sm:max-w-[200px] truncate"
                 >
-                  <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-bold">ALL ECOSYSTEM ASSETS</option>
+                  <option value="" className="bg-white dark:bg-slate-900 text-slate-800 font-medium">All Websites</option>
                   {websites.map((w) => (
-                    <option key={w._id} value={w._id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-bold">
+                    <option key={w._id} value={w._id} className="bg-white dark:bg-slate-900 text-slate-800 font-medium">
                       {w.websiteName || w.domain}
                     </option>
                   ))}
                 </select>
               </div>
             )}
+
+
+            {/* Theme Accent Customizer */}
+            <div className="relative">
+              <button
+                onClick={() => setShowAccentPicker(s => !s)}
+                aria-label="Theme Accent Color"
+                className="p-2.5 rounded-xl text-slate-400 hover:text-indigo-500 hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
+                title="Customize Accent Color"
+              >
+                <Palette size={19} />
+              </button>
+
+              {showAccentPicker && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowAccentPicker(false)} />
+                  <div className="absolute right-0 mt-3 z-50 w-48 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-100 dark:border-white/10 p-3 space-y-2 animate-scale-in">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1">Theme Accent</p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        { id: "indigo", label: "Indigo", bg: "bg-indigo-500" },
+                        { id: "emerald", label: "Emerald", bg: "bg-emerald-500" },
+                        { id: "cyberpunk", label: "Cyan", bg: "bg-cyan-500" },
+                        { id: "rose", label: "Rose", bg: "bg-rose-500" },
+                        { id: "violet", label: "Violet", bg: "bg-violet-500" },
+                      ].map(t => (
+                        <button
+                          key={t.id}
+                          onClick={() => {
+                            setAccentTheme(t.id);
+                            setShowAccentPicker(false);
+                          }}
+                          className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
+                            accentTheme === t.id ? "border-slate-900 dark:border-white bg-slate-50 dark:bg-slate-800" : "border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                          }`}
+                        >
+                          <span className={`w-2.5 h-2.5 rounded-full ${t.bg}`} />
+                          <span className="text-slate-700 dark:text-slate-200">{t.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
 
             {/* Notifications */}
             <div className="relative">
@@ -933,25 +989,30 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
         </header>
 
         {/* ── Page Content ─────────────────────────── */}
-        <main className="flex-1 overflow-y-auto custom-scrollbar">
-          {user?.subscription?.status === "expired" && (
-            <div className="bg-rose-600 text-white px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl animate-in slide-in-from-top-4 duration-500 border-b border-rose-700">
-              <div className="flex items-center gap-3">
-                <AlertTriangle size={20} className="shrink-0 animate-pulse text-amber-300" />
-                <div>
-                  <p className="text-xs font-black uppercase tracking-wider">SUBSCRIPTION EXPIRED</p>
-                  <p className="text-[11px] font-bold text-rose-100 mt-0.5">Your subscription has expired. Renew your plan package to maintain uninterrupted access to enterprise modules & live widgets.</p>
+        {(() => {
+          const isChatView = title === "Conversation Hub" || title === "Operation Room" || title.includes("Chat") || title.includes("Conversation");
+          return (
+            <main className={`flex-1 flex flex-col min-h-0 ${isChatView ? "overflow-hidden" : "overflow-y-auto custom-scrollbar"}`}>
+              {user?.subscription?.status === "expired" && (
+                <div className="bg-rose-600 text-white px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl animate-in slide-in-from-top-4 duration-500 border-b border-rose-700 shrink-0">
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle size={20} className="shrink-0 animate-pulse text-amber-300" />
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-wider">SUBSCRIPTION EXPIRED</p>
+                      <p className="text-[11px] font-bold text-rose-100 mt-0.5">Your subscription has expired. Renew your plan package to maintain uninterrupted access to enterprise modules & live widgets.</p>
+                    </div>
+                  </div>
+                  <a href="/client?tab=billing" className="px-5 py-2.5 bg-white text-rose-600 hover:bg-rose-50 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md shrink-0">
+                    Renew Subscription Now
+                  </a>
                 </div>
+              )}
+              <div className={`w-full mx-auto animate-fade-in flex-1 flex flex-col min-h-0 ${isChatView ? "p-2 sm:p-3 h-full overflow-hidden max-w-[1800px]" : "p-3 sm:p-4 max-w-[1800px]"}`}>
+                {children}
               </div>
-              <a href="/client?tab=billing" className="px-5 py-2.5 bg-white text-rose-600 hover:bg-rose-50 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md shrink-0">
-                Renew Subscription Now
-              </a>
-            </div>
-          )}
-          <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto animate-fade-in">
-            {children}
-          </div>
-        </main>
+            </main>
+          );
+        })()}
       </div>
     </div>
   );
