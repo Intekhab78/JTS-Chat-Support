@@ -564,7 +564,7 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
 
 export default function ClientPage() {
   const { user } = useAuth();
-  const { websites, selectedWebsiteId, setSelectedWebsiteId } = useWebsite();
+  const { websites, selectedWebsiteId, setSelectedWebsiteId, selectedWebsite } = useWebsite() || {};
   const toast = useToast();
   const canUseTickets = user?.role === "admin" || user?.role === "client" || hasModule(user, "tickets");
   const canUseCRM = user?.role === "admin" || user?.role === "client" || hasModule(user, "crm");
@@ -1007,28 +1007,46 @@ export default function ClientPage() {
     content = <CustomerManager websiteId={selectedWebsiteId} />;
   }
 
-  if (tab === "vat-compliance") {
-    title = "VAT Compliance Management";
-    subtitle = "Track and process monthly and quarterly VAT return filings";
-    content = <VatFilingDashboard websiteId={selectedWebsiteId} />;
-  }
+  const isComplianceEnabled = !selectedWebsite || !Array.isArray(selectedWebsite.enabledModules) || selectedWebsite.enabledModules.includes("compliance");
 
-  if (tab === "corporate-tax") {
-    title = "Corporate Tax Compliance";
-    subtitle = "Monitor Corporate Tax filing deadlines and live countdown timers";
-    content = <CorporateTaxDashboard websiteId={selectedWebsiteId} />;
-  }
+  if (!isComplianceEnabled && (tab === "vat-compliance" || tab === "corporate-tax" || tab === "trade-license" || tab === "compliance-reports" || tab === "tax-consultant-dashboard" || tab === "inventory-vat" || tab === "inventory-tax")) {
+    title = "Tax & Compliance Not Enabled";
+    subtitle = "UAE Tax & Compliance suite is currently disabled for this domain";
+    content = (
+      <div className="bg-white dark:bg-slate-900 p-12 rounded-2xl border border-slate-200 dark:border-white/10 text-center max-w-md mx-auto my-12 space-y-4">
+        <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto">
+          <Shield size={24} />
+        </div>
+        <h3 className="text-base font-bold text-slate-900 dark:text-white">Tax & Compliance Suite Disabled</h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          This module is disabled for the selected website ({selectedWebsite?.websiteName || selectedWebsite?.domain || "current website"}). Please select an active compliance domain or enable it in Website Settings.
+        </p>
+      </div>
+    );
+  } else {
+    if (tab === "vat-compliance") {
+      title = "VAT Compliance Management";
+      subtitle = "Track and process monthly and quarterly VAT return filings";
+      content = <VatFilingDashboard websiteId={selectedWebsiteId} />;
+    }
 
-  if (tab === "trade-license") {
-    title = "Trade License Renewal Hub";
-    subtitle = "5-tier color-coded alert bucket monitoring to prevent state DED fines";
-    content = <TradeLicenseDashboard websiteId={selectedWebsiteId} />;
-  }
+    if (tab === "corporate-tax") {
+      title = "Corporate Tax Compliance";
+      subtitle = "Monitor Corporate Tax filing deadlines and live countdown timers";
+      content = <CorporateTaxDashboard websiteId={selectedWebsiteId} />;
+    }
 
-  if (tab === "compliance-reports") {
-    title = "Compliance Reports Hub";
-    subtitle = "Export PDF, Excel, and CSV compliance intelligence reports";
-    content = <ComplianceReportsHub websiteId={selectedWebsiteId} />;
+    if (tab === "trade-license") {
+      title = "Trade License Renewal Hub";
+      subtitle = "5-tier color-coded alert bucket monitoring to prevent state DED fines";
+      content = <TradeLicenseDashboard websiteId={selectedWebsiteId} />;
+    }
+
+    if (tab === "compliance-reports") {
+      title = "Compliance Reports Hub";
+      subtitle = "Export PDF, Excel, and CSV compliance intelligence reports";
+      content = <ComplianceReportsHub websiteId={selectedWebsiteId} />;
+    }
   }
 
   if (tab === "risk-register") {
@@ -1151,9 +1169,9 @@ export default function ClientPage() {
     content = <SecurityCenter />;
   }
 
-  if (tab === "help-center") {
-    title = "Help Center & Knowledge Base";
-    subtitle = "Manage help articles, categories, and self-help guides";
+  if (tab === "help-center" || tab === "knowledge-base" || tab === "faq" || tab === "ai-training") {
+    title = "AI Knowledge Base & Training Studio";
+    subtitle = "Train AI Chatbots with verified company documents, FAQs, and crawl website URLs";
     content = <HelpCenterManager websiteId={selectedWebsiteId} />;
   }
 

@@ -9,6 +9,44 @@ import { api } from "../api/client.js";
 import { useToast } from "../context/ToastContext.jsx";
 import { cleanString } from "../utils/stringUtils.js";
 
+// Crisp Web Audio API Sound Chime Synthesizer
+function playMessageChime() {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    const audioCtx = new AudioContextClass();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+    osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.12); // A5
+
+    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.28);
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.3);
+  } catch (err) {
+    // Browser audio policy gracefully handled
+  }
+}
+
+function sendDesktopNotification(title, body) {
+  try {
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      new Notification(title, { body, icon: "/vite.svg" });
+    } else if (typeof Notification !== "undefined" && Notification.permission !== "denied") {
+      Notification.requestPermission();
+    }
+  } catch (e) {
+    // Notification error handled
+  }
+}
+
 export default function ConversationHub({ socket, initialSessions = [], websiteId, userRole = "agent", extraHeader = null, currentUser = null }) {
   const toast = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -26,6 +64,7 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
   
   const [sessionViewers, setSessionViewers] = useState({});
   const [typingAgents, setTypingAgents] = useState({});
+  const [visitorTyping, setVisitorTyping] = useState({});
   
   const activeRequestRef = useRef("");
 
@@ -44,6 +83,24 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
     if (!selectedSessionId) {
       return;
     }
+
+    // Clear unread count for all sessions of this visitor immediately
+    setSessions(prev => {
+      const target = prev.find(s => s.sessionId === selectedSessionId);
+      const visitorName = target?.visitorId?.name?.trim().toLowerCase();
+      const visitorEmail = target?.visitorId?.email?.trim().toLowerCase();
+      const visitorId = target?.visitorId?._id || target?.visitorId?.visitorId;
+
+      return prev.map(s => {
+        const isSameVisitor = 
+          s.sessionId === selectedSessionId ||
+          (visitorEmail && s.visitorId?.email?.trim().toLowerCase() === visitorEmail) ||
+          (visitorName && visitorName !== "visitor" && s.visitorId?.name?.trim().toLowerCase() === visitorName) ||
+          (visitorId && (s.visitorId?._id === visitorId || s.visitorId?.visitorId === visitorId));
+
+        return isSameVisitor ? { ...s, unreadCount: 0 } : s;
+      });
+    });
 
     setLoadingMessages(true);
     activeRequestRef.current = selectedSessionId;
@@ -64,6 +121,7 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
 
     if (socket) {
       socket.emit("agent:join-session", { sessionId: selectedSessionId });
+      socket.emit("agent:read-session", { sessionId: selectedSessionId });
     }
   }, [selectedSessionId, socket]);
 
@@ -71,6 +129,12 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
     if (!socket) return;
 
     const handleNewMessage = (payload) => {
+      // Sound chime and push alert for visitor message
+      if (payload.sender === "visitor" || payload.sender === "client") {
+        playMessageChime();
+        sendDesktopNotification(payload.visitorName || "Customer Message", payload.message || payload.text || "New message received.");
+      }
+
       // Use currentSelectedId from ref to ensure we're matching against latest UI state
       if (payload.sessionId === activeRequestRef.current) {
         setMessages(prev => {
@@ -82,7 +146,7 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
 
       setSessions(prev => prev.map(s =>
         s.sessionId === payload.sessionId
-          ? { ...s, lastMessagePreview: payload.message, updatedAt: new Date() }
+          ? { ...s, lastMessagePreview: payload.message || payload.text, updatedAt: new Date() }
           : s
       ));
     };
@@ -127,11 +191,29 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
           ...prev,
           [sessionId]: isTyping ? { agentId, agentName } : null
         }));
+      } else if (sender === "visitor" || sender === "client" || !sender) {
+        setVisitorTyping(prev => ({
+          ...prev,
+          [sessionId]: Boolean(isTyping)
+        }));
       }
     };
 
     const handlePresenceViewers = ({ sessionId, viewers }) => {
       setSessionViewers(prev => ({ ...prev, [sessionId]: viewers }));
+    };
+
+    const handleVisitorStatus = ({ sessionId, visitorId, isOnline }) => {
+      setSessions(prev => prev.map(s => {
+        if (s.sessionId === sessionId || (visitorId && (s.visitorId?._id === visitorId || s.visitorId?.visitorId === visitorId))) {
+          return {
+            ...s,
+            isOnline: Boolean(isOnline),
+            visitorId: s.visitorId && typeof s.visitorId === "object" ? { ...s.visitorId, isOnline: Boolean(isOnline) } : s.visitorId
+          };
+        }
+        return s;
+      }));
     };
 
     socket.on("chat:new-message", handleNewMessage);
@@ -140,6 +222,10 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
     socket.on("chat:assigned", handleAssigned);
     socket.on("chat:queued", handleQueued);
     socket.on("chat:intelligence-updated", handleIntelligenceUpdated);
+    socket.on("visitor:status", handleVisitorStatus);
+    socket.on("visitor:online", (data) => handleVisitorStatus({ ...data, isOnline: true }));
+    socket.on("visitor:offline", (data) => handleVisitorStatus({ ...data, isOnline: false }));
+
     const handleControlRequested = ({ sessionId, requestedBy }) => {
       toast.warning(`${requestedBy.name} (${requestedBy.role}) has requested control of this conversation. Click "Release Chat" if you wish to hand over control.`, 8000);
     };
@@ -155,6 +241,9 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
       socket.off("chat:assigned", handleAssigned);
       socket.off("chat:queued", handleQueued);
       socket.off("chat:intelligence-updated", handleIntelligenceUpdated);
+      socket.off("visitor:status", handleVisitorStatus);
+      socket.off("visitor:online");
+      socket.off("visitor:offline");
       socket.off("chat:typing", handleTyping);
       socket.off("presence:viewers", handlePresenceViewers);
       socket.off("chat:control-requested", handleControlRequested);
@@ -238,6 +327,7 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
             session={selectedSession}
             messages={messages}
             onSend={handleSend}
+            isTyping={Boolean(visitorTyping[selectedSessionId])}
             onTyping={(isTyping) => socket.emit("agent:typing", { sessionId: selectedSessionId, isTyping })}
             onConvertToTicket={(s) => {
               setSessionToConvert(s);
@@ -251,6 +341,10 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
             onTakeOver={() => socket.emit("agent:take-over-chat", { sessionId: selectedSessionId })}
             onRelease={() => socket.emit("agent:release-chat", { sessionId: selectedSessionId })}
             onRequestControl={() => socket.emit("agent:request-control", { sessionId: selectedSessionId })}
+            onTransferChat={(targetAgentId, targetDepartment) => {
+              socket.emit("agent:transfer-chat", { sessionId: selectedSessionId, targetAgentId, targetDepartment });
+              toast.success("Chat transferred successfully!");
+            }}
           />
         </div>
       </div>

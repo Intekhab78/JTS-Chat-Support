@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { api } from "../api/client.js";
+import { useWebsite } from "../context/WebsiteContext.jsx";
 import { 
   Shield, 
   X, 
@@ -34,7 +35,7 @@ import {
   UserCheck
 } from "lucide-react";
 
-const PERMISSION_GROUPS = [
+const ALL_PERMISSION_GROUPS = [
   {
     id: "crm",
     label: "CRM Management",
@@ -138,6 +139,42 @@ export default function RoleManager() {
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({ name: "", description: "", permissions: [], isActive: true });
   const [activeGroup, setActiveGroup] = useState("crm");
+
+  const { selectedWebsite } = useWebsite() || {};
+  const enabledModules = selectedWebsite?.enabledModules || [];
+
+  // Filter permission groups based on active website's enabled modules
+  const PERMISSION_GROUPS = ALL_PERMISSION_GROUPS.filter(group => {
+    if (!selectedWebsite || !Array.isArray(selectedWebsite.enabledModules) || selectedWebsite.enabledModules.length === 0) {
+      return true;
+    }
+    if (group.id === "compliance") {
+      return enabledModules.includes("compliance");
+    }
+    if (group.id === "inventory") {
+      return enabledModules.includes("operations") || enabledModules.includes("inventory");
+    }
+    if (group.id === "crm") {
+      return enabledModules.includes("crm");
+    }
+    if (group.id === "accounts") {
+      return enabledModules.includes("finance");
+    }
+    if (group.id === "tickets") {
+      return enabledModules.includes("service") || selectedWebsite.enableTicketing !== false;
+    }
+    if (group.id === "chat") {
+      return selectedWebsite.enableChat !== false;
+    }
+    return true;
+  });
+
+  // Ensure activeGroup is valid
+  useEffect(() => {
+    if (!PERMISSION_GROUPS.some(g => g.id === activeGroup) && PERMISSION_GROUPS.length > 0) {
+      setActiveGroup(PERMISSION_GROUPS[0].id);
+    }
+  }, [selectedWebsite?._id, activeGroup]);
 
   useEffect(() => { loadRoles(); }, []);
 

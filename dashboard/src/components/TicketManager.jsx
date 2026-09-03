@@ -642,203 +642,207 @@ export default function TicketManager({ websiteId }) {
    return (
       <>
          <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-700">
-            {/* Header Area */}
-            <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-6">
-               <div className="space-y-1.5">
-                  <h3 className="heading-md dark:text-white">Ticket Nexus</h3>
-                  <p className="small-label dark:text-slate-500">Orchestrate resolution workflows for global support requests.</p>
-               </div>
-               <div className="flex items-center gap-4 flex-wrap xl:justify-end">
-                  <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-2xl p-1.5 shadow-sm">
-                     <button
-                        type="button"
-                        onClick={() => setViewMode("board")}
-                        className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${viewMode === "board" ? "bg-slate-950 dark:bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                           }`}
-                     >
-                        <LayoutGrid size={13} />
-                        Board
-                     </button>
-                     <button
-                        type="button"
-                        onClick={() => setViewMode("list")}
-                        className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${viewMode === "list" ? "bg-slate-950 dark:bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                           }`}
-                     >
-                        <List size={13} />
-                        List
-                     </button>
+            {/* Clean, Compact Header & Action Bar */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/5 rounded-2xl p-4 shadow-sm space-y-3.5">
+               {/* Top Row: Title + Primary Actions */}
+               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-white/5">
+                  <div className="flex items-center gap-3 min-w-0">
+                     <div className="w-9 h-9 rounded-xl bg-indigo-600/10 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                        <Ticket size={18} />
+                     </div>
+                     <div>
+                        <div className="flex items-center gap-2">
+                           <h3 className="text-base font-black text-slate-900 dark:text-white tracking-tight">Ticket Nexus</h3>
+                           <span className="bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-500/20">
+                              {filtered.length} Tickets
+                           </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">Resolution workflows and support requests</p>
+                     </div>
                   </div>
-                  <button
-                     type="button"
-                     onClick={handleExportTickets}
-                     className="bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-all rounded-2xl px-5 py-4 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-sm"
-                  >
-                     <FileSpreadsheet size={14} />
-                     Export Tickets (.csv)
-                  </button>
-                  {user && ["manager", "client", "admin"].includes(user.role) && (
+
+                  {/* Actions & View Toggle */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                     {/* View Mode Toggle */}
+                     <div className="flex items-center bg-slate-100 dark:bg-white/5 p-0.5 rounded-xl">
+                        <button
+                           type="button"
+                           onClick={() => setViewMode("board")}
+                           className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === "board" ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs" : "text-slate-500 hover:text-slate-900 dark:hover:text-white"}`}
+                        >
+                           <LayoutGrid size={13} />
+                           <span>Board</span>
+                        </button>
+                        <button
+                           type="button"
+                           onClick={() => setViewMode("list")}
+                           className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === "list" ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs" : "text-slate-500 hover:text-slate-900 dark:hover:text-white"}`}
+                        >
+                           <List size={13} />
+                           <span>List</span>
+                        </button>
+                     </div>
+
                      <button
-                        onClick={() => setShowManageStages(true)}
-                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-2xl px-5 py-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 flex items-center gap-2 shadow-sm hover:border-slate-300 dark:hover:border-white/10 transition-all"
+                        type="button"
+                        onClick={handleExportTickets}
+                        className="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 transition-all rounded-xl px-3 py-1.5 text-xs font-bold flex items-center gap-1.5 shadow-xs"
                      >
-                        <Sliders size={13} className="text-indigo-500" />
-                        Manage Columns
+                        <FileSpreadsheet size={13} />
+                        <span>Export</span>
                      </button>
-                  )}
-                  <button
-                     onClick={toggleSelectAllVisible}
-                     className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-2xl px-5 py-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300"
-                  >
-                     {filtered.length > 0 && filtered.every(t => selectedIds.includes(t._id)) ? "Clear Visible" : "Select Visible"}
-                  </button>
-                  <button
-                     onClick={() => runBulkUpdate({ status: "resolved" })}
-                     className="bg-emerald-600 rounded-2xl px-5 py-4 text-[10px] font-black uppercase tracking-widest text-white hover:bg-emerald-500 transition-colors"
-                  >
-                     Bulk Resolve
-                  </button>
-                  {user && ["manager", "client", "admin"].includes(user.role) && (
+
+                     {user && ["manager", "client", "admin"].includes(user.role) && (
+                        <button
+                           onClick={() => setShowManageStages(true)}
+                           className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 shadow-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
+                        >
+                           <Sliders size={13} className="text-indigo-500" />
+                           <span>Columns</span>
+                        </button>
+                     )}
+
                      <button
-                        onClick={handleBulkAssign}
-                        className="bg-indigo-600 rounded-2xl px-5 py-4 text-[10px] font-black uppercase tracking-widest text-white hover:bg-indigo-500 transition-colors"
+                        onClick={toggleSelectAllVisible}
+                        className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
                      >
-                        Bulk Assign
+                        {filtered.length > 0 && filtered.every(t => selectedIds.includes(t._id)) ? "Clear" : "Select All"}
                      </button>
-                  )}
-                  {user && ["manager", "client", "admin"].includes(user.role) && (
-                     <button
-                        onClick={handleBulkExport}
-                        className="bg-slate-950 rounded-2xl px-5 py-4 text-[10px] font-black uppercase tracking-widest text-white"
-                     >
-                        Export CSV
-                     </button>
-                  )}
-                  <div className="relative group">
-                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={14} />
+
+                     {selectedIds.length > 0 && (
+                        <>
+                           <button
+                              onClick={() => runBulkUpdate({ status: "resolved" })}
+                              className="bg-emerald-600 hover:bg-emerald-500 rounded-xl px-3 py-1.5 text-xs font-bold text-white shadow-xs transition-colors"
+                           >
+                              Bulk Resolve ({selectedIds.length})
+                           </button>
+                           {user && ["manager", "client", "admin"].includes(user.role) && (
+                              <button
+                                 onClick={handleBulkAssign}
+                                 className="bg-indigo-600 hover:bg-indigo-500 rounded-xl px-3 py-1.5 text-xs font-bold text-white shadow-xs transition-colors"
+                              >
+                                 Bulk Assign
+                              </button>
+                           )}
+                        </>
+                     )}
+                  </div>
+               </div>
+
+               {/* Second Row: Search & Dropdown Filters */}
+               <div className="flex items-center gap-2.5 flex-wrap">
+                  {/* Search Ticket */}
+                  <div className="relative flex-1 min-w-[200px]">
+                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
                      <input
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
-                        placeholder="Locate ticket..."
-                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-2xl pl-12 pr-6 py-4 text-xs font-bold focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all w-64 shadow-sm dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-700"
+                        placeholder="Search ticket, subject, visitor..."
+                        className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs font-medium focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 outline-none transition-all dark:text-white placeholder:text-slate-400"
                      />
                   </div>
-                  <div className="relative group">
-                     <Tag className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-purple-500 transition-colors" size={14} />
+
+                  {/* Search CRN */}
+                  <div className="relative min-w-[160px]">
+                     <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
                      <input
                         value={searchCRN}
                         onChange={e => setSearchCRN(e.target.value)}
-                        placeholder="Search CRN/Email..."
-                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-2xl pl-12 pr-6 py-4 text-xs font-bold focus:ring-4 focus:ring-purple-500/5 focus:border-purple-500 outline-none transition-all w-64 shadow-sm dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-700"
+                        placeholder="CRN / Email..."
+                        className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs font-medium focus:bg-white dark:focus:bg-slate-900 focus:border-purple-500 outline-none transition-all dark:text-white placeholder:text-slate-400"
                      />
                   </div>
-                  <div className="flex bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-2xl overflow-hidden shadow-sm">
-                     <div className="px-5 py-4 flex items-center justify-center border-r border-slate-100 dark:border-white/5">
-                        <Tag size={14} className="text-slate-400" />
-                     </div>
-                     <select value={filterStage} onChange={e => setFilterStage(e.target.value)} className="bg-transparent px-5 py-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 outline-none cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 transition-all appearance-none">
-                        <option value="all">CRM Stages</option>
-                        {Object.entries(CRM_STAGE_CONFIG).map(([k, v]) => <option key={k} value={k} className="dark:bg-slate-900">{v.label}</option>)}
-                     </select>
-                  </div>
-                  <div className="flex bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-2xl overflow-hidden shadow-sm">
-                     <div className="px-5 py-4 flex items-center justify-center border-r border-slate-100 dark:border-white/5">
-                        <Filter size={14} className="text-slate-400" />
-                     </div>
-                     <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)} className="bg-transparent px-5 py-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 outline-none cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 transition-all appearance-none">
-                        <option value="all">Priority Fleet</option>
-                        {Object.entries(PRIORITY_CONFIG).map(([k, v]) => <option key={k} value={k} className="dark:bg-slate-900">{v.label}</option>)}
-                     </select>
+
+                  {/* CRM Stage Filter */}
+                  <select
+                     value={filterStage}
+                     onChange={e => setFilterStage(e.target.value)}
+                     className="bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 outline-none cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
+                  >
+                     <option value="all">CRM Stages: All</option>
+                     {Object.entries(CRM_STAGE_CONFIG).map(([k, v]) => (
+                        <option key={k} value={k} className="dark:bg-slate-900">{v.label}</option>
+                     ))}
+                  </select>
+
+                  {/* Priority Filter */}
+                  <select
+                     value={filterPriority}
+                     onChange={e => setFilterPriority(e.target.value)}
+                     className="bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 outline-none cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
+                  >
+                     <option value="all">Priority: All</option>
+                     {Object.entries(PRIORITY_CONFIG).map(([k, v]) => (
+                        <option key={k} value={k} className="dark:bg-slate-900">{v.label}</option>
+                     ))}
+                  </select>
+
+                  {/* Focus Window Time Scope */}
+                  <div className="flex items-center bg-slate-100 dark:bg-white/5 p-0.5 rounded-xl ml-auto">
+                     {["all", "today", "week", "month"].map(r => (
+                        <button
+                           key={r}
+                           onClick={() => setActiveRange(r)}
+                           className={`px-2.5 py-1 rounded-lg text-[11px] font-bold capitalize transition-all ${
+                              activeRange === r
+                                 ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs"
+                                 : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                           }`}
+                        >
+                           {r}
+                        </button>
+                     ))}
                   </div>
                </div>
-            </div>
 
-            <div className="rounded-[30px] border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(244,247,255,0.98))] dark:bg-slate-900 dark:border-white/5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.25)] p-4 md:p-5">
-               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                  <div className="flex flex-col gap-2">
-                     <span className="text-[9px] font-black uppercase tracking-[0.28em] text-slate-400 dark:text-slate-500">
-                        Focus Window
-                     </span>
-                     <div className="inline-flex w-fit gap-2 rounded-2xl border border-slate-200/80 bg-white/90 p-1.5 shadow-sm dark:bg-white/5 dark:border-white/5">
-                        {["all", "today", "week", "month"].map(r => (
-                           <button
-                              key={r}
-                              onClick={() => setActiveRange(r)}
-                              className={`px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-[0.18em] transition-all ${activeRange === r
-                                 ? "bg-slate-950 text-white shadow-lg shadow-slate-200 dark:bg-indigo-600"
-                                 : "text-slate-400 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-white/5 dark:hover:text-slate-200"
-                                 }`}
-                           >
-                              {r}
-                           </button>
-                        ))}
-                     </div>
+               {/* Third Row: Status Scope & Channel Filter Bar */}
+               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2.5 border-t border-slate-100 dark:border-white/5">
+                  {/* Status Pills */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                     {["all", ...stages.filter(s => s.active).map(s => s.key)].map(s => (
+                        <button
+                           key={s}
+                           onClick={() => setFilterStatus(s)}
+                           className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                              filterStatus === s
+                                 ? "bg-indigo-600 text-white shadow-xs"
+                                 : "bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10"
+                           }`}
+                        >
+                           {s !== "all" && <div className={`w-1.5 h-1.5 rounded-full ${getStageConfig(s, websiteId)?.dot}`} />}
+                           <span>{s === "all" ? "All" : getStageConfig(s, websiteId)?.label}</span>
+                           <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                              filterStatus === s ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-300"
+                           }`}>
+                              {counts[s] || 0}
+                           </span>
+                        </button>
+                     ))}
                   </div>
 
-                  <div className="min-w-0 flex-1 xl:max-w-[72%]">
-                     <div className="flex items-center justify-between gap-3 mb-2">
-                        <span className="text-[9px] font-black uppercase tracking-[0.28em] text-slate-400 dark:text-slate-500">
-                           Inbox Mode
-                        </span>
-                     </div>
-                     <div className="overflow-x-auto custom-scrollbar pb-3">
-                        <div className="inline-flex min-w-max gap-2 rounded-[22px] border border-slate-200/80 bg-white/85 p-1.5 shadow-sm dark:bg-white/5 dark:border-white/5">
-                           {[
-                              { key: "all", label: "All Messages" },
-                              { key: "chat", label: "Live Chat Tickets" },
-                              { key: "email", label: "Email Tickets" }
-                           ].map((channel) => (
-                              <button
-                                 key={channel.key}
-                                 onClick={() => setFilterChannel(channel.key)}
-                                 className={`px-4 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-[0.16em] transition-all flex items-center gap-3 whitespace-nowrap ${filterChannel === channel.key
-                                    ? "bg-slate-950 text-white shadow-lg shadow-slate-200 dark:bg-indigo-600"
-                                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-white/5 dark:hover:text-slate-200"
-                                    }`}
-                              >
-                                 <span>{channel.label}</span>
-                                 <span className={`min-w-[24px] px-2 py-0.5 rounded-full text-[9px] ${filterChannel === channel.key
-                                    ? "bg-white/20 text-white"
-                                    : "bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300"
-                                    }`}>
-                                    {channelCounts[channel.key] || 0}
-                                 </span>
-                              </button>
-                           ))}
-                        </div>
-                     </div>
-
-                     <div className="flex items-center justify-between gap-3 mb-2">
-                        <span className="text-[9px] font-black uppercase tracking-[0.28em] text-slate-400 dark:text-slate-500">
-                           Status Scope
-                        </span>
-                        <span className="text-[9px] font-black uppercase tracking-[0.18em] text-indigo-500 dark:text-indigo-400">
-                           Swipe to browse
-                        </span>
-                     </div>
-                     <div className="overflow-x-auto custom-scrollbar pb-1">
-                        <div className="inline-flex min-w-max gap-2 rounded-[22px] border border-slate-200/80 bg-white/85 p-1.5 shadow-sm dark:bg-white/5 dark:border-white/5">
-                           {["all", ...stages.filter(s => s.active).map(s => s.key)].map(s => (
-                              <button
-                                 key={s}
-                                 onClick={() => setFilterStatus(s)}
-                                 className={`px-4 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-[0.16em] transition-all flex items-center gap-3 whitespace-nowrap ${filterStatus === s
-                                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none"
-                                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-white/5 dark:hover:text-slate-200"
-                                    }`}
-                              >
-                                 {s !== "all" && <div className={`w-1.5 h-1.5 rounded-full ${getStageConfig(s, websiteId)?.dot}`} />}
-                                 <span>{s === "all" ? "Universe" : getStageConfig(s, websiteId)?.label}</span>
-                                 <span className={`min-w-[24px] px-2 py-0.5 rounded-full text-[9px] ${filterStatus === s
-                                    ? "bg-white/20 text-white"
-                                    : "bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300"
-                                    }`}>
-                                    {counts[s] || 0}
-                                 </span>
-                              </button>
-                           ))}
-                        </div>
-                     </div>
+                  {/* Channel Tabs (All / Live Chat / Email) */}
+                  <div className="flex items-center gap-1 shrink-0 bg-slate-100 dark:bg-white/5 p-0.5 rounded-xl self-start sm:self-auto">
+                     {[
+                        { key: "all", label: "All" },
+                        { key: "chat", label: "Chat" },
+                        { key: "email", label: "Email" }
+                     ].map((channel) => (
+                        <button
+                           key={channel.key}
+                           onClick={() => setFilterChannel(channel.key)}
+                           className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+                              filterChannel === channel.key
+                                 ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs"
+                                 : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                           }`}
+                        >
+                           <span>{channel.label}</span>
+                           <span className="text-[10px] opacity-70">
+                              {channelCounts[channel.key] || 0}
+                           </span>
+                        </button>
+                     ))}
                   </div>
                </div>
             </div>

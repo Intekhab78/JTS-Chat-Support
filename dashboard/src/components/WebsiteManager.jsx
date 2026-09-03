@@ -478,7 +478,20 @@ export default function WebsiteManager() {
                         { module: "operations", label: "Operations & Catalog" },
                         { module: "service", label: "Service & Care Inbox" },
                         { module: "automation", label: "Workflows & AI Platform" },
-                      ].map((feat) => {
+                      ]
+                      .filter((feat) => {
+                        const isModule = !!feat.module;
+                        const isEnabled = isModule 
+                          ? (formData.enabledModules || []).includes(feat.module)
+                          : (formData[feat.key] !== false);
+
+                        // If not superadmin, do not display modules that are disabled/unsubscribed
+                        if (!isAdmin && isModule && !isEnabled) {
+                          return false;
+                        }
+                        return true;
+                      })
+                      .map((feat) => {
                         const isModule = !!feat.module;
                         const isEnabled = isModule 
                           ? (formData.enabledModules || []).includes(feat.module)

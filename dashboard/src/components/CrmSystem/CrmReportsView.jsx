@@ -48,6 +48,7 @@ const CRM_ALL_MODULES = [
 export default function CRMReportsView({ summary, customers = [], websiteId, onDrillDown, activeRange, setActiveRange }) {
   const { selectedWebsite } = useWebsite() || {};
   const enabledModules = selectedWebsite?.enabledModules;
+  const isComplianceEnabled = !selectedWebsite || !Array.isArray(selectedWebsite.enabledModules) || selectedWebsite.enabledModules.includes("compliance");
 
   const categoryToModuleKey = {
     "CRM & Sales": "crm",
@@ -60,6 +61,7 @@ export default function CRMReportsView({ summary, customers = [], websiteId, onD
 
   const allowedModules = CRM_ALL_MODULES.filter(m => {
     if (m.id === "all") return true;
+    if (m.category === "Compliance" && !isComplianceEnabled) return false;
     if (!enabledModules || !Array.isArray(enabledModules) || enabledModules.length === 0) return true;
     const modKey = categoryToModuleKey[m.category];
     if (!modKey) return true;
@@ -864,38 +866,54 @@ export default function CRMReportsView({ summary, customers = [], websiteId, onD
         }
       `}} />
 
-      {/* ── 17-MODULE UNIVERSAL REPORT & EXPORT CENTER ─────────── */}
-      <section className="bg-slate-900 rounded-[32px] p-8 text-white shadow-2xl relative overflow-hidden border border-slate-800">
-        <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+      {/* ── UNIVERSAL REPORT & EXPORT CENTER ─────────── */}
+      <section className="bg-slate-900 rounded-2xl p-4 sm:p-5 text-white shadow-xl relative overflow-hidden border border-slate-800 space-y-4">
+        <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
         
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10 mb-8 border-b border-slate-800 pb-6">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="bg-indigo-500/20 text-indigo-400 text-[9px] font-black uppercase px-3 py-1 rounded-full border border-indigo-500/30">Universal Export Center</span>
-              <span className="bg-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase px-3 py-1 rounded-full border border-emerald-500/30">{totalModulesCount} CRM Modules Active</span>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 relative z-10 border-b border-slate-800/80 pb-3.5">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-indigo-600/30 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0">
+              <Download size={18} />
             </div>
-            <h3 className="text-2xl font-black tracking-tight">Master CRM Reporting & Export Hub</h3>
-            <p className="text-xs text-slate-400 font-semibold mt-1">Export complete ecosystem reports in 1-Click (All-in-One Master Workbook or Module-wise CSV/PDF)</p>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm sm:text-base font-bold text-white tracking-tight whitespace-nowrap">
+                  CRM Reporting & Export Hub
+                </h3>
+                <span className="bg-emerald-500/15 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-md border border-emerald-500/25">
+                  {totalModulesCount} Active Modules
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
+                Download complete ecosystem reports in 1-click (Workbook, CSV, or PDF)
+              </p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
             <button
               onClick={() => handleExportSingleModule("all", "csv")}
-              className="flex items-center gap-2 px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-black uppercase tracking-wider shadow-lg shadow-emerald-900/30 transition-all shrink-0"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0"
+              title="Download Master Excel/CSV Workbook"
             >
-              <Download size={14} /> Master Excel/CSV (All {totalModulesCount})
+              <Download size={13} />
+              <span>Excel/CSV</span>
             </button>
             <button
               onClick={() => handleExportSingleModule("all", "pdf")}
-              className="flex items-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl text-xs font-black uppercase tracking-wider shadow-lg shadow-indigo-900/30 transition-all shrink-0"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0"
+              title="Generate Master PDF Report"
             >
-              <Printer size={14} /> Master PDF Report (All {totalModulesCount})
+              <Printer size={13} />
+              <span>PDF Report</span>
             </button>
             <button
               onClick={() => setShowScheduleModal(true)}
-              className="flex items-center gap-2 px-5 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-2xl text-xs font-black uppercase tracking-wider transition-all shrink-0"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition-all shrink-0"
+              title="Schedule Automated Dispatch"
             >
-              <Clock size={14} className="text-amber-400" /> Schedule Dispatch
+              <Clock size={13} className="text-amber-400" />
+              <span>Schedule</span>
             </button>
           </div>
         </div>
@@ -1016,7 +1034,7 @@ export default function CRMReportsView({ summary, customers = [], websiteId, onD
 
         {/* Category Tabs */}
         <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2 scrollbar-none">
-          {["All", "CRM & Sales", "Operations", "Finance", "Compliance", "Activity & Staff"].map(cat => (
+          {["All", "CRM & Sales", "Operations", "Finance", ...(isComplianceEnabled ? ["Compliance"] : []), "Activity & Staff"].map(cat => (
             <button
               key={cat}
               onClick={() => setExportCategoryTab(cat)}

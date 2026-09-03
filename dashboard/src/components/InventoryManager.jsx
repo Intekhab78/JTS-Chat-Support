@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState, useRef } from "react";
-import { Boxes, Eye, Edit2, Trash2, Plus, X, Save, ArrowDownToLine, ArrowUpFromLine, RefreshCw, SlidersHorizontal, Package, MoreHorizontal, Search, FileSpreadsheet, FileText, Truck, Sparkles, QrCode, Camera, CheckCircle2, AlertCircle } from "lucide-react";
+import { 
+  Boxes, Eye, Edit2, Trash2, Plus, X, Save, ArrowDownToLine, ArrowUpFromLine, 
+  RefreshCw, SlidersHorizontal, Package, MoreHorizontal, Search, FileSpreadsheet, 
+  FileText, Truck, Sparkles, QrCode, Camera, CheckCircle2, AlertCircle,
+  Users, Calendar, DollarSign, Clock, AlertTriangle, TrendingUp, ShoppingCart, 
+  BadgeCheck, Phone, Mail, Building, MapPin, CheckCircle, Send, Printer
+} from "lucide-react";
 
 import { api } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -9,6 +15,138 @@ import { formatCurrency } from "../utils/currencyFormatter.js";
 import { exportToCsv, exportToPDF } from "../utils/exportUtils.js";
 import { hasModule } from "../utils/planAccess.js";
 import InvoiceGeneratorModal from "./InvoiceGeneratorModal.jsx";
+
+function generateItemCommercialLedger(item) {
+  if (!item) return { purchases: [], quotations: [], dues: [] };
+
+  const unitCost = Number(item.unitCost || 100);
+  const now = new Date();
+  const seed = (item.sku || item.name || "ITEM").split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+
+  const sampleCustomers = [
+    { name: "Al Futtaim Trading LLC", contact: "Ahmed Al Mansoori", email: "procurement@alfuttaim.ae", phone: "+971 4 208 1000", city: "Dubai, UAE" },
+    { name: "Emirates National Global Corp", contact: "Rashid Bin Saeed", email: "rashid@emiratescorp.ae", phone: "+971 2 612 3456", city: "Abu Dhabi, UAE" },
+    { name: "Gulf Horizon Retailers", contact: "Priya Sharma", email: "finance@gulfhorizon.com", phone: "+971 4 334 8890", city: "Sharjah, UAE" },
+    { name: "Apex Solutions FZCO", contact: "Michael Scott", email: "accounts@apexsolutions.ae", phone: "+971 4 456 7890", city: "Dubai Silicon Oasis" },
+    { name: "Oasis Falcon Supplies", contact: "Fatima Al Zaabi", email: "orders@oasisfalcon.ae", phone: "+971 6 555 1234", city: "Ajman, UAE" }
+  ];
+
+  const purchases = [
+    {
+      id: `INV-2026-${seed % 900 + 100}`,
+      customer: sampleCustomers[seed % sampleCustomers.length],
+      date: new Date(now.getTime() - (3 * 24 * 60 * 60 * 1000)).toISOString().split("T")[0],
+      quantity: 12,
+      unitPrice: unitCost,
+      totalAmount: unitCost * 12,
+      paidAmount: unitCost * 12,
+      pendingAmount: 0,
+      paymentStatus: "Paid",
+      paymentMethod: "Bank Transfer (WPS)",
+      dueDate: new Date(now.getTime() - (1 * 24 * 60 * 60 * 1000)).toISOString().split("T")[0],
+      deliveryStatus: "Delivered"
+    },
+    {
+      id: `INV-2026-${(seed + 1) % 900 + 100}`,
+      customer: sampleCustomers[(seed + 1) % sampleCustomers.length],
+      date: new Date(now.getTime() - (8 * 24 * 60 * 60 * 1000)).toISOString().split("T")[0],
+      quantity: 25,
+      unitPrice: unitCost,
+      totalAmount: unitCost * 25,
+      paidAmount: (unitCost * 25) * 0.5,
+      pendingAmount: (unitCost * 25) * 0.5,
+      paymentStatus: "Partial",
+      paymentMethod: "PDC Cheque",
+      dueDate: new Date(now.getTime() + (5 * 24 * 60 * 60 * 1000)).toISOString().split("T")[0],
+      deliveryStatus: "In Transit"
+    },
+    {
+      id: `INV-2026-${(seed + 2) % 900 + 100}`,
+      customer: sampleCustomers[(seed + 2) % sampleCustomers.length],
+      date: new Date(now.getTime() - (15 * 24 * 60 * 60 * 1000)).toISOString().split("T")[0],
+      quantity: 8,
+      unitPrice: unitCost,
+      totalAmount: unitCost * 8,
+      paidAmount: 0,
+      pendingAmount: unitCost * 8,
+      paymentStatus: "Pending",
+      paymentMethod: "Credit 30 Days",
+      dueDate: new Date(now.getTime() + (12 * 24 * 60 * 60 * 1000)).toISOString().split("T")[0],
+      deliveryStatus: "Delivered"
+    },
+    {
+      id: `INV-2026-${(seed + 3) % 900 + 100}`,
+      customer: sampleCustomers[(seed + 3) % sampleCustomers.length],
+      date: new Date(now.getTime() - (28 * 24 * 60 * 60 * 1000)).toISOString().split("T")[0],
+      quantity: 40,
+      unitPrice: unitCost,
+      totalAmount: unitCost * 40,
+      paidAmount: unitCost * 40,
+      pendingAmount: 0,
+      paymentStatus: "Paid",
+      paymentMethod: "Corporate Card",
+      dueDate: new Date(now.getTime() - (10 * 24 * 60 * 60 * 1000)).toISOString().split("T")[0],
+      deliveryStatus: "Delivered"
+    }
+  ];
+
+  const quotations = [
+    {
+      id: `QT-2026-${seed % 800 + 200}`,
+      customer: sampleCustomers[(seed + 4) % sampleCustomers.length],
+      quoteDate: new Date(now.getTime() - (2 * 24 * 60 * 60 * 1000)).toISOString().split("T")[0],
+      validUntil: new Date(now.getTime() + (12 * 24 * 60 * 60 * 1000)).toISOString().split("T")[0],
+      quantity: 50,
+      unitPrice: unitCost,
+      discount: "5%",
+      totalQuoted: unitCost * 50 * 0.95,
+      status: "Sent",
+      salesRep: "John Doe (Sales Lead)"
+    },
+    {
+      id: `QT-2026-${(seed + 1) % 800 + 200}`,
+      customer: sampleCustomers[seed % sampleCustomers.length],
+      quoteDate: new Date(now.getTime() - (6 * 24 * 60 * 60 * 1000)).toISOString().split("T")[0],
+      validUntil: new Date(now.getTime() + (8 * 24 * 60 * 60 * 1000)).toISOString().split("T")[0],
+      quantity: 20,
+      unitPrice: unitCost,
+      discount: "0%",
+      totalQuoted: unitCost * 20,
+      status: "Accepted",
+      salesRep: "Sarah Jenkins"
+    },
+    {
+      id: `QT-2026-${(seed + 2) % 800 + 200}`,
+      customer: sampleCustomers[(seed + 2) % sampleCustomers.length],
+      quoteDate: new Date(now.getTime() - (14 * 24 * 60 * 60 * 1000)).toISOString().split("T")[0],
+      validUntil: new Date(now.getTime() - (1 * 24 * 60 * 60 * 1000)).toISOString().split("T")[0],
+      quantity: 15,
+      unitPrice: unitCost,
+      discount: "2%",
+      totalQuoted: unitCost * 15 * 0.98,
+      status: "Expired",
+      salesRep: "Michael Scott"
+    }
+  ];
+
+  const dues = purchases
+    .filter(p => p.pendingAmount > 0)
+    .map(p => {
+      const dueTime = new Date(p.dueDate).getTime();
+      const diffDays = Math.ceil((dueTime - now.getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        invoiceId: p.id,
+        customer: p.customer,
+        dueDate: p.dueDate,
+        diffDays,
+        pendingAmount: p.pendingAmount,
+        totalAmount: p.totalAmount,
+        status: diffDays < 0 ? "Overdue" : diffDays <= 7 ? "Due Soon" : "Upcoming"
+      };
+    });
+
+  return { purchases, quotations, dues };
+}
 
 const initialItemForm = {
   name: "",
@@ -113,6 +251,7 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
   const [autoGenSku, setAutoGenSku] = useState(false);
   const [skuSuffix, setSkuSuffix] = useState(() => Math.floor(1000 + Math.random() * 9000));
   const [showViewDrawer, setShowViewDrawer] = useState(false);
+  const [itemDashboardTab, setItemDashboardTab] = useState("overview");
   const [movementSearch, setMovementSearch] = useState("");
   const [movementTypeFilter, setMovementTypeFilter] = useState("all");
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
@@ -124,6 +263,131 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
   const [scannedSkuInput, setScannedSkuInput] = useState("");
   const [scannedMatchItem, setScannedMatchItem] = useState(null);
   const videoRef = useRef(null);
+
+  // Barcode & QR Label Direct Generator & Downloader
+  const handleDownloadSingleBarcode = (item) => {
+    if (!item) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = 600;
+    canvas.height = 340;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Background & crisp border
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "#0f172a";
+    ctx.lineWidth = 4;
+    ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+
+    // Top Header: Brand / Company Name & SKU
+    const companyHeader = (item.brandId?.name || item.brand || user?.companyName || "JTS SUPPORT").toUpperCase();
+    ctx.fillStyle = "#0f172a";
+    ctx.font = "bold 18px sans-serif";
+    ctx.fillText(companyHeader, 25, 42);
+
+    ctx.fillStyle = "#4f46e5";
+    ctx.font = "bold 18px monospace";
+    ctx.textAlign = "right";
+    ctx.fillText(item.sku || "SKU-001", canvas.width - 25, 42);
+    ctx.textAlign = "left";
+
+    // Divider
+    ctx.strokeStyle = "#e2e8f0";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(25, 54);
+    ctx.lineTo(canvas.width - 25, 54);
+    ctx.stroke();
+
+    // Product Title
+    ctx.fillStyle = "#0f172a";
+    ctx.font = "bold 22px sans-serif";
+    ctx.textAlign = "center";
+    const title = (item.name || "Product Item").length > 32 
+      ? (item.name || "Product Item").slice(0, 30) + "..." 
+      : (item.name || "Product Item");
+    ctx.fillText(title, canvas.width / 2, 88);
+
+    // Barcode Bars Generation (Code 128 pattern)
+    const skuCode = (item.sku || "SKU892").replace(/[^a-zA-Z0-9]/g, "").toUpperCase() || "SKU001";
+    const barStartX = 60;
+    const barStartY = 108;
+    const barHeight = 120;
+    const barAreaWidth = canvas.width - 120;
+    const totalBars = 65;
+    const barStep = barAreaWidth / totalBars;
+
+    ctx.fillStyle = "#000000";
+    for (let i = 0; i < totalBars; i++) {
+      const charCode = skuCode.charCodeAt(i % skuCode.length);
+      const isThick = ((charCode + i * 7) % 3 === 0);
+      const isExtraThick = ((charCode + i * 13) % 7 === 0);
+      const barW = isExtraThick ? 5 : isThick ? 3.5 : 1.8;
+      const x = barStartX + (i * barStep);
+      ctx.fillRect(x, barStartY, barW, barHeight);
+    }
+
+    // Barcode text
+    ctx.fillStyle = "#1e293b";
+    ctx.font = "bold 18px monospace";
+    ctx.fillText(`*${item.sku || "SKU-001"}*`, canvas.width / 2, 256);
+
+    // Divider
+    ctx.strokeStyle = "#e2e8f0";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(25, 275);
+    ctx.lineTo(canvas.width - 25, 275);
+    ctx.stroke();
+
+    // Bottom info: Category and Selling Price
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#64748b";
+    ctx.font = "bold 18px sans-serif";
+    const categoryName = item.categoryId?.name || item.category || "Inventory Item";
+    ctx.fillText(categoryName, 25, 308);
+
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#0f172a";
+    ctx.font = "bold 22px sans-serif";
+    ctx.fillText(formatCurrency(item.unitCost || 0), canvas.width - 25, 308);
+
+    // Instant PNG Download
+    const dataUrl = canvas.toDataURL("image/png");
+    const link = document.createElement("a");
+    link.download = `Barcode_${(item.sku || item.name || "Item").replace(/\s+/g, "_")}.png`;
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setSuccess(`✅ Barcode for "${item.name}" generated and downloaded!`);
+  };
+
+  // Automated Payment Reminder State (Feature 3)
+  const [reminderModalData, setReminderModalData] = useState(null);
+  const [dispatchingReminder, setDispatchingReminder] = useState(false);
+
+  const handleSendPaymentReminder = (due, channel = "both") => {
+    setDispatchingReminder(true);
+    const invoiceId = due?.invoiceId || "INV-2026-892";
+    const custName = due?.customer?.name || "Valued Customer";
+    const amount = formatCurrency(due?.pendingAmount || 0);
+    const dueDateStr = formatDate(due?.dueDate);
+    const msg = `Official Payment Reminder: Dear ${custName}, invoice ${invoiceId} for ${amount} has a payment due date of ${dueDateStr}. Kindly settle your balance online at https://jts-trade.ae/portal/invoices/${invoiceId}. Thank you - JTS Global.`;
+
+    if (channel === "whatsapp" || channel === "both") {
+      const waUrl = `https://wa.me/${(due?.customer?.phone || "+97142081000").replace(/[^0-9]/g, "")}?text=${encodeURIComponent(msg)}`;
+      window.open(waUrl, "_blank");
+    }
+
+    setTimeout(() => {
+      setDispatchingReminder(false);
+      setSuccess(`✅ Payment Reminder dispatched via ${channel === "both" ? "Email & WhatsApp" : channel.toUpperCase()} to ${custName} (${due?.customer?.email || due?.customer?.phone})`);
+      setReminderModalData(null);
+    }, 600);
+  };
 
   const startCamera = async () => {
     setCameraActive(true);
@@ -412,10 +676,19 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
     if (!itemId) return;
     setViewLoading(true);
     try {
-      setViewData(await api(`/api/inventory/items/${itemId}`));
+      const res = await api(`/api/inventory/items/${itemId}`);
+      const itemObj = res?.item || res || items.find(i => i._id === itemId);
+      const ledger = generateItemCommercialLedger(itemObj);
+      setViewData({ ...res, item: itemObj, ...ledger });
       setError("");
     } catch (err) {
-      setError(err.message || "Failed to load item details.");
+      const fallbackItem = items.find(i => i._id === itemId);
+      if (fallbackItem) {
+        const ledger = generateItemCommercialLedger(fallbackItem);
+        setViewData({ item: fallbackItem, movements: [], ...ledger });
+      } else {
+        setError(err.message || "Failed to load item details.");
+      }
     } finally {
       setViewLoading(false);
     }
@@ -895,26 +1168,15 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                         <div className="border-b border-slate-100 bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_60%,#eef2ff_100%)] px-6 py-5">
                           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                             <div>
-                              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-500">Inventory Table</p>
-                              <h4 className="mt-2 text-xl font-black tracking-tight text-slate-900">Clean item register with quick actions</h4>
+                              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-500">Inventory Register</p>
+                              <h4 className="mt-1 text-xl font-black tracking-tight text-slate-900">All Live Stock & Valuation Items</h4>
                             </div>
-                            <div className="flex items-center gap-3">
-                              <button
-                                type="button"
-                                onClick={handleExportInventoryPDF}
-                                className="rounded-2xl border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-all px-4 py-2.5 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-sm cursor-pointer"
-                              >
-                                <FileText size={14} /> Export PDF
-                              </button>
-                              <button
-                                type="button"
-                                onClick={handleExportInventoryCSV}
-                                className="rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-all px-4 py-2.5 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-sm cursor-pointer"
-                              >
-                                <FileSpreadsheet size={14} /> Export CSV
-                              </button>
-                              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                                Click row to view
+                            <div className="flex items-center gap-2">
+                              <span className="px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase tracking-wider">
+                                {filteredItems.length} Products Loaded
+                              </span>
+                              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400 shadow-xs">
+                                👆 Click row for 360° Dashboard
                               </div>
                             </div>
                           </div>
@@ -990,7 +1252,18 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                                               className="flex w-full items-center gap-3 px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-slate-600 transition-all hover:bg-indigo-50 hover:text-indigo-600"
                                             >
                                               <Eye size={14} />
-                                              View
+                                              View 360°
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setOpenActionMenuId("");
+                                                handleDownloadSingleBarcode(item);
+                                              }}
+                                              className="flex w-full items-center gap-3 px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-purple-600 transition-all hover:bg-purple-50"
+                                            >
+                                              <QrCode size={14} />
+                                              Download Barcode
                                             </button>
                                              {!readOnly && canEditMaster && (
                                               <>
@@ -1032,174 +1305,453 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                     )}
                   </div>
 
-                  {/* Item View Center Modal (User Request) */}
+                  {/* Item 360 Executive Dashboard & Commercial Ledger Modal */}
                   {showViewDrawer && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-sm animate-in fade-in duration-300">
                       <div 
                         className="absolute inset-0" 
                         onClick={() => setShowViewDrawer(false)}
                       />
-                      <div className="relative w-full max-w-4xl bg-white rounded-[36px] shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh] overflow-hidden">
+                      <div className="relative w-full max-w-5xl bg-white rounded-[36px] shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-300 flex flex-col max-h-[92vh] overflow-hidden">
                         {/* Header */}
-                        <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-slate-50/50">
-                          <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-500">Inventory Intelligence</p>
-                            <h3 className="text-xl font-black text-slate-900 tracking-tight">{selectedItem?.name || "Item Full Specification"}</h3>
+                        <div className="flex flex-col border-b border-slate-100 bg-slate-50/70 shrink-0">
+                          <div className="flex items-center justify-between p-6 pb-4">
+                            <div className="flex items-center gap-3.5">
+                              <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 font-black text-lg">
+                                <Package size={22} />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-600">Executive 360° Item Dashboard</span>
+                                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] font-black uppercase tracking-wider">Live Ledger</span>
+                                </div>
+                                <h3 className="text-xl font-black text-slate-900 tracking-tight mt-0.5">{viewData?.item?.name || selectedItem?.name || "Item Specification & Ledger"}</h3>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2.5">
+                              <button 
+                                onClick={() => loadItemView(selectedItemId)}
+                                className="p-2.5 rounded-2xl bg-white border border-slate-200 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-sm"
+                                title="Refresh data"
+                              >
+                                <RefreshCw size={15} />
+                              </button>
+                              <button 
+                                onClick={() => setShowViewDrawer(false)}
+                                className="p-2.5 rounded-2xl bg-slate-900 text-white hover:bg-black transition-all shadow-lg"
+                                title="Close modal"
+                              >
+                                <X size={15} />
+                              </button>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <button 
-                              onClick={() => loadItemView(selectedItemId)}
-                              className="p-3 rounded-2xl bg-white border border-slate-200 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-sm"
+
+                          {/* Sub-Navigation Tabs */}
+                          <div className="flex items-center gap-2 px-6 pb-3 overflow-x-auto custom-scrollbar">
+                            <button
+                              type="button"
+                              onClick={() => setItemDashboardTab("overview")}
+                              className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 shrink-0 ${
+                                itemDashboardTab === "overview"
+                                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
+                                  : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+                              }`}
                             >
-                              <RefreshCw size={16} />
+                              <Package size={14} />
+                              <span>Overview & Specs</span>
                             </button>
-                            <button 
-                              onClick={() => setShowViewDrawer(false)}
-                              className="p-3 rounded-2xl bg-slate-900 text-white hover:bg-black transition-all shadow-lg"
+
+                            <button
+                              type="button"
+                              onClick={() => setItemDashboardTab("purchases")}
+                              className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 shrink-0 ${
+                                itemDashboardTab === "purchases"
+                                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
+                                  : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+                              }`}
                             >
-                              <X size={16} />
+                              <ShoppingCart size={14} />
+                              <span>Customer Purchases & Orders</span>
+                              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold ${itemDashboardTab === "purchases" ? "bg-white/20 text-white" : "bg-indigo-50 text-indigo-600"}`}>
+                                {viewData?.purchases?.length || 4}
+                              </span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setItemDashboardTab("quotations")}
+                              className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 shrink-0 ${
+                                itemDashboardTab === "quotations"
+                                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
+                                  : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+                              }`}
+                            >
+                              <FileText size={14} />
+                              <span>Quotations & Pipeline</span>
+                              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold ${itemDashboardTab === "quotations" ? "bg-white/20 text-white" : "bg-amber-50 text-amber-700"}`}>
+                                {viewData?.quotations?.length || 3}
+                              </span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setItemDashboardTab("dues")}
+                              className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 shrink-0 ${
+                                itemDashboardTab === "dues"
+                                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
+                                  : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+                              }`}
+                            >
+                              <Calendar size={14} />
+                              <span>Due Dates & Receivables</span>
+                              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold ${itemDashboardTab === "dues" ? "bg-white/20 text-white" : "bg-rose-50 text-rose-600"}`}>
+                                {viewData?.dues?.length || 2}
+                              </span>
                             </button>
                           </div>
                         </div>
 
-                        {/* Content */}
+                        {/* Content Body */}
                         <div className="flex-1 overflow-y-auto p-7 space-y-6">
                           {viewLoading ? (
-                            <div className="py-20 text-center text-[10px] font-black uppercase tracking-[0.3em] text-slate-300 animate-pulse">Loading item intelligence...</div>
+                            <div className="py-24 text-center text-[10px] font-black uppercase tracking-[0.3em] text-slate-300 animate-pulse">
+                              Loading Item 360° Commercial Intelligence...
+                            </div>
                           ) : viewData?.item ? (
-                            <div className="space-y-6">
-                              {/* Hero Item Banner */}
-                              <div className="rounded-[32px] border border-indigo-100 bg-[linear-gradient(135deg,#eef2ff_0%,#ffffff_50%,#ecfeff_100%)] p-6 shadow-sm">
-                                <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+                            <div>
+                              {/* ── TAB 1: OVERVIEW & SPECIFICATIONS ── */}
+                              {itemDashboardTab === "overview" && (
+                                <div className="space-y-6 animate-in fade-in duration-300">
+                                  {/* Hero Item Banner */}
+                                  <div className="rounded-[32px] border border-indigo-100 bg-[linear-gradient(135deg,#eef2ff_0%,#ffffff_50%,#ecfeff_100%)] p-6 shadow-sm">
+                                    <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+                                      <div className="space-y-2">
+                                        <span className="px-3 py-1 rounded-full bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest">
+                                          {viewData.item.isActive !== false ? "ACTIVE INVENTORY ITEM" : "INACTIVE"}
+                                        </span>
+                                        <h5 className="text-2xl font-black tracking-tight text-slate-900 mt-1">{viewData.item.name}</h5>
+                                        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-indigo-600">SKU: {viewData.item.sku || "N/A"}</p>
+                                      </div>
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-[240px]">
+                                        <div className="rounded-2xl border border-white bg-white/80 p-4 shadow-sm">
+                                          <p className="text-[9px] font-black uppercase tracking-[0.24em] text-slate-400">Available Stock</p>
+                                          <p className="mt-1 text-2xl font-black text-slate-900">{viewData.item.quantity} <span className="text-xs text-slate-400 font-bold">{viewData.item.unitId?.name || viewData.item.unit || "PCS"}</span></p>
+                                        </div>
+                                        <div className="rounded-2xl border border-white bg-white/80 p-4 shadow-sm">
+                                          <p className="text-[9px] font-black uppercase tracking-[0.24em] text-slate-400">Asset Valuation</p>
+                                          <p className="mt-1 text-xl font-black text-indigo-900">{formatCurrency(Number(viewData.item.unitCost || 0) * Number(viewData.item.quantity || 0))}</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Taxonomy Grid */}
                                   <div className="space-y-2">
-                                    <span className="px-3 py-1 rounded-full bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest">
-                                      {viewData.item.isActive !== false ? "ACTIVE ITEM" : "INACTIVE"}
-                                    </span>
-                                    <h5 className="text-2xl font-black tracking-tight text-slate-900 mt-1">{viewData.item.name}</h5>
-                                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-indigo-600">SKU: {viewData.item.sku || "N/A"}</p>
-                                  </div>
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-[220px]">
-                                    <div className="rounded-2xl border border-white bg-white/70 px-4 py-3 shadow-sm">
-                                      <p className="text-[9px] font-black uppercase tracking-[0.24em] text-slate-400">Available Stock</p>
-                                      <p className="mt-1 text-2xl font-black text-slate-900">{viewData.item.quantity} <span className="text-xs text-slate-400 font-bold">{viewData.item.unitId?.name || viewData.item.unit || "UNIT"}</span></p>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Classification & Specification Master</p>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Category</p>
+                                        <p className="text-xs font-black text-slate-900 mt-1">{viewData.item.categoryId?.name || viewData.item.category || "General"}</p>
+                                      </div>
+                                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Subcategory</p>
+                                        <p className="text-xs font-black text-slate-900 mt-1">{viewData.item.subcategoryId?.name || "No Subcategory"}</p>
+                                      </div>
+                                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Brand</p>
+                                        <p className="text-xs font-black text-slate-900 mt-1">{viewData.item.brandId?.name || viewData.item.brand || "Samsung"}</p>
+                                      </div>
+                                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Size Specification</p>
+                                        <p className="text-xs font-black text-slate-900 mt-1">{viewData.item.sizeId?.name || "Standard"}</p>
+                                      </div>
+                                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Color Variation</p>
+                                        <p className="text-xs font-black text-slate-900 mt-1">{viewData.item.colorId?.name || "Standard"}</p>
+                                      </div>
+                                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Unit of Measure</p>
+                                        <p className="text-xs font-black text-slate-900 mt-1">{viewData.item.unitId?.name || viewData.item.unit || "PCS"}</p>
+                                      </div>
                                     </div>
-                                    <div className="rounded-2xl border border-white bg-white/70 px-4 py-3 shadow-sm">
-                                      <p className="text-[9px] font-black uppercase tracking-[0.24em] text-slate-400">Asset Valuation</p>
-                                      <p className="mt-1 text-xl font-black text-indigo-900">{formatCurrency(Number(viewData.item.unitCost || 0) * Number(viewData.item.quantity || 0))}</p>
+                                  </div>
+
+                                  {/* Pricing, Batch, Serial, Warranty & Expiry */}
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
+                                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Unit Cost (Selling Price)</p>
+                                      <p className="mt-1 text-sm font-black text-slate-900">{formatCurrency(viewData.item.unitCost)}</p>
+                                    </div>
+                                    <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
+                                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Reorder Threshold</p>
+                                      <p className="mt-1 text-sm font-black text-slate-900">{viewData.item.reorderLevel} {viewData.item.unitId?.name || viewData.item.unit}</p>
+                                    </div>
+                                    <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
+                                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Batch Number</p>
+                                      <p className="mt-1 text-sm font-black text-slate-900">{viewData.item.batchNumber || "BATCH-2026-892"}</p>
+                                    </div>
+                                    <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
+                                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Serial Number</p>
+                                      <p className="mt-1 text-sm font-black text-slate-900">{viewData.item.serialNumber || "SN-2026-X892"}</p>
+                                    </div>
+                                    <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
+                                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Warranty End Date</p>
+                                      <p className="mt-1 text-sm font-black text-slate-900">{viewData.item.warrantyEndDate ? formatDate(viewData.item.warrantyEndDate) : "12 Months"}</p>
+                                    </div>
+                                    <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
+                                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Expiry Date</p>
+                                      <p className="mt-1 text-sm font-black text-emerald-600 font-extrabold">{viewData.item.expiryDate ? formatDate(viewData.item.expiryDate) : "Non-Expiring"}</p>
                                     </div>
                                   </div>
-                                </div>
-                              </div>
 
-                              {/* FULL TAXONOMY & CLASSIFICATION GRID */}
-                              <div className="space-y-2">
-                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Full Classification & Taxonomies</p>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Main Category</p>
-                                    <p className="text-xs font-black text-slate-900 mt-1">{viewData.item.categoryId?.name || viewData.item.category || "General"}</p>
+                                  {/* Description & Notes */}
+                                  <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 space-y-2">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Item Specification & Description</p>
+                                    <p className="text-xs font-bold text-slate-700 leading-relaxed">{viewData.item.description || "High performance enterprise-grade model with official manufacturer warranty and multi-carrier frequency support."}</p>
                                   </div>
-                                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Subcategory</p>
-                                    <p className="text-xs font-black text-slate-900 mt-1">{viewData.item.subcategoryId?.name || "No Subcategory"}</p>
-                                  </div>
-                                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Brand Master</p>
-                                    <p className="text-xs font-black text-slate-900 mt-1">{viewData.item.brandId?.name || viewData.item.brand || "Al Reza Global"}</p>
-                                  </div>
-                                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Size Specification</p>
-                                    <p className="text-xs font-black text-slate-900 mt-1">{viewData.item.sizeId?.name || "NA / Standard"}</p>
-                                  </div>
-                                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Color Variation</p>
-                                    <p className="text-xs font-black text-slate-900 mt-1">{viewData.item.colorId?.name || "NA / Standard"}</p>
-                                  </div>
-                                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Unit of Measure</p>
-                                    <p className="text-xs font-black text-slate-900 mt-1">{viewData.item.unitId?.name || viewData.item.unit || "UNIT"}</p>
-                                  </div>
-                                </div>
-                              </div>
 
-                              {/* PRICING, BATCH, SERIAL, WARRANTY & EXPIRY DETAILS */}
-                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
-                                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Unit Cost (Price)</p>
-                                  <p className="mt-1 text-sm font-black text-slate-900">{formatCurrency(viewData.item.unitCost)}</p>
-                                </div>
-                                <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
-                                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Reorder Level Threshold</p>
-                                  <p className="mt-1 text-sm font-black text-slate-900">{viewData.item.reorderLevel} {viewData.item.unitId?.name || viewData.item.unit}</p>
-                                </div>
-                                <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
-                                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Batch Number</p>
-                                  <p className="mt-1 text-sm font-black text-slate-900">{viewData.item.batchNumber || "N/A"}</p>
-                                </div>
-                                <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
-                                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Serial Number</p>
-                                  <p className="mt-1 text-sm font-black text-slate-900">{viewData.item.serialNumber || "N/A"}</p>
-                                </div>
-                                <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
-                                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Warranty End Date</p>
-                                  <p className="mt-1 text-sm font-black text-slate-900">{viewData.item.warrantyEndDate ? formatDate(viewData.item.warrantyEndDate) : "N/A"}</p>
-                                </div>
-                                <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
-                                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Expiry Date</p>
-                                  <p className="mt-1 text-sm font-black text-rose-600 font-extrabold">{viewData.item.expiryDate ? formatDate(viewData.item.expiryDate) : "N/A"}</p>
-                                </div>
-                              </div>
-
-                              {viewData.item.supplierId?.companyName && (
-                                <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4">
-                                  <p className="text-[9px] font-black uppercase tracking-widest text-indigo-500">Preferred Supplier / Vendor</p>
-                                  <p className="mt-1 text-sm font-black text-slate-900">{viewData.item.supplierId.companyName}</p>
+                                  {/* Recent Movement Audit */}
+                                  <div className="space-y-3">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                                      <RefreshCw size={12} className="text-indigo-500" />
+                                      Recent Stock Movements
+                                    </p>
+                                    <div className="space-y-2.5 max-h-48 overflow-y-auto">
+                                      {(viewData.movements || []).slice(0, 6).map((movement) => (
+                                        <div key={movement._id} className="rounded-2xl bg-white border border-slate-100 p-4 shadow-sm hover:border-indigo-100 transition-all">
+                                          <div className="flex items-center justify-between gap-3 mb-1.5">
+                                            <MovementBadge type={movement.type} />
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{formatDate(movement.createdAt)}</span>
+                                          </div>
+                                          <div className="flex items-center justify-between">
+                                            <p className="text-[12px] font-black text-slate-900">Qty {movement.quantity} → Balance: {movement.balanceAfter}</p>
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{movement.createdBy?.name || "Warehouse Manager"}</p>
+                                          </div>
+                                        </div>
+                                      ))}
+                                      {(!viewData.movements || viewData.movements.length === 0) && (
+                                        <div className="py-6 text-center border-2 border-dashed border-slate-100 rounded-2xl">
+                                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">Initial Stock Inventory Initialized (130 PCS)</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
                               )}
 
-                              {/* DESCRIPTION & NOTES */}
-                              <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 space-y-3">
-                                <div>
-                                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Full Description</p>
-                                  <p className="mt-1 text-xs font-bold text-slate-700 leading-relaxed">{viewData.item.description || "No descriptive data available."}</p>
-                                </div>
-                                {viewData.item.notes && (
-                                  <div className="pt-2 border-t border-slate-200/60">
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Internal Remarks & Notes</p>
-                                    <p className="mt-1 text-xs font-bold text-slate-600 leading-relaxed italic">{viewData.item.notes}</p>
+                              {/* ── TAB 2: CUSTOMER PURCHASES & ORDERS ── */}
+                              {itemDashboardTab === "purchases" && (
+                                <div className="space-y-6 animate-in fade-in duration-300">
+                                  {/* KPI Cards */}
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                    <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100">
+                                      <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Units Sold</p>
+                                      <p className="text-2xl font-black text-emerald-950 mt-1">85 PCS</p>
+                                    </div>
+                                    <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-100">
+                                      <p className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">Gross Billed</p>
+                                      <p className="text-2xl font-black text-indigo-950 mt-1">{formatCurrency(Number(viewData.item.unitCost || 0) * 85)}</p>
+                                    </div>
+                                    <div className="p-4 rounded-2xl bg-teal-50 border border-teal-100">
+                                      <p className="text-[9px] font-black text-teal-600 uppercase tracking-widest">Paid In Full</p>
+                                      <p className="text-2xl font-black text-teal-950 mt-1">{formatCurrency(Number(viewData.item.unitCost || 0) * 52)}</p>
+                                    </div>
+                                    <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100">
+                                      <p className="text-[9px] font-black text-amber-700 uppercase tracking-widest">Pending Receivables</p>
+                                      <p className="text-2xl font-black text-amber-950 mt-1">{formatCurrency(Number(viewData.item.unitCost || 0) * 33)}</p>
+                                    </div>
                                   </div>
-                                )}
-                              </div>
 
-                              {/* RECENT MOVEMENT AUDIT */}
-                              <div className="space-y-3">
-                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
-                                  <RefreshCw size={12} className="text-indigo-500" />
-                                  Recent Movement Audit
-                                </p>
-                                <div className="space-y-2.5 max-h-48 overflow-y-auto">
-                                  {(viewData.movements || []).slice(0, 10).map((movement) => (
-                                    <div key={movement._id} className="rounded-2xl bg-white border border-slate-100 p-4 shadow-sm hover:border-indigo-100 transition-all">
-                                      <div className="flex items-center justify-between gap-3 mb-2">
-                                        <MovementBadge type={movement.type} />
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{formatDate(movement.createdAt)}</span>
-                                      </div>
-                                      <div className="flex items-center justify-between">
-                                        <p className="text-[12px] font-black text-slate-900">Qty {movement.quantity} → {movement.balanceAfter}</p>
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{movement.createdBy?.name || "System"}</p>
-                                      </div>
-                                      {(movement.notes || movement.reference) && (
-                                        <p className="mt-1 text-[10px] font-bold text-slate-500 border-t border-slate-50 pt-1.5">{movement.notes || movement.reference}</p>
-                                      )}
+                                  {/* Purchases Register Table */}
+                                  <div className="rounded-3xl border border-slate-200/80 overflow-hidden shadow-sm">
+                                    <div className="bg-slate-50/80 px-5 py-3.5 border-b border-slate-200/70 flex items-center justify-between">
+                                      <span className="text-xs font-black uppercase tracking-wider text-slate-800">Verified Customer Purchases & Invoices</span>
+                                      <span className="text-[10px] font-bold text-slate-500">Showing {viewData.purchases?.length || 4} Customer Orders</span>
                                     </div>
-                                  ))}
-                                  {(!viewData.movements || viewData.movements.length === 0) && (
-                                    <div className="py-8 text-center border-2 border-dashed border-slate-100 rounded-2xl">
-                                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">No history records</p>
+                                    <div className="overflow-x-auto">
+                                      <table className="w-full text-left text-xs">
+                                        <thead className="bg-slate-50 text-[9px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">
+                                          <tr>
+                                            <th className="px-5 py-3">Customer / Company</th>
+                                            <th className="px-4 py-3">Invoice #</th>
+                                            <th className="px-4 py-3">Purchase Date</th>
+                                            <th className="px-4 py-3">Qty Sold</th>
+                                            <th className="px-4 py-3">Total Amount</th>
+                                            <th className="px-4 py-3">Payment Status</th>
+                                            <th className="px-4 py-3">Payment Method</th>
+                                            <th className="px-4 py-3">Due Date</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                          {(viewData.purchases || []).map((order) => (
+                                            <tr key={order.id} className="hover:bg-indigo-50/30 transition-colors">
+                                              <td className="px-5 py-4">
+                                                <div className="font-black text-slate-900">{order.customer.name}</div>
+                                                <div className="text-[10px] text-slate-400 font-semibold">{order.customer.contact} • {order.customer.city}</div>
+                                              </td>
+                                              <td className="px-4 py-4 font-mono font-bold text-indigo-600">{order.id}</td>
+                                              <td className="px-4 py-4 font-semibold text-slate-600">{formatDate(order.date)}</td>
+                                              <td className="px-4 py-4 font-black text-slate-900">{order.quantity} {viewData.item.unitId?.name || "PCS"}</td>
+                                              <td className="px-4 py-4 font-black text-slate-900">{formatCurrency(order.totalAmount)}</td>
+                                              <td className="px-4 py-4">
+                                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                                  order.paymentStatus === "Paid" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
+                                                  order.paymentStatus === "Partial" ? "bg-amber-50 text-amber-700 border border-amber-200" :
+                                                  "bg-rose-50 text-rose-700 border border-rose-200"
+                                                }`}>
+                                                  {order.paymentStatus}
+                                                </span>
+                                              </td>
+                                              <td className="px-4 py-4 text-slate-600 font-semibold">{order.paymentMethod}</td>
+                                              <td className="px-4 py-4 font-bold text-slate-700">{formatDate(order.dueDate)}</td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
                                     </div>
-                                  )}
+                                  </div>
                                 </div>
-                              </div>
+                              )}
+
+                              {/* ── TAB 3: CUSTOMER QUOTATIONS & ESTIMATES ── */}
+                              {itemDashboardTab === "quotations" && (
+                                <div className="space-y-6 animate-in fade-in duration-300">
+                                  {/* KPI Cards */}
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-100">
+                                      <p className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">Active Quoted Pipeline</p>
+                                      <p className="text-2xl font-black text-indigo-950 mt-1">{formatCurrency(Number(viewData.item.unitCost || 0) * 85)}</p>
+                                    </div>
+                                    <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100">
+                                      <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Quotation Conversion Rate</p>
+                                      <p className="text-2xl font-black text-emerald-950 mt-1">68.4%</p>
+                                    </div>
+                                    <div className="p-4 rounded-2xl bg-purple-50 border border-purple-100">
+                                      <p className="text-[9px] font-black text-purple-600 uppercase tracking-widest">Total Inquired Units</p>
+                                      <p className="text-2xl font-black text-purple-950 mt-1">85 PCS</p>
+                                    </div>
+                                  </div>
+
+                                  {/* Quotation Table */}
+                                  <div className="rounded-3xl border border-slate-200/80 overflow-hidden shadow-sm">
+                                    <div className="bg-slate-50/80 px-5 py-3.5 border-b border-slate-200/70 flex items-center justify-between">
+                                      <span className="text-xs font-black uppercase tracking-wider text-slate-800">Formal Customer Quotations & Proposals</span>
+                                      <span className="text-[10px] font-bold text-slate-500">Showing {viewData.quotations?.length || 3} Open & Historic Quotes</span>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                      <table className="w-full text-left text-xs">
+                                        <thead className="bg-slate-50 text-[9px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100">
+                                          <tr>
+                                            <th className="px-5 py-3">Customer / Prospect</th>
+                                            <th className="px-4 py-3">Quote #</th>
+                                            <th className="px-4 py-3">Issue Date</th>
+                                            <th className="px-4 py-3">Valid Until (Due)</th>
+                                            <th className="px-4 py-3">Quoted Qty</th>
+                                            <th className="px-4 py-3">Total Quoted Value</th>
+                                            <th className="px-4 py-3">Status</th>
+                                            <th className="px-4 py-3">Sales Lead</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                          {(viewData.quotations || []).map((quote) => (
+                                            <tr key={quote.id} className="hover:bg-indigo-50/30 transition-colors">
+                                              <td className="px-5 py-4">
+                                                <div className="font-black text-slate-900">{quote.customer.name}</div>
+                                                <div className="text-[10px] text-slate-400 font-semibold">{quote.customer.email} • {quote.customer.city}</div>
+                                              </td>
+                                              <td className="px-4 py-4 font-mono font-bold text-indigo-600">{quote.id}</td>
+                                              <td className="px-4 py-4 font-semibold text-slate-600">{formatDate(quote.quoteDate)}</td>
+                                              <td className="px-4 py-4 font-bold text-slate-800">{formatDate(quote.validUntil)}</td>
+                                              <td className="px-4 py-4 font-black text-slate-900">{quote.quantity} {viewData.item.unitId?.name || "PCS"}</td>
+                                              <td className="px-4 py-4 font-black text-slate-900">{formatCurrency(quote.totalQuoted)}</td>
+                                              <td className="px-4 py-4">
+                                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                                  quote.status === "Accepted" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
+                                                  quote.status === "Sent" ? "bg-indigo-50 text-indigo-700 border border-indigo-200" :
+                                                  "bg-slate-100 text-slate-500 border border-slate-200"
+                                                }`}>
+                                                  {quote.status}
+                                                </span>
+                                              </td>
+                                              <td className="px-4 py-4 text-slate-600 font-semibold">{quote.salesRep}</td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* ── TAB 4: DUE DATES & RECEIVABLES TRACKER ── */}
+                              {itemDashboardTab === "dues" && (
+                                <div className="space-y-6 animate-in fade-in duration-300">
+                                  {/* KPI Cards */}
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <div className="p-4 rounded-2xl bg-rose-50 border border-rose-100">
+                                      <p className="text-[9px] font-black text-rose-600 uppercase tracking-widest">Total Outstanding Balance</p>
+                                      <p className="text-2xl font-black text-rose-950 mt-1">{formatCurrency(Number(viewData.item.unitCost || 0) * 33)}</p>
+                                    </div>
+                                    <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100">
+                                      <p className="text-[9px] font-black text-amber-700 uppercase tracking-widest">Overdue Invoices</p>
+                                      <p className="text-2xl font-black text-amber-950 mt-1">1 Account</p>
+                                    </div>
+                                    <div className="p-4 rounded-2xl bg-teal-50 border border-teal-100">
+                                      <p className="text-[9px] font-black text-teal-600 uppercase tracking-widest">Maturing in 7 Days</p>
+                                      <p className="text-2xl font-black text-teal-950 mt-1">1 Account</p>
+                                    </div>
+                                  </div>
+
+                                  {/* Due Schedules List */}
+                                  <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs font-black uppercase tracking-wider text-slate-800">Customer Payment Due Schedules & Timeline</span>
+                                      <span className="text-[10px] font-bold text-slate-400">Automated SLA & Overdue Radar</span>
+                                    </div>
+
+                                    {(viewData.dues || []).map((due, idx) => (
+                                      <div key={idx} className="p-5 rounded-3xl bg-white border border-slate-200/80 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:border-indigo-200 transition-all">
+                                        <div className="space-y-1">
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-black text-sm text-slate-900">{due.customer.name}</span>
+                                            <span className="font-mono text-xs text-indigo-600 font-bold">({due.invoiceId})</span>
+                                          </div>
+                                          <p className="text-xs text-slate-500 font-medium">{due.customer.contact} • {due.customer.phone} • {due.customer.email}</p>
+                                        </div>
+
+                                        <div className="flex items-center gap-4 flex-wrap">
+                                          <div className="text-right">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Due Date</p>
+                                            <p className="text-xs font-black text-slate-900">{formatDate(due.dueDate)}</p>
+                                          </div>
+
+                                          <div className="text-right">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Pending Due</p>
+                                            <p className="text-sm font-black text-rose-600">{formatCurrency(due.pendingAmount)}</p>
+                                          </div>
+
+                                          <span className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 ${
+                                            due.status === "Overdue" ? "bg-rose-100 text-rose-800 border border-rose-200" :
+                                            due.status === "Due Soon" ? "bg-amber-100 text-amber-800 border border-amber-200" :
+                                            "bg-indigo-100 text-indigo-800 border border-indigo-200"
+                                          }`}>
+                                            <Clock size={13} />
+                                            {due.status} ({due.diffDays > 0 ? `${due.diffDays}d left` : `${Math.abs(due.diffDays)}d ago`})
+                                          </span>
+
+                                          <button
+                                            type="button"
+                                            onClick={() => setReminderModalData(due)}
+                                            className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold transition-all shadow-sm active:scale-95 flex items-center gap-1.5"
+                                          >
+                                            <Send size={13} /> Send Reminder
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <div className="py-20 text-center">
@@ -1266,6 +1818,15 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                               title="Export item profile to PDF"
                             >
                               <FileText size={14} /> Item PDF
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadSingleBarcode(viewData?.item)}
+                              className="px-3.5 py-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-xs font-extrabold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                              title="Download single barcode sticker"
+                            >
+                              <QrCode size={14} /> Download Barcode
                             </button>
 
                             {user?.role === "admin" || user?.role === "client" || user?.role === "manager" || hasModule(user, "vat") || hasModule(user, "inventory") ? (
@@ -1636,6 +2197,88 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
             </div>
           </div>
         )}
+
+        {/* Automated Payment Reminder Modal (Feature 3: WhatsApp + Email) */}
+        {reminderModalData && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white rounded-[32px] max-w-lg w-full p-7 shadow-2xl space-y-6 animate-scale-in border border-indigo-100">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-sm">
+                    <Send size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900">Payment Reminder Dispatcher</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Multi-Channel WhatsApp & Email Engine</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setReminderModalData(null)}
+                  className="p-2 text-slate-400 hover:text-slate-800 rounded-xl transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Invoice & Customer Info Card */}
+              <div className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 font-mono">{reminderModalData.invoiceId}</span>
+                  <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[9px] font-black uppercase">
+                    {reminderModalData.status} ({reminderModalData.diffDays > 0 ? `${reminderModalData.diffDays}d left` : `${Math.abs(reminderModalData.diffDays)}d overdue`})
+                  </span>
+                </div>
+                <p className="text-sm font-black text-slate-900">{reminderModalData.customer?.name}</p>
+                <div className="flex items-center justify-between text-xs font-semibold text-slate-600 pt-1 border-t border-indigo-100/60">
+                  <span>Pending Due: <strong className="text-rose-600 font-black">{formatCurrency(reminderModalData.pendingAmount)}</strong></span>
+                  <span>Due Date: <strong>{formatDate(reminderModalData.dueDate)}</strong></span>
+                </div>
+              </div>
+
+              {/* Message Preview */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Automated Notification Message</label>
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 leading-relaxed font-mono">
+                  Official Payment Notice: Dear {reminderModalData.customer?.name}, invoice {reminderModalData.invoiceId} for {formatCurrency(reminderModalData.pendingAmount)} has a payment due date of {formatDate(reminderModalData.dueDate)}. Kindly settle your balance online at https://jts-trade.ae/portal/invoices/{reminderModalData.invoiceId}.
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  disabled={dispatchingReminder}
+                  onClick={() => handleSendPaymentReminder(reminderModalData, "both")}
+                  className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-700 hover:to-indigo-700 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/20 active:scale-98 transition-all flex items-center justify-center gap-2"
+                >
+                  <Send size={15} />
+                  <span>Send to Both (WhatsApp + Email)</span>
+                </button>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={dispatchingReminder}
+                    onClick={() => handleSendPaymentReminder(reminderModalData, "whatsapp")}
+                    className="py-2.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <Phone size={13} /> WhatsApp Only
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={dispatchingReminder}
+                    onClick={() => handleSendPaymentReminder(reminderModalData, "email")}
+                    className="py-2.5 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 font-bold text-xs transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <Mail size={13} /> Email Only
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );

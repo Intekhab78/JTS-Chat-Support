@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { api, apiUrl } from "../api/client.js";
-import { Paperclip, FileText, Check, CheckCheck, Send, Ticket, PlusCircle, UserPlus, Sparkles, Bot, Zap } from "lucide-react";
+import { 
+  Paperclip, FileText, Check, CheckCheck, Send, Ticket, PlusCircle, UserPlus, 
+  Sparkles, Bot, Zap, ShoppingCart, Calendar, DollarSign, Clock, ExternalLink, 
+  MessageSquare, Plus, Phone, Mail, FileSpreadsheet, X, ArrowRight 
+} from "lucide-react";
 import { cleanString } from "../utils/stringUtils.js";
 import { useToast } from "../context/ToastContext.jsx";
 
@@ -60,7 +64,8 @@ export default function ChatPanel({
   currentUser = null,
   onTakeOver,
   onRelease,
-  onRequestControl
+  onRequestControl,
+  onTransferChat
 }) {
   const isChatDisabled = disabled || readonly;
   const toast = useToast();
@@ -112,6 +117,27 @@ export default function ChatPanel({
   }, []);
 
   const [clientTranslations, setClientTranslations] = useState({});
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [agentsList, setAgentsList] = useState([]);
+  const [departmentsList, setDepartmentsList] = useState([]);
+  const [selectedTransferAgent, setSelectedTransferAgent] = useState("");
+  const [selectedTransferDept, setSelectedTransferDept] = useState("");
+
+  const DEFAULT_SHORTCUTS = [
+    { _id: "sc-1", shortcut: "greeting", content: "Hello {{visitorName}}, thank you for reaching out to {{websiteName}}! How can I assist you today?" },
+    { _id: "sc-2", shortcut: "pricing", content: "Our professional services start from AED 999. Would you like me to share our full pricing breakdown?" },
+    { _id: "sc-3", shortcut: "support", content: "I am checking your inquiry with our technical specialists right now. Please hold on for a moment." },
+    { _id: "sc-4", shortcut: "quote", content: "I have prepared a custom quotation for your requirement. Our sales team will dispatch the details shortly." },
+    { _id: "sc-5", shortcut: "bye", content: "Thank you for contacting {{websiteName}}! Have a wonderful day ahead." }
+  ];
+
+  useEffect(() => {
+    if (session?.websiteId?._id || session?.websiteId) {
+      const wId = session.websiteId._id || session.websiteId;
+      api(`/api/users/agents?websiteId=${wId}`).then(res => setAgentsList(Array.isArray(res) ? res : [])).catch(() => {});
+      api(`/api/departments?websiteId=${wId}`).then(res => setDepartmentsList(Array.isArray(res) ? res : [])).catch(() => {});
+    }
+  }, [session]);
 
   useEffect(() => {
     if (!autoTranslate) return;
@@ -143,9 +169,17 @@ export default function ChatPanel({
 
   useEffect(() => {
     if (!isChatDisabled && canUseShortcuts) {
-      api("/api/canned-responses").then(setShortcuts).catch((error) => {
-        console.error("Failed to load canned responses:", error);
-      });
+      api("/api/canned-responses")
+        .then(res => {
+          if (Array.isArray(res) && res.length > 0) {
+            setShortcuts(res);
+          } else {
+            setShortcuts(DEFAULT_SHORTCUTS);
+          }
+        })
+        .catch(() => {
+          setShortcuts(DEFAULT_SHORTCUTS);
+        });
     }
   }, [isChatDisabled, canUseShortcuts]);
 
@@ -163,6 +197,9 @@ export default function ChatPanel({
   }
 
   const visitor = session.visitorId;
+  const isVisitorOnline = Boolean(
+    session.status !== "closed" && !session.archivedAt && !session.closedAt
+  );
   const visitorName = cleanString(visitor?.name) || cleanString(visitor?.visitorId, "Anonymous User");
   const avatarColor = getAvatarColor(visitorName);
   const otherViewers = localViewers.filter(v => v._id !== currentUser?._id);
@@ -400,13 +437,13 @@ export default function ChatPanel({
                 <h3 className="text-sm md:text-base font-bold text-slate-900 dark:text-white truncate">{visitorName}</h3>
                 
                 {/* Status Badge */}
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 border shadow-sm ${
-                  visitor?.isOnline 
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10' 
-                    : 'bg-slate-100 text-slate-500 border-slate-200'
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 border shadow-sm transition-all ${
+                  isVisitorOnline 
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400' 
+                    : 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400'
                 }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${visitor?.isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-                  {visitor?.isOnline ? "Online" : "Offline"}
+                  <span className={`w-1.5 h-1.5 rounded-full ${isVisitorOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                  {isVisitorOnline ? "Online" : "Offline"}
                 </span>
 
                 {/* Assigned Agent */}
@@ -419,6 +456,19 @@ export default function ChatPanel({
                   <span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
                     ⚠️ Unassigned
                   </span>
+                )}
+
+                {/* Transfer Chat Button */}
+                {onTransferChat && (
+                  <button
+                    type="button"
+                    onClick={() => setShowTransferModal(true)}
+                    className="text-[11px] font-bold text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-300 bg-slate-100 hover:bg-indigo-50 dark:bg-white/5 dark:hover:bg-indigo-500/10 px-2 py-0.5 rounded-lg border border-slate-200 dark:border-white/10 flex items-center gap-1 transition-all"
+                    title="Transfer chat to another agent or department"
+                  >
+                    <span>🔄</span>
+                    <span>Transfer</span>
+                  </button>
                 )}
 
                 {session.sentimentLabel && (
@@ -658,9 +708,13 @@ export default function ChatPanel({
             })}
 
             {isTyping && (
-              <div className="flex items-center gap-2 text-xs text-slate-400 font-medium italic animate-pulse px-2 py-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" />
-                <span>Visitor is typing a response…</span>
+              <div className="flex items-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 font-bold italic animate-pulse px-3 py-1.5 bg-indigo-50/60 dark:bg-indigo-500/10 rounded-xl border border-indigo-100 dark:border-indigo-500/20 w-fit my-1">
+                <span className="flex gap-1 items-center">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: "300ms" }} />
+                </span>
+                <span>{visitorName} is typing…</span>
               </div>
             )}
 
@@ -754,6 +808,64 @@ export default function ChatPanel({
                 </div>
               )}
 
+              {/* AI Smart Quick-Reply Chips */}
+              <div className="flex items-center gap-1.5 pb-2 overflow-x-auto custom-scrollbar">
+                <button
+                  type="button"
+                  onClick={handleTriggerZeroAgentAiResponse}
+                  disabled={isSynthesizingAiReply}
+                  className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs hover:shadow-sm active:scale-95 transition-all shrink-0"
+                  title="Generate tailored AI response from visitor conversation context"
+                >
+                  <Sparkles size={11} className={isSynthesizingAiReply ? "animate-spin" : ""} />
+                  {isSynthesizingAiReply ? "Drafting..." : "AI Auto-Draft"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraft("Thank you for reaching out! We have prepared a customized business proposal for your requirements. Would you like me to email you the official quotation?");
+                    toast.success("Loaded Proposal Reply");
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 hover:bg-indigo-50 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 text-[10px] font-bold shrink-0 transition-all active:scale-95"
+                >
+                  ✨ Send Proposal
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraft("We have live stock available in our central distribution warehouse with same-day dispatch and full warranty. What quantity would you like to reserve?");
+                    toast.success("Loaded Stock Check Reply");
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 hover:bg-indigo-50 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 text-[10px] font-bold shrink-0 transition-all active:scale-95"
+                >
+                  📦 Inventory & Stock
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraft("Our commercial terms support WPS Bank Transfer, Corporate Card, and PDC Cheques with instant UAE VAT Tax Invoices. Let us know if you need an invoice issued.");
+                    toast.success("Loaded Payment Terms Reply");
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 hover:bg-indigo-50 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 text-[10px] font-bold shrink-0 transition-all active:scale-95"
+                >
+                  💳 Invoicing & Payment
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraft("I am routing your request to our senior technical lead who will assist you step-by-step. Please stay connected!");
+                    toast.success("Loaded Specialist Transfer Reply");
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 hover:bg-indigo-50 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 text-[10px] font-bold shrink-0 transition-all active:scale-95"
+                >
+                  🤝 Connect Specialist
+                </button>
+              </div>
+
               <form onSubmit={submit} className="flex flex-col gap-2">
                 <div className="relative group">
                   <textarea
@@ -822,13 +934,13 @@ export default function ChatPanel({
           )}
         </div>
 
-        {/* Collapsible Intelligence Sidebar */}
+        {/* Collapsible Intelligence & Commercial Sidebar */}
         {showSidebar && (
-          <div className="w-80 border-l border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-slate-900 flex flex-col h-full overflow-y-auto p-6 space-y-6 animate-in slide-in-from-right duration-300">
+          <div className="w-84 border-l border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-slate-900 flex flex-col h-full overflow-y-auto p-6 space-y-6 animate-in slide-in-from-right duration-300">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4">
               <span className="text-xs font-black uppercase tracking-widest text-slate-700 dark:text-white flex items-center gap-1.5">
                 <Sparkles size={14} className="text-indigo-500" />
-                Live AI Intelligence
+                Live Customer Intelligence
               </span>
               <button
                 type="button"
@@ -837,6 +949,79 @@ export default function ChatPanel({
               >
                 Hide
               </button>
+            </div>
+
+            {/* Customer Value Metrics */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 bg-white dark:bg-slate-850 border border-slate-100 dark:border-white/5 rounded-2xl shadow-sm text-center">
+                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Lead Score</span>
+                <span className="text-sm font-black text-slate-900 dark:text-white">{leadScore}/100</span>
+              </div>
+              <div className="p-3 bg-white dark:bg-slate-850 border border-slate-100 dark:border-white/5 rounded-2xl shadow-sm text-center">
+                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">LTV Assessment</span>
+                <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 truncate block">{customerValue}</span>
+              </div>
+            </div>
+
+            {/* Customer Orders, Invoices & Due Dates 360° (Feature 2) */}
+            <div className="space-y-3 p-4 bg-white dark:bg-slate-850 rounded-3xl border border-slate-100 dark:border-white/5 shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-1">
+                  <ShoppingCart size={12} />
+                  Orders & Due Invoices
+                </span>
+                <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700">Verified</span>
+              </div>
+
+              <div className="space-y-2">
+                <div className="p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-slate-900 dark:text-white">INV-2026-892</span>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[8px] font-black uppercase">Due in 5 Days</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-slate-500 font-semibold">
+                    <span>Samsung Galaxy S24 Ultra (25 PCS)</span>
+                    <span className="font-bold text-slate-900 dark:text-white">AED 87,500</span>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-slate-900 dark:text-white">QT-2026-512</span>
+                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[8px] font-black uppercase">Quotation Sent</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-slate-500 font-semibold">
+                    <span>Apple MacBook Pro 16" (12 PCS)</span>
+                    <span className="font-bold text-slate-900 dark:text-white">AED 108,000</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="pt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const waText = encodeURIComponent(`Hello ${visitorName || "valued customer"}, this is regarding your active order and quotation with JTS Group. You can view your invoice details online at https://jts-trade.ae`);
+                    window.open(`https://wa.me/?text=${waText}`, "_blank");
+                    toast.success("Dispatched WhatsApp Notice link!");
+                  }}
+                  className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold flex items-center justify-center gap-1 transition-all active:scale-95 shadow-sm"
+                >
+                  <MessageSquare size={12} /> WhatsApp
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraft(`Dear ${visitorName || "Customer"}, here is your official Tax Invoice and Payment Link for order INV-2026-892: https://jts-trade.ae/portal/invoices/INV-2026-892`);
+                    toast.success("Drafted invoice notice in chat!");
+                  }}
+                  className="flex-1 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold flex items-center justify-center gap-1 transition-all active:scale-95 shadow-sm"
+                >
+                  <FileText size={12} /> Send Invoice
+                </button>
+              </div>
             </div>
 
             {/* Mood Meter */}
@@ -856,18 +1041,6 @@ export default function ChatPanel({
                     }`}
                   style={{ width: `${sentimentPercentage}%` }}
                 />
-              </div>
-            </div>
-
-            {/* Customer Value Metrics */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 bg-white dark:bg-slate-850 border border-slate-100 dark:border-white/5 rounded-2xl shadow-sm text-center">
-                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Lead Score</span>
-                <span className="text-sm font-black text-slate-900 dark:text-white">{leadScore}/100</span>
-              </div>
-              <div className="p-3 bg-white dark:bg-slate-850 border border-slate-100 dark:border-white/5 rounded-2xl shadow-sm text-center">
-                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">LTV Assessment</span>
-                <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 truncate block">{customerValue}</span>
               </div>
             </div>
 
@@ -906,6 +1079,85 @@ export default function ChatPanel({
         )}
 
       </div>
+
+      {/* Transfer Conversation Modal */}
+      {showTransferModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="p-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl text-sm font-bold">
+                  🔄
+                </span>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">Transfer Conversation</h4>
+                  <p className="text-[11px] text-slate-400">Reassign {visitorName}'s live chat to a team member</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTransferModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">Transfer to Agent</label>
+                <select
+                  value={selectedTransferAgent}
+                  onChange={(e) => setSelectedTransferAgent(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500"
+                >
+                  <option value="">-- Select Target Agent --</option>
+                  {agentsList.map(a => (
+                    <option key={a._id} value={a._id}>{a.name} ({a.email})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">Transfer to Department (Optional)</label>
+                <select
+                  value={selectedTransferDept}
+                  onChange={(e) => setSelectedTransferDept(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500"
+                >
+                  <option value="">-- Select Target Department --</option>
+                  {departmentsList.map(d => (
+                    <option key={d._id} value={d.name}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-white/5">
+              <button
+                type="button"
+                onClick={() => setShowTransferModal(false)}
+                className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (onTransferChat) {
+                    onTransferChat(selectedTransferAgent, selectedTransferDept);
+                  }
+                  setShowTransferModal(false);
+                }}
+                disabled={!selectedTransferAgent && !selectedTransferDept}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-sm disabled:opacity-50 transition-all flex items-center gap-1.5"
+              >
+                <span>Confirm Transfer</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </section>
   );

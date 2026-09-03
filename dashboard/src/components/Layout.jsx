@@ -352,7 +352,7 @@ function SidebarContent({ links, collapsed, onNavigate, user, isDarkMode, setIsD
 export default function Layout({ title, subtitle, children, menuItems = [] }) {
   const { user, logout } = useAuth();
   const socket = useSocket();
-  const { websites, selectedWebsiteId, setSelectedWebsiteId } = useWebsite();
+  const { websites, selectedWebsiteId, setSelectedWebsiteId, selectedWebsite } = useWebsite() || {};
 
   // Desktop: collapsed/expanded sidebar
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -628,22 +628,49 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
   const allowedVatRoles = ["admin", "client", "sales", "manager", "management", "purchase"];
   const isVatAllowed = allowedVatRoles.includes(userRole);
 
+  const isComplianceEnabled = !selectedWebsite || !Array.isArray(selectedWebsite.enabledModules) || selectedWebsite.enabledModules.includes("compliance");
+
+  const isComplianceLink = (href = "", label = "") => {
+    const text = `${href} ${label}`.toLowerCase();
+    return (
+      text.includes("vat-compliance") ||
+      text.includes("corporate-tax") ||
+      text.includes("trade-license") ||
+      text.includes("compliance-reports") ||
+      text.includes("compliance-governance") ||
+      text.includes("inventory-vat") ||
+      text.includes("inventory-tax") ||
+      text.includes("vat master") ||
+      text.includes("tax master")
+    );
+  };
+
   const rawLinks = (menuItems && menuItems.length > 0) ? menuItems : (role === "admin" ? adminMenuItems : role === "client" ? clientMenuItems : fallback);
 
-  const links = rawLinks.map(item => {
-    if (item.children && Array.isArray(item.children)) {
-      return {
-        ...item,
-        children: item.children.filter(child => {
-          if (child.label === "VAT Master" || child.label === "Tax Master" || child.href?.includes("inventory-vat") || child.href?.includes("inventory-tax")) {
-            return isVatAllowed;
-          }
-          return true;
-        })
-      };
-    }
-    return item;
-  });
+  const links = rawLinks
+    .filter(item => {
+      if (!isComplianceEnabled && isComplianceLink(item.href, item.label)) {
+        return false;
+      }
+      return true;
+    })
+    .map(item => {
+      if (item.children && Array.isArray(item.children)) {
+        return {
+          ...item,
+          children: item.children.filter(child => {
+            if (!isComplianceEnabled && isComplianceLink(child.href, child.label)) {
+              return false;
+            }
+            if (child.label === "VAT Master" || child.label === "Tax Master" || child.href?.includes("inventory-vat") || child.href?.includes("inventory-tax")) {
+              return isVatAllowed;
+            }
+            return true;
+          })
+        };
+      }
+      return item;
+    });
 
   const sidebarProps = { links, user, isDarkMode, setIsDarkMode, logout };
 
@@ -913,7 +940,7 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
 
                     {/* Filter pills */}
                     <div className="px-5 py-3 flex flex-wrap gap-1.5 border-b border-slate-50 dark:border-white/5">
-                      {["all", "unattended_client_alert", "vat_filing_due", "corporate_tax_due", "trade_license_expiring", "crm_follow_up_due"].map(type => (
+                      {["all", "unattended_client_alert", ...(isComplianceEnabled ? ["vat_filing_due", "corporate_tax_due", "trade_license_expiring"] : []), "crm_follow_up_due"].map(type => (
                         <button
                           key={type}
                           onClick={() => setNotificationFilter(type)}

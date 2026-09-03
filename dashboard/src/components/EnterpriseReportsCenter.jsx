@@ -1065,9 +1065,11 @@ export default function EnterpriseReportsCenter() {
   const { selectedWebsite } = useWebsite() || {};
   const enabledModules = selectedWebsite?.enabledModules;
 
+  const isComplianceEnabled = !selectedWebsite || !Array.isArray(selectedWebsite.enabledModules) || selectedWebsite.enabledModules.includes("compliance");
+
   const tabs = [
     { id: "executive", label: "Executive Summary", icon: LayoutDashboard },
-    { id: "compliance", label: "Compliance Suite Hub", icon: Briefcase, module: "compliance" },
+    ...(isComplianceEnabled ? [{ id: "compliance", label: "Compliance Suite Hub", icon: Briefcase, module: "compliance" }] : []),
     { id: "leads", label: "Lead Analytics", icon: Users, module: "crm" },
     { id: "tickets", label: "Ticket Analytics", icon: Ticket, module: "service" },
     { id: "agents", label: "Agent Performance", icon: ShieldAlert, module: "service" },
@@ -1077,6 +1079,13 @@ export default function EnterpriseReportsCenter() {
     { id: "ai", label: "AI Insights", icon: Zap, module: "automation" },
     { id: "realtime", label: "Real-Time Activity", icon: Zap },
   ].filter(t => !t.module || !enabledModules || !Array.isArray(enabledModules) || enabledModules.length === 0 || enabledModules.includes(t.module));
+
+  // If activeTab is compliance but compliance is disabled, fall back to executive
+  useEffect(() => {
+    if (activeTab === "compliance" && !isComplianceEnabled) {
+      setActiveTab("executive");
+    }
+  }, [activeTab, isComplianceEnabled]);
 
   // Reset active dataset when tab or date range changes
   useEffect(() => {
