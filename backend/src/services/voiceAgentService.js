@@ -223,11 +223,16 @@ Respond STRICTLY in JSON format:
                            normalized.includes("quotation");
 
   const isAlwaysCreateMode = Boolean(resolvedWebsite?.autoCreateVoiceTicket);
-  const requiresTicket = isAlwaysCreateMode || (aiResult.requiresTicket !== undefined ? Boolean(aiResult.requiresTicket) : (needsHumanAction || priority === "urgent" || priority === "high"));
+  
+  // Check if caller/visitor has provided valid identity (Name, Email, or real Phone)
+  const isAnonymousCaller = !callerPhone || callerPhone === "+971-50-1234567" || callerPhone === "anonymous" || callerPhone.toLowerCase().includes("web");
+  
+  // Strictly enforce: NO TICKET if visitor is anonymous without Name / Email. AI only provides information.
+  const requiresTicket = !isAnonymousCaller && (isAlwaysCreateMode || (aiResult.requiresTicket !== undefined ? Boolean(aiResult.requiresTicket) : (needsHumanAction || priority === "urgent" || priority === "high")));
 
-  // Auto-Create Support Ticket ONLY IF Human Follow-Up / Action is Needed
+  // Auto-Create Support Ticket ONLY IF Human Follow-Up is Needed AND Visitor is Verified (Not Anonymous)
   let ticket = null;
-  if (resolvedWebsiteId && requiresTicket) {
+  if (resolvedWebsiteId && requiresTicket && !isAnonymousCaller) {
     try {
       ticket = await Ticket.create({
         ticketId: generatePublicId("TCK"),

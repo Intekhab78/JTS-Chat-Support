@@ -87,14 +87,15 @@ export function resolveSubscriptionForUser(user) {
     status = "expired";
   }
 
+  const existingModules = Array.isArray(subscription.enabledModules) ? subscription.enabledModules : [];
+  const mergedModules = [...new Set([...fallback.enabledModules, ...existingModules])];
+
   return {
     plan,
     status,
     offerCode: subscription.offerCode || "",
     discountPercentage: subscription.discountPercentage || 0,
-    enabledModules: Array.isArray(subscription.enabledModules) && subscription.enabledModules.length
-      ? subscription.enabledModules
-      : [...fallback.enabledModules],
+    enabledModules: mergedModules,
     limits: {
       agents: subscription.limits?.agents ?? fallback.limits.agents,
       websites: subscription.limits?.websites ?? fallback.limits.websites

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { io } from "socket.io-client";
 import { useSearchParams } from "react-router-dom";
-import { Ticket, Link, Copy, CheckCheck, X, History, AlertCircle, Archive, RotateCcw, Trash2 } from "lucide-react";
+import { Ticket, Link, Copy, CheckCheck, X, History, AlertCircle, Archive, RotateCcw, Trash2, ShieldCheck, User, Lock, CheckCircle, Activity } from "lucide-react";
 import Layout from "../components/Layout.jsx";
 import ChatPanel from "../components/ChatPanel.jsx";
 import CannedResponseManager from "../components/CannedResponseManager.jsx";
@@ -12,6 +12,9 @@ import TicketManager from "../components/TicketManager.jsx";
 import AgentPerformanceView from "../components/AgentPerformanceView.jsx";
 import CRMManager from "../components/CRMManager.jsx";
 import CustomerManager from "../components/CustomerManager.jsx";
+import IncomingCallModal from "../components/IncomingCallModal.jsx";
+import ActiveCallBar from "../components/ActiveCallBar.jsx";
+import TransferCallModal from "../components/TransferCallModal.jsx";
 import { api } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { NotificationService } from "../utils/notifications.js";
@@ -65,6 +68,16 @@ export default function AgentPage() {
   const [categories, setCategories] = useState([]);
   const [selectedCat, setSelectedCat] = useState("");
   const [selectedSub, setSelectedSub] = useState("");
+
+  // Live WebRTC Voice Call Handoff States
+  const [incomingCall, setIncomingCall] = useState(null);
+  const [activeCall, setActiveCall] = useState(null);
+  const [isCallMuted, setIsCallMuted] = useState(false);
+  const [isCallHeld, setIsCallHeld] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const peerConnectionRef = useRef(null);
+  const localStreamRef = useRef(null);
+  const remoteAudioRef = useRef(typeof Audio !== "undefined" ? new Audio() : null);
 
   const selectedSession = useMemo(() => sessions.find((session) => session.sessionId === selectedSessionId) || null, [sessions, selectedSessionId]);
   const selectedSessionIdRef = useRef(selectedSessionId);
@@ -245,14 +258,73 @@ export default function AgentPage() {
       }));
     });
 
-    socket.on("visitor:status", ({ sessionId, isOnline, lastActiveAt }) => {
+    const handleVisitorStatus = ({ sessionId, visitorId, isOnline, lastActiveAt }) => {
       setSessions(prev => prev.map(s => {
-        const targetId = sessionId || selectedSessionIdRef.current;
-        if (s.sessionId === targetId) {
-          return { ...s, visitorId: { ...s.visitorId, isOnline, lastVisitTime: lastActiveAt } };
+        const matchesSession = sessionId && s.sessionId === sessionId;
+        const matchesVisitor = visitorId && (
+          s.visitorId?._id === visitorId ||
+          s.visitorId?.visitorId === visitorId ||
+          String(s.visitorId) === String(visitorId)
+        );
+        if (matchesSession || matchesVisitor) {
+          return {
+            ...s,
+            isOnline: Boolean(isOnline),
+            visitorId: s.visitorId && typeof s.visitorId === "object"
+              ? { ...s.visitorId, isOnline: Boolean(isOnline), lastVisitTime: lastActiveAt || new Date() }
+              : s.visitorId
+          };
         }
         return s;
       }));
+    };
+
+    socket.on("visitor:status", handleVisitorStatus);
+    socket.on("visitor:online", (data) => handleVisitorStatus({ ...data, isOnline: true }));
+    socket.on("visitor:offline", (data) => handleVisitorStatus({ ...data, isOnline: false }));
+
+    // Voice Call Handoff & WebRTC Signaling
+    socket.on("call:incoming", (callData) => {
+      console.log("[AgentPage] Incoming voice call:", callData);
+      setIncomingCall(callData);
+    });
+
+    socket.on("call:answered", ({ callId }) => {
+      setIncomingCall(prev => (prev?.callId === callId ? null : prev));
+    });
+
+    socket.on("call:webrtc-signal", async ({ senderSocketId, signalData }) => {
+      if (!peerConnectionRef.current) return;
+      try {
+        if (signalData.sdp) {
+          await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(signalData.sdp));
+          if (signalData.sdp.type === "offer") {
+            const answer = await peerConnectionRef.current.createAnswer();
+            await peerConnectionRef.current.setLocalDescription(answer);
+            socket.emit("call:webrtc-signal", {
+              targetSocketId: senderSocketId,
+              signalData: { sdp: peerConnectionRef.current.localDescription }
+            });
+          }
+        } else if (signalData.candidate) {
+          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(signalData.candidate));
+        }
+      } catch (err) {
+        console.error("[AgentPage] WebRTC signal error:", err);
+      }
+    });
+
+    socket.on("call:transferred-success", ({ callId, newAgentName }) => {
+      setToast({
+        show: true,
+        message: `Call successfully transferred to ${newAgentName || 'Senior Specialist'}!`,
+        type: "success"
+      });
+      endActiveCall();
+    });
+
+    socket.on("call:ended", () => {
+      endActiveCall();
     });
 
     return () => {
@@ -267,10 +339,126 @@ export default function AgentPage() {
       socket.off("chat:session-updated");
       socket.off("chat:intelligence-updated");
       socket.off("presence:viewers");
-      socket.off("visitor:status");
+      socket.off("visitor:status", handleVisitorStatus);
+      socket.off("visitor:online");
+      socket.off("visitor:offline");
       socket.off("chat:control-requested");
+      socket.off("call:incoming");
+      socket.off("call:answered");
+      socket.off("call:webrtc-signal");
+      socket.off("call:ended");
     };
   }, [user?._id, socket]);
+
+  const handleAcceptCall = async () => {
+    if (!incomingCall || !socket) return;
+    const currentCall = incomingCall;
+    setIncomingCall(null);
+    setActiveCall(currentCall);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      localStreamRef.current = stream;
+
+      const pc = new RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+      });
+      peerConnectionRef.current = pc;
+
+      stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit("call:webrtc-signal", {
+            targetSocketId: currentCall.visitorSocketId,
+            signalData: { candidate: event.candidate }
+          });
+        }
+      };
+
+      pc.ontrack = (event) => {
+        if (event.streams && event.streams[0] && remoteAudioRef.current) {
+          remoteAudioRef.current.srcObject = event.streams[0];
+          remoteAudioRef.current.play().catch(e => console.warn("Remote audio play error:", e));
+        }
+      };
+
+      socket.emit("call:accept", {
+        callId: currentCall.callId,
+        sessionId: currentCall.sessionId,
+        visitorSocketId: currentCall.visitorSocketId,
+        isTransferred: currentCall.isTransferred,
+        transferredBySocketId: currentCall.transferredBySocketId
+      });
+
+    } catch (err) {
+      console.error("[AgentPage] Mic access or WebRTC error:", err);
+      setToast({ show: true, message: "Microphone permission required to accept voice call.", type: "error" });
+      setActiveCall(null);
+    }
+  };
+
+  const handleDeclineCall = () => {
+    if (incomingCall && socket) {
+      socket.emit("call:reject", {
+        callId: incomingCall.callId,
+        visitorSocketId: incomingCall.visitorSocketId
+      });
+    }
+    setIncomingCall(null);
+  };
+
+  const handleTransferCall = (targetAgentId, transferNote) => {
+    if (!activeCall || !socket) return;
+    socket.emit("call:transfer", {
+      callId: activeCall.callId,
+      sessionId: activeCall.sessionId,
+      visitorSocketId: activeCall.visitorSocketId,
+      targetAgentId,
+      transferNote,
+      callerDetails: activeCall
+    });
+
+    setToast({
+      show: true,
+      message: "Call transfer initiated. Ringing senior agent...",
+      type: "info"
+    });
+  };
+
+  const endActiveCall = () => {
+    if (activeCall && socket) {
+      socket.emit("call:end", {
+        callId: activeCall.callId,
+        targetSocketId: activeCall.visitorSocketId
+      });
+    }
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(t => t.stop());
+      localStreamRef.current = null;
+    }
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+    setActiveCall(null);
+    setIsCallMuted(false);
+    setIsCallHeld(false);
+  };
+
+  const toggleMuteCall = () => {
+    if (localStreamRef.current) {
+      const audioTrack = localStreamRef.current.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setIsCallMuted(!audioTrack.enabled);
+      }
+    }
+  };
+
+  const toggleHoldCall = () => {
+    setIsCallHeld(prev => !prev);
+  };
 
   useEffect(() => {
     if (socket && selectedSessionId) {
@@ -396,6 +584,20 @@ export default function AgentPage() {
   async function generateTicket(e) {
     e.preventDefault();
     if (!selectedSession) return;
+
+    const vName = (ticketForm.visitorName || selectedSession?.visitorId?.name || "").trim();
+    const vEmail = (ticketForm.visitorEmail || selectedSession?.visitorId?.email || "").trim();
+
+    if (!vName || vName.toLowerCase() === "anonymous" || vName.toLowerCase() === "anonymous user" || vName.startsWith("visitor_")) {
+      setToast({ show: true, message: "Visitor Name is required. Anonymous tickets cannot be generated.", type: "error" });
+      return;
+    }
+
+    if (!vEmail || !vEmail.includes("@")) {
+      setToast({ show: true, message: "A valid Visitor Email is required to generate a ticket.", type: "error" });
+      return;
+    }
+
     setTicketSaving(true);
     try {
       const result = await api("/api/tickets/convert", {
@@ -406,11 +608,13 @@ export default function AgentPage() {
           priority: ticketForm.priority,
           crmStage: ticketForm.crmStage,
           category: selectedCat || undefined,
-          subcategory: selectedSub || undefined
+          subcategory: selectedSub || undefined,
+          visitorName: vName,
+          visitorEmail: vEmail
         })
       });
       setTicketResult(result);
-      setTicketForm({ subject: "", priority: "medium", crmStage: "none" });
+      setTicketForm({ subject: "", priority: "medium", crmStage: "none", visitorName: "", visitorEmail: "" });
       setSelectedCat("");
       setSelectedSub("");
       loadSessions();
@@ -455,7 +659,10 @@ export default function AgentPage() {
   const searchedSessions = sessionSearch
     ? sessions.filter(s =>
       s.websiteId?.websiteName?.toLowerCase().includes(sessionSearch.toLowerCase()) ||
-      s.visitorId?.visitorId?.toLowerCase().includes(sessionSearch.toLowerCase())
+      s.visitorId?.name?.toLowerCase().includes(sessionSearch.toLowerCase()) ||
+      s.visitorId?.visitorId?.toLowerCase().includes(sessionSearch.toLowerCase()) ||
+      s.crn?.toLowerCase().includes(sessionSearch.toLowerCase()) ||
+      s.lastMessagePreview?.toLowerCase().includes(sessionSearch.toLowerCase())
     )
     : sessions;
 
@@ -465,9 +672,50 @@ export default function AgentPage() {
     !session.restoredAt &&
     session.status === "closed" &&
     (Date.now() - new Date(session.closedAt || session.updatedAt).getTime()) > LEGACY_TRASH_AGE_MS;
-  const activeSessions = searchedSessions.filter(s => !s.archivedAt && s.status !== "closed" && (s.status === "active" || s.status === "queued"));
-  const closedSessions = searchedSessions.filter(s => !s.archivedAt && s.status === "closed" && !isLegacyTrashSession(s));
-  const trashSessions = searchedSessions.filter(s => !!s.archivedAt || isLegacyTrashSession(s));
+
+  // Group unique visitors for clean presentation
+  const groupUniqueVisitors = (list) => {
+    const map = new Map();
+    list.forEach(session => {
+      const rawName = (session.visitorId?.name || "").trim().toLowerCase();
+      const rawEmail = (session.visitorId?.email || "").trim().toLowerCase();
+      const siteId = session.websiteId?._id || session.websiteId || "site";
+      const isNamed = rawName && rawName !== "visitor" && !rawName.startsWith("visitor_");
+
+      const visitorKey = 
+        session.crn ||
+        rawEmail ||
+        (isNamed ? `${rawName}_${siteId}` : null) ||
+        session.visitorId?._id || 
+        session.visitorId?.visitorId || 
+        session.sessionId;
+
+      if (!map.has(visitorKey)) {
+        map.set(visitorKey, { ...session, allSessions: [session] });
+      } else {
+        const existing = map.get(visitorKey);
+        existing.allSessions.push(session);
+        const existingTime = new Date(existing.updatedAt || existing.createdAt).getTime();
+        const currentTime = new Date(session.updatedAt || session.createdAt).getTime();
+        if (currentTime > existingTime) {
+          map.set(visitorKey, { ...session, allSessions: existing.allSessions });
+        }
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => {
+      const timeA = new Date(a.updatedAt || a.createdAt).getTime();
+      const timeB = new Date(b.updatedAt || b.createdAt).getTime();
+      return timeB - timeA;
+    });
+  };
+
+  const rawActive = searchedSessions.filter(s => !s.archivedAt && s.status !== "closed" && (s.status === "active" || s.status === "queued"));
+  const rawClosed = searchedSessions.filter(s => !s.archivedAt && s.status === "closed" && !isLegacyTrashSession(s));
+  const rawTrash = searchedSessions.filter(s => !!s.archivedAt || isLegacyTrashSession(s));
+
+  const activeSessions = useMemo(() => groupUniqueVisitors(rawActive), [rawActive]);
+  const closedSessions = useMemo(() => groupUniqueVisitors(rawClosed), [rawClosed]);
+  const trashSessions = useMemo(() => groupUniqueVisitors(rawTrash), [rawTrash]);
 
   const sessionTabMap = { active: activeSessions, closed: closedSessions, trash: trashSessions };
   const visibleSessions = sessionTabMap[sessionTab] ?? activeSessions;
@@ -484,7 +732,7 @@ export default function AgentPage() {
 
   useEffect(() => {
     if (visibleSessions.length > 0) {
-      const exists = visibleSessions.some(s => s.sessionId === selectedSessionId);
+      const exists = visibleSessions.some(s => s.sessionId === selectedSessionId || (s.allSessions && s.allSessions.some(as => as.sessionId === selectedSessionId)));
       if (!exists) {
         setSelectedSessionId(visibleSessions[0].sessionId);
       }
@@ -571,17 +819,19 @@ export default function AgentPage() {
                 No conversations found under this filter.
               </div>
             ) : (
-              paginatedVisibleSessions.pageItems.map((session) => (
+              paginatedVisibleSessions.pageItems.map((session) => {
+                const isSelected = selectedSessionId === session.sessionId || (session.allSessions && session.allSessions.some(as => as.sessionId === selectedSessionId));
+                return (
                 <div
                   key={session._id}
                   onClick={() => { setSelectedSessionId(session.sessionId); setMobileView("chat"); }}
-                  className={`p-3 rounded-xl border transition-all cursor-pointer relative ${selectedSessionId === session.sessionId
+                  className={`p-3 rounded-xl border transition-all cursor-pointer relative ${isSelected
                     ? "bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-300 dark:border-indigo-500/30 shadow-sm"
                     : "bg-white dark:bg-slate-800 border-slate-200 dark:border-white/5 hover:border-slate-300"
                     }`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className={`text-xs font-bold truncate ${selectedSessionId === session.sessionId ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-900 dark:text-white'}`}>
+                    <span className={`text-xs font-bold truncate ${isSelected ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-900 dark:text-white'}`}>
                       {session.visitorId?.name || session.visitorId?.visitorId || "Visitor"}
                     </span>
                     
@@ -590,11 +840,25 @@ export default function AgentPage() {
                         ? 'bg-amber-50 text-amber-700 border-amber-200'
                         : session.status === 'closed'
                           ? 'bg-slate-100 text-slate-500 border-slate-200'
-                          : session.visitorId?.isOnline
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : 'bg-slate-100 text-slate-500 border-slate-200'
+                          : (session.visitorId?.isOnline || session.isOnline)
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center gap-1'
+                            : 'bg-slate-100 text-slate-500 border-slate-200 flex items-center gap-1'
                     }`}>
-                      {session.status === 'queued' ? "Queued" : session.status === 'closed' ? "Closed" : session.visitorId?.isOnline ? "Online" : "Offline"}
+                      {session.status === 'queued' ? (
+                        "Queued"
+                      ) : session.status === 'closed' ? (
+                        "Closed"
+                      ) : (session.visitorId?.isOnline || session.isOnline) ? (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <span>Online</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                          <span>Offline</span>
+                        </>
+                      )}
                     </span>
                   </div>
 
@@ -616,8 +880,9 @@ export default function AgentPage() {
                   {typingSessions[session.sessionId] && (
                     <p className="text-xs text-indigo-600 font-bold animate-pulse mt-0.5">Visitor is typing...</p>
                   )}
-                </div>
-              ))
+                  </div>
+                );
+              })
             )}
           </div>
 
@@ -659,58 +924,164 @@ export default function AgentPage() {
             viewers={sessionViewers[selectedSessionId] || []}
             typingAgent={typingAgents[selectedSessionId]}
             currentUser={user}
-            onConvertToTicket={isBasicUser || !canUseTickets ? null : () => { setTicketModal(true); setTicketResult(null); }}
+            onConvertToTicket={isBasicUser || !canUseTickets ? null : () => {
+              const existingName = (selectedSession?.visitorId?.name && selectedSession?.visitorId?.name !== "Anonymous" && !selectedSession?.visitorId?.name.startsWith("visitor_")) ? selectedSession?.visitorId?.name : "";
+              const existingEmail = selectedSession?.visitorId?.email || "";
+              setTicketForm({
+                subject: `Support – ${selectedSession?.websiteId?.websiteName || 'Chat Session'}`,
+                priority: "medium",
+                crmStage: "none",
+                visitorName: existingName,
+                visitorEmail: existingEmail
+              });
+              setTicketModal(true);
+              setTicketResult(null);
+            }}
             canUseShortcuts={!isBasicUser && canUseShortcuts}
             onTakeOver={() => socket.emit("agent:take-over-chat", { sessionId: selectedSessionId })}
             onRelease={() => socket.emit("agent:release-chat", { sessionId: selectedSessionId })}
             onRequestControl={() => socket.emit("agent:request-control", { sessionId: selectedSessionId })}
+            onClose={closeChat}
+            onMoveToTrash={moveChatToTrash}
+            onRestore={restoreChat}
+            onDeletePermanent={deleteChatPermanently}
           />
         </div>
       </section>
     ) : tab === "settings" ? (
-    <section className="max-w-xl animate-in slide-in-from-bottom-4 duration-700">
-      <form className="premium-card p-10 space-y-8" onSubmit={updateProfile}>
-        <div className="flex flex-col gap-1">
-          <h3 className="heading-md">Security Identity</h3>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Manage your personal platform credentials.</p>
-        </div>
-        <div className="space-y-5">
-          <div className="space-y-1.5">
-            <label className="small-label">Display Name</label>
-            <input
-              value={profileForm.name}
-              onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
-              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all placeholder:text-slate-300"
-              placeholder="Your Name"
-              required
-            />
+    <section className="w-full space-y-3 animate-in fade-in duration-500">
+      {/* ── Main Unified Settings Console Card ── */}
+      <div className="w-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-xs overflow-hidden">
+        
+        {/* Top Profile Summary Header */}
+        <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-slate-800/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-xl bg-amber-500 text-white font-black text-sm flex items-center justify-center shadow-xs shrink-0 uppercase">
+              {user?.name?.[0] || "A"}{user?.name?.split(" ")?.[1]?.[0] || "U"}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight">{user?.name || "Agent User"}</h3>
+                <span className="bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-sky-100 dark:border-sky-500/20 uppercase tracking-wider">
+                  {user?.role || "Agent"}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">{user?.email || "agent@gmail.com"}</p>
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <label className="small-label">Communication Access (Email)</label>
-            <input
-              value={profileForm.email}
-              onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
-              type="email"
-              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all placeholder:text-slate-300"
-              placeholder="name@example.com"
-              required
-            />
-          </div>
-          <div className="space-y-1.5 pt-4 border-t border-slate-100">
-            <label className="small-label text-slate-400">Update Encryption Key (Optional)</label>
-            <input
-              value={profileForm.password}
-              onChange={(e) => setProfileForm({ ...profileForm, password: e.target.value })}
-              type="password"
-              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all placeholder:text-slate-300"
-              placeholder="Leave blank to keep unchanged"
-            />
+
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={toggleAvailability}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-xs ${
+                user?.isAvailable
+                  ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100/70"
+                  : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/10 hover:bg-slate-200"
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${user?.isAvailable ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
+              <span>{user?.isAvailable ? "Online & Ready" : "Standby Mode"}</span>
+            </button>
           </div>
         </div>
-        <button type="submit" className="w-full bg-slate-950 hover:bg-black text-white font-black text-[10px] uppercase tracking-[0.2em] py-5 rounded-2xl shadow-xl shadow-slate-200 transition-all flex items-center justify-center">
-          Synchronize Identity Profile
-        </button>
-      </form>
+
+        {/* 2-Column Content Grid */}
+        <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          {/* Left Form: Profile Credentials */}
+          <form className="space-y-4" onSubmit={updateProfile}>
+            <div className="pb-2.5 border-b border-slate-100 dark:border-white/5">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
+                <User size={13} className="text-sky-600" /> Personal Identity Details
+              </h4>
+            </div>
+
+            <div className="space-y-3.5">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                  Public Display Name *
+                </label>
+                <input
+                  value={profileForm.name}
+                  onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200/90 dark:border-white/10 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-sky-500 focus:bg-white transition-all"
+                  placeholder="Your full name"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                  Communication Access (Email) *
+                </label>
+                <input
+                  value={profileForm.email}
+                  onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                  type="email"
+                  className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200/90 dark:border-white/10 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-sky-500 focus:bg-white transition-all"
+                  placeholder="name@example.com"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
+                  Update Password <span className="font-normal text-slate-400">(Optional — leave blank if unchanged)</span>
+                </label>
+                <input
+                  value={profileForm.password}
+                  onChange={(e) => setProfileForm({ ...profileForm, password: e.target.value })}
+                  type="password"
+                  className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200/90 dark:border-white/10 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-sky-500 focus:bg-white transition-all"
+                  placeholder="••••••••••••"
+                />
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button 
+                type="submit" 
+                className="bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs uppercase tracking-wider py-2.5 px-5 rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5"
+              >
+                <CheckCircle size={14} />
+                <span>Save Changes</span>
+              </button>
+            </div>
+          </form>
+
+          {/* Right Info: Live Status & Account Security */}
+          <div className="space-y-4 border-t md:border-t-0 md:border-l border-slate-100 dark:border-white/5 pt-4 md:pt-0 md:pl-6">
+            <div className="pb-2.5 border-b border-slate-100 dark:border-white/5">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
+                <ShieldCheck size={13} className="text-emerald-500" /> Account & Security Details
+              </h4>
+            </div>
+
+            <div className="space-y-2.5 text-xs">
+              <div className="flex justify-between items-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-white/5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned Role</span>
+                <span className="font-extrabold text-sky-600 dark:text-sky-400 uppercase">{user?.role || "Agent"}</span>
+              </div>
+              <div className="flex justify-between items-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-white/5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Session Security</span>
+                <span className="font-extrabold text-emerald-600 dark:text-emerald-400 uppercase">JWT Encrypted</span>
+              </div>
+              <div className="flex justify-between items-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-white/5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Account Status</span>
+                <span className="font-extrabold text-emerald-600 dark:text-emerald-400 uppercase">Active</span>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-sky-50/40 dark:bg-sky-500/5 border border-sky-100 dark:border-sky-500/10">
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                Your agent profile is active for routing visitor chat queues, handling real-time communications, and resolving customer tickets across assigned websites.
+              </p>
+            </div>
+          </div>
+
+        </div>
+      </div>
     </section>
   ) : tab === "shortcuts" && !isBasicUser && canUseShortcuts ? (
     <section className="animate-in slide-in-from-bottom-4 duration-700">
@@ -724,23 +1095,11 @@ export default function AgentPage() {
       </div>
     </section>
   ) : tab === "tickets" ? (
-    <section className="animate-in slide-in-from-bottom-4 duration-700">
-      <div className="mb-6 rounded-[32px] border border-indigo-100 bg-indigo-50/80 px-6 py-5">
-        <h3 className="text-sm font-black uppercase tracking-[0.18em] text-indigo-950">Ticket Workspace</h3>
-        <p className="mt-2 text-xs font-bold text-indigo-700">
-          Agents can create tickets from active chats, then view and update ticket status here.
-        </p>
-      </div>
+    <section className="animate-in fade-in duration-500">
       <TicketManager websiteId="" />
     </section>
   ) : tab === "crm" ? (
-    <section className="animate-in slide-in-from-bottom-4 duration-700 space-y-6">
-      <div className="rounded-[32px] border border-slate-200 bg-white/90 px-6 py-5 shadow-sm">
-        <h3 className="text-sm font-black uppercase tracking-[0.18em] text-slate-950">CRM Overview</h3>
-        <p className="mt-2 text-xs font-bold text-slate-500">
-          Agents can view CRM records and status here. Editing remains disabled for this role.
-        </p>
-      </div>
+    <section className="animate-in fade-in duration-500">
       <CRMManager websiteId="" />
     </section>
   ) : tab === "customer-master" ? (
@@ -825,7 +1184,36 @@ export default function AgentPage() {
                 </button>
               </div>
             ) : (
-              <form onSubmit={generateTicket} className="p-8 space-y-6 overflow-y-auto custom-scrollbar">
+              <form onSubmit={generateTicket} className="p-8 space-y-4 overflow-y-auto custom-scrollbar">
+                {/* Mandatory Visitor Identity */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-2 border-b border-slate-100">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                      Visitor Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      value={ticketForm.visitorName || ""}
+                      onChange={e => setTicketForm(f => ({ ...f, visitorName: e.target.value }))}
+                      placeholder="e.g. John Doe"
+                      required
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                      Visitor Email <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={ticketForm.visitorEmail || ""}
+                      onChange={e => setTicketForm(f => ({ ...f, visitorEmail: e.target.value }))}
+                      placeholder="visitor@example.com"
+                      required
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pipeline Category</label>
@@ -856,11 +1244,14 @@ export default function AgentPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Ticket Subject</label>
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                    Ticket Subject <span className="text-rose-500">*</span>
+                  </label>
                   <input
                     value={ticketForm.subject}
                     onChange={e => setTicketForm(f => ({ ...f, subject: e.target.value }))}
                     placeholder={`Support – ${selectedSession?.websiteId?.websiteName || 'Chat Session'}`}
+                    required
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 placeholder-slate-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all"
                   />
                 </div>
@@ -1093,6 +1484,35 @@ export default function AgentPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {incomingCall && (
+        <IncomingCallModal
+          callData={incomingCall}
+          onAccept={handleAcceptCall}
+          onDecline={handleDeclineCall}
+        />
+      )}
+
+      {activeCall && (
+        <ActiveCallBar
+          callData={activeCall}
+          onEndCall={endActiveCall}
+          onToggleMute={toggleMuteCall}
+          onToggleHold={toggleHoldCall}
+          onOpenTransfer={() => setIsTransferModalOpen(true)}
+          isMuted={isCallMuted}
+          isHeld={isCallHeld}
+        />
+      )}
+
+      {activeCall && (
+        <TransferCallModal
+          isOpen={isTransferModalOpen}
+          onClose={() => setIsTransferModalOpen(false)}
+          activeCall={activeCall}
+          onConfirmTransfer={handleTransferCall}
+        />
       )}
     </Layout>
   );

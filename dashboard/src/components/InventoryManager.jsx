@@ -1870,50 +1870,272 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
               </div>
             ) : null}
 
-          {["in", "out", "adjust"].includes(forcedTab) ? (
-            <div className="premium-card p-6 bg-white border border-slate-100 rounded-[32px] space-y-6">
-              <div className="space-y-1">
-                <h3 className="heading-md">{forcedTab === "in" ? "Stock In" : forcedTab === "out" ? "Stock Out" : "Stock Adjustment"}</h3>
-                <p className="small-label">
-                  {forcedTab === "in"
-                    ? "Receive stock and increase available quantity."
-                    : forcedTab === "out"
-                      ? "Issue stock and reduce available quantity."
-                      : "Adjust stock using a positive or negative quantity."}
-                </p>
+          {["in", "out", "adjust"].includes(forcedTab) ? (() => {
+            const currentItem = items.find(it => it._id === movementForms[forcedTab].itemId);
+            const qtyNum = Number(movementForms[forcedTab].quantity || 0);
+            const unitCost = Number(currentItem?.unitCost || 0);
+            const totalVal = Math.abs(qtyNum * unitCost);
+            const recentMovements = movements.filter(m => m.type === forcedTab).slice(0, 5);
+
+            const isStockIn = forcedTab === "in";
+            const isStockOut = forcedTab === "out";
+            const isAdjust = forcedTab === "adjust";
+
+            const bannerTitle = isStockIn 
+              ? "Warehouse Stock In & Goods Inward (GRN)" 
+              : isStockOut 
+                ? "Warehouse Stock Out & Dispatch Note" 
+                : "Inventory Reconciliation & Stock Adjustment";
+
+            const bannerSub = isStockIn
+              ? "Receive stock from suppliers, update warehouse balance, and generate inward record."
+              : isStockOut
+                ? "Issue and dispatch stock for orders, reduce warehouse balance, and log delivery reference."
+                : "Reconcile audit discrepancies with positive or negative quantity adjustments.";
+
+            return (
+              <div className="space-y-3.5 animate-in fade-in duration-500">
+                
+                {/* ── Compact Executive Header ── */}
+                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 px-4 py-3.5 sm:px-5 sm:py-4 text-white border border-indigo-500/20 shadow-md">
+                  <div className="absolute top-0 right-0 -mt-6 -mr-6 w-48 h-48 rounded-full bg-indigo-500/10 blur-2xl pointer-events-none" />
+                  <div className="absolute bottom-0 left-1/3 -mb-8 w-60 h-60 rounded-full bg-violet-500/10 blur-2xl pointer-events-none" />
+
+                  <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                    <div className="space-y-1 max-w-xl">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-md border inline-flex items-center gap-1 ${
+                          isStockIn 
+                            ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" 
+                            : isStockOut 
+                              ? "bg-rose-500/20 text-rose-300 border-rose-500/30" 
+                              : "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                        }`}>
+                          {isStockIn ? <ArrowDownToLine size={11} /> : isStockOut ? <ArrowUpFromLine size={11} /> : <SlidersHorizontal size={11} />}
+                          {isStockIn ? "GOODS RECEIPT ENTRY" : isStockOut ? "STOCK DISPATCH ENTRY" : "STOCK AUDIT ADJUSTMENT"}
+                        </span>
+                      </div>
+                      <h2 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
+                        {bannerTitle}
+                      </h2>
+                      <p className="text-[11px] text-slate-300 font-medium leading-normal">
+                        {bannerSub}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <div className="flex items-center gap-1.5 bg-white/5 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10">
+                        <div className="px-1.5 py-0.5 text-center">
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block leading-none mb-0.5">Catalog</span>
+                          <span className="text-xs font-black text-white">{items.length} Items</span>
+                        </div>
+                        <div className="w-px h-4 bg-white/10" />
+                        <div className="px-1.5 py-0.5 text-center">
+                          <span className={`text-[8px] font-black uppercase tracking-widest block leading-none mb-0.5 ${isStockIn ? 'text-emerald-400' : isStockOut ? 'text-rose-400' : 'text-amber-400'}`}>
+                            {isStockIn ? "Inwards" : isStockOut ? "Outwards" : "Adjusted"}
+                          </span>
+                          <span className="text-xs font-black text-white">{recentMovements.length} Records</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Compact Entry Form Card ── */}
+                <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-xs space-y-4">
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                    
+                    {/* Item Selector */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                        Select Inventory Item *
+                      </label>
+                      <select 
+                        value={movementForms[forcedTab].itemId} 
+                        onChange={(event) => updateMovementForm(forcedTab, "itemId", event.target.value)} 
+                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:bg-white transition-all cursor-pointer"
+                      >
+                        <option value="">-- Choose item from catalog --</option>
+                        {items.map((item) => (
+                          <option key={item._id} value={item._id}>
+                            {item.name} ({item.sku || "NO-SKU"}) — Stock: {item.quantity || 0}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Quantity */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                        {isAdjust ? "Adjustment Qty (+ / -)" : "Movement Quantity *"}
+                      </label>
+                      <input 
+                        type="number" 
+                        value={movementForms[forcedTab].quantity} 
+                        onChange={(event) => updateMovementForm(forcedTab, "quantity", event.target.value)} 
+                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:bg-white transition-all" 
+                        placeholder={isAdjust ? "e.g. -5 or +10" : "Enter quantity (e.g. 10)"} 
+                      />
+                    </div>
+
+                    {/* Reference / PO / Slip */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                        Reference / Slip / PO #
+                      </label>
+                      <input 
+                        value={movementForms[forcedTab].reference} 
+                        onChange={(event) => updateMovementForm(forcedTab, "reference", event.target.value)} 
+                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:bg-white transition-all" 
+                        placeholder="e.g. PO-2026-104 / GRN-892" 
+                      />
+                    </div>
+
+                  </div>
+
+                  {/* Selected Item Intelligence Live Strip */}
+                  {currentItem && (
+                    <div className="p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 flex flex-wrap items-center justify-between gap-3 text-xs animate-in fade-in">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-black text-xs shadow-xs">
+                          📦
+                        </div>
+                        <div>
+                          <p className="font-black text-slate-900 dark:text-white">{currentItem.name}</p>
+                          <p className="text-[10px] text-slate-400 font-bold">SKU: {currentItem.sku} • Category: {currentItem.category || "General"}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Current Stock</span>
+                          <span className="font-black text-slate-900 dark:text-white text-xs">{currentItem.quantity || 0} Units</span>
+                        </div>
+                        <div className="w-px h-6 bg-slate-200 dark:bg-white/10" />
+                        <div className="text-right">
+                          <span className="text-[9px] font-black text-indigo-500 uppercase tracking-wider block">Unit Cost</span>
+                          <span className="font-black text-indigo-700 dark:text-indigo-300 text-xs">{formatCurrency(unitCost)}</span>
+                        </div>
+                        {qtyNum > 0 && (
+                          <>
+                            <div className="w-px h-6 bg-slate-200 dark:bg-white/10" />
+                            <div className="text-right">
+                              <span className="text-[9px] font-black text-emerald-600 uppercase tracking-wider block">Estimated Value</span>
+                              <span className="font-black text-emerald-700 dark:text-emerald-400 text-xs">{formatCurrency(totalVal)}</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Notes & Submit Row */}
+                  <div className="grid grid-cols-1 lg:grid-cols-4 gap-3.5 items-end">
+                    <div className="lg:col-span-3 space-y-1">
+                      <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                        Transaction Notes & Justification (Optional)
+                      </label>
+                      <input 
+                        value={movementForms[forcedTab].notes} 
+                        onChange={(event) => updateMovementForm(forcedTab, "notes", event.target.value)} 
+                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:bg-white transition-all" 
+                        placeholder="Add optional notes for the warehouse ledger audit trail..." 
+                      />
+                    </div>
+
+                    <div className="lg:col-span-1">
+                      {!readOnly && canPostMovements && (
+                        <button 
+                          type="button" 
+                          onClick={() => submitMovement(forcedTab)} 
+                          className={`w-full text-white font-black text-xs uppercase tracking-wider py-2.5 px-4 rounded-xl shadow-md transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-1.5 ${
+                            isStockIn 
+                              ? "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-emerald-500/20" 
+                              : isStockOut 
+                                ? "bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 shadow-rose-500/20" 
+                                : "bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 shadow-indigo-500/20"
+                          }`}
+                        >
+                          {isStockIn ? <ArrowDownToLine size={14} /> : isStockOut ? <ArrowUpFromLine size={14} /> : <SlidersHorizontal size={14} />}
+                          <span>{isStockIn ? "Post Stock In" : isStockOut ? "Post Stock Out" : "Post Adjustment"}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* ── Recent Transaction Ledger Table ── */}
+                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-white/10 p-4 sm:p-5 shadow-xs">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <Clock size={14} className="text-indigo-600" /> Recent {isStockIn ? "Stock In (GRN)" : isStockOut ? "Stock Out" : "Adjustment"} History
+                    </h4>
+                    <span className="text-[10px] font-black text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
+                      Latest 5 Records
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50/80 dark:bg-slate-800/50 border-b border-slate-100 dark:border-white/5">
+                          <th className="px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Date / Time</th>
+                          <th className="px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Item & SKU</th>
+                          <th className="px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Qty Change</th>
+                          <th className="px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Reference</th>
+                          <th className="px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-white/5 text-xs font-bold">
+                        {recentMovements.map((mov) => {
+                          const itm = items.find(i => i._id === mov.itemId) || {};
+                          return (
+                            <tr key={mov._id || mov.createdAt} className="hover:bg-slate-50/60 dark:hover:bg-white/5 transition-colors">
+                              <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">
+                                {new Date(mov.createdAt).toLocaleDateString([], { day: '2-digit', month: 'short' })} • {new Date(mov.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </td>
+                              <td className="px-3 py-2.5 whitespace-nowrap">
+                                <span className="font-black text-slate-900 dark:text-white block">{itm.name || "Item"}</span>
+                                <span className="text-[10px] text-slate-400">{itm.sku || "-"}</span>
+                              </td>
+                              <td className="px-3 py-2.5 whitespace-nowrap">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-black ${
+                                  isStockIn 
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200" 
+                                    : isStockOut 
+                                      ? "bg-rose-50 text-rose-700 border border-rose-200" 
+                                      : "bg-amber-50 text-amber-700 border border-amber-200"
+                                }`}>
+                                  {isStockIn ? "+" : isStockOut ? "-" : mov.quantity >= 0 ? "+" : ""}{mov.quantity} Units
+                                </span>
+                              </td>
+                              <td className="px-3 py-2.5 text-slate-700 dark:text-slate-300 font-mono text-[11px] whitespace-nowrap">
+                                {mov.reference || "N/A"}
+                              </td>
+                              <td className="px-3 py-2.5 text-slate-500 max-w-[200px] truncate">
+                                {mov.notes || "-"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+
+                        {recentMovements.length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="py-8 text-center text-slate-400 text-xs font-bold">
+                              No recent {isStockIn ? "stock in" : isStockOut ? "stock out" : "adjustment"} records yet.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
-                <label className="space-y-2">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Item</span>
-                  <select value={movementForms[forcedTab].itemId} onChange={(event) => updateMovementForm(forcedTab, "itemId", event.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500">
-                    <option value="">Select item</option>
-                    {items.map((item) => <option key={item._id} value={item._id}>{item.name} ({item.sku})</option>)}
-                  </select>
-                </label>
-                <label className="space-y-2">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Quantity</span>
-                  <input type="number" value={movementForms[forcedTab].quantity} onChange={(event) => updateMovementForm(forcedTab, "quantity", event.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500" placeholder={forcedTab === "adjust" ? "Use -5 or 10" : "10"} />
-                </label>
-                <label className="space-y-2">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Reference</span>
-                  <input value={movementForms[forcedTab].reference} onChange={(event) => updateMovementForm(forcedTab, "reference", event.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500" placeholder="PO-102 or Issue slip" />
-                </label>
-              </div>
-
-              <label className="space-y-2 block">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Notes</span>
-                <textarea value={movementForms[forcedTab].notes} onChange={(event) => updateMovementForm(forcedTab, "notes", event.target.value)} rows={3} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 resize-none" />
-              </label>
-
-              {!readOnly && canPostMovements && (
-                <button type="button" onClick={() => submitMovement(forcedTab)} className="w-full bg-slate-900 text-white font-black text-[10px] uppercase tracking-[0.2em] py-4 rounded-2xl hover:bg-black transition-all shadow-xl flex items-center justify-center gap-3">
-                  {forcedTab === "in" ? <ArrowDownToLine size={16} /> : forcedTab === "out" ? <ArrowUpFromLine size={16} /> : <SlidersHorizontal size={16} />}
-                  {forcedTab === "in" ? "Post Stock In" : forcedTab === "out" ? "Post Stock Out" : "Post Adjustment"}
-                </button>
-              )}
-            </div>
-          ) : null}
+            );
+          })() : null}
 
           {forcedTab === "history" ? (
             <div className="space-y-6 animate-in fade-in duration-500">

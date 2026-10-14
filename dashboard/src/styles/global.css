@@ -102,6 +102,13 @@
 
 /* ── Custom Scrollbar ───────────────────────────────── */
 .custom-scrollbar { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
 
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }

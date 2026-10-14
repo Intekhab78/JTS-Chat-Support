@@ -1,10 +1,19 @@
-const DEFAULT_LOCAL_API_URL = "http://localhost:5000";
-const DEFAULT_REMOTE_API_URL = "https://chatapi.jtsonline.shop";
-const LOCAL_API_URL = (import.meta.env.VITE_LOCAL_API_URL || DEFAULT_LOCAL_API_URL).trim().replace(/\/+$/, "");
-const REMOTE_API_URL = (import.meta.env.VITE_REMOTE_API_URL || DEFAULT_REMOTE_API_URL).trim().replace(/\/+$/, "");
-const EXPLICIT_API_URL = (import.meta.env.VITE_API_URL || "").trim().replace(/\/+$/, "");
+function normalizeApiUrl(url, defaultUrl = "") {
+  let val = (url || defaultUrl || "").trim().replace(/\/+$/, "");
+  if (!val) return "";
+  if (!/^https?:\/\//i.test(val)) {
+    val = (val.includes("localhost") || val.includes("127.0.0.1") ? "http://" : "https://") + val;
+  }
+  return val;
+}
 
-export let API_BASE = EXPLICIT_API_URL || (import.meta.env.PROD ? REMOTE_API_URL : LOCAL_API_URL);
+const DEFAULT_LOCAL_API_URL = "https://chatapi.jtsmiddleeast.com";
+const DEFAULT_REMOTE_API_URL = "https://chatapi.jtsmiddleeast.com";
+const LOCAL_API_URL = normalizeApiUrl(import.meta.env.VITE_LOCAL_API_URL, DEFAULT_LOCAL_API_URL);
+const REMOTE_API_URL = normalizeApiUrl(import.meta.env.VITE_REMOTE_API_URL, DEFAULT_REMOTE_API_URL);
+const EXPLICIT_API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL);
+
+export let API_BASE = EXPLICIT_API_URL || REMOTE_API_URL;
 
 let apiBasePromise = null;
 
@@ -37,7 +46,7 @@ export async function getApiBase() {
     if (EXPLICIT_API_URL.includes("localhost") || EXPLICIT_API_URL.includes("127.0.0.1")) {
       if (!apiBasePromise) {
         apiBasePromise = canReachLocalApi().then((localIsReachable) => {
-          API_BASE = localIsReachable ? EXPLICIT_API_URL : DEFAULT_REMOTE_API_URL;
+          API_BASE = localIsReachable ? EXPLICIT_API_URL : REMOTE_API_URL;
           return API_BASE;
         });
       }

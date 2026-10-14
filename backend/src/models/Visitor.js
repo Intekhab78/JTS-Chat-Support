@@ -17,7 +17,8 @@ const visitorSchema = new mongoose.Schema(
     city: String,
     timezone: String,
     firstVisitTime: { type: Date, default: Date.now },
-    lastVisitTime: { type: Date, default: Date.now }
+    lastVisitTime: { type: Date, default: Date.now },
+    isOnline: { type: Boolean, default: false }
   },
   { timestamps: true }
 );

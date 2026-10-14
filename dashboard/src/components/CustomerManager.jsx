@@ -248,127 +248,127 @@ export default function CustomerManager({ websiteId }) {
         )}
       </div>
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-indigo-500">Elite Command Center</p>
-          </div>
-          <h3 className="text-2xl font-black tracking-tight text-slate-900 uppercase">Customer Master Registry</h3>
-        </div>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 px-4 py-3.5 sm:px-5 sm:py-4 text-white border border-indigo-500/20 shadow-md">
+        <div className="absolute top-0 right-0 -mt-6 -mr-6 w-48 h-48 rounded-full bg-indigo-500/10 blur-2xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 -mb-8 w-60 h-60 rounded-full bg-violet-500/10 blur-2xl pointer-events-none" />
 
-        <div className="flex items-center gap-3 flex-1 max-w-md mx-6">
-          <div className="relative w-full group">
-            <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors">
-              <Search size={16} />
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="space-y-1 max-w-xl">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 text-[9px] font-black uppercase tracking-wider rounded-md border border-indigo-500/30 inline-flex items-center gap-1">
+                <ShieldCheck size={11} className="text-indigo-400" /> Customer & Account Directory
+              </span>
             </div>
-            <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Quick Search identity..."
-              className="w-full bg-white border border-slate-200 rounded-[22px] pl-14 pr-5 py-3 text-[11px] font-bold outline-none focus:border-indigo-500 transition-all"
-            />
+            <h2 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
+              Customer Master Registry
+            </h2>
+            <p className="text-[11px] text-slate-300 font-medium leading-normal">
+              Manage accounts, multi-territory business identities, CRM stages & portal authorization.
+            </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setHideAnonymous(prev => !prev)}
-            className={`px-4 py-3 rounded-[22px] border text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${
-              hideAnonymous 
-                ? "bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-500/20" 
-                : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-            }`}
-            title="Toggle Anonymous Visitors"
-          >
-            {hideAnonymous ? "Verified Only" : "Show All"}
-          </button>
-        </div>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex items-center gap-1.5 bg-white/5 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10">
+              <div className="px-1.5 py-0.5 text-center">
+                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block leading-none mb-0.5">Records</span>
+                <span className="text-xs font-black text-white">{filteredItems.length}</span>
+              </div>
+            </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => {
-              const columns = [
-                { key: "name", label: "Customer Name" },
-                { key: "email", label: "Email Gateway" },
-                { key: "phone", label: "Phone" },
-                { key: "companyName", label: "Company Name" },
-                { key: "territory", label: "Territory", accessor: i => getDisplayTerritory(i) },
-                { key: "pipelineStage", label: "CRM Stage" },
-                { key: "budget", label: "Budget (AED)" }
-              ];
-              exportToCsv(filteredItems, columns, "Customer_Master_Registry");
-            }}
-            className="rounded-[22px] bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 px-5 py-3 font-black text-[9px] uppercase tracking-[0.18em] shadow-sm flex items-center gap-2 transition-all"
-          >
-            <FileSpreadsheet size={14} />
-            Export Customers (.csv)
-          </button>
-          <button
-            type="button"
-            onClick={() => openDrawer()}
-            className="rounded-[22px] bg-slate-950 px-6 py-3 text-white font-black text-[9px] uppercase tracking-[0.2em] shadow-lg flex items-center gap-2 transition-all hover:bg-black group"
-          >
-            <Plus size={14} />
-            Register Account
-          </button>
+            <button
+              type="button"
+              onClick={() => {
+                const columns = [
+                  { key: "name", label: "Customer Name" },
+                  { key: "email", label: "Email Gateway" },
+                  { key: "phone", label: "Phone" },
+                  { key: "companyName", label: "Company Name" },
+                  { key: "territory", label: "Territory", accessor: i => getDisplayTerritory(i) },
+                  { key: "pipelineStage", label: "CRM Stage" },
+                  { key: "budget", label: "Budget (AED)" }
+                ];
+                exportToCsv(filteredItems, columns, "Customer_Master_Registry");
+              }}
+              className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white font-black text-[11px] uppercase tracking-wider rounded-xl transition-all flex items-center gap-1.5"
+            >
+              <FileSpreadsheet size={13} />
+              <span>Export CSV</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => openDrawer()}
+              className="px-3.5 py-2 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-black text-[11px] uppercase tracking-wider rounded-xl shadow-md shadow-indigo-500/20 transition-all hover:scale-[1.02] flex items-center gap-1.5 shrink-0"
+            >
+              <Plus size={13} />
+              <span>Register Account</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Main Table View */}
-      <div className="premium-card overflow-hidden rounded-[42px] border border-slate-200/60 bg-white shadow-xl shadow-slate-200/40">
+      {/* ── Compact Search & Filter Bar ── */}
+      <div className="bg-white dark:bg-slate-900 p-2.5 sm:p-3 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-xs flex flex-wrap items-center justify-between gap-2.5">
+        <div className="relative min-w-[220px] flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search business identity, email, or phone..."
+            className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-indigo-500 focus:bg-white transition-all placeholder:text-slate-400"
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setHideAnonymous(prev => !prev)}
+          className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+            hideAnonymous 
+              ? "bg-indigo-600 text-white shadow-xs" 
+              : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
+          }`}
+        >
+          {hideAnonymous ? "Verified Only" : "Show All Accounts"}
+        </button>
+      </div>
+
+      {/* ── Main Table View (Zero Gaps) ── */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-xs overflow-hidden">
         <div className="min-h-0 overflow-x-auto">
-          <table className="w-full table-fixed min-w-[1100px]">
-            <thead className="bg-slate-50/80 backdrop-blur-sm">
-              <tr className="text-left border-b border-slate-100">
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 w-[25%]">Business Identity</th>
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 w-[20%]">Contact Gateway</th>
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Territory</th>
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Ledger Status</th>
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">Registry Date</th>
-                <th className="px-6 py-4 text-right text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 w-32">Command</th>
+          <table className="w-full table-fixed min-w-[1000px]">
+            <thead className="bg-slate-50/80 dark:bg-slate-800/40 border-b border-slate-100 dark:border-white/5">
+              <tr className="text-left">
+                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-slate-400 w-[26%]">Business Identity</th>
+                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-slate-400 w-[22%]">Contact Gateway</th>
+                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-slate-400">Territory</th>
+                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-slate-400">Ledger Status</th>
+                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-slate-400">Registry Date</th>
+                <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-wider text-slate-400 w-28">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
-              {loading ? (
+            <tbody className="divide-y divide-slate-100 dark:divide-white/5 text-xs">
+              {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-32 text-center">
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="w-12 h-12 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin" />
-                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">Synchronizing Global Databases...</p>
-                    </div>
+                  <td colSpan={6} className="px-4 py-12 text-center text-slate-400 font-bold">
+                    No matching customer accounts found.
                   </td>
                 </tr>
-              ) : filteredItems.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-32 text-center">
-                    <div className="max-w-xs mx-auto space-y-4">
-                      <div className="w-20 h-20 bg-slate-50 rounded-[32px] flex items-center justify-center mx-auto">
-                        <Search size={32} className="text-slate-200" />
-                      </div>
-                      <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">No results match your search parameters</p>
-                    </div>
-                  </td>
-                </tr>
-              ) : filteredItems.map((item) => (
-                <tr key={item._id} className="hover:bg-indigo-50/30 transition-all duration-300 group">
-                  <td className="px-6 py-4 cursor-pointer" onClick={() => setSelectedCustomerFor360(item._id)}>
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-2xl bg-slate-950 flex items-center justify-center text-white text-sm font-black shadow-lg shadow-slate-200 group-hover:scale-105 transition-transform duration-500 relative overflow-hidden shrink-0">
-                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                        {item.name?.charAt(0).toUpperCase() || "C"}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-black text-slate-900 truncate tracking-tight hover:text-indigo-600 transition-colors">{item.name}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <Building2 size={10} className="text-slate-300" />
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest truncate">{item.companyName || "Private Account"}</p>
+              ) : (
+                filteredItems.map(item => (
+                  <tr key={item._id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-xs shrink-0">
+                          {item.name?.charAt(0).toUpperCase() || <Building2 size={14} />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-slate-900 dark:text-white truncate text-xs">{item.name || "Anonymous Visitor"}</p>
+                          <p className="text-[10px] text-slate-400 truncate">{item.companyName || "Individual Client"}</p>
                         </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
+                    </td>
+                    <td className="px-4 py-3">
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2.5 text-slate-600 bg-slate-50 rounded-lg px-2.5 py-1.5 border border-slate-100 group-hover:bg-white transition-colors w-fit max-w-full">
                         <Mail size={12} className="text-indigo-400 shrink-0" />
@@ -435,8 +435,9 @@ export default function CustomerManager({ websiteId }) {
                     </div>
                   </td>
                 </tr>
-              ))}
-            </tbody>
+              ))
+            )}
+          </tbody>
           </table>
         </div>
       </div>

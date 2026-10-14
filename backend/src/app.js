@@ -189,6 +189,7 @@ export function createApp() {
 
   app.get("/", (_, res) => res.json({ status: "success", message: "JTS Chat Backend is Live", version: "1.0.0" }));
   app.get("/health", (_, res) => res.json({ ok: true, timestamp: new Date() }));
+  app.get("/api/health", (_, res) => res.json({ ok: true, timestamp: new Date() }));
   app.use("/api/health-check", healthRoutes);
 
   app.use(widgetRoutes);

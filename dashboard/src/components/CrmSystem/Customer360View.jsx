@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   X, User, Mail, Phone, Calendar, DollarSign, Clock, FileText, CheckCircle2,
@@ -68,8 +68,8 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
 
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [serviceForm, setServiceForm] = useState({
-    serviceName: "Corporate Tax Registration",
-    serviceCategory: "Compliance",
+    serviceName: "E-Invoicing & Billing Suite",
+    serviceCategory: "Software & Digital Services",
     workStatus: "Pending",
     priority: "Medium",
     dueDate: "",
@@ -97,6 +97,53 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
 
   const [portalAccess, setPortalAccess] = useState({ active: false, email: "" });
   const [portalLoading, setPortalLoading] = useState(true);
+
+  const isTaxEnabled = Boolean(
+    (customer?.trn && customer.trn !== "Not Registered" && customer.trn !== "N/A" && customer.trn !== "-") ||
+    (customer?.tradeLicenseNumber && customer.tradeLicenseNumber !== "N/A" && customer.tradeLicenseNumber !== "Not Registered" && customer.tradeLicenseNumber !== "-") ||
+    customer?.corporateTaxDueDate ||
+    customer?.vatFilingDueDate ||
+    (customer?.corporateTaxStatus && !["Pending", "Not Registered", "none", "", "Pending Review"].includes(customer.corporateTaxStatus)) ||
+    (customer?.vatFilingPeriod && !["None", "", "Pending"].includes(customer.vatFilingPeriod))
+  );
+
+  const visibleTabs = useMemo(() => {
+    return PROFILE_TABS.filter(tab => {
+      if (["corporate_tax", "vat_compliance", "trade_license"].includes(tab.id)) {
+        return isTaxEnabled;
+      }
+      return true;
+    });
+  }, [isTaxEnabled]);
+
+  useEffect(() => {
+    if (!isTaxEnabled && ["corporate_tax", "vat_compliance", "trade_license"].includes(activeTab)) {
+      setActiveTab("overview");
+    }
+  }, [isTaxEnabled, activeTab]);
+
+  const profileScore = [
+    Boolean(customer?.name),
+    Boolean(customer?.email),
+    Boolean(customer?.phone),
+    Boolean(customer?.companyName),
+    Boolean(customer?.leadValue || customer?.budget),
+    Boolean(customer?.serviceType || customer?.requirement),
+    Boolean(customer?.pipelineStage)
+  ].filter(Boolean).length;
+  const profileCompleteness = Math.round((profileScore / 7) * 100);
+
+  const setupScore = [
+    Boolean(customer?.email),
+    Boolean(customer?.phone),
+    Boolean(customer?.companyName),
+    Boolean(customer?.trn && customer.trn !== "Not Registered"),
+    Boolean(customer?.tradeLicenseNumber && customer.tradeLicenseNumber !== "N/A"),
+    Boolean(customer?.tradeLicenseExpiryDate),
+    Boolean(customer?.vatFilingDueDate || customer?.corporateTaxDueDate)
+  ].filter(Boolean).length;
+  const setupPercentage = isTaxEnabled ? Math.round((setupScore / 7) * 100) : profileCompleteness;
+  const setupLabel = isTaxEnabled ? "Tax Setup" : "Profile Health";
 
   const fetchProfile = async () => {
     setLoading(true);
@@ -421,17 +468,7 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
     );
   }
 
-  const setupScore = [
-    Boolean(customer?.email),
-    Boolean(customer?.phone),
-    Boolean(customer?.companyName),
-    Boolean(customer?.trn),
-    Boolean(customer?.tradeLicenseNumber),
-    Boolean(customer?.tradeLicenseExpiryDate),
-    Boolean(customer?.vatFilingDueDate || customer?.corporateTaxDueDate)
-  ].filter(Boolean).length;
-  const setupPercentage = Math.round((setupScore / 7) * 100);
-
+  
   const handleGenerateProfessionalPDF = () => {
     try {
       const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -506,8 +543,8 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
             workStatus: customer.workStatus || "Pending",
             paymentStatus: customer.paymentStatus || "Pending"
           }] : [{
-            serviceName: "UAE Business Compliance & Advisory",
-            serviceCategory: "Corporate Suite",
+            serviceName: "E-Invoicing & Digital Billing Suite",
+            serviceCategory: "Digital Operations",
             workStatus: customer?.workStatus || "In Progress",
             paymentStatus: customer?.paymentStatus || "Pending"
           }]);
@@ -729,8 +766,6 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
         </div>
       </header>
 
-
-
       {/* Profile Summary Widget Strip */}
       <section className="bg-white border-b border-slate-200/50 px-8 py-6 grid grid-cols-1 md:grid-cols-5 gap-6">
         <div className="flex items-center gap-3">
@@ -783,7 +818,7 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
           <ShieldCheck size={16} className="text-emerald-500" />
           <div className="flex-1 min-w-[120px]">
             <div className="flex justify-between items-center mb-1">
-              <p className="text-[8px] font-black uppercase text-slate-400 tracking-wider">Tax Setup</p>
+              <p className="text-[8px] font-black uppercase text-slate-400 tracking-wider">{setupLabel}</p>
               <span className="text-[9px] font-black text-emerald-600">{setupPercentage}%</span>
             </div>
             <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -796,7 +831,7 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
       {/* Tabs list - sticky & prominent */}
       <div className="sticky top-[73px] z-10 bg-white border-b border-slate-200 shadow-sm">
         <div className="flex px-8 overflow-x-auto scrollbar-none gap-1">
-          {PROFILE_TABS.map(tab => (
+          {visibleTabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
@@ -928,12 +963,12 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
               {/* UAE Compliance Health */}
               <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all space-y-2">
                 <div className="flex items-center justify-between text-slate-400">
-                  <span className="text-[10px] font-black uppercase tracking-wider">Compliance Readiness</span>
+                  <span className="text-[10px] font-black uppercase tracking-wider">{isTaxEnabled ? "Compliance Readiness" : "Profile Completeness"}</span>
                   <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl"><ShieldCheck size={16} /></div>
                 </div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-xl font-black text-slate-900">{setupPercentage}%</span>
-                  <span className="text-[10px] font-bold text-emerald-600">Setup Score</span>
+                  <span className="text-[10px] font-bold text-emerald-600">{isTaxEnabled ? "Setup Score" : "Profile Score"}</span>
                 </div>
                 <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                   <div className="bg-gradient-to-r from-indigo-500 to-emerald-500 h-full transition-all duration-500" style={{ width: `${setupPercentage}%` }} />
@@ -970,43 +1005,61 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                 </div>
               </div>
 
-              {/* Trade License Status */}
-              <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all space-y-2">
-                <div className="flex items-center justify-between text-slate-400">
-                  <span className="text-[10px] font-black uppercase tracking-wider">Trade License</span>
-                  <div className="p-2 bg-sky-50 text-sky-600 rounded-xl"><Building2 size={16} /></div>
+              {/* Service Scope / Trade License Status */}
+              {isTaxEnabled ? (
+                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all space-y-2">
+                  <div className="flex items-center justify-between text-slate-400">
+                    <span className="text-[10px] font-black uppercase tracking-wider">Trade License</span>
+                    <div className="p-2 bg-sky-50 text-sky-600 rounded-xl"><Building2 size={16} /></div>
+                  </div>
+                  <div className="font-mono text-xs font-black text-slate-900 truncate">
+                    {customer?.tradeLicenseNumber || "N/A"}
+                  </div>
+                  <div className="text-[10px] font-bold flex items-center justify-between">
+                    <span className="text-slate-400">Expiry:</span>
+                    <span className={customer?.tradeLicenseExpiryDate && new Date(customer.tradeLicenseExpiryDate) < new Date() ? "text-rose-600 font-black" : "text-slate-700 font-bold"}>
+                      {customer?.tradeLicenseExpiryDate ? new Date(customer.tradeLicenseExpiryDate).toLocaleDateString() : "Not Registered"}
+                    </span>
+                  </div>
                 </div>
-                <div className="font-mono text-xs font-black text-slate-900 truncate">
-                  {customer?.tradeLicenseNumber || "N/A"}
+              ) : (
+                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all space-y-2">
+                  <div className="flex items-center justify-between text-slate-400">
+                    <span className="text-[10px] font-black uppercase tracking-wider">Primary Service Scope</span>
+                    <div className="p-2 bg-sky-50 text-sky-600 rounded-xl"><Building2 size={16} /></div>
+                  </div>
+                  <div className="text-xs font-black text-slate-900 truncate">
+                    {customer?.serviceType || customer?.requirement || "Web & Cloud Services"}
+                  </div>
+                  <div className="text-[10px] font-bold flex items-center justify-between">
+                    <span className="text-slate-400">Status:</span>
+                    <span className="text-emerald-600 font-black uppercase">
+                      {customer?.workStatus || "Active"}
+                    </span>
+                  </div>
                 </div>
-                <div className="text-[10px] font-bold flex items-center justify-between">
-                  <span className="text-slate-400">Expiry:</span>
-                  <span className={customer?.tradeLicenseExpiryDate && new Date(customer.tradeLicenseExpiryDate) < new Date() ? "text-rose-600 font-black" : "text-slate-700 font-bold"}>
-                    {customer?.tradeLicenseExpiryDate ? new Date(customer.tradeLicenseExpiryDate).toLocaleDateString() : "Not Registered"}
-                  </span>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Main Information Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {/* Left Column (2 Cols wide) */}
               <div className="md:col-span-2 space-y-8">
-                {/* UAE Tax & Compliance Master Properties */}
+                {/* Customer Account & Inquiry Profile */}
                 <div className="bg-white p-8 border border-slate-200/80 rounded-[30px] shadow-sm space-y-6">
                   <div className="flex items-center justify-between border-b pb-4 border-slate-100">
                     <div className="flex items-center gap-2.5">
                       <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-                        <ShieldCheck size={18} />
+                        <Building2 size={18} />
                       </div>
                       <div>
-                        <h4 className="text-sm font-black text-slate-900 uppercase tracking-wide">UAE Tax & Compliance Properties</h4>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Real-time status of FTA filings & licensing</p>
+                        <h4 className="text-sm font-black text-slate-900 uppercase tracking-wide">Customer Account & Inquiry Profile</h4>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Key business engagement, requirements & lifecycle status</p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="text-[9px] font-black uppercase text-slate-400">Work Status:</span>
+                      <span className="text-[9px] font-black uppercase text-slate-400">Status:</span>
                       <select
                         value={customer?.workStatus || "Pending"}
                         onChange={(e) => handleUpdateWorkStatus(e.target.value)}
@@ -1020,31 +1073,21 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                         <option value="Pending">Pending</option>
                         <option value="In Progress">In Progress</option>
                         <option value="Under Review">Under Review</option>
-                        <option value="Submitted">Submitted / Filed</option>
-                        <option value="Completed">Completed / Approved</option>
+                        <option value="Active Client">Active Client</option>
+                        <option value="Completed">Won / Completed</option>
                       </select>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
                     <div className="p-3.5 bg-slate-50/70 border border-slate-100 rounded-2xl space-y-1">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">TRN (Tax Reg No)</span>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-mono font-black text-slate-900">{customer?.trn || "Not Registered"}</span>
-                        {customer?.trn && (
-                          <button
-                            onClick={() => { navigator.clipboard.writeText(customer.trn); alert("TRN copied to clipboard!"); }}
-                            className="text-[9px] text-indigo-600 font-bold hover:underline"
-                          >
-                            Copy
-                          </button>
-                        )}
-                      </div>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Company / Business</span>
+                      <span className="text-xs font-black text-slate-900 block truncate">{customer?.companyName || "Individual / Not Specified"}</span>
                     </div>
 
                     <div className="p-3.5 bg-slate-50/70 border border-slate-100 rounded-2xl space-y-1">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Service Scope</span>
-                      <span className="text-xs font-black text-indigo-600 block truncate">{customer?.serviceType || "Corporate Tax Registration"}</span>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Service Scope / Interest</span>
+                      <span className="text-xs font-black text-indigo-600 block truncate">{customer?.serviceType || customer?.requirement || "Web & Cloud Services"}</span>
                     </div>
 
                     <div className="p-3.5 bg-slate-50/70 border border-slate-100 rounded-2xl space-y-1">
@@ -1066,18 +1109,28 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                     </div>
 
                     <div className="p-3.5 bg-slate-50/70 border border-slate-100 rounded-2xl space-y-1">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">VAT Filing Period</span>
-                      <span className="text-xs font-bold text-slate-800">{customer?.vatFilingPeriod || "Q1 2026"}</span>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Pipeline Stage</span>
+                      <span className="text-xs font-bold text-slate-800 uppercase">{customer?.pipelineStage || (customer?.recordType === "lead" ? "New Lead" : "Active Customer")}</span>
                     </div>
 
                     <div className="p-3.5 bg-slate-50/70 border border-slate-100 rounded-2xl space-y-1">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">VAT Filing Due</span>
-                      <span className="text-xs font-bold text-slate-800">{customer?.vatFilingDueDate ? new Date(customer.vatFilingDueDate).toLocaleDateString() : "TBA"}</span>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Estimated Budget / Value</span>
+                      <span className="text-xs font-bold text-emerald-600">{customer?.budget ? formatCurrency(customer.budget) : (customer?.leadValue ? formatCurrency(customer.leadValue) : "Flexible / TBD")}</span>
                     </div>
 
                     <div className="p-3.5 bg-slate-50/70 border border-slate-100 rounded-2xl space-y-1">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Corporate Tax Due</span>
-                      <span className="text-xs font-bold text-slate-800">{customer?.corporateTaxDueDate ? new Date(customer.corporateTaxDueDate).toLocaleDateString() : "TBA"}</span>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Customer Reference (CRN)</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono font-black text-slate-900">{customer?.crn || "Not Assigned"}</span>
+                        {customer?.crn && (
+                          <button
+                            onClick={() => { navigator.clipboard.writeText(customer.crn); alert("CRN copied to clipboard!"); }}
+                            className="text-[9px] text-indigo-600 font-bold hover:underline"
+                          >
+                            Copy
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1230,7 +1283,7 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                 derivedServices.push({
                   _id: `derived-primary-${customer._id}`,
                   serviceName: customer.serviceType,
-                  serviceCategory: isVat ? "VAT Compliance" : isCt ? "Corporate Tax" : isTl ? "Trade License" : "Compliance",
+                  serviceCategory: isVat ? "VAT Compliance" : isCt ? "Corporate Tax" : isTl ? "Trade License" : "Software & Digital Services",
                   workStatus: customer.workStatus || "Pending",
                   paymentStatus: customer.paymentStatus || "Pending",
                   priority: "High",
@@ -2044,13 +2097,14 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                   onChange={(e) => setServiceForm({ ...serviceForm, serviceName: e.target.value })}
                   className="w-full bg-slate-50 rounded-xl border border-slate-200 px-4 py-3 text-xs font-bold"
                 >
-                  <option value="Corporate Tax Registration">Corporate Tax Registration</option>
-                  <option value="Corporate Tax Filing">Corporate Tax Filing</option>
-                  <option value="VAT Registration">VAT Registration</option>
-                  <option value="VAT Filing">VAT Filing</option>
-                  <option value="Trade License Renewal">Trade License Renewal</option>
-                  <option value="PRO Services">PRO Services</option>
-                  <option value="Other Services">Other Services</option>
+                  <option value="E-Invoicing & Billing Suite">E-Invoicing & Billing Suite</option>
+                  <option value="Cloud ERP & Accounting Software">Cloud ERP & Accounting Software</option>
+                  <option value="Software API & Webhook Integration">Software API & Webhook Integration</option>
+                  <option value="Annual Maintenance Contract (AMC)">Annual Maintenance Contract (AMC)</option>
+                  <option value="Chat Support & Customer Care Suite">Chat Support & Customer Care Suite</option>
+                  <option value="Payment Gateway Integration">Payment Gateway Integration</option>
+                  <option value="Technical Consultation & Training">Technical Consultation & Training</option>
+                  <option value="Custom Business Service">Custom Business Service</option>
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-4">

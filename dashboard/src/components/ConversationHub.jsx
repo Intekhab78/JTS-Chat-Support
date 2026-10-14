@@ -138,8 +138,17 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
       // Use currentSelectedId from ref to ensure we're matching against latest UI state
       if (payload.sessionId === activeRequestRef.current) {
         setMessages(prev => {
-          const exists = prev.some(m => m._id === payload._id || (m.createdAt === payload.createdAt && m.message === payload.message));
-          if (exists) return prev;
+          // If message with same tempId or same _id already exists, update it cleanly without duplicating
+          const idx = prev.findIndex(m => 
+            (payload.tempId && m.tempId && m.tempId === payload.tempId) || 
+            (payload._id && m._id && m._id === payload._id) ||
+            (m.sender === payload.sender && m.message === payload.message && Math.abs(new Date(m.createdAt || Date.now()) - new Date(payload.createdAt || Date.now())) < 1500)
+          );
+          if (idx !== -1) {
+            const updated = [...prev];
+            updated[idx] = { ...updated[idx], ...payload };
+            return updated;
+          }
           return [...prev, payload];
         });
       }
@@ -217,6 +226,7 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
     };
 
     socket.on("chat:new-message", handleNewMessage);
+    socket.on("chat:message", handleNewMessage);
     socket.on("chat:session-updated", handleSessionUpdated);
     socket.on("chat:closed", handleClosed);
     socket.on("chat:assigned", handleAssigned);
@@ -236,6 +246,7 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
 
     return () => {
       socket.off("chat:new-message", handleNewMessage);
+      socket.off("chat:message", handleNewMessage);
       socket.off("chat:session-updated", handleSessionUpdated);
       socket.off("chat:closed", handleClosed);
       socket.off("chat:assigned", handleAssigned);
@@ -252,12 +263,41 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
 
   const handleSend = (payload) => {
     if (!socket || !selectedSessionId) return;
+    const tempId = `agent-msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+    // Optimistic instant message render with 0ms delay
+    const optimisticMsg = {
+      _id: tempId,
+      tempId,
+      sessionId: selectedSessionId,
+      message: payload.text,
+      attachmentUrl: payload.attachmentUrl,
+      attachmentType: payload.attachmentType,
+      sender: "agent",
+      senderName: currentUser?.name || "Support",
+      createdAt: new Date().toISOString()
+    };
+
+    setMessages(prev => {
+      const exists = prev.some(m => m.tempId === tempId);
+      return exists ? prev : [...prev, optimisticMsg];
+    });
+
+    setSessions(prev => prev.map(s =>
+      s.sessionId === selectedSessionId
+        ? { ...s, lastMessagePreview: payload.text, updatedAt: new Date() }
+        : s
+    ));
+
     socket.emit("agent:message", {
       sessionId: selectedSessionId,
       message: payload.text,
       attachmentUrl: payload.attachmentUrl,
-      attachmentType: payload.attachmentType
+      attachmentType: payload.attachmentType,
+      tempId
     });
+
+    socket.emit("agent:typing", { sessionId: selectedSessionId, isTyping: false });
   };
 
   const handleBulkClose = async () => {
@@ -277,8 +317,51 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
       await api("/api/chat/bulk-delete", { method: "POST", body: { sessionIds: selectedIds } });
       toast.success(`Deleted ${selectedIds.length} sessions`);
       setSelectedIds([]);
-      // Force refresh sessions via parent or reload
-      window.location.reload(); 
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleCloseSession = (sessionId) => {
+    if (!socket || !sessionId) return;
+    socket.emit("agent:close-session", { sessionId });
+    toast.success("Chat conversation closed");
+  };
+
+  const handleArchiveSession = async (sessionId) => {
+    if (!sessionId) return;
+    try {
+      await api(`/api/chat/sessions/${sessionId}/archive`, {
+        method: "PATCH",
+        body: JSON.stringify({ reason: "manual_trash" })
+      });
+      toast.success("Chat moved to trash");
+      setSessions(prev => prev.map(s => s.sessionId === sessionId ? { ...s, archivedAt: new Date() } : s));
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleRestoreSession = async (sessionId) => {
+    if (!sessionId) return;
+    try {
+      await api(`/api/chat/sessions/${sessionId}/restore`, {
+        method: "PATCH"
+      });
+      toast.success("Chat restored from trash");
+      setSessions(prev => prev.map(s => s.sessionId === sessionId ? { ...s, archivedAt: null } : s));
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleDeletePermanent = async (sessionId) => {
+    if (!sessionId) return;
+    if (!window.confirm("Permanently delete this chat? This cannot be undone.")) return;
+    try {
+      await api(`/api/chat/sessions/${sessionId}`, { method: "DELETE" });
+      toast.success("Chat deleted permanently");
+      setSessions(prev => prev.filter(s => s.sessionId !== sessionId));
     } catch (err) {
       toast.error(err.message);
     }
@@ -345,6 +428,10 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
               socket.emit("agent:transfer-chat", { sessionId: selectedSessionId, targetAgentId, targetDepartment });
               toast.success("Chat transferred successfully!");
             }}
+            onClose={() => handleCloseSession(selectedSessionId)}
+            onMoveToTrash={() => handleArchiveSession(selectedSessionId)}
+            onRestore={() => handleRestoreSession(selectedSessionId)}
+            onDeletePermanent={() => handleDeletePermanent(selectedSessionId)}
           />
         </div>
       </div>

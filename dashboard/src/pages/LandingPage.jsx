@@ -160,7 +160,7 @@ export default function LandingPage() {
   };
 
   const copyScriptSnippet = () => {
-    navigator.clipboard.writeText(`<script src="http://localhost:5000/chat-widget.js" data-api-key="YOUR_API_KEY"></script>`);
+    navigator.clipboard.writeText(`<script src="https://chatapi.jtsmiddleeast.com/chat-widget.js" data-api-key="YOUR_API_KEY"></script>`);
     setCopiedSnippet(true);
     setTimeout(() => setCopiedSnippet(false), 2000);
   };
@@ -958,7 +958,7 @@ export default function LandingPage() {
               </h4>
               <div className="p-4 rounded-xl bg-[#050816] border border-white/10 font-mono text-[11px] text-[#00D4FF] flex items-center justify-between gap-4">
                 <span className="truncate">
-                  {`<script src="http://localhost:5000/chat-widget.js" data-api-key="YOUR_KEY"></script>`}
+                  {`<script src="https://chatapi.jtsmiddleeast.com/chat-widget.js" data-api-key="YOUR_KEY"></script>`}
                 </span>
                 <button
                   onClick={copyScriptSnippet}

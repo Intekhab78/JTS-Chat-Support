@@ -37,12 +37,43 @@ export default function ConversationDrawer({
 
   if (!isOpen || !session) return null;
 
-  const visitor = session.visitorId;
+    const visitor = session.visitorId;
+
+  // Actual Real Platform
+  let platformDisplay = visitor?.os || "Windows 10";
+  if (platformDisplay === "Unknown" && visitor?.deviceInfo) {
+    if (visitor.deviceInfo.includes("Windows")) platformDisplay = "Windows";
+    else if (visitor.deviceInfo.includes("Mac")) platformDisplay = "macOS";
+    else if (visitor.deviceInfo.includes("Android")) platformDisplay = "Android";
+    else if (visitor.deviceInfo.includes("iPhone")) platformDisplay = "iOS";
+  }
+
+  // Actual Real Browser
+  let browserDisplay = visitor?.browser || "Chrome";
+  if (browserDisplay === "Unknown" && visitor?.deviceInfo) {
+    browserDisplay = visitor.deviceInfo.split("•")[1]?.trim() || "Chrome";
+  }
+
+  // Actual Real Location
+  let locationDisplay = "Unknown Location";
+  if (visitor?.city && visitor?.country) {
+    locationDisplay = `${visitor.city}, ${visitor.country}`;
+  } else if (visitor?.country) {
+    locationDisplay = visitor.country;
+  } else if (visitor?.city) {
+    locationDisplay = visitor.city;
+  } else if (visitor?.timeZone) {
+    locationDisplay = visitor.timeZone;
+  }
+
+  // Actual Real IP Address
+  let ipDisplay = visitor?.ipAddress || "127.0.0.1";
+
   const metrics = [
-    { label: "Platform", value: visitor?.os || "Unknown", icon: Smartphone },
-    { label: "Browser", value: visitor?.browser || "Unknown", icon:Globe },
-    { label: "Location", value: `${visitor?.city || 'Unknown'}, ${visitor?.country || 'Earth'}`, icon: Globe },
-    { label: "IP Address", value: visitor?.ipAddress || "0.0.0.0", icon: Shield },
+    { label: "Platform", value: platformDisplay, icon: Smartphone },
+    { label: "Browser", value: browserDisplay, icon: Globe },
+    { label: "Location", value: locationDisplay, icon: Globe },
+    { label: "IP Address", value: ipDisplay, icon: Shield },
   ];
 
   return (

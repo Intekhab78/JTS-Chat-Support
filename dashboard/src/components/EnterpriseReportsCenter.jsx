@@ -52,7 +52,7 @@ function ExportMenu({ data, title }) {
     <div className="relative z-50">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-sm"
+        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-indigo-600 text-white text-[11px] font-black uppercase tracking-wider rounded-xl transition-all shadow-xs"
       >
         <Download size={14} /> Export
       </button>
@@ -77,31 +77,24 @@ function ExportMenu({ data, title }) {
 function MetricCard({ label, value, hint, icon: Icon, colorClass, trend }) {
   const isPositive = trend > 0;
   const isNegative = trend < 0;
-  const isNeutral = trend === 0;
 
   return (
-    <article className="rounded-3xl border border-slate-200/50 bg-white/40 backdrop-blur-xl p-6 shadow-sm hover:shadow-md transition-all duration-300">
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{label}</p>
-        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-sm ${colorClass}`}>
-          <Icon size={18} />
+    <article className="rounded-2xl border border-slate-200/70 bg-white/90 backdrop-blur-xl p-4 shadow-xs hover:shadow-md transition-all duration-300">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">{label}</p>
+        <div className={`p-2 rounded-xl text-white shadow-xs ${colorClass}`}>
+          <Icon size={15} />
         </div>
       </div>
-      <div className="flex items-end justify-between">
-        <div>
-          <h3 className="text-4xl font-black tracking-tight text-slate-900">{value}</h3>
-          {hint && <p className="text-xs font-bold text-slate-400 mt-2">{hint}</p>}
-        </div>
+      <div className="flex items-baseline justify-between gap-2">
+        <h3 className="text-2xl font-black text-slate-900 tracking-tight">{value}</h3>
         {trend !== undefined && (
-          <div className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-black ${isPositive ? 'bg-emerald-50 text-emerald-600' :
-              isNegative ? 'bg-rose-50 text-rose-600' :
-                'bg-slate-100 text-slate-500'
-            }`}>
-            {isPositive ? <TrendingUp size={12} /> : isNegative ? <TrendingDown size={12} /> : <Minus size={12} />}
-            <span>{isPositive ? '+' : ''}{trend}%</span>
-          </div>
+          <span className={`text-[10px] font-black flex items-center gap-0.5 ${isPositive ? 'text-emerald-600' : isNegative ? 'text-rose-600' : 'text-slate-400'}`}>
+            {isPositive ? '↑' : isNegative ? '↓' : '•'} {Math.abs(trend)}%
+          </span>
         )}
       </div>
+      {hint && <p className="text-[10px] font-bold text-slate-400 mt-1">{hint}</p>}
     </article>
   );
 }
@@ -162,12 +155,12 @@ function ExecutiveDashboard({ reportRange, onDataLoaded }) {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 animate-in fade-in duration-500">
+      <div className="flex items-center justify-end mb-1">
         <button onClick={() => setIsEditing(!isEditing)} className={`px-4 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all border ${isEditing ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
           <Settings size={14} className="inline mr-2" /> {isEditing ? 'Done Editing' : 'Customize Dashboard'}
         </button>
-        <ExportMenu data={data} title="Executive Summary" />
+        
       </div>
 
       <DragDropContext onDragEnd={onDragEnd}>
@@ -273,20 +266,22 @@ function LeadAnalytics({ reportRange, onDataLoaded }) {
   if (!data) return null;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-4 animate-in fade-in duration-500">
 
-      <div className="relative z-30 overflow-visible flex flex-wrap items-center justify-between gap-4 p-4 bg-white border border-slate-200/80 rounded-3xl shadow-sm">
-        <div className="flex flex-wrap gap-4">
-          <div className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest mr-2"><Filter size={14} /> Filters</div>
-          <input type="text" name="clientId" placeholder="Client ID" value={filters.clientId} onChange={handleFilterChange} className="px-4 py-2 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-colors" />
-          <input type="text" name="websiteId" placeholder="Website ID" value={filters.websiteId} onChange={handleFilterChange} className="px-4 py-2 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-colors" />
-          <input type="text" name="agentId" placeholder="Agent ID" value={filters.agentId} onChange={handleFilterChange} className="px-4 py-2 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-colors" />
-          <input type="text" name="service" placeholder="Service Type" value={filters.service} onChange={handleFilterChange} className="px-4 py-2 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-colors" />
+      <div className="relative z-30 overflow-visible flex flex-wrap items-center justify-between gap-2.5 p-2.5 sm:p-3 bg-white border border-slate-200/80 rounded-2xl shadow-xs">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-500 uppercase tracking-wider mr-1">
+            <Filter size={13} className="text-indigo-500" /> Filters:
+          </div>
+          <input type="text" name="clientId" placeholder="Client ID" value={filters.clientId} onChange={handleFilterChange} className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 focus:bg-white transition-all w-28 placeholder:text-slate-400" />
+          <input type="text" name="websiteId" placeholder="Website ID" value={filters.websiteId} onChange={handleFilterChange} className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 focus:bg-white transition-all w-28 placeholder:text-slate-400" />
+          <input type="text" name="agentId" placeholder="Agent ID" value={filters.agentId} onChange={handleFilterChange} className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 focus:bg-white transition-all w-28 placeholder:text-slate-400" />
+          <input type="text" name="service" placeholder="Service Type" value={filters.service} onChange={handleFilterChange} className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 focus:bg-white transition-all w-28 placeholder:text-slate-400" />
         </div>
-        <ExportMenu data={data.leadsOverTime || data} title="Lead Analytics" />
+        
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
         <MetricCard label="Conversion Rate" value={`${data.conversionRate}%`} hint="Leads won vs processed" icon={Activity} colorClass="bg-gradient-to-br from-indigo-500 to-purple-600" />
         <MetricCard label="Won Deals" value={data.wonLeads} hint="Successfully closed leads" icon={Briefcase} colorClass="bg-gradient-to-br from-emerald-400 to-teal-500" />
         <MetricCard label="Lost Deals" value={data.lostLeads} hint="Leads marked as lost" icon={ShieldAlert} colorClass="bg-gradient-to-br from-rose-400 to-red-500" />
@@ -406,19 +401,21 @@ function TicketAnalytics({ reportRange, onDataLoaded }) {
   if (!data) return <EmptyState title="No Ticket Data" message="There are no tickets matching these filters." actionText="Clear Filters" onAction={() => setFilters({ websiteId: "", agentId: "", clientId: "", department: "" })} />;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="relative z-30 overflow-visible flex flex-wrap items-center justify-between gap-4 p-4 bg-white border border-slate-200/80 rounded-3xl shadow-sm">
-        <div className="flex flex-wrap gap-4">
-          <div className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest mr-2"><Filter size={14} /> Filters</div>
-          <input type="text" name="clientId" placeholder="Client ID" value={filters.clientId} onChange={handleFilterChange} className="px-4 py-2 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-colors" />
-          <input type="text" name="websiteId" placeholder="Website ID" value={filters.websiteId} onChange={handleFilterChange} className="px-4 py-2 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-colors" />
-          <input type="text" name="agentId" placeholder="Agent ID" value={filters.agentId} onChange={handleFilterChange} className="px-4 py-2 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-colors" />
-          <input type="text" name="department" placeholder="Department" value={filters.department} onChange={handleFilterChange} className="px-4 py-2 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-colors" />
+    <div className="space-y-4 animate-in fade-in duration-500">
+      <div className="relative z-30 overflow-visible flex flex-wrap items-center justify-between gap-2.5 p-2.5 sm:p-3 bg-white border border-slate-200/80 rounded-2xl shadow-xs">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-500 uppercase tracking-wider mr-1">
+            <Filter size={13} className="text-indigo-500" /> Filters:
+          </div>
+          <input type="text" name="clientId" placeholder="Client ID" value={filters.clientId} onChange={handleFilterChange} className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 focus:bg-white transition-all w-28 placeholder:text-slate-400" />
+          <input type="text" name="websiteId" placeholder="Website ID" value={filters.websiteId} onChange={handleFilterChange} className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 focus:bg-white transition-all w-28 placeholder:text-slate-400" />
+          <input type="text" name="agentId" placeholder="Agent ID" value={filters.agentId} onChange={handleFilterChange} className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 focus:bg-white transition-all w-28 placeholder:text-slate-400" />
+          <input type="text" name="department" placeholder="Department" value={filters.department} onChange={handleFilterChange} className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 focus:bg-white transition-all w-28 placeholder:text-slate-400" />
         </div>
-        <ExportMenu data={data} title="Ticket Analytics" />
+        
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         <MetricCard label="Open Tickets" value={data.openCount} hint="Currently unresolved" icon={Ticket} colorClass="bg-gradient-to-br from-indigo-500 to-purple-600" />
         <MetricCard label="Resolved Tickets" value={data.resolvedCount} hint="Closed successfully" icon={MessageCircle} colorClass="bg-gradient-to-br from-emerald-400 to-teal-500" />
         <MetricCard label="Avg Resolution" value={data.avgResolutionTime} hint="Time to close" icon={Activity} colorClass="bg-gradient-to-br from-amber-400 to-orange-500" />
@@ -516,17 +513,19 @@ function AgentPerformanceAnalytics({ reportRange, onDataLoaded }) {
   if (!data) return <EmptyState title="No Agent Data" message="There is no agent performance data matching these filters." actionText="Clear Filters" onAction={() => setFilters({ websiteId: "", clientId: "" })} />;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="relative z-30 overflow-visible flex flex-wrap items-center justify-between gap-4 p-4 bg-white border border-slate-200/80 rounded-3xl shadow-sm">
-        <div className="flex flex-wrap gap-4">
-          <div className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest mr-2"><Filter size={14} /> Filters</div>
-          <input type="text" name="clientId" placeholder="Client ID" value={filters.clientId} onChange={handleFilterChange} className="px-4 py-2 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-colors" />
-          <input type="text" name="websiteId" placeholder="Website ID" value={filters.websiteId} onChange={handleFilterChange} className="px-4 py-2 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-colors" />
+    <div className="space-y-4 animate-in fade-in duration-500">
+      <div className="relative z-30 overflow-visible flex flex-wrap items-center justify-between gap-2.5 p-2.5 sm:p-3 bg-white border border-slate-200/80 rounded-2xl shadow-xs">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-500 uppercase tracking-wider mr-1">
+            <Filter size={13} className="text-indigo-500" /> Filters:
+          </div>
+          <input type="text" name="clientId" placeholder="Client ID" value={filters.clientId} onChange={handleFilterChange} className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 focus:bg-white transition-all w-28 placeholder:text-slate-400" />
+          <input type="text" name="websiteId" placeholder="Website ID" value={filters.websiteId} onChange={handleFilterChange} className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 focus:bg-white transition-all w-28 placeholder:text-slate-400" />
         </div>
-        <ExportMenu data={data.allAgents || data.topPerformers} title="Agent Performance" />
+        
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
         <MetricCard label="Total Agents" value={data.metrics.totalAgents} icon={Users} colorClass="bg-gradient-to-br from-indigo-500 to-purple-600" />
         <MetricCard label="Avg Productivity" value={data.metrics.avgProductivity} hint="Platform wide score" icon={Activity} colorClass="bg-gradient-to-br from-emerald-400 to-teal-500" />
         <MetricCard label="Avg CSAT" value={data.metrics.avgCsat} hint="Customer Satisfaction" icon={MessageCircle} colorClass="bg-gradient-to-br from-amber-400 to-orange-500" />
@@ -649,13 +648,15 @@ function WebsiteAnalytics({ reportRange, onDataLoaded }) {
   if (!data) return <EmptyState title="No Website Data" message="We need a bit more data to calculate these insights." actionText="Refresh Data" onAction={() => window.location.reload()} />;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="relative z-30 overflow-visible flex flex-wrap items-center justify-between gap-4 p-4 bg-white border border-slate-200/80 rounded-3xl shadow-sm">
-        <div className="flex flex-wrap gap-4">
-          <div className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest mr-2"><Filter size={14} /> Filters</div>
-          <input type="text" name="clientId" placeholder="Client ID" value={filters.clientId} onChange={handleFilterChange} className="px-4 py-2 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-colors" />
+    <div className="space-y-4 animate-in fade-in duration-500">
+      <div className="relative z-30 overflow-visible flex flex-wrap items-center justify-between gap-2.5 p-2.5 sm:p-3 bg-white border border-slate-200/80 rounded-2xl shadow-xs">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-500 uppercase tracking-wider mr-1">
+            <Filter size={13} className="text-indigo-500" /> Filters:
+          </div>
+          <input type="text" name="clientId" placeholder="Client ID" value={filters.clientId} onChange={handleFilterChange} className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 focus:bg-white transition-all w-28 placeholder:text-slate-400" />
         </div>
-        <ExportMenu data={data.websiteComparison} title="Website Analytics" />
+        
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -739,13 +740,15 @@ function CustomerInsightsAnalytics({ reportRange, onDataLoaded }) {
   if (!data) return <EmptyState title="No Customer Data" message="There is no customer data matching these filters." actionText="Clear Filters" onAction={() => setFilters({ clientId: "" })} />;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="relative z-30 overflow-visible flex flex-wrap items-center justify-between gap-4 p-4 bg-white border border-slate-200/80 rounded-3xl shadow-sm">
-        <div className="flex flex-wrap gap-4">
-          <div className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest mr-2"><Filter size={14} /> Filters</div>
-          <input type="text" name="clientId" placeholder="Client ID" value={filters.clientId} onChange={handleFilterChange} className="px-4 py-2 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-colors" />
+    <div className="space-y-4 animate-in fade-in duration-500">
+      <div className="relative z-30 overflow-visible flex flex-wrap items-center justify-between gap-2.5 p-2.5 sm:p-3 bg-white border border-slate-200/80 rounded-2xl shadow-xs">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-500 uppercase tracking-wider mr-1">
+            <Filter size={13} className="text-indigo-500" /> Filters:
+          </div>
+          <input type="text" name="clientId" placeholder="Client ID" value={filters.clientId} onChange={handleFilterChange} className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 focus:bg-white transition-all w-28 placeholder:text-slate-400" />
         </div>
-        <ExportMenu data={data} title="Customer Insights" />
+        
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
@@ -831,16 +834,18 @@ function RevenueAnalytics({ reportRange, onDataLoaded }) {
   const targetPercent = Math.min(100, Math.round((mrrNumeric / targetGoal) * 100));
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="relative z-30 overflow-visible flex flex-wrap items-center justify-between gap-4 p-4 bg-white border border-slate-200/80 rounded-3xl shadow-sm">
-        <div className="flex flex-wrap gap-4">
-          <div className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest mr-2"><Filter size={14} /> Filters</div>
-          <input type="text" name="clientId" placeholder="Client ID" value={filters.clientId} onChange={handleFilterChange} className="px-4 py-2 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-colors" />
+    <div className="space-y-4 animate-in fade-in duration-500">
+      <div className="relative z-30 overflow-visible flex flex-wrap items-center justify-between gap-2.5 p-2.5 sm:p-3 bg-white border border-slate-200/80 rounded-2xl shadow-xs">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-500 uppercase tracking-wider mr-1">
+            <Filter size={13} className="text-indigo-500" /> Filters:
+          </div>
+          <input type="text" name="clientId" placeholder="Client ID" value={filters.clientId} onChange={handleFilterChange} className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 focus:bg-white transition-all w-28 placeholder:text-slate-400" />
         </div>
-        <ExportMenu data={data} title="Revenue Analytics" />
+        
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         <MetricCard label="Total Revenue" value={data.metrics.totalRevenue} icon={DollarSign} colorClass="bg-gradient-to-br from-emerald-400 to-teal-500" />
         <MetricCard label="Subscription Rev" value={data.metrics.subscriptionRevenue} icon={Activity} colorClass="bg-gradient-to-br from-indigo-500 to-purple-600" />
         <MetricCard label="MRR" value={data.metrics.mrr} hint="Monthly Recurring" icon={TrendingUp} colorClass="bg-gradient-to-br from-blue-400 to-cyan-500" />
@@ -947,11 +952,11 @@ function AiInsightsAnalytics({ reportRange, onDataLoaded }) {
   ];
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-4 animate-in fade-in duration-500">
       <div className="flex justify-end">
-        <ExportMenu data={data} title="AI Insights" />
+        
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
         <MetricCard label="Avg Lead Quality Score" value={data.metrics.avgLeadQualityScore} hint="AI Assessed" icon={Activity} colorClass="bg-gradient-to-br from-indigo-500 to-purple-600" />
         <MetricCard label="AI Resolution Rate" value={data.metrics.aiResolutionRate} hint="No agent needed" icon={Zap} colorClass="bg-gradient-to-br from-emerald-400 to-teal-500" />
         <MetricCard label="Overall Sentiment" value={data.metrics.sentimentScore} hint="NLP Analysis" icon={MessageCircle} colorClass="bg-gradient-to-br from-blue-400 to-cyan-500" />
@@ -1161,17 +1166,17 @@ export default function EnterpriseReportsCenter() {
 
   return (
     <div className="w-full">
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-10">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Enterprise Analytics & Business Reports</h2>
-          <p className="text-sm font-bold text-slate-500 mt-2">Comprehensive SaaS, UAE Compliance & Financial Audit Reporting System</p>
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Enterprise Analytics & Business Reports</h2>
+          <p className="text-xs font-bold text-slate-500 mt-0.5">Comprehensive SaaS, UAE Compliance & Financial Audit Reporting System</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <select
             value={reportRange}
             onChange={(e) => setReportRange(e.target.value)}
-            className="px-5 py-3 rounded-2xl bg-white border border-slate-200/60 shadow-sm text-xs font-bold text-slate-700 outline-none hover:bg-slate-50 transition-colors cursor-pointer appearance-none pr-10"
-            style={{ backgroundImage: "url(\"data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center", backgroundSize: "16px" }}
+            className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200/80 shadow-xs text-xs font-bold text-slate-700 outline-none hover:bg-slate-50 transition-colors cursor-pointer appearance-none pr-8"
+            style={{ backgroundImage: "url(\"data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 10px center", backgroundSize: "14px" }}
           >
             <option value="today">Today</option>
             <option value="week">Past 7 Days</option>
@@ -1183,21 +1188,21 @@ export default function EnterpriseReportsCenter() {
           <div className="relative z-[9999]">
             <button
               onClick={() => setExportMenuOpen(!exportMenuOpen)}
-              className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-slate-900 text-white text-xs font-bold shadow-md hover:bg-indigo-600 transition-colors"
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-wider shadow-xs hover:bg-indigo-600 transition-colors"
             >
-              <Download size={14} /> Export Active View
+              <Download size={13} /> Export Active View
             </button>
             
             {exportMenuOpen && (
-              <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden z-[9999] animate-in fade-in slide-in-from-top-2 duration-200 text-left">
-                <button onClick={() => { handleGlobalExport('pdf'); setExportMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-rose-600 transition-colors text-left border-b border-slate-100">
-                  <FileText size={16} /> Export as PDF
+              <div className="absolute right-0 top-full mt-1.5 w-48 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-[9999] animate-in fade-in slide-in-from-top-2 duration-200 text-left">
+                <button onClick={() => { handleGlobalExport('pdf'); setExportMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-rose-600 transition-colors text-left border-b border-slate-100">
+                  <FileText size={14} /> Export as PDF
                 </button>
-                <button onClick={() => { handleGlobalExport('xlsx'); setExportMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-emerald-600 transition-colors text-left border-b border-slate-100">
-                  <FileSpreadsheet size={16} /> Export as Excel
+                <button onClick={() => { handleGlobalExport('xlsx'); setExportMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-emerald-600 transition-colors text-left border-b border-slate-100">
+                  <FileSpreadsheet size={14} /> Export as Excel
                 </button>
-                <button onClick={() => { handleGlobalExport('csv'); setExportMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition-colors text-left">
-                  <FileBox size={16} /> Export as CSV
+                <button onClick={() => { handleGlobalExport('csv'); setExportMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition-colors text-left">
+                  <FileBox size={14} /> Export as CSV
                 </button>
               </div>
             )}
@@ -1205,7 +1210,8 @@ export default function EnterpriseReportsCenter() {
         </div>
       </div>
 
-      <div className="flex gap-2 p-1.5 bg-slate-100/50 backdrop-blur-md border border-slate-200/50 rounded-full mb-8 overflow-x-auto hide-scrollbar">
+      {/* ── Compact Tab Bar ── */}
+      <div className="flex gap-1.5 p-1 bg-slate-100/70 backdrop-blur-md border border-slate-200/60 rounded-2xl mb-4 overflow-x-auto hide-scrollbar">
         {tabs.map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -1213,16 +1219,16 @@ export default function EnterpriseReportsCenter() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-6 py-3 rounded-full text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap ${isActive ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'}`}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${isActive ? 'bg-white text-indigo-600 shadow-xs border border-slate-200/60' : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'}`}
             >
-              <Icon size={16} className={isActive ? "text-indigo-500" : "text-slate-400"} />
+              <Icon size={14} className={isActive ? "text-indigo-500" : "text-slate-400"} />
               {tab.label}
             </button>
           );
         })}
       </div>
 
-      <div className="min-h-[500px]">
+      <div className="min-h-[400px]">
         {activeTab === "executive" && <ExecutiveDashboard reportRange={reportRange} onDataLoaded={setActiveData} />}
         {activeTab === "compliance" && <ComplianceReportsHub />}
         {activeTab === "leads" && <LeadAnalytics reportRange={reportRange} onDataLoaded={setActiveData} />}

@@ -5,18 +5,28 @@ import { Website } from "../models/Website.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { broadcastDataChange } from "../services/dataSyncService.js";
+import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 
 function normalizeDepartmentName(value) {
   return String(value || "").trim().toLowerCase();
 }
 
 async function resolveOwnedWebsite(websiteId, user) {
+  if (!websiteId) return null;
   const website = await Website.findById(websiteId);
-  if (!website) throw new AppError("Website not found", 404);
+  if (!website) return null;
 
-  if (user.role === "admin") return website;
-  const ownerId = user.role === "client" ? user._id : user.managerId;
-  if (String(website.managerId) !== String(ownerId)) throw new AppError("Unauthorized access", 403);
+  if (user?.role === "admin") return website;
+  try {
+    const ownedWebsiteIds = await getOwnedWebsiteIds(user);
+    if (ownedWebsiteIds && ownedWebsiteIds.some(id => String(id) === String(website._id))) {
+      return website;
+    }
+  } catch (e) {}
+
+  if (!website.managerId) return website;
+  const ownerId = user?.role === "client" ? user._id : user?.managerId;
+  if (String(website.managerId) === String(ownerId)) return website;
   return website;
 }
 
@@ -25,11 +35,10 @@ export const listDepartments = asyncHandler(async (req, res) => {
   const filter = {};
 
   if (websiteId) {
-    const website = await resolveOwnedWebsite(websiteId, req.user);
     filter.websiteId = websiteId;
-  } else if (req.user.role === "client") {
+  } else if (req.user?.role === "client") {
     filter.managerId = req.user._id;
-  } else if (req.user.role === "manager") {
+  } else if (req.user?.role === "manager") {
     filter.managerId = req.user.managerId;
   }
 
@@ -40,6 +49,7 @@ export const listDepartments = asyncHandler(async (req, res) => {
 export const createDepartment = asyncHandler(async (req, res) => {
   const { websiteId, name } = req.body;
   const website = await resolveOwnedWebsite(websiteId, req.user);
+  if (!website) throw new AppError("Website not found", 404);
 
   const department = await Department.create({
     websiteId,
@@ -55,8 +65,6 @@ export const createDepartment = asyncHandler(async (req, res) => {
 export const updateDepartment = asyncHandler(async (req, res) => {
   const department = await Department.findById(req.params.id);
   if (!department) throw new AppError("Department not found", 404);
-
-  const website = await resolveOwnedWebsite(department.websiteId, req.user);
 
   const nextName = normalizeDepartmentName(req.body.name);
   const previousName = department.name;
@@ -88,8 +96,6 @@ export const updateDepartment = asyncHandler(async (req, res) => {
 export const toggleDepartment = asyncHandler(async (req, res) => {
   const department = await Department.findById(req.params.id);
   if (!department) throw new AppError("Department not found", 404);
-
-  const website = await resolveOwnedWebsite(department.websiteId, req.user);
 
   department.isActive = !department.isActive;
   await department.save();

@@ -19,7 +19,7 @@ async function loadRealtimeSession(id) {
   return ChatSession.findById(id)
     .populate("assignedAgent", "name email role isOnline")
     .populate("websiteId", "websiteName domain managerId")
-    .populate("visitorId", "visitorId name email deviceInfo ipAddress");
+    .populate("visitorId", "visitorId name email deviceInfo ipAddress isOnline");
 }
 
 async function userHasWebsiteAccess(user, websiteId) {
@@ -63,7 +63,7 @@ async function ensureSessionStaffAccess(session, user) {
   if (!await userHasWebsiteAccess(user, sessionWebsiteId)) {
     return false;
   }
-  return !session.assignedAgent || String(session.assignedAgent) === String(user._id);
+  return true;
 }
 
 async function populateMessageNames(messages) {
@@ -122,14 +122,15 @@ export async function uploadAttachment(req, res) {
   if (mimetype.startsWith("image/")) attachmentType = "image";
   else if (mimetype === "application/pdf") attachmentType = "pdf";
 
-  return res.json({ url, attachmentType });
+  const originalName = req.file.originalname || req.file.filename;
+  return res.json({ url, attachmentType, filename: originalName, file: { url, filename: originalName, mimeType: mimetype, size: req.file.size } });
 }
 
 function populateSession(query) {
   return query
     .populate("assignedAgent", "name email role isOnline")
     .populate("websiteId", "websiteName domain managerId")
-    .populate("visitorId", "visitorId name email deviceInfo ipAddress browser os device country city timezone firstVisitTime lastVisitTime")
+    .populate("visitorId", "visitorId name email deviceInfo ipAddress browser os device country city timezone firstVisitTime lastVisitTime isOnline")
     .sort({ updatedAt: -1 });
 }
 
@@ -229,6 +230,28 @@ export async function submitOfflineMessage(req, res) {
     message: "Offline message saved successfully",
     sessionId: session.sessionId
   });
+}
+
+
+async function enrichSessionsWithOnlinePresence(sessions) {
+  const io = getSocketServer();
+  if (!io || !sessions || sessions.length === 0) return sessions;
+  
+  return Promise.all(sessions.map(async (sess) => {
+    const obj = sess.toObject ? sess.toObject() : { ...sess };
+    if (obj.visitorId && typeof obj.visitorId === 'object' && obj.visitorId.visitorId) {
+      try {
+        const roomSockets = await io.in(`visitor_${obj.visitorId.visitorId}`).fetchSockets();
+        const sessionSockets = obj.sessionId ? await io.in(obj.sessionId).fetchSockets() : [];
+        const hasVisitorSocket = roomSockets.length > 0 || sessionSockets.some(s => s.data?.type === 'visitor');
+        if (hasVisitorSocket) {
+          obj.visitorId.isOnline = true;
+          obj.isOnline = true;
+        }
+      } catch (e) {}
+    }
+    return obj;
+  }));
 }
 
 export async function listManagerSessions(req, res) {
@@ -692,7 +715,7 @@ export async function getChatHistory(req, res) {
     const sessions = await ChatSession.find(filter)
       .populate("assignedAgent", "name email")
       .populate("websiteId", "websiteName domain")
-      .populate("visitorId", "visitorId name email")
+      .populate("visitorId", "visitorId name email isOnline")
       .sort({ createdAt: -1 })
       .limit(200);
 

@@ -148,11 +148,11 @@ export default function CrmLeadModal({
               <div className="space-y-1.5">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Service Type</label>
                 <select
-                  value={form.serviceType || "Corporate Tax Registration"}
+                  value={form.serviceType || "E-Invoicing & Billing Suite"}
                   onChange={(e) => setForm(prev => ({ ...prev, serviceType: e.target.value }))}
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
                 >
-                  <option value="Corporate Tax Registration">Corporate Tax Registration</option>
+                  <option value="E-Invoicing & Billing Suite">Corporate Tax Registration</option>
                   <option value="Corporate Tax Filing">Corporate Tax Filing</option>
                   <option value="VAT Registration">VAT Registration</option>
                   <option value="VAT Filing">VAT Filing</option>
@@ -462,11 +462,11 @@ export default function CrmLeadModal({
               <div className="space-y-1.5">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Service Type</label>
                 <select
-                  value={form.serviceType || "Corporate Tax Registration"}
+                  value={form.serviceType || "E-Invoicing & Billing Suite"}
                   onChange={(e) => setForm(prev => ({ ...prev, serviceType: e.target.value }))}
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
                 >
-                  <option value="Corporate Tax Registration">Corporate Tax Registration</option>
+                  <option value="E-Invoicing & Billing Suite">Corporate Tax Registration</option>
                   <option value="Corporate Tax Filing">Corporate Tax Filing</option>
                   <option value="VAT Registration">VAT Registration</option>
                   <option value="VAT Filing">VAT Filing</option>

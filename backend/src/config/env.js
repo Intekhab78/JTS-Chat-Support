@@ -62,12 +62,8 @@ export const env = {
   mongoUri,
   jwtSecret,
   clientUrl: process.env.CLIENT_URL || "http://localhost:5173",
-  widgetPublicUrl: process.env.WIDGET_PUBLIC_URL || (
-    nodeEnv === "production"
-      ? "https://chat-backend-3pcj.onrender.com/chat-widget.js"
-      : "http://localhost:5000/chat-widget.js"
-  ),
-  allowedOrigins: (process.env.ALLOWED_ORIGINS || "http://localhost:5173,http://localhost:5174,http://localhost:4173")
+  widgetPublicUrl: process.env.WIDGET_PUBLIC_URL || "https://chatapi.jtsmiddleeast.com/chat-widget.js",
+  allowedOrigins: (process.env.ALLOWED_ORIGINS || "http://localhost:5173,http://localhost:5174,http://localhost:4173,https://chat.jtsmiddleeast.com,https://chatapi.jtsmiddleeast.com")
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean),

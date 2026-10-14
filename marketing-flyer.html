@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JTS Support - Enterprise AI Platform Marketing Flyer & Product Suite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            display: ['"Space Grotesk"', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              dark: '#050816',
+              surface: '#0B1220',
+              card: '#0F172A',
+              blue: '#4F8CFF',
+              cyan: '#00D4FF',
+              purple: '#7C5CFF',
+              emerald: '#00D97E',
+              amber: '#FFC857',
+              rose: '#F43F5E'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom Styling & Neon Aura */
+    body {
+      background-color: #050816;
+      color: #F8FAFC;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      overflow-x: hidden;
+    }
+    
+    .glow-blue {
+      box-shadow: 0 0 50px -10px rgba(79, 140, 255, 0.35);
+    }
+    .glow-purple {
+      box-shadow: 0 0 50px -10px rgba(124, 92, 255, 0.35);
+    }
+    .glow-cyan {
+      box-shadow: 0 0 50px -10px rgba(0, 212, 255, 0.35);
+    }
+    
+    .glass-card {
+      background: rgba(11, 18, 32, 0.75);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    
+    .glass-card:hover {
+      border-color: rgba(79, 140, 255, 0.35);
+      transform: translateY(-2px);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    
+    .badge-gradient {
+      background: linear-gradient(135deg, rgba(79,140,255,0.2) 0%, rgba(124,92,255,0.2) 100%);
+      border: 1px solid rgba(79,140,255,0.3);
+    }
+
+    /* Print / PDF Export Styling */
+    @media print {
+      body {
+        background-color: #050816 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .page-break {
+        page-break-before: always;
+      }
+      .glass-card {
+        break-inside: avoid;
+      }
+    }
+
+    /* Subtle Animated Aurora Orbs */
+    .orb-1 {
+      position: absolute;
+      width: 700px;
+      height: 700px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(79, 140, 255, 0.15) 0%, rgba(0,0,0,0) 70%);
+      top: -150px;
+      left: 15%;
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .orb-2 {
+      position: absolute;
+      width: 650px;
+      height: 650px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(124, 92, 255, 0.12) 0%, rgba(0,0,0,0) 70%);
+      top: 600px;
+      right: 5%;
+      filter: blur(90px);
+      pointer-events: none;
+      z-index: 0;
+    }
+  </style>
+</head>
+<body class="selection:bg-brand-blue selection:text-white">
+
+  <!-- Ambient Light Orbs -->
+  <div class="orb-1"></div>
+  <div class="orb-2"></div>
+
+  <!-- FLOATING ACTION CONTROLS (Print to PDF & Live Demo CTA) -->
+  <div class="fixed bottom-6 right-6 z-50 flex items-center gap-3 no-print">
+    <button onclick="window.print()" class="px-5 py-3 rounded-full bg-brand-surface/90 hover:bg-brand-card text-white text-xs font-bold uppercase tracking-wider border border-white/20 shadow-2xl backdrop-blur-xl flex items-center gap-2 transition-all hover:scale-105 cursor-pointer">
+      <svg class="w-4 h-4 text-brand-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+      Print / Save as PDF Flyer
+    </button>
+    <a href="#contact" class="px-6 py-3 rounded-full bg-gradient-to-r from-brand-blue to-brand-purple hover:from-brand-blue/90 hover:to-brand-purple/90 text-white text-xs font-black uppercase tracking-widest shadow-xl shadow-brand-blue/30 flex items-center gap-2 transition-all hover:scale-105 cursor-pointer">
+      Book Enterprise Demo &rarr;
+    </a>
+  </div>
+
+  <div class="relative z-10 max-w-7xl mx-auto px-6 py-10 md:py-16">
+
+    <!-- 1. TOP HEADER BRANDING -->
+    <header class="flex flex-col sm:flex-row items-center justify-between border-b border-white/10 pb-8 gap-6">
+      <div class="flex items-center gap-4">
+        <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-blue via-brand-purple to-brand-cyan flex items-center justify-center shadow-lg shadow-brand-blue/30 border border-white/20">
+          <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-3">
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight font-display bg-gradient-to-r from-white via-slate-100 to-brand-blue bg-clip-text text-transparent">
+              JTS SUPPORT PLATFORM
+            </h1>
+            <span class="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-brand-cyan/15 text-brand-cyan border border-brand-cyan/30">
+              v2.4 Enterprise OS
+            </span>
+          </div>
+          <p class="text-xs font-medium text-slate-400 tracking-wider uppercase mt-0.5">
+            Omnichannel AI Live Chat • 360° Sales CRM • SLA Helpdesk • GCC Compliance
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-4 text-right">
+        <div class="hidden sm:block">
+          <div class="text-[10px] font-black uppercase tracking-widest text-brand-emerald flex items-center justify-end gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-brand-emerald animate-ping"></span>
+            Cloud Infrastructure Active
+          </div>
+          <div class="text-xs font-bold text-slate-300">99.99% Uptime Guarantee • ISO 27001 Ready</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- 2. HERO STATEMENT & VALUE PROPOSITION -->
+    <section class="py-12 md:py-16 text-center max-w-4xl mx-auto space-y-6">
+      <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full badge-gradient text-brand-cyan text-[11px] font-black uppercase tracking-[0.25em]">
+        <span>⚡</span> Next-Gen Customer Support & Revenue Acceleration Suite
+      </div>
+      <h2 class="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight font-display text-white leading-[1.12]">
+        One Unified Platform to <br class="hidden sm:inline">
+        <span class="bg-gradient-to-r from-brand-blue via-brand-purple to-brand-cyan bg-clip-text text-transparent">
+          Chat, Sell, Resolve & Comply.
+        </span>
+      </h2>
+      <p class="text-base sm:text-lg text-slate-300 font-normal leading-relaxed max-w-3xl mx-auto">
+        Empower your business with subsecond live visitor chat, autonomous AI Copilot draft replies, end-to-end deal pipelines, SLA ticket escalation, automated invoicing, and built-in UAE VAT compliance.
+      </p>
+
+      <!-- Key Performance Badges Strip -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6">
+        <div class="p-4 rounded-2xl glass-card text-center">
+          <div class="text-2xl sm:text-3xl font-extrabold text-white font-display">&lt; 100ms</div>
+          <div class="text-[10px] font-bold text-brand-cyan uppercase tracking-wider mt-1">Subsecond Latency</div>
+        </div>
+        <div class="p-4 rounded-2xl glass-card text-center">
+          <div class="text-2xl sm:text-3xl font-extrabold text-brand-emerald font-display">96.4%</div>
+          <div class="text-[10px] font-bold text-slate-300 uppercase tracking-wider mt-1">Lead Intent Accuracy</div>
+        </div>
+        <div class="p-4 rounded-2xl glass-card text-center">
+          <div class="text-2xl sm:text-3xl font-extrabold text-brand-amber font-display">3.4 hrs</div>
+          <div class="text-[10px] font-bold text-slate-300 uppercase tracking-wider mt-1">Saved Daily Per Agent</div>
+        </div>
+        <div class="p-4 rounded-2xl glass-card text-center">
+          <div class="text-2xl sm:text-3xl font-extrabold text-brand-purple font-display">24 Hubs</div>
+          <div class="text-[10px] font-bold text-slate-300 uppercase tracking-wider mt-1">Master BI Report Cards</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2.5 VISUAL MARKETING FLYER POSTERS (PAGE 1 & PAGE 2) -->
+    <section class="py-10 border-t border-white/10 no-print">
+      <div class="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
+        <div>
+          <span class="text-[11px] font-black uppercase tracking-[0.25em] text-brand-purple">Visual Marketing Assets</span>
+          <h3 class="text-2xl sm:text-3xl font-extrabold text-white font-display tracking-tight mt-1">
+            Official Marketing Flyer Posters (High-Res Images)
+          </h3>
+        </div>
+        <p class="text-xs text-slate-400 max-w-md font-medium">
+          Ready to share on LinkedIn, WhatsApp, email pitches, or print as physical sales collaterals.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+        
+        <!-- Flyer Image 1 -->
+        <div class="glass-card p-4 rounded-3xl space-y-4 border-brand-blue/30 group">
+          <div class="relative overflow-hidden rounded-2xl bg-brand-surface border border-white/10 aspect-[3/4]">
+            <img src="flyer_images/marketing_flyer_page1.jpg" alt="JTS Support Main Marketing Flyer" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+            <div class="absolute inset-0 bg-gradient-to-t from-brand-dark/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-6">
+              <a href="flyer_images/marketing_flyer_page1.jpg" target="_blank" class="px-5 py-2.5 rounded-xl bg-brand-blue text-white text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-xl">
+                Open Full HD Image &nearr;
+              </a>
+            </div>
+          </div>
+          <div class="flex items-center justify-between px-2">
+            <div>
+              <h5 class="text-sm font-bold text-white">Poster 1: Platform Overview & UI Suite</h5>
+              <p class="text-[11px] text-slate-400">Live Chat, AI Copilot, 360° CRM & SLA Metrics</p>
+            </div>
+            <a href="flyer_images/marketing_flyer_page1.jpg" download="JTS_Marketing_Flyer_Page1.jpg" class="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold">
+              Download
+            </a>
+          </div>
+        </div>
+
+        <!-- Flyer Image 2 -->
+        <div class="glass-card p-4 rounded-3xl space-y-4 border-brand-purple/30 group">
+          <div class="relative overflow-hidden rounded-2xl bg-brand-surface border border-white/10 aspect-[3/4]">
+            <img src="flyer_images/marketing_flyer_page2_modules.jpg" alt="JTS Support All 12 Modules Directory" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+            <div class="absolute inset-0 bg-gradient-to-t from-brand-dark/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-6">
+              <a href="flyer_images/marketing_flyer_page2_modules.jpg" target="_blank" class="px-5 py-2.5 rounded-xl bg-brand-purple text-white text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-xl">
+                Open Full HD Image &nearr;
+              </a>
+            </div>
+          </div>
+          <div class="flex items-center justify-between px-2">
+            <div>
+              <h5 class="text-sm font-bold text-white">Poster 2: All 12 System Modules Directory</h5>
+              <p class="text-[11px] text-slate-400">Complete Architecture & Operational Flow</p>
+            </div>
+            <a href="flyer_images/marketing_flyer_page2_modules.jpg" download="JTS_Marketing_Flyer_Page2_Modules.jpg" class="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold">
+              Download
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 3. COMPLETE 12 MODULES ARCHITECTURAL DIRECTORY (GRID) -->
+    <section class="py-12 border-t border-white/10">
+      <div class="flex flex-col sm:flex-row sm:items-end justify-between mb-10 gap-4">
+        <div>
+          <span class="text-[11px] font-black uppercase tracking-[0.25em] text-brand-cyan">Master Ecosystem</span>
+          <h3 class="text-3xl font-extrabold text-white font-display tracking-tight mt-1">
+            All 12 Core System Modules Included
+          </h3>
+        </div>
+        <p class="text-xs text-slate-400 max-w-md font-medium">
+          Zero fragmented third-party software. Everything your sales, customer support, accounts, and management teams need in one synchronized workspace.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <!-- Module 1 -->
+        <div class="glass-card p-6 rounded-3xl space-y-4 relative overflow-hidden group">
+          <div class="flex items-center justify-between">
+            <div class="w-12 h-12 rounded-2xl bg-brand-blue/15 border border-brand-blue/30 text-brand-blue flex items-center justify-center font-bold text-xl">
+              💬
+            </div>
+            <span class="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-brand-blue/10 text-brand-blue border border-brand-blue/20">
+              Module 01
+            </span>
+          </div>
+          <h4 class="text-lg font-bold text-white group-hover:text-brand-blue transition-colors">
+            Omnichannel Live Chat Desk
+          </h4>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Ultra-fast browser WebSocket engine delivering subsecond messaging. Manage visitor conversations across multiple website domains from a single unified inbox.
+          </p>
+          <ul class="text-[11px] text-slate-400 space-y-1.5 pt-2 border-t border-white/5">
+            <li class="flex items-center gap-2"><span class="text-brand-cyan font-bold">&check;</span> 12KB lightweight embed widget (&lt;100ms load)</li>
+            <li class="flex items-center gap-2"><span class="text-brand-cyan font-bold">&check;</span> Live visitor breadcrumbs & page journey tracking</li>
+            <li class="flex items-center gap-2"><span class="text-brand-cyan font-bold">&check;</span> Canned keyboard shortcuts (<code class="text-slate-200">/replies</code>) & audio alerts</li>
+            <li class="flex items-center gap-2"><span class="text-brand-cyan font-bold">&check;</span> One-click chat claiming & agent transfers</li>
+          </ul>
+        </div>
+
+        <!-- Module 2 -->
+        <div class="glass-card p-6 rounded-3xl space-y-4 relative overflow-hidden group border-brand-purple/30">
+          <div class="flex items-center justify-between">
+            <div class="w-12 h-12 rounded-2xl bg-brand-purple/15 border border-brand-purple/30 text-brand-purple flex items-center justify-center font-bold text-xl">
+              ✨
+            </div>
+            <span class="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-brand-purple/15 text-brand-purple border border-brand-purple/30">
+              Module 02 • Core AI
+            </span>
+          </div>
+          <h4 class="text-lg font-bold text-white group-hover:text-brand-purple transition-colors">
+            AI Copilot & Intent Engine
+          </h4>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Autonomous intelligence trained on your company knowledge base. Analyzes visitor sentiment in real time, auto-drafts replies, and scores buying intent.
+          </p>
+          <ul class="text-[11px] text-slate-400 space-y-1.5 pt-2 border-t border-white/5">
+            <li class="flex items-center gap-2"><span class="text-brand-purple font-bold">&check;</span> Lead intent badges (🔥 HOT 96%, WARM, COLD)</li>
+            <li class="flex items-center gap-2"><span class="text-brand-purple font-bold">&check;</span> 1-Click contextual auto-drafting for human reps</li>
+            <li class="flex items-center gap-2"><span class="text-brand-purple font-bold">&check;</span> Automatic resolution of repetitive FAQ queries</li>
+            <li class="flex items-center gap-2"><span class="text-brand-purple font-bold">&check;</span> Seamless bot-to-human escalation triggers</li>
+          </ul>
+        </div>
+
+        <!-- Module 3 -->
+        <div class="glass-card p-6 rounded-3xl space-y-4 relative overflow-hidden group">
+          <div class="flex items-center justify-between">
+            <div class="w-12 h-12 rounded-2xl bg-brand-cyan/15 border border-brand-cyan/30 text-brand-cyan flex items-center justify-center font-bold text-xl">
+              🌿
+            </div>
+            <span class="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-brand-cyan/10 text-brand-cyan border border-brand-cyan/20">
+              Module 03
+            </span>
+          </div>
+          <h4 class="text-lg font-bold text-white group-hover:text-brand-cyan transition-colors">
+            Visual Chat Flow Builder
+          </h4>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            No-code drag-and-drop conversational canvas. Design automated routing paths, interactive questionnaires, and qualification workflows without touching code.
+          </p>
+          <ul class="text-[11px] text-slate-400 space-y-1.5 pt-2 border-t border-white/5">
+            <li class="flex items-center gap-2"><span class="text-brand-cyan font-bold">&check;</span> Drag-and-drop nodes for messages & decision trees</li>
+            <li class="flex items-center gap-2"><span class="text-brand-cyan font-bold">&check;</span> Dynamic lead capture & email validation gates</li>
+            <li class="flex items-center gap-2"><span class="text-brand-cyan font-bold">&check;</span> REST Webhook triggers to external CRMs & Zapier</li>
+            <li class="flex items-center gap-2"><span class="text-brand-cyan font-bold">&check;</span> Instant draft, versioning, and one-click publishing</li>
+          </ul>
+        </div>
+
+        <!-- Module 4 -->
+        <div class="glass-card p-6 rounded-3xl space-y-4 relative overflow-hidden group">
+          <div class="flex items-center justify-between">
+            <div class="w-12 h-12 rounded-2xl bg-brand-rose/15 border border-brand-rose/30 text-brand-rose flex items-center justify-center font-bold text-xl">
+              🎫
+            </div>
+            <span class="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-brand-rose/10 text-brand-rose border border-brand-rose/20">
+              Module 04
+            </span>
+          </div>
+          <h4 class="text-lg font-bold text-white group-hover:text-brand-rose transition-colors">
+            Helpdesk & SLA Ticketing
+          </h4>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Turn offline conversations and escalations into tracked SLA tickets with dedicated response timers, team queues, and an external customer lookup portal.
+          </p>
+          <ul class="text-[11px] text-slate-400 space-y-1.5 pt-2 border-t border-white/5">
+            <li class="flex items-center gap-2"><span class="text-brand-rose font-bold">&check;</span> 1-Click offline chat-to-ticket conversion</li>
+            <li class="flex items-center gap-2"><span class="text-brand-rose font-bold">&check;</span> Priority levels: Low, Medium, High, Urgent</li>
+            <li class="flex items-center gap-2"><span class="text-brand-rose font-bold">&check;</span> Department routing (Sales, Support, Accounts, Tech)</li>
+            <li class="flex items-center gap-2"><span class="text-brand-rose font-bold">&check;</span> Public Ticket Status Tracker for clients</li>
+          </ul>
+        </div>
+
+        <!-- Module 5 -->
+        <div class="glass-card p-6 rounded-3xl space-y-4 relative overflow-hidden group border-brand-blue/30">
+          <div class="flex items-center justify-between">
+            <div class="w-12 h-12 rounded-2xl bg-brand-blue/15 border border-brand-blue/30 text-brand-blue flex items-center justify-center font-bold text-xl">
+              💼
+            </div>
+            <span class="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-brand-blue/15 text-brand-blue border border-brand-blue/30">
+              Module 05 • Sales Engine
+            </span>
+          </div>
+          <h4 class="text-lg font-bold text-white group-hover:text-brand-blue transition-colors">
+            Sales CRM & Customer 360
+          </h4>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Visual Kanban pipeline tracking prospect journeys from New Lead to Qualified, Proposal, Negotiation, and Closed-Won with complete communication history.
+          </p>
+          <ul class="text-[11px] text-slate-400 space-y-1.5 pt-2 border-t border-white/5">
+            <li class="flex items-center gap-2"><span class="text-brand-blue font-bold">&check;</span> Drag-and-drop Kanban pipeline & deals ledger</li>
+            <li class="flex items-center gap-2"><span class="text-brand-blue font-bold">&check;</span> Customer 360: chats, tickets, quotes, audit timeline</li>
+            <li class="flex items-center gap-2"><span class="text-brand-blue font-bold">&check;</span> Corporate accounts, trade licenses, VAT numbers</li>
+            <li class="flex items-center gap-2"><span class="text-brand-blue font-bold">&check;</span> Round-robin lead routing to online sales reps</li>
+          </ul>
+        </div>
+
+        <!-- Module 6 -->
+        <div class="glass-card p-6 rounded-3xl space-y-4 relative overflow-hidden group">
+          <div class="flex items-center justify-between">
+            <div class="w-12 h-12 rounded-2xl bg-brand-amber/15 border border-brand-amber/30 text-brand-amber flex items-center justify-center font-bold text-xl">
+              📑
+            </div>
+            <span class="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-brand-amber/10 text-brand-amber border border-brand-amber/20">
+              Module 06
+            </span>
+          </div>
+          <h4 class="text-lg font-bold text-white group-hover:text-brand-amber transition-colors">
+            Quotations & Approval Gates
+          </h4>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Professional proposal generator with SKU autocomplete, auto VAT calculations, multi-currency support, and multi-tier executive sign-off logic.
+          </p>
+          <ul class="text-[11px] text-slate-400 space-y-1.5 pt-2 border-t border-white/5">
+            <li class="flex items-center gap-2"><span class="text-brand-amber font-bold">&check;</span> Dynamic line-item grid with inventory SKU lookup</li>
+            <li class="flex items-center gap-2"><span class="text-brand-amber font-bold">&check;</span> Approval hierarchy: Auto (&lt;10k), Manager, Director</li>
+            <li class="flex items-center gap-2"><span class="text-brand-amber font-bold">&check;</span> 1-Click PDF estimate builder & branded client email</li>
+            <li class="flex items-center gap-2"><span class="text-brand-amber font-bold">&check;</span> Auto-advancement to Sales Order upon acceptance</li>
+          </ul>
+        </div>
+
+        <!-- Module 7 -->
+        <div class="glass-card p-6 rounded-3xl space-y-4 relative overflow-hidden group">
+          <div class="flex items-center justify-between">
+            <div class="w-12 h-12 rounded-2xl bg-brand-emerald/15 border border-brand-emerald/30 text-brand-emerald flex items-center justify-center font-bold text-xl">
+              💳
+            </div>
+            <span class="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-brand-emerald/10 text-brand-emerald border border-brand-emerald/20">
+              Module 07
+            </span>
+          </div>
+          <h4 class="text-lg font-bold text-white group-hover:text-brand-emerald transition-colors">
+            Billing, Invoices & Checkout
+          </h4>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Unified billing ledger supporting one-time invoices and recurring subscriptions. Includes client payment checkout sandbox and Razorpay gateway integration.
+          </p>
+          <ul class="text-[11px] text-slate-400 space-y-1.5 pt-2 border-t border-white/5">
+            <li class="flex items-center gap-2"><span class="text-brand-emerald font-bold">&check;</span> Auto-updates deal stage to "Won" upon payment</li>
+            <li class="flex items-center gap-2"><span class="text-brand-emerald font-bold">&check;</span> Instant card, UPI & bank payment gateway flows</li>
+            <li class="flex items-center gap-2"><span class="text-brand-emerald font-bold">&check;</span> Daily 8:00 AM Cron for subscription renewal alerts</li>
+            <li class="flex items-center gap-2"><span class="text-brand-emerald font-bold">&check;</span> Downloadable PDF tax invoices & receipts</li>
+          </ul>
+        </div>
+
+        <!-- Module 8 -->
+        <div class="glass-card p-6 rounded-3xl space-y-4 relative overflow-hidden group border-brand-amber/30">
+          <div class="flex items-center justify-between">
+            <div class="w-12 h-12 rounded-2xl bg-brand-amber/15 border border-brand-amber/30 text-brand-amber flex items-center justify-center font-bold text-xl">
+              🇦🇪
+            </div>
+            <span class="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-brand-amber/15 text-brand-amber border border-brand-amber/30">
+              Module 08 • GCC Ready
+            </span>
+          </div>
+          <h4 class="text-lg font-bold text-white group-hover:text-brand-amber transition-colors">
+            UAE VAT & Corporate Tax Hub
+          </h4>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Tailor-made for GCC & UAE businesses. Automated FTA Form 201 VAT return calculations, Corporate Tax rate tracking, and trade license expiry watchdogs.
+          </p>
+          <ul class="text-[11px] text-slate-400 space-y-1.5 pt-2 border-t border-white/5">
+            <li class="flex items-center gap-2"><span class="text-brand-amber font-bold">&check;</span> Automated UAE VAT 201 Return (Standard, Zero, Exempt)</li>
+            <li class="flex items-center gap-2"><span class="text-brand-amber font-bold">&check;</span> 9% Corporate Tax ledger with deductible rules</li>
+            <li class="flex items-center gap-2"><span class="text-brand-amber font-bold">&check;</span> Trade license renewal alert engine with document store</li>
+            <li class="flex items-center gap-2"><span class="text-brand-amber font-bold">&check;</span> 1-Click FTA Audit File (FAF) & Tax Report export</li>
+          </ul>
+        </div>
+
+        <!-- Module 9 -->
+        <div class="glass-card p-6 rounded-3xl space-y-4 relative overflow-hidden group">
+          <div class="flex items-center justify-between">
+            <div class="w-12 h-12 rounded-2xl bg-brand-blue/15 border border-brand-blue/30 text-brand-blue flex items-center justify-center font-bold text-xl">
+              🌐
+            </div>
+            <span class="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-brand-blue/10 text-brand-blue border border-brand-blue/20">
+              Module 09
+            </span>
+          </div>
+          <h4 class="text-lg font-bold text-white group-hover:text-brand-blue transition-colors">
+            Multi-Website Management
+          </h4>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Manage multiple e-commerce stores, client portals, and brand sites from a single master dashboard with isolated cryptographic keys and CORS origin locking.
+          </p>
+          <ul class="text-[11px] text-slate-400 space-y-1.5 pt-2 border-t border-white/5">
+            <li class="flex items-center gap-2"><span class="text-brand-blue font-bold">&check;</span> 1 Account manages unlimited domain slots</li>
+            <li class="flex items-center gap-2"><span class="text-brand-blue font-bold">&check;</span> Strict CORS origin domain protection & API keys</li>
+            <li class="flex items-center gap-2"><span class="text-brand-blue font-bold">&check;</span> Toggle feature modules per website (e.g. VAT ON/OFF)</li>
+            <li class="flex items-center gap-2"><span class="text-brand-blue font-bold">&check;</span> Independent widget themes & branding per site</li>
+          </ul>
+        </div>
+
+        <!-- Module 10 -->
+        <div class="glass-card p-6 rounded-3xl space-y-4 relative overflow-hidden group">
+          <div class="flex items-center justify-between">
+            <div class="w-12 h-12 rounded-2xl bg-brand-purple/15 border border-brand-purple/30 text-brand-purple flex items-center justify-center font-bold text-xl">
+              👥
+            </div>
+            <span class="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-brand-purple/10 text-brand-purple border border-brand-purple/20">
+              Module 10
+            </span>
+          </div>
+          <h4 class="text-lg font-bold text-white group-hover:text-brand-purple transition-colors">
+            Enterprise RBAC & Roles
+          </h4>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Comprehensive Role-Based Access Control matrix ensuring team members only access what they need. Protects confidential customer data and financials.
+          </p>
+          <ul class="text-[11px] text-slate-400 space-y-1.5 pt-2 border-t border-white/5">
+            <li class="flex items-center gap-2"><span class="text-brand-purple font-bold">&check;</span> 8 Predefined roles: Admin, Manager, Sales, Support, Finance</li>
+            <li class="flex items-center gap-2"><span class="text-brand-purple font-bold">&check;</span> Dedicated portals for Tax Consultants & Suppliers</li>
+            <li class="flex items-center gap-2"><span class="text-brand-purple font-bold">&check;</span> Granular CRUD permission gates per field</li>
+            <li class="flex items-center gap-2"><span class="text-brand-purple font-bold">&check;</span> Secure Inactivity session timeout & 2FA protection</li>
+          </ul>
+        </div>
+
+        <!-- Module 11 -->
+        <div class="glass-card p-6 rounded-3xl space-y-4 relative overflow-hidden group">
+          <div class="flex items-center justify-between">
+            <div class="w-12 h-12 rounded-2xl bg-brand-cyan/15 border border-brand-cyan/30 text-brand-cyan flex items-center justify-center font-bold text-xl">
+              📊
+            </div>
+            <span class="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-brand-cyan/10 text-brand-cyan border border-brand-cyan/20">
+              Module 11
+            </span>
+          </div>
+          <h4 class="text-lg font-bold text-white group-hover:text-brand-cyan transition-colors">
+            24 Master BI Report Cards
+          </h4>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Deep operational business intelligence. Executive metrics, agent SLA league tables, pipeline conversion velocity, and financial MRR analytics.
+          </p>
+          <ul class="text-[11px] text-slate-400 space-y-1.5 pt-2 border-t border-white/5">
+            <li class="flex items-center gap-2"><span class="text-brand-cyan font-bold">&check;</span> 24 Specialized analytics cards across all departments</li>
+            <li class="flex items-center gap-2"><span class="text-brand-cyan font-bold">&check;</span> Real-time agent first-response & resolution timings</li>
+            <li class="flex items-center gap-2"><span class="text-brand-cyan font-bold">&check;</span> Pipeline deal velocity & conversion funnel drops</li>
+            <li class="flex items-center gap-2"><span class="text-brand-cyan font-bold">&check;</span> Multi-format downloads: CSV, Excel, and PDF</li>
+          </ul>
+        </div>
+
+        <!-- Module 12 -->
+        <div class="glass-card p-6 rounded-3xl space-y-4 relative overflow-hidden group">
+          <div class="flex items-center justify-between">
+            <div class="w-12 h-12 rounded-2xl bg-brand-emerald/15 border border-brand-emerald/30 text-brand-emerald flex items-center justify-center font-bold text-xl">
+              🛡️
+            </div>
+            <span class="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-brand-emerald/10 text-brand-emerald border border-brand-emerald/20">
+              Module 12
+            </span>
+          </div>
+          <h4 class="text-lg font-bold text-white group-hover:text-brand-emerald transition-colors">
+            Audit Trail & Observability
+          </h4>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Immutable enterprise audit logger recording all status modifications, price discounts, logins, and automated database backups with system health logs.
+          </p>
+          <ul class="text-[11px] text-slate-400 space-y-1.5 pt-2 border-t border-white/5">
+            <li class="flex items-center gap-2"><span class="text-brand-emerald font-bold">&check;</span> Full audit trail: User, timestamp, old value & new value</li>
+            <li class="flex items-center gap-2"><span class="text-brand-emerald font-bold">&check;</span> Automated MongoDB database backup batch scripts</li>
+            <li class="flex items-center gap-2"><span class="text-brand-emerald font-bold">&check;</span> Disaster Recovery & automated zip archives</li>
+            <li class="flex items-center gap-2"><span class="text-brand-emerald font-bold">&check;</span> Real-time system health and error observability</li>
+          </ul>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 4. VISUAL OPERATIONAL DATA FLOW PIPELINE -->
+    <section class="py-12 border-t border-white/10 page-break">
+      <div class="text-center max-w-2xl mx-auto space-y-3 mb-10">
+        <span class="text-[11px] font-black uppercase tracking-[0.25em] text-brand-purple">End-to-End Workflow</span>
+        <h3 class="text-3xl font-extrabold text-white font-display tracking-tight">
+          How Customer Data Moves Through JTS
+        </h3>
+        <p class="text-xs text-slate-300">
+          From first website visit to closed-won invoice and long-term compliance without human friction.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-4 relative">
+        
+        <!-- Step 1 -->
+        <div class="p-5 rounded-3xl glass-card text-center space-y-3 relative">
+          <div class="w-10 h-10 rounded-2xl bg-brand-blue/20 text-brand-blue font-extrabold text-sm mx-auto flex items-center justify-center border border-brand-blue/30">
+            1
+          </div>
+          <h5 class="text-sm font-bold text-white">Live Visitor Entry</h5>
+          <p class="text-[11px] text-slate-400 leading-normal">
+            Visitor engages widget. AI Intent Engine evaluates score (🔥 96% Hot Lead) and auto-drafts reply.
+          </p>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="p-5 rounded-3xl glass-card text-center space-y-3 relative">
+          <div class="w-10 h-10 rounded-2xl bg-brand-cyan/20 text-brand-cyan font-extrabold text-sm mx-auto flex items-center justify-center border border-brand-cyan/30">
+            2
+          </div>
+          <h5 class="text-sm font-bold text-white">Lead Auto-Creation</h5>
+          <p class="text-[11px] text-slate-400 leading-normal">
+            Contact info auto-syncs into Kanban Pipeline. Round-robin assigns to available sales rep.
+          </p>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="p-5 rounded-3xl glass-card text-center space-y-3 relative">
+          <div class="w-10 h-10 rounded-2xl bg-brand-amber/20 text-brand-amber font-extrabold text-sm mx-auto flex items-center justify-center border border-brand-amber/30">
+            3
+          </div>
+          <h5 class="text-sm font-bold text-white">Quotation & Sign-off</h5>
+          <p class="text-[11px] text-slate-400 leading-normal">
+            Sales draft quote with SKU catalog. Manager signs off if above threshold. PDF emailed to client.
+          </p>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="p-5 rounded-3xl glass-card text-center space-y-3 relative">
+          <div class="w-10 h-10 rounded-2xl bg-brand-emerald/20 text-brand-emerald font-extrabold text-sm mx-auto flex items-center justify-center border border-brand-emerald/30">
+            4
+          </div>
+          <h5 class="text-sm font-bold text-white">Checkout & Won Stage</h5>
+          <p class="text-[11px] text-slate-400 leading-normal">
+            Client pays via secure checkout portal. Backend auto-locks deal as "Won" and generates invoice.
+          </p>
+        </div>
+
+        <!-- Step 5 -->
+        <div class="p-5 rounded-3xl glass-card text-center space-y-3 relative">
+          <div class="w-10 h-10 rounded-2xl bg-brand-purple/20 text-brand-purple font-extrabold text-sm mx-auto flex items-center justify-center border border-brand-purple/30">
+            5
+          </div>
+          <h5 class="text-sm font-bold text-white">Tax & Helpdesk Sync</h5>
+          <p class="text-[11px] text-slate-400 leading-normal">
+            VAT ledger updates automatically. Support tickets routes to account owner. 24 BI reports update in real-time.
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 5. 10 KEY BUSINESS REASONS TO CHOOSE JTS -->
+    <section class="py-12 border-t border-white/10">
+      <div class="text-center max-w-2xl mx-auto space-y-3 mb-10">
+        <span class="text-[11px] font-black uppercase tracking-[0.25em] text-brand-emerald">Competitive Advantage</span>
+        <h3 class="text-3xl font-extrabold text-white font-display tracking-tight">
+          10 Reasons Enterprise Teams Choose JTS
+        </h3>
+        <p class="text-xs text-slate-300">
+          Engineered for high-volume customer support, subsecond response times, and automated revenue operations.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        <div class="p-5 rounded-2xl glass-card flex items-start gap-4">
+          <div class="text-brand-amber font-display font-extrabold text-lg mt-0.5">01</div>
+          <div>
+            <h5 class="text-sm font-bold text-white">Subsecond Widget Load (12KB Script)</h5>
+            <p class="text-xs text-slate-400 mt-1">Lightweight script executes in under 100ms with zero impact on Google PageSpeed SEO ratings.</p>
+          </div>
+        </div>
+
+        <div class="p-5 rounded-2xl glass-card flex items-start gap-4">
+          <div class="text-brand-blue font-display font-extrabold text-lg mt-0.5">02</div>
+          <div>
+            <h5 class="text-sm font-bold text-white">Cryptographic Key & Origin Lockdown</h5>
+            <p class="text-xs text-slate-400 mt-1">Strict CORS origin domain security guarantees unauthorized sites cannot use your chat engine.</p>
+          </div>
+        </div>
+
+        <div class="p-5 rounded-2xl glass-card flex items-start gap-4">
+          <div class="text-brand-purple font-display font-extrabold text-lg mt-0.5">03</div>
+          <div>
+            <h5 class="text-sm font-bold text-white">Autonomous AI Intent & Sentiment Badges</h5>
+            <p class="text-xs text-slate-400 mt-1">Identifies hot prospective clients (🔥 96% purchase intent) and drafts contextual responses instantly.</p>
+          </div>
+        </div>
+
+        <div class="p-5 rounded-2xl glass-card flex items-start gap-4">
+          <div class="text-brand-cyan font-display font-extrabold text-lg mt-0.5">04</div>
+          <div>
+            <h5 class="text-sm font-bold text-white">SLA Helpdesk & Department Escalation</h5>
+            <p class="text-xs text-slate-400 mt-1">Offline inquiries convert into tracked SLA tickets with automated breach warnings and resolution tracking.</p>
+          </div>
+        </div>
+
+        <div class="p-5 rounded-2xl glass-card flex items-start gap-4">
+          <div class="text-brand-emerald font-display font-extrabold text-lg mt-0.5">05</div>
+          <div>
+            <h5 class="text-sm font-bold text-white">Customer 360 CRM & Kanban Pipelines</h5>
+            <p class="text-xs text-slate-400 mt-1">Unified view of client chats, past tickets, quotations, corporate licenses, and sales stages in one drawer.</p>
+          </div>
+        </div>
+
+        <div class="p-5 rounded-2xl glass-card flex items-start gap-4">
+          <div class="text-brand-amber font-display font-extrabold text-lg mt-0.5">06</div>
+          <div>
+            <h5 class="text-sm font-bold text-white">Built-in UAE VAT & Corporate Tax Compliance</h5>
+            <p class="text-xs text-slate-400 mt-1">Automated FTA Form 201 VAT returns, 9% Corporate Tax ledgers, and Trade License expiry watchdogs.</p>
+          </div>
+        </div>
+
+        <div class="p-5 rounded-2xl glass-card flex items-start gap-4">
+          <div class="text-brand-rose font-display font-extrabold text-lg mt-0.5">07</div>
+          <div>
+            <h5 class="text-sm font-bold text-white">Dynamic Quotation & Approval Hierarchy</h5>
+            <p class="text-xs text-slate-400 mt-1">Enforce strict discount rules (<15%) and automatic sign-off gates for high-ticket enterprise deals.</p>
+          </div>
+        </div>
+
+        <div class="p-5 rounded-2xl glass-card flex items-start gap-4">
+          <div class="text-brand-blue font-display font-extrabold text-lg mt-0.5">08</div>
+          <div>
+            <h5 class="text-sm font-bold text-white">Multi-Domain Single Command Center</h5>
+            <p class="text-xs text-slate-400 mt-1">Operate across multiple websites with independent feature switches and unified agent assignment.</p>
+          </div>
+        </div>
+
+        <div class="p-5 rounded-2xl glass-card flex items-start gap-4">
+          <div class="text-brand-purple font-display font-extrabold text-lg mt-0.5">09</div>
+          <div>
+            <h5 class="text-sm font-bold text-white">Automated Daily Subscription Expiry Crons</h5>
+            <p class="text-xs text-slate-400 mt-1">Runs every day at 8:00 AM to send 7-day, 3-day, and on-expiry notifications and invoice renewals.</p>
+          </div>
+        </div>
+
+        <div class="p-5 rounded-2xl glass-card flex items-start gap-4">
+          <div class="text-brand-cyan font-display font-extrabold text-lg mt-0.5">10</div>
+          <div>
+            <h5 class="text-sm font-bold text-white">24 BI Report Cards with Excel & PDF Exports</h5>
+            <p class="text-xs text-slate-400 mt-1">Real-time MRR, SLA breach ratios, agent leaderboards, and cash flow forecasts exportable in 1-click.</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 6. 4-STEP ONBOARDING DEPLOYMENT GUIDE -->
+    <section class="py-12 border-t border-white/10">
+      <div class="text-center max-w-2xl mx-auto space-y-3 mb-10">
+        <span class="text-[11px] font-black uppercase tracking-[0.25em] text-brand-cyan">Fast Setup</span>
+        <h3 class="text-3xl font-extrabold text-white font-display tracking-tight">
+          Live in Under 3 Minutes
+        </h3>
+        <p class="text-xs text-slate-300">
+          Zero complex configuration. Seamlessly integrates into any existing web stack.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        
+        <div class="glass-card p-6 rounded-3xl space-y-3 border-brand-blue/30">
+          <div class="w-8 h-8 rounded-xl bg-brand-blue text-white font-extrabold text-xs flex items-center justify-center">01</div>
+          <h5 class="text-sm font-bold text-white">Register Workspace</h5>
+          <p class="text-xs text-slate-400">Choose your package plan and gain instant access to your Client Command Center.</p>
+        </div>
+
+        <div class="glass-card p-6 rounded-3xl space-y-3 border-brand-purple/30">
+          <div class="w-8 h-8 rounded-xl bg-brand-purple text-white font-extrabold text-xs flex items-center justify-center">02</div>
+          <h5 class="text-sm font-bold text-white">Register Website Domain</h5>
+          <p class="text-xs text-slate-400">Add your domain name (e.g. brand.com) to generate your cryptographic key pair.</p>
+        </div>
+
+        <div class="glass-card p-6 rounded-3xl space-y-3 border-brand-cyan/30">
+          <div class="w-8 h-8 rounded-xl bg-brand-cyan text-brand-dark font-extrabold text-xs flex items-center justify-center">03</div>
+          <h5 class="text-sm font-bold text-white">Embed 1-Line Script</h5>
+          <p class="text-xs text-slate-400">Paste the 12KB tag into your HTML header, WordPress, Shopify, or React application.</p>
+        </div>
+
+        <div class="glass-card p-6 rounded-3xl space-y-3 border-brand-emerald/30">
+          <div class="w-8 h-8 rounded-xl bg-brand-emerald text-brand-dark font-extrabold text-xs flex items-center justify-center">04</div>
+          <h5 class="text-sm font-bold text-white">Invite Team & Launch</h5>
+          <p class="text-xs text-slate-400">Invite support reps, configure SLA routing, and activate AI auto-drafting.</p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 7. TRANSPARENT ENTERPRISE PRICING TIERS -->
+    <section class="py-12 border-t border-white/10 page-break">
+      <div class="text-center max-w-2xl mx-auto space-y-3 mb-10">
+        <span class="text-[11px] font-black uppercase tracking-[0.25em] text-brand-amber">Growth Tiers</span>
+        <h3 class="text-3xl font-extrabold text-white font-display tracking-tight">
+          Flexible Pricing For Every Stage
+        </h3>
+        <p class="text-xs text-slate-300">
+          Transparent subscriptions with 20% discount on annual billing.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+
+        <!-- Tier 1 -->
+        <div class="glass-card p-6 rounded-3xl space-y-4 flex flex-col justify-between">
+          <div class="space-y-3">
+            <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Starter AI OS</span>
+            <div class="text-3xl font-extrabold text-white font-display">$49 <span class="text-xs text-slate-400 font-normal">/ mo</span></div>
+            <p class="text-[11px] text-slate-400">Essential live chat, AI intent engine, and basic lead capture for growing teams.</p>
+            <ul class="text-xs text-slate-300 space-y-2 pt-2 border-t border-white/5">
+              <li class="flex items-center gap-2">&check; 2 Agent Seats</li>
+              <li class="flex items-center gap-2">&check; 1 Website Domain</li>
+              <li class="flex items-center gap-2">&check; Omnichannel Live Chat</li>
+              <li class="flex items-center gap-2">&check; Keyboard Shortcuts</li>
+            </ul>
+          </div>
+          <div class="pt-4">
+            <span class="block text-center py-2.5 rounded-xl border border-white/10 text-xs font-bold text-slate-300">Select Starter</span>
+          </div>
+        </div>
+
+        <!-- Tier 2 -->
+        <div class="glass-card p-6 rounded-3xl space-y-4 flex flex-col justify-between">
+          <div class="space-y-3">
+            <span class="text-[10px] font-black uppercase tracking-widest text-brand-blue">Professional OS</span>
+            <div class="text-3xl font-extrabold text-white font-display">$149 <span class="text-xs text-slate-400 font-normal">/ mo</span></div>
+            <p class="text-[11px] text-slate-400">Complete sales operations, invoicing, payments ledger, and helpdesk SLA ticketing.</p>
+            <ul class="text-xs text-slate-300 space-y-2 pt-2 border-t border-white/5">
+              <li class="flex items-center gap-2">&check; 5 Agent Seats</li>
+              <li class="flex items-center gap-2">&check; 3 Website Domains</li>
+              <li class="flex items-center gap-2">&check; SLA Helpdesk Tickets</li>
+              <li class="flex items-center gap-2">&check; Invoices & Ledger</li>
+              <li class="flex items-center gap-2">&check; Standard Reports</li>
+            </ul>
+          </div>
+          <div class="pt-4">
+            <span class="block text-center py-2.5 rounded-xl border border-brand-blue/30 bg-brand-blue/10 text-xs font-bold text-brand-blue">Select Pro</span>
+          </div>
+        </div>
+
+        <!-- Tier 3 (POPULAR) -->
+        <div class="glass-card p-6 rounded-3xl space-y-4 flex flex-col justify-between border-brand-cyan/50 glow-cyan relative">
+          <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-brand-cyan text-brand-dark text-[9px] font-black uppercase tracking-widest">
+            MOST POPULAR
+          </div>
+          <div class="space-y-3">
+            <span class="text-[10px] font-black uppercase tracking-widest text-brand-cyan">Enterprise Pro OS</span>
+            <div class="text-3xl font-extrabold text-white font-display">$349 <span class="text-xs text-slate-400 font-normal">/ mo</span></div>
+            <p class="text-[11px] text-slate-300">Full AI OS suite including UAE VAT Compliance, Corporate Tax, CRM & BI Analytics.</p>
+            <ul class="text-xs text-slate-200 space-y-2 pt-2 border-t border-white/10 font-medium">
+              <li class="flex items-center gap-2">&check; 10 Agent Seats</li>
+              <li class="flex items-center gap-2">&check; 10 Website Domains</li>
+              <li class="flex items-center gap-2">&check; 360° Sales CRM & Kanban</li>
+              <li class="flex items-center gap-2">&check; 🇦🇪 UAE VAT & Corporate Tax</li>
+              <li class="flex items-center gap-2">&check; AI Copilot Auto-Drafting</li>
+              <li class="flex items-center gap-2">&check; 24 Master Report Hubs</li>
+            </ul>
+          </div>
+          <div class="pt-4">
+            <span class="block text-center py-2.5 rounded-xl bg-gradient-to-r from-brand-blue to-brand-cyan text-brand-dark text-xs font-black uppercase tracking-wider shadow-lg">Get Enterprise Pro</span>
+          </div>
+        </div>
+
+        <!-- Tier 4 -->
+        <div class="glass-card p-6 rounded-3xl space-y-4 flex flex-col justify-between">
+          <div class="space-y-3">
+            <span class="text-[10px] font-black uppercase tracking-widest text-brand-purple">Custom Enterprise</span>
+            <div class="text-3xl font-extrabold text-white font-display">$799 <span class="text-xs text-slate-400 font-normal">/ mo</span></div>
+            <p class="text-[11px] text-slate-400">Dedicated high-capacity infrastructure, security audit trail, custom SLA, and priority support.</p>
+            <ul class="text-xs text-slate-300 space-y-2 pt-2 border-t border-white/5">
+              <li class="flex items-center gap-2">&check; 50 Agent Seats</li>
+              <li class="flex items-center gap-2">&check; 25 Website Domains</li>
+              <li class="flex items-center gap-2">&check; Full Security Audit Trail</li>
+              <li class="flex items-center gap-2">&check; Custom SLA Guarantee</li>
+              <li class="flex items-center gap-2">&check; Dedicated Account Executive</li>
+            </ul>
+          </div>
+          <div class="pt-4">
+            <span class="block text-center py-2.5 rounded-xl border border-white/10 text-xs font-bold text-slate-300">Contact Enterprise</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 8. ECOSYSTEM INTEGRATION HUBS -->
+    <section class="py-12 border-t border-white/10">
+      <div class="text-center max-w-2xl mx-auto space-y-2 mb-8">
+        <span class="text-[11px] font-black uppercase tracking-[0.25em] text-brand-purple">Seamless Compatibility</span>
+        <h4 class="text-2xl font-bold text-white">Integrates With Your Existing Stack</h4>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-center gap-4 text-xs font-bold text-slate-300">
+        <div class="px-5 py-3 rounded-2xl glass-card flex items-center gap-2">
+          <span>🟢</span> WhatsApp Cloud API
+        </div>
+        <div class="px-5 py-3 rounded-2xl glass-card flex items-center gap-2">
+          <span>🔵</span> WordPress & WooCommerce
+        </div>
+        <div class="px-5 py-3 rounded-2xl glass-card flex items-center gap-2">
+          <span>🟢</span> Shopify E-Commerce
+        </div>
+        <div class="px-5 py-3 rounded-2xl glass-card flex items-center gap-2">
+          <span>⚡</span> Razorpay Payment Gateway
+        </div>
+        <div class="px-5 py-3 rounded-2xl glass-card flex items-center gap-2">
+          <span>🎥</span> Zoom & Teams Video Demos
+        </div>
+        <div class="px-5 py-3 rounded-2xl glass-card flex items-center gap-2">
+          <span>🔄</span> Webhooks & Zapier
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. FOOTER & CONTACT CALL-TO-ACTION -->
+    <footer id="contact" class="mt-12 pt-10 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-6 text-slate-400 text-xs">
+      <div>
+        <div class="text-white font-extrabold text-base tracking-tight font-display">JTS CHAT SUPPORT PLATFORM</div>
+        <p class="mt-1">Next-Generation Omnichannel AI & Revenue Operations Platform.</p>
+      </div>
+
+      <div class="flex flex-col sm:flex-row items-center gap-6">
+        <div>
+          <span class="block text-[10px] font-black text-brand-cyan uppercase tracking-widest">Enterprise Inquiries</span>
+          <span class="text-white font-bold">support@jtsplatform.com</span>
+        </div>
+        <div>
+          <span class="block text-[10px] font-black text-brand-purple uppercase tracking-widest">Global Support</span>
+          <span class="text-white font-bold">+971 (4) 000-0000 / 24/7 Desk</span>
+        </div>
+      </div>
+
+      <div class="text-center md:text-right">
+        <p>&copy; 2026 JTS Enterprise Support. All rights reserved.</p>
+        <p class="text-[10px] text-slate-500 mt-0.5">UAE VAT Form 201 • ISO 27001 Ready • GDPR Compliant</p>
+      </div>
+    </footer>
+
+  </div>
+
+</body>
+</html>

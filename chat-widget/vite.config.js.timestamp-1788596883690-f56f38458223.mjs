@@ -1,0 +1,19 @@
+// vite.config.js
+import { defineConfig } from "file:///E:/Chat%20Support/node_modules/vite/dist/node/index.js";
+import cssInjectedByJsPlugin from "file:///E:/Chat%20Support/node_modules/vite-plugin-css-injected-by-js/dist/esm/index.js";
+var vite_config_default = defineConfig({
+  plugins: [cssInjectedByJsPlugin()],
+  build: {
+    cssCodeSplit: false,
+    lib: {
+      entry: "src/main.js",
+      name: "ChatWidget",
+      fileName: "chat-widget",
+      formats: ["iife"]
+    }
+  }
+});
+export {
+  vite_config_default as default
+};
+//# sourceMappingURL=data:application/json;base64,ewogICJ2ZXJzaW9uIjogMywKICAic291cmNlcyI6IFsidml0ZS5jb25maWcuanMiXSwKICAic291cmNlc0NvbnRlbnQiOiBbImNvbnN0IF9fdml0ZV9pbmplY3RlZF9vcmlnaW5hbF9kaXJuYW1lID0gXCJFOlxcXFxDaGF0IFN1cHBvcnRcXFxcY2hhdC13aWRnZXRcIjtjb25zdCBfX3ZpdGVfaW5qZWN0ZWRfb3JpZ2luYWxfZmlsZW5hbWUgPSBcIkU6XFxcXENoYXQgU3VwcG9ydFxcXFxjaGF0LXdpZGdldFxcXFx2aXRlLmNvbmZpZy5qc1wiO2NvbnN0IF9fdml0ZV9pbmplY3RlZF9vcmlnaW5hbF9pbXBvcnRfbWV0YV91cmwgPSBcImZpbGU6Ly8vRTovQ2hhdCUyMFN1cHBvcnQvY2hhdC13aWRnZXQvdml0ZS5jb25maWcuanNcIjtpbXBvcnQgeyBkZWZpbmVDb25maWcgfSBmcm9tIFwidml0ZVwiO1xuaW1wb3J0IGNzc0luamVjdGVkQnlKc1BsdWdpbiBmcm9tIFwidml0ZS1wbHVnaW4tY3NzLWluamVjdGVkLWJ5LWpzXCI7XG5cbmV4cG9ydCBkZWZhdWx0IGRlZmluZUNvbmZpZyh7XG4gIHBsdWdpbnM6IFtjc3NJbmplY3RlZEJ5SnNQbHVnaW4oKV0sXG4gIGJ1aWxkOiB7XG4gICAgY3NzQ29kZVNwbGl0OiBmYWxzZSxcbiAgICBsaWI6IHtcbiAgICAgIGVudHJ5OiBcInNyYy9tYWluLmpzXCIsXG4gICAgICBuYW1lOiBcIkNoYXRXaWRnZXRcIixcbiAgICAgIGZpbGVOYW1lOiBcImNoYXQtd2lkZ2V0XCIsXG4gICAgICBmb3JtYXRzOiBbXCJpaWZlXCJdXG4gICAgfVxuICB9XG59KTtcbiJdLAogICJtYXBwaW5ncyI6ICI7QUFBMlEsU0FBUyxvQkFBb0I7QUFDeFMsT0FBTywyQkFBMkI7QUFFbEMsSUFBTyxzQkFBUSxhQUFhO0FBQUEsRUFDMUIsU0FBUyxDQUFDLHNCQUFzQixDQUFDO0FBQUEsRUFDakMsT0FBTztBQUFBLElBQ0wsY0FBYztBQUFBLElBQ2QsS0FBSztBQUFBLE1BQ0gsT0FBTztBQUFBLE1BQ1AsTUFBTTtBQUFBLE1BQ04sVUFBVTtBQUFBLE1BQ1YsU0FBUyxDQUFDLE1BQU07QUFBQSxJQUNsQjtBQUFBLEVBQ0Y7QUFDRixDQUFDOyIsCiAgIm5hbWVzIjogW10KfQo=

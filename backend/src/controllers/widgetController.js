@@ -41,7 +41,7 @@ export const getWidgetScript = asyncHandler(async (req, res) => {
 });
 
 export const submitWidgetLead = asyncHandler(async (req, res) => {
-  const { name, email, phone, companyName, budget, requirement, sessionId } = req.body;
+  const { name, email, phone, companyName, budget, requirement, service_interest, serviceType, sessionId } = req.body;
   const websiteId = req.website._id;
 
   let resolvedName = name;
@@ -74,13 +74,18 @@ export const submitWidgetLead = asyncHandler(async (req, res) => {
     }
   }
 
+  const parsedBudget = Number(budget);
+  const safeBudget = (!isNaN(parsedBudget) && isFinite(parsedBudget)) ? parsedBudget : 0;
+
   if (customer) {
     if (resolvedName && resolvedName !== "Anonymous Visitor") customer.name = resolvedName;
     if (resolvedEmail && !resolvedEmail.endsWith("@anonymous.local")) customer.email = resolvedEmail;
     if (resolvedPhone) customer.phone = resolvedPhone;
     if (companyName) customer.companyName = companyName;
-    if (budget) customer.budget = Number(budget);
+    if (safeBudget > 0) customer.budget = safeBudget;
     if (requirement) customer.requirement = requirement;
+    const resolvedService = service_interest || serviceType || requirement || "";
+    if (resolvedService) customer.serviceType = resolvedService;
     await customer.save();
   } else {
     customer = await Customer.create({
@@ -88,9 +93,10 @@ export const submitWidgetLead = asyncHandler(async (req, res) => {
       name: resolvedName,
       email: resolvedEmail,
       phone: resolvedPhone || null,
-      companyName,
-      budget: Number(budget || 0),
-      requirement,
+      companyName: companyName || "",
+      budget: safeBudget,
+      requirement: requirement || service_interest || "",
+      serviceType: service_interest || serviceType || requirement || "",
       websiteId,
       recordType: "lead",
       leadSource: "widget",

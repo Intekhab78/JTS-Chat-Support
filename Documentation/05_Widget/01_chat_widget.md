@@ -84,7 +84,7 @@ sequenceDiagram
     <script>
       (function(){
         var s = document.createElement("script");
-        s.src = "http://localhost:5000/chat-widget.js";
+        s.src = "https://chatapi.jtsmiddleeast.com/chat-widget.js";
         s.setAttribute("data-api-key", "YOUR_WEBSITE_API_KEY");
         document.body.appendChild(s);
       })();

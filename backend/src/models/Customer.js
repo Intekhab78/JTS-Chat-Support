@@ -232,12 +232,7 @@ const customerSchema = new mongoose.Schema(
     trn: { type: String, trim: true, default: "", index: true },
     tradeLicenseNumber: { type: String, trim: true, default: "", index: true },
     tradeLicenseExpiryDate: { type: Date, default: null, index: true },
-    serviceType: {
-      type: String,
-      enum: [...UAE_SERVICES, ""],
-      default: "Corporate Tax Registration",
-      index: true
-    },
+    serviceType: { type: String, trim: true, default: "", index: true },
     workStatus: {
       type: String,
       enum: [...UAE_WORK_STATUSES, ""],

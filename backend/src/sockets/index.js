@@ -2,6 +2,7 @@ import { Server } from "socket.io";
 import { ChatSession } from "../models/ChatSession.js";
 import { Message } from "../models/Message.js";
 import { User } from "../models/User.js";
+import { Visitor } from "../models/Visitor.js";
 import { Website } from "../models/Website.js";
 import { findAvailableAgent } from "../services/assignmentService.js";
 import { addMessage } from "../services/chatService.js";
@@ -83,7 +84,7 @@ async function processQueue(io) {
         session.status = "active";
         session.acceptedAt = new Date();
         await session.save();
-        emitSessionUpdate(await ChatSession.findById(session._id).populate("websiteId", "websiteName domain managerId").populate("visitorId", "visitorId name email").populate("assignedAgent", "name email role isOnline"));
+        emitSessionUpdate(await ChatSession.findById(session._id).populate("websiteId", "websiteName domain managerId").populate("visitorId", "visitorId name email isOnline").populate("assignedAgent", "name email role isOnline"));
 
         io.to(session.sessionId).emit("chat:assigned", {
           sessionId: session.sessionId,
@@ -156,7 +157,9 @@ export function createSocketServer(httpServer) {
       methods: ["GET", "POST"],
       credentials: true
     },
-    transports: ["polling", "websocket"],
+    transports: ["websocket", "polling"],
+    pingInterval: 10000,
+    pingTimeout: 5000,
     allowEIO3: true
   });
   ioInstance = io;
@@ -215,19 +218,36 @@ export function createSocketServer(httpServer) {
   io.on("connection", async (socket) => {
     if (socket.data.type === "visitor") {
       const { website, sessionId, visitorId } = socket.data;
-      socket.join(`ws_${website._id}`);
-      // Join personal visitor room for direct delivery
+      if (website?._id) {
+        socket.join(`ws_${website._id}`);
+      }
       if (visitorId) {
         socket.join(`visitor_${visitorId}`);
+        if (website?._id) {
+          await Visitor.updateOne({ visitorId, websiteId: website._id }, { $set: { isOnline: true, lastVisitTime: new Date() } }).catch(() => {});
+        }
       }
       if (sessionId) {
         socket.join(sessionId);
-        io.to(sessionId).emit("visitor:status", {
-          sessionId,
-          isOnline: true,
-          lastActiveAt: new Date()
-        });
       }
+      const statusPayload = {
+        sessionId,
+        visitorId,
+        isOnline: true,
+        lastActiveAt: new Date()
+      };
+      if (sessionId) io.to(sessionId).emit("visitor:status", statusPayload);
+      if (sessionId) io.to(sessionId).emit("visitor:online", statusPayload);
+      if (website?._id) {
+        io.to(`ws_${website._id}`).emit("visitor:status", statusPayload);
+        io.to(`ws_${website._id}`).emit("visitor:online", statusPayload);
+      }
+      if (website?.managerId) {
+        io.to(`us_${website.managerId}`).emit("visitor:status", statusPayload);
+        io.to(`us_${website.managerId}`).emit("visitor:online", statusPayload);
+      }
+      io.to("us_admin").emit("visitor:status", statusPayload);
+      io.to("us_admin").emit("visitor:online", statusPayload);
     }
 
     if (socket.data.type === "agent" || socket.data.type === "owner") {
@@ -280,7 +300,7 @@ export function createSocketServer(httpServer) {
 
         const populated = await ChatSession.findById(session._id)
           .populate("websiteId", "websiteName domain managerId")
-          .populate("visitorId", "visitorId name email")
+          .populate("visitorId", "visitorId name email isOnline")
           .populate("assignedAgent", "name email role isOnline");
 
         emitSessionUpdate(populated);
@@ -311,7 +331,7 @@ export function createSocketServer(httpServer) {
 
         const populated = await ChatSession.findById(session._id)
           .populate("websiteId", "websiteName domain managerId")
-          .populate("visitorId", "visitorId name email")
+          .populate("visitorId", "visitorId name email isOnline")
           .populate("assignedAgent", "name email role isOnline");
 
         emitSessionUpdate(populated);
@@ -381,8 +401,28 @@ export function createSocketServer(httpServer) {
       }
     });
 
-    socket.on("visitor:join-room", ({ sessionId }) => {
-      socket.join(sessionId);
+    socket.on("visitor:join-room", async ({ sessionId }) => {
+      if (sessionId) {
+        socket.join(sessionId);
+        socket.data.sessionId = sessionId;
+        const statusPayload = {
+          sessionId,
+          visitorId: socket.data.visitorId,
+          isOnline: true,
+          lastActiveAt: new Date()
+        };
+        io.to(sessionId).emit("visitor:status", statusPayload);
+        io.to(sessionId).emit("visitor:online", statusPayload);
+        if (socket.data.website?._id) {
+          io.to(`ws_${socket.data.website._id}`).emit("visitor:status", statusPayload);
+          io.to(`ws_${socket.data.website._id}`).emit("visitor:online", statusPayload);
+        }
+        if (socket.data.website?.managerId) {
+          io.to(`us_${socket.data.website.managerId}`).emit("visitor:status", statusPayload);
+          io.to(`us_${socket.data.website.managerId}`).emit("visitor:online", statusPayload);
+        }
+        io.to("us_admin").emit("visitor:status", statusPayload);
+      }
     });
 
     socket.on("crm:viewing-lead", ({ leadId, isViewing }) => {
@@ -406,20 +446,27 @@ export function createSocketServer(httpServer) {
     });
 
     socket.on("visitor:typing", ({ sessionId, isTyping }) => {
-      socket.to(sessionId).emit("chat:typing", { isTyping, sender: "visitor" });
+      const typingPayload = { isTyping: Boolean(isTyping), sender: "visitor", sessionId };
+      io.to(sessionId).emit("chat:typing", typingPayload);
+      io.to(sessionId).emit("visitor:typing", typingPayload);
+      socket.to(sessionId).emit("chat:typing", typingPayload);
     });
 
     socket.on("agent:typing", ({ sessionId, isTyping }) => {
-      socket.to(sessionId).emit("chat:typing", { 
-        isTyping, 
+      const typingPayload = { 
+        isTyping: Boolean(isTyping), 
         sender: "agent",
+        sessionId,
         agentId: socket.data.user?._id,
-        agentName: socket.data.user?.name
-      });
+        agentName: socket.data.user?.name || "Support"
+      };
+      io.to(sessionId).emit("chat:typing", typingPayload);
+      io.to(sessionId).emit("agent:typing", typingPayload);
+      socket.to(sessionId).emit("chat:typing", typingPayload);
     });
 
     
-    socket.on("visitor:bot-prompt", async ({ sessionId, message, nodeKey }) => {
+    socket.on("visitor:bot-prompt", async ({ sessionId, message, nodeKey, tempId = null }) => {
       try {
         const { website } = socket.data;
         if (!website || !message?.trim()) return;
@@ -427,12 +474,11 @@ export function createSocketServer(httpServer) {
         const session = await ChatSession.findOne({ sessionId }).populate("websiteId");
         if (!session) return;
 
-        const existingPrompt = await Message.findOne({
-          sessionId: session._id,
-          sender: "agent",
-          message: message.trim()
-        });
-        if (existingPrompt) return;
+        // Check if the immediately preceding message was already this exact prompt to avoid consecutive duplicates
+        const lastMsg = await Message.findOne({ sessionId: session._id }).sort({ createdAt: -1 });
+        if (lastMsg && lastMsg.sender === "agent" && lastMsg.message === message.trim()) {
+          return;
+        }
 
         const botSaved = await addMessage({
           chatSession: session,
@@ -448,6 +494,7 @@ export function createSocketServer(httpServer) {
           sender: "agent",
           senderName: session.websiteId?.websiteName ? `${session.websiteId.websiteName} AI` : "AI Assistant",
           isAi: true,
+          tempId,
           createdAt: botSaved.createdAt
         };
 
@@ -482,7 +529,7 @@ export function createSocketServer(httpServer) {
             session.status = "active";
             session.acceptedAt = new Date();
             await session.save();
-            emitSessionUpdate(await ChatSession.findById(session._id).populate("websiteId", "websiteName domain managerId").populate("visitorId", "visitorId name email").populate("assignedAgent", "name email role isOnline"));
+            emitSessionUpdate(await ChatSession.findById(session._id).populate("websiteId", "websiteName domain managerId").populate("visitorId", "visitorId name email isOnline").populate("assignedAgent", "name email role isOnline"));
             io.to(`us_${agent._id}`).emit("chat:assigned", { sessionId: session.sessionId });
             io.to(session.sessionId).emit("chat:assigned", { sessionId: session.sessionId, agentName: agent.name });
             
@@ -639,7 +686,7 @@ export function createSocketServer(httpServer) {
           }
         }
         await session.save();
-        emitSessionUpdate(await ChatSession.findById(session._id).populate("websiteId", "websiteName domain managerId").populate("visitorId", "visitorId name email").populate("assignedAgent", "name email role isOnline"));
+        emitSessionUpdate(await ChatSession.findById(session._id).populate("websiteId", "websiteName domain managerId").populate("visitorId", "visitorId name email isOnline").populate("assignedAgent", "name email role isOnline"));
 
         const saved = await addMessage({
           chatSession: session,
@@ -663,13 +710,7 @@ export function createSocketServer(httpServer) {
           tempId
         };
 
-        socket.emit("chat:message", payload);
-        // Use io.to() (not socket.broadcast) so visitor socket also receives the message
         io.to(session.sessionId).emit("chat:message", payload);
-        // Also emit directly to the visitorId room for extra reliability
-        if (session.visitorId) {
-          io.to(`visitor_${session.visitorId._id || session.visitorId}`).emit("chat:message", payload);
-        }
         io.to(`ws_${session.websiteId._id}`).emit("chat:new-message", payload);
         broadcastStatsUpdate(io, session.websiteId._id, session.websiteId.managerId);
 
@@ -705,7 +746,7 @@ export function createSocketServer(httpServer) {
       session.status = "closed";
       session.closedAt = new Date();
       await session.save();
-      emitSessionUpdate(await ChatSession.findById(session._id).populate("websiteId", "websiteName domain managerId").populate("visitorId", "visitorId name email").populate("assignedAgent", "name email role isOnline"));
+      emitSessionUpdate(await ChatSession.findById(session._id).populate("websiteId", "websiteName domain managerId").populate("visitorId", "visitorId name email isOnline").populate("assignedAgent", "name email role isOnline"));
       
       await logAuditEvent({
         actor: socket.data.user,
@@ -732,7 +773,7 @@ export function createSocketServer(httpServer) {
       session.status = "closed";
       session.closedAt = new Date();
       await session.save();
-      emitSessionUpdate(await ChatSession.findById(session._id).populate("websiteId", "websiteName domain managerId").populate("visitorId", "visitorId name email").populate("assignedAgent", "name email role isOnline"));
+      emitSessionUpdate(await ChatSession.findById(session._id).populate("websiteId", "websiteName domain managerId").populate("visitorId", "visitorId name email isOnline").populate("assignedAgent", "name email role isOnline"));
       
       io.to(session.sessionId).emit("chat:closed", { sessionId });
       broadcastStatsUpdate(io, websiteId, managerId);
@@ -742,9 +783,177 @@ export function createSocketServer(httpServer) {
       await processChatIntelligence(sessionId);
     });
 
+    // ── Live AI-to-Human Voice Call Handoff & WebRTC Signaling ──
+    socket.on("call:request-human", async (payload) => {
+      const { sessionId, websiteId, visitorName, visitorId, callerPhone, transcript, aiSummary, telemetry } = payload || {};
+      console.log("[Sockets] >>> call:request-human received from socket:", socket.id, "visitor:", visitorName);
+      
+      const callData = {
+        callId: `CALL_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+        sessionId,
+        visitorSocketId: socket.id,
+        visitorId,
+        visitorName: visitorName || "Website Visitor",
+        callerPhone: callerPhone || "Web Voice",
+        websiteId,
+        transcript: transcript || "",
+        aiSummary: aiSummary || "Visitor requested live human agent voice assistance.",
+        telemetry: telemetry || {},
+        requestedAt: new Date()
+      };
+
+      // Broadcast to website agents & global admin room
+      if (websiteId) {
+        io.to(`ws_${websiteId}`).emit("call:incoming", callData);
+      }
+      io.to("us_admin").emit("call:incoming", callData);
+      
+      // Also broadcast directly to all connected agent sockets
+      for (const [id, s] of io.sockets.sockets) {
+        if (s.data?.user) {
+          s.emit("call:incoming", callData);
+        }
+      }
+
+      if (sessionId) {
+        io.to(sessionId).emit("call:queued", { message: "Connecting to an available support agent...", callId: callData.callId });
+      }
+      socket.emit("call:queued", { message: "Connecting to an available support agent...", callId: callData.callId });
+    });
+
+    socket.on("call:accept", async (payload) => {
+      const { callId, sessionId, visitorSocketId, isTransferred, transferredBySocketId } = payload || {};
+      const agentUser = socket.data.user;
+
+      if (visitorSocketId) {
+        io.to(visitorSocketId).emit("call:accepted", {
+          callId,
+          agentSocketId: socket.id,
+          agentName: agentUser?.name || "Support Specialist",
+          agentRole: agentUser?.role || "Senior Specialist"
+        });
+      }
+
+      if (transferredBySocketId) {
+        io.to(transferredBySocketId).emit("call:transferred-success", {
+          callId,
+          newAgentName: agentUser?.name || "Senior Specialist"
+        });
+      }
+
+      socket.broadcast.emit("call:answered", { callId, answeredBy: agentUser?.name });
+    });
+
+    socket.on("call:transfer", async (payload) => {
+      const { callId, sessionId, visitorSocketId, targetAgentId, transferNote, callerDetails } = payload || {};
+      const agentUser = socket.data.user;
+      console.log(`[Sockets] Call ${callId} transferred by ${agentUser?.name} to targetAgent ${targetAgentId}`);
+
+      const transferCallData = {
+        callId: callId || `CALL_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+        sessionId,
+        visitorSocketId,
+        visitorName: callerDetails?.visitorName || "Website Visitor",
+        callerPhone: callerDetails?.callerPhone || "Web Voice",
+        telemetry: callerDetails?.telemetry || {},
+        aiSummary: transferNote 
+          ? `[Handover from ${agentUser?.name || 'Agent'}]: "${transferNote}"`
+          : `Live call transferred from ${agentUser?.name || 'Agent'}`,
+        isTransferred: true,
+        transferredBy: agentUser?.name || "Agent",
+        transferredBySocketId: socket.id,
+        transferNote: transferNote || "",
+        requestedAt: new Date()
+      };
+
+      if (visitorSocketId) {
+        io.to(visitorSocketId).emit("call:transfer-in-progress", {
+          message: "Transferring your call to senior specialist..."
+        });
+      }
+
+      let delivered = false;
+      for (const [id, s] of io.sockets.sockets) {
+        if (s.data?.user) {
+          const uId = String(s.data.user._id || s.data.user.id || "");
+          if (uId === String(targetAgentId)) {
+            s.emit("call:incoming", transferCallData);
+            delivered = true;
+          }
+        }
+      }
+
+      if (!delivered) {
+        io.to("us_admin").emit("call:incoming", transferCallData);
+        for (const [id, s] of io.sockets.sockets) {
+          if (s.data?.user && s.id !== socket.id) {
+            s.emit("call:incoming", transferCallData);
+          }
+        }
+      }
+
+      socket.emit("call:transfer-initiated", { callId, success: true });
+    });
+
+    socket.on("call:reject", (payload) => {
+      const { callId, visitorSocketId } = payload || {};
+      if (visitorSocketId) {
+        io.to(visitorSocketId).emit("call:busy", { callId, message: "Agent is currently busy." });
+      }
+    });
+
+    socket.on("call:webrtc-signal", (payload) => {
+      const { targetSocketId, signalData } = payload || {};
+      if (targetSocketId && signalData) {
+        io.to(targetSocketId).emit("call:webrtc-signal", {
+          senderSocketId: socket.id,
+          signalData
+        });
+      }
+    });
+
+    socket.on("call:end", (payload) => {
+      const { callId, targetSocketId, duration } = payload || {};
+      if (targetSocketId) {
+        io.to(targetSocketId).emit("call:ended", { callId, duration });
+      }
+    });
+
     socket.on("disconnect", async () => {
-      if (socket.data.type === "visitor" && socket.data.sessionId) {
-        io.to(socket.data.sessionId).emit("visitor:status", { sessionId: socket.data.sessionId, isOnline: false, lastActiveAt: new Date() });
+      if (socket.data.type === "visitor") {
+        const { website, sessionId, visitorId } = socket.data;
+        if (visitorId) {
+          try {
+            const openSockets = await io.in(`visitor_${visitorId}`).fetchSockets();
+            if (openSockets.length === 0) {
+              if (website?._id) {
+                await Visitor.updateOne({ visitorId, websiteId: website._id }, { $set: { isOnline: false, lastVisitTime: new Date() } }).catch(() => {});
+              }
+              const offlinePayload = {
+                sessionId,
+                visitorId,
+                isOnline: false,
+                lastActiveAt: new Date()
+              };
+              if (sessionId) {
+                io.to(sessionId).emit("visitor:status", offlinePayload);
+                io.to(sessionId).emit("visitor:offline", offlinePayload);
+              }
+              if (website?._id) {
+                io.to(`ws_${website._id}`).emit("visitor:status", offlinePayload);
+                io.to(`ws_${website._id}`).emit("visitor:offline", offlinePayload);
+              }
+              if (website?.managerId) {
+                io.to(`us_${website.managerId}`).emit("visitor:status", offlinePayload);
+                io.to(`us_${website.managerId}`).emit("visitor:offline", offlinePayload);
+              }
+              io.to("us_admin").emit("visitor:status", offlinePayload);
+              io.to("us_admin").emit("visitor:offline", offlinePayload);
+            }
+          } catch (err) {
+            console.error("Visitor disconnect error:", err);
+          }
+        }
       }
       if (socket.data.user) {
         const u = await User.findById(socket.data.user._id);

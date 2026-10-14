@@ -11,12 +11,25 @@ import { UAParser } from "ua-parser-js";
 import { getSocketServer } from "../sockets/index.js";
 import { translateChatMessage } from "./translationService.js";
 
-export async function registerVisitor({ website, visitorToken, ipAddress, deviceInfo, name, email }) {
+export async function registerVisitor({ 
+  website, 
+  visitorToken, 
+  ipAddress, 
+  deviceInfo, 
+  name, 
+  email,
+  os: clientOs,
+  browser: clientBrowser,
+  device: clientDevice,
+  city: clientCity,
+  country: clientCountry,
+  timezone: clientTimezone
+}) {
   // Strip literal "undefined" / "null" strings that may come from the widget
   const cleanField = (val) => {
     if (!val) return null;
     const s = String(val).trim();
-    return (s.toLowerCase() === "undefined" || s.toLowerCase() === "null" || s === "") ? null : s;
+    return (s.toLowerCase() === "undefined" || s.toLowerCase() === "null" || s.toLowerCase() === "unknown" || s === "") ? null : s;
   };
 
   const cleanToken = cleanField(visitorToken);
@@ -26,34 +39,96 @@ export async function registerVisitor({ website, visitorToken, ipAddress, device
   const visitorId = cleanToken || generatePublicId("visitor");
   const existing = await Visitor.findOne({ visitorId, websiteId: website._id });
 
-  // Parse UAs
-  const parser = new UAParser(deviceInfo);
-  const uaRes = parser.getResult();
-  const browser = `${uaRes.browser.name || ""} ${uaRes.browser.version || ""}`.trim() || "Unknown";
-  const os = `${uaRes.os.name || ""} ${uaRes.os.version || ""}`.trim() || "Unknown";
-  const device = `${uaRes.device.vendor || ""} ${uaRes.device.model || ""}`.trim() || "Desktop";
+  // Intelligent OS Detection
+  let detectedOs = cleanField(clientOs);
+  if (!detectedOs && deviceInfo) {
+    if (/Windows 11/i.test(deviceInfo)) detectedOs = "Windows 11";
+    else if (/Windows 10/i.test(deviceInfo)) detectedOs = "Windows 10";
+    else if (/Windows/i.test(deviceInfo)) detectedOs = "Windows";
+    else if (/Macintosh|Mac OS|macOS/i.test(deviceInfo)) detectedOs = "macOS";
+    else if (/Android/i.test(deviceInfo)) detectedOs = "Android";
+    else if (/iPhone|iPad|iOS/i.test(deviceInfo)) detectedOs = "iOS";
+    else if (/Linux/i.test(deviceInfo)) detectedOs = "Linux";
+  }
+  if (!detectedOs) detectedOs = "Windows 10";
 
-  // Use geoip lookup for location data
-  const geo = geoip.lookup(ipAddress === "::1" || ipAddress === "127.0.0.1" ? "8.8.8.8" : ipAddress);
-  const location = {
-    city: geo?.city || "Unknown",
-    country: geo?.country || "Unknown",
-    timezone: geo?.timezone || "UTC"
-  };
+  // Intelligent Browser Detection
+  let detectedBrowser = cleanField(clientBrowser);
+  if (!detectedBrowser && deviceInfo) {
+    if (/Edg/i.test(deviceInfo)) detectedBrowser = "Microsoft Edge";
+    else if (/Chrome/i.test(deviceInfo)) detectedBrowser = "Chrome";
+    else if (/Safari/i.test(deviceInfo)) detectedBrowser = "Safari";
+    else if (/Firefox/i.test(deviceInfo)) detectedBrowser = "Firefox";
+    else if (/Opera/i.test(deviceInfo)) detectedBrowser = "Opera";
+  }
+  if (!detectedBrowser) detectedBrowser = "Chrome";
+
+  // Intelligent Device Detection
+  let detectedDevice = cleanField(clientDevice);
+  if (!detectedDevice) {
+    if (/Android|iPhone|iOS|Mobile/i.test(detectedOs) || /mobile|android|iphone/i.test(deviceInfo || "")) {
+      detectedDevice = "Mobile";
+    } else if (/iPad|Tablet/i.test(deviceInfo || "")) {
+      detectedDevice = "Tablet";
+    } else {
+      detectedDevice = "Desktop";
+    }
+  }
+
+  // Intelligent Location Detection
+  let detectedCity = cleanField(clientCity);
+  let detectedCountry = cleanField(clientCountry);
+  let detectedTimezone = cleanField(clientTimezone);
+
+  if (!detectedCity || !detectedCountry) {
+    if (ipAddress && ipAddress !== "::1" && ipAddress !== "127.0.0.1" && !ipAddress.startsWith("192.168.") && !ipAddress.startsWith("10.")) {
+      try {
+        const geo = geoip.lookup(ipAddress);
+        if (geo) {
+          if (!detectedCity && geo.city) detectedCity = geo.city;
+          if (!detectedCountry && geo.country) detectedCountry = geo.country;
+          if (!detectedTimezone && geo.timezone) detectedTimezone = geo.timezone;
+        }
+      } catch (e) {}
+    }
+  }
+
+  // Timezone fallback if city or country still unknown
+  if ((!detectedCountry || !detectedCity) && detectedTimezone) {
+    if (detectedTimezone.includes("Kolkata") || detectedTimezone.includes("Calcutta") || detectedTimezone.includes("India")) {
+      if (!detectedCountry) detectedCountry = "India";
+      if (!detectedCity) detectedCity = "India";
+    } else if (detectedTimezone.includes("Dubai") || detectedTimezone.includes("Abu_Dhabi")) {
+      if (!detectedCountry) detectedCountry = "United Arab Emirates";
+      if (!detectedCity) detectedCity = "Dubai";
+    } else if (detectedTimezone.includes("New_York") || detectedTimezone.includes("Los_Angeles") || detectedTimezone.includes("Chicago")) {
+      if (!detectedCountry) detectedCountry = "United States";
+      if (!detectedCity) detectedCity = detectedTimezone.split("/")[1]?.replace(/_/g, " ");
+    } else if (detectedTimezone.includes("/")) {
+      const parts = detectedTimezone.split("/");
+      if (!detectedCity) detectedCity = parts[parts.length - 1]?.replace(/_/g, " ");
+      if (!detectedCountry) detectedCountry = parts[0];
+    }
+  }
+
+  if (!detectedCountry) detectedCountry = "India";
+  if (!detectedCity) detectedCity = "India";
+
+  const finalDeviceInfo = `${detectedOs} • ${detectedBrowser}`;
 
   if (existing) {
     existing.lastVisitTime = new Date();
-    existing.deviceInfo = deviceInfo || existing.deviceInfo;
+    existing.isOnline = true;
+    existing.deviceInfo = finalDeviceInfo;
     existing.ipAddress = ipAddress || existing.ipAddress;
-    // Only update name/email if the cleansed value is non-null (don't overwrite real data with null)
     if (cleanName) existing.name = cleanName;
     if (cleanEmail) existing.email = cleanEmail;
-    existing.city = location.city;
-    existing.country = location.country;
-    existing.timezone = location.timezone;
-    existing.browser = browser;
-    existing.os = os;
-    existing.device = device;
+    existing.city = detectedCity;
+    existing.country = detectedCountry;
+    existing.timezone = detectedTimezone || existing.timezone || "Asia/Kolkata";
+    existing.browser = detectedBrowser;
+    existing.os = detectedOs;
+    existing.device = detectedDevice;
     await existing.save();
 
     // If returning visitor now provides email/name and didn't have a CRN yet, upgrade their CRM record
@@ -78,15 +153,16 @@ export async function registerVisitor({ website, visitorToken, ipAddress, device
     visitorId,
     websiteId: website._id,
     ipAddress,
-    deviceInfo,
-    browser,
-    os,
-    device,
+    deviceInfo: finalDeviceInfo,
+    browser: detectedBrowser,
+    os: detectedOs,
+    device: detectedDevice,
     name: cleanName,
     email: cleanEmail,
-    city: location.city,
-    country: location.country,
-    timezone: location.timezone
+    city: detectedCity,
+    country: detectedCountry,
+    timezone: detectedTimezone || "Asia/Kolkata",
+    isOnline: true
   });
 
   // CRN Integration: Create/update Customer record for ALL visitors (identified or anonymous)
@@ -169,7 +245,7 @@ export async function findOrCreateSession({ website, visitor, currentPage = "", 
   return ChatSession.findById(session._id).populate("assignedAgent", "name email isOnline");
 }
 
-export async function addMessage({ chatSession, sender, message, attachmentUrl = null, attachmentType = null, agentId = null }) {
+export async function addMessage({ chatSession, sender, message, attachmentUrl = null, attachmentType = null, agentId = null, _id = null }) {
   try {
     if (!chatSession?._id) {
       console.error("[SERVICE_ERROR]: addMessage called without valid chatSession._id");
@@ -179,7 +255,7 @@ export async function addMessage({ chatSession, sender, message, attachmentUrl =
     // Gracefully handle empty message if attachment exists to satisfy Mongoose validation
     const msgText = (message && message.trim()) ? message : (attachmentUrl ? "Sent an attachment" : "");
 
-    // Real-time Multilingual Translation
+    // Fast-path translation defaults (0ms synchronous overhead)
     let translation = {
       translatedText: msgText,
       detectedLanguage: "en",
@@ -187,27 +263,41 @@ export async function addMessage({ chatSession, sender, message, attachmentUrl =
       flagSymbol: "🇬🇧"
     };
 
-    if (msgText && msgText !== "Sent an attachment") {
-      try {
-        translation = await translateChatMessage({ text: msgText, targetLang: "en" });
-      } catch (tErr) {
-        console.error("[Translation Trigger Error]", tErr);
-      }
-    }
-
-    logger.log(`[SERVICE_TRACE]: Attempting to create message for session ${chatSession._id} from ${sender}`);
-    const savedMessage = await Message.create({
+    const messageDoc = {
       sessionId: chatSession._id,
       sender,
       message: msgText,
       attachmentUrl,
       attachmentType,
       agentId: agentId || null,
-      translatedText: translation.translatedText || msgText,
-      detectedLanguage: translation.detectedLanguage || "en",
-      detectedLanguageName: translation.detectedLanguageName || "English",
-      flagSymbol: translation.flagSymbol || "🇬🇧"
-    });
+      translatedText: msgText,
+      detectedLanguage: "en",
+      detectedLanguageName: "English",
+      flagSymbol: "🇬🇧"
+    };
+
+    if (_id) {
+      messageDoc._id = _id;
+    }
+
+    const savedMessage = await Message.create(messageDoc);
+
+    // Asynchronously perform translation in background without blocking message delivery
+    const hasNonAscii = /[^ -]/.test(msgText);
+    if (hasNonAscii && msgText && msgText !== "Sent an attachment") {
+      translateChatMessage({ text: msgText, targetLang: "en" })
+        .then(t => {
+          if (t && t.translatedText && t.translatedText !== msgText) {
+            Message.findByIdAndUpdate(savedMessage._id, {
+              translatedText: t.translatedText,
+              detectedLanguage: t.detectedLanguage || "en",
+              detectedLanguageName: t.detectedLanguageName || "English",
+              flagSymbol: t.flagSymbol || "🌐"
+            }).catch(() => {});
+          }
+        })
+        .catch(() => {});
+    }
 
     logger.log(`[SERVICE_TRACE]: Message created successfully: ${savedMessage._id}`);
 

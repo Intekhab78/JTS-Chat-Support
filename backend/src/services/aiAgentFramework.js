@@ -10,6 +10,13 @@ import { logCrmActivity } from "./activityLoggerService.js";
 export const AiAgentTools = {
   create_ticket: async (websiteId, payload, actor) => {
     console.log(`[AI Agent Tool] Invoked create_ticket for website: ${websiteId}`);
+    // Guard: Do not create ticket if visitor has not provided Name and Email
+    const visitorName = payload.visitorName || payload.name;
+    const visitorEmail = payload.visitorEmail || payload.email;
+    if (!visitorEmail || !visitorName || visitorName.toLowerCase() === "anonymous" || visitorName.toLowerCase() === "anonymous user") {
+      console.log("[AI Agent Tool] Skipped create_ticket: Anonymous visitor without Name/Email. Only providing information.");
+      return { status: "skipped", message: "Ticket not created: Visitor Name and Email are required. AI will only provide information." };
+    }
     const ticketId = `TKT-${Date.now().toString().slice(-6)}`;
     const ticket = await Ticket.create({
       ticketId,

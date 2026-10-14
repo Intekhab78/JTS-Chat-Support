@@ -156,12 +156,12 @@ export function hasPermission(user, permission) {
     return true; // Client Organization Owner gets full access by default
   }
 
-  // 1. Check dynamic DB permission list if populated and non-empty
-  if (Array.isArray(user.permissions) && user.permissions.length > 0) {
-    return user.permissions.includes(permission);
+  // 1. Check dynamic DB permission list if explicitly granted
+  if (Array.isArray(user.permissions) && user.permissions.includes(permission)) {
+    return true;
   }
 
-  // 2. Fallback to static MATRIX
+  // 2. Fallback to static role MATRIX
   return MATRIX[user.role]?.has(permission) || MATRIX[role]?.has(permission) || false;
 }
 

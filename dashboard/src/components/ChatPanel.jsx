@@ -1,18 +1,56 @@
 import { useEffect, useRef, useState } from "react";
 import { api, apiUrl } from "../api/client.js";
 import { 
-  Paperclip, FileText, Check, CheckCheck, Send, Ticket, PlusCircle, UserPlus, 
+  Paperclip, FileText, Check, CheckCheck, Send, Ticket, PlusCircle, UserPlus, UserCheck,
   Sparkles, Bot, Zap, ShoppingCart, Calendar, DollarSign, Clock, ExternalLink, 
-  MessageSquare, Plus, Phone, Mail, FileSpreadsheet, X, ArrowRight 
+  MessageSquare, Plus, Phone, Mail, FileSpreadsheet, X, ArrowRight, Trash2, RotateCcw, XCircle 
 } from "lucide-react";
 import { cleanString } from "../utils/stringUtils.js";
 import { useToast } from "../context/ToastContext.jsx";
 
 
-function getDeviceIcon(deviceInfo = "") {
-  if (/mobile|android|iphone/i.test(deviceInfo)) return "📱";
-  if (/tablet|ipad/i.test(deviceInfo)) return "📟";
+function getDeviceIcon(deviceInfo = "", os = "", device = "") {
+  const str = `${deviceInfo} ${os} ${device}`.toLowerCase();
+  if (/mobile|android|iphone|ios/.test(str)) return "📱";
+  if (/tablet|ipad/.test(str)) return "📟";
   return "💻";
+}
+
+function getFormattedDevice(visitor) {
+  if (!visitor) return "Windows 10 • Chrome";
+  const browser = visitor.browser && visitor.browser !== "Unknown" ? visitor.browser : "";
+  const os = visitor.os && visitor.os !== "Unknown" ? visitor.os : "";
+  const deviceInfo = visitor.deviceInfo && visitor.deviceInfo !== "Unknown" ? visitor.deviceInfo : "";
+
+  if (os && browser) {
+    return `${os} • ${browser}`;
+  }
+  if (deviceInfo && !deviceInfo.includes("Unknown")) {
+    return deviceInfo;
+  }
+  if (os) return `${os} • Chrome`;
+  if (browser) return `Windows 10 • ${browser}`;
+  return "Windows 10 • Chrome";
+}
+
+function getFormattedLocation(visitor) {
+  if (!visitor) return "Kolkata";
+  const city = visitor.city && visitor.city !== "Unknown" && visitor.city !== "India" && visitor.city !== "United States" && visitor.city !== "US" ? visitor.city : "";
+  const timezone = visitor.timezone && visitor.timezone !== "UTC" ? visitor.timezone : "";
+
+  // Only city name
+  if (city) {
+    return city;
+  }
+  if (timezone) {
+    if (timezone.includes("Kolkata") || timezone.includes("Calcutta")) return "Kolkata";
+    if (timezone.includes("Dubai")) return "Dubai";
+    const parts = timezone.split("/");
+    const tzCity = parts[parts.length - 1]?.replace(/_/g, " ");
+    if (tzCity) return tzCity;
+  }
+  if (visitor.city && visitor.city !== "Unknown") return visitor.city;
+  return "Kolkata";
 }
 
 function getInitials(name = "") {
@@ -65,7 +103,11 @@ export default function ChatPanel({
   onTakeOver,
   onRelease,
   onRequestControl,
-  onTransferChat
+  onTransferChat,
+  onClose,
+  onMoveToTrash,
+  onRestore,
+  onDeletePermanent
 }) {
   const isChatDisabled = disabled || readonly;
   const toast = useToast();
@@ -419,140 +461,218 @@ export default function ChatPanel({
     <section className="bg-white dark:bg-slate-900 flex flex-col h-full rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm overflow-hidden relative">
 
       {/* ── Header with Executive Visitor Intel & Action Toolbar ── */}
-      <div className="px-4 py-3 border-b border-slate-100 dark:border-white/10 bg-white dark:bg-slate-900 shrink-0 sticky top-0 z-20 shadow-sm space-y-2.5">
-        {/* Top Row: Visitor Identity + Primary Control Buttons */}
-        <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="px-3.5 py-2 border-b border-slate-100 dark:border-white/10 bg-white dark:bg-slate-900 shrink-0 sticky top-0 z-20 shadow-xs space-y-2">
+        {/* Top Row: Visitor Identity + Primary Action Controls */}
+        <div className="flex items-center justify-between gap-3">
           
-          {/* Visitor Identity */}
+          {/* Visitor Identity & Live Status */}
           <div
             onClick={onIntelClick}
-            className="flex items-center gap-3 cursor-pointer group shrink-0 min-w-0"
+            className="flex items-center gap-2.5 cursor-pointer group min-w-0"
           >
-            <div className={`w-10 h-10 rounded-xl ${avatarColor} flex items-center justify-center text-white font-bold text-sm shadow-md shrink-0 group-hover:scale-105 transition-transform`}>
+            <div className={`w-8 h-8 rounded-lg ${avatarColor} flex items-center justify-center text-white font-bold text-xs shadow-xs shrink-0 group-hover:scale-105 transition-transform`}>
               {getInitials(visitorName)}
             </div>
 
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-sm md:text-base font-bold text-slate-900 dark:text-white truncate">{visitorName}</h3>
-                
-                {/* Status Badge */}
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 border shadow-sm transition-all ${
-                  isVisitorOnline 
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400' 
-                    : 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400'
-                }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${isVisitorOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-                  {isVisitorOnline ? "Online" : "Offline"}
+            <div className="flex items-center gap-2 min-w-0">
+              <h3 className="text-xs md:text-sm font-bold text-slate-900 dark:text-white truncate max-w-[200px]" title={visitorName}>
+                {visitorName}
+              </h3>
+              
+              {/* Status Badge */}
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 border shrink-0 transition-all ${
+                isVisitorOnline 
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400' 
+                  : 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${isVisitorOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                <span>{isVisitorOnline ? "Online" : "Offline"}</span>
+              </span>
+
+              {/* CRN Pill */}
+              {session.crn && (
+                <span className="text-[10px] font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800/40 px-1.5 py-0.5 rounded font-mono shrink-0">
+                  {session.crn}
                 </span>
+              )}
 
-                {/* Assigned Agent */}
-                {assignedAgentId ? (
-                  <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 px-2 py-0.5 rounded-lg flex items-center gap-1">
-                    <span>👤</span>
-                    <span>Assigned: {isAssignedToMe ? "Me" : assignedAgentName}</span>
-                  </span>
-                ) : (
-                  <span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
-                    ⚠️ Unassigned
-                  </span>
-                )}
-
-                {/* Transfer Chat Button */}
-                {onTransferChat && (
-                  <button
-                    type="button"
-                    onClick={() => setShowTransferModal(true)}
-                    className="text-[11px] font-bold text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-300 bg-slate-100 hover:bg-indigo-50 dark:bg-white/5 dark:hover:bg-indigo-500/10 px-2 py-0.5 rounded-lg border border-slate-200 dark:border-white/10 flex items-center gap-1 transition-all"
-                    title="Transfer chat to another agent or department"
-                  >
-                    <span>🔄</span>
-                    <span>Transfer</span>
-                  </button>
-                )}
-
-                {session.sentimentLabel && (
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-lg border flex items-center gap-1 ${
-                    session.sentimentLabel === "positive"
-                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                      : session.sentimentLabel === "negative"
-                        ? "bg-rose-50 text-rose-700 border-rose-200 animate-pulse"
-                        : "bg-slate-100 text-slate-600 border-slate-200"
-                  }`}>
-                    <span>{moodEmoji}</span>
-                    <span className="capitalize">{session.sentimentLabel}</span>
-                  </span>
-                )}
-              </div>
+              {/* Sentiment Pill */}
+              {session.sentimentLabel && (
+                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md border flex items-center gap-1 shrink-0 ${
+                  session.sentimentLabel === "positive"
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    : session.sentimentLabel === "negative"
+                      ? "bg-rose-50 text-rose-700 border-rose-200 animate-pulse"
+                      : "bg-slate-100 text-slate-600 border-slate-200"
+                }`}>
+                  <span>{moodEmoji}</span>
+                  <span className="capitalize">{session.sentimentLabel}</span>
+                </span>
+              )}
             </div>
           </div>
 
           {/* Primary Action Controls */}
-          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          <div className="flex items-center gap-1.5 shrink-0">
             {/* Take Over Action */}
             {isAssignedToMe ? (
               <button
                 type="button"
                 onClick={onRelease}
-                className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+                className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95"
               >
-                Release Chat
+                Release
               </button>
             ) : (
               <button
                 type="button"
                 onClick={onTakeOver}
-                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-500/20 active:scale-95 flex items-center gap-1.5"
+                className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95 flex items-center gap-1"
               >
                 <span>Take Over</span>
               </button>
             )}
 
             {/* Request Control */}
-            <button
-              type="button"
-              onClick={onRequestControl || onTakeOver}
-              className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 hover:border-indigo-300"
-            >
-              Request Control
-            </button>
+            {!isAssignedToMe && (
+              <button
+                type="button"
+                onClick={onRequestControl || onTakeOver}
+                className="px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95 hover:border-indigo-300"
+              >
+                Request Control
+              </button>
+            )}
+
+            {/* Close / Trash / Restore actions */}
+            {session && (
+              <>
+                {Boolean(session.archivedAt) ? (
+                  <>
+                    {onRestore && (
+                      <button
+                        type="button"
+                        onClick={onRestore}
+                        className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95 flex items-center gap-1"
+                        title="Restore chat from Trash"
+                      >
+                        <RotateCcw size={11} />
+                        <span>Restore</span>
+                      </button>
+                    )}
+                    {onDeletePermanent && (
+                      <button
+                        type="button"
+                        onClick={onDeletePermanent}
+                        className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95 flex items-center gap-1"
+                        title="Delete permanently"
+                      >
+                        <Trash2 size={11} />
+                        <span>Delete Forever</span>
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {session.status !== 'closed' && onClose && (
+                      <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95 flex items-center gap-1"
+                        title="Close active chat conversation"
+                      >
+                        <XCircle size={11} />
+                        <span>Close Chat</span>
+                      </button>
+                    )}
+                    {onMoveToTrash && (
+                      <button
+                        type="button"
+                        onClick={onMoveToTrash}
+                        className="px-2.5 py-1 bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-200 hover:border-rose-200 rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95 flex items-center gap-1"
+                        title="Move conversation to Trash"
+                      >
+                        <Trash2 size={11} />
+                        <span>Trash</span>
+                      </button>
+                    )}
+                  </>
+                )}
+              </>
+            )}
 
             {/* Intel Drawer Button */}
             <button
               onClick={() => setShowSidebar(!showSidebar)}
-              className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95 ${
+              className={`px-2.5 py-1 rounded-lg border text-xs font-bold transition-all flex items-center gap-1 shadow-xs active:scale-95 ${
                 showSidebar
                   ? "bg-indigo-600 text-white border-indigo-600"
                   : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-300"
               }`}
               title="Toggle Customer Intelligence Sidebar"
             >
-              <Sparkles size={13} />
+              <Sparkles size={12} />
               <span>Intel</span>
             </button>
           </div>
         </div>
 
-        {/* Bottom Sub-Row: Location/Browsing + Tool Toggles */}
-        <div className="flex items-center justify-between gap-3 flex-wrap pt-2 border-t border-slate-100 dark:border-white/5 text-xs">
+        {/* Bottom Sub-Row: Assignment + Location/Browsing + Tool Toggles */}
+        <div className="flex items-center justify-between gap-3 pt-1.5 border-t border-slate-100 dark:border-white/5 text-[11px]">
           <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium truncate min-w-0">
-            <span>{getDeviceIcon(visitor?.deviceInfo)} {visitor?.browser || "Chrome"}</span>
-            <span>•</span>
-            <span>📍 {visitor?.city ? `${visitor.city}, ` : ""}{visitor?.country || "United States"}</span>
-            <span>•</span>
+            {/* Assigned Agent Info */}
+            {assignedAgentId ? (
+              <span className="text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 shrink-0">
+                <span>👤</span>
+                <span>Assigned: {isAssignedToMe ? "Me" : assignedAgentName}</span>
+              </span>
+            ) : (
+              <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md shrink-0">
+                ⚠️ Unassigned
+              </span>
+            )}
+
+            {/* Transfer Chat Button */}
+            {onTransferChat && (
+              <button
+                type="button"
+                onClick={() => setShowTransferModal(true)}
+                className="text-[10px] font-bold text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-300 bg-slate-50 hover:bg-indigo-50 dark:bg-white/5 dark:hover:bg-indigo-500/10 px-1.5 py-0.5 rounded-md border border-slate-200 dark:border-white/10 flex items-center gap-1 transition-all shrink-0"
+                title="Transfer chat to another agent or department"
+              >
+                <span>🔄</span>
+                <span>Transfer</span>
+              </button>
+            )}
+
+            <span className="text-slate-300 dark:text-slate-700">•</span>
+
+            {/* Device */}
+            <span className="font-semibold text-slate-700 dark:text-slate-300 shrink-0">
+              {getDeviceIcon(visitor?.deviceInfo, visitor?.os, visitor?.device)} {getFormattedDevice(visitor)}
+            </span>
+            <span className="text-slate-300 dark:text-slate-700">•</span>
+
+            {/* Location (City) */}
+            <span className="font-semibold text-slate-700 dark:text-slate-300 shrink-0">
+              📍 {getFormattedLocation(visitor)}
+            </span>
+            <span className="text-slate-300 dark:text-slate-700">•</span>
+
+            {/* Browsing Path */}
             <span className="text-indigo-600 dark:text-indigo-400 font-semibold truncate">
               Browsing: {session.currentPage ? new URL(session.currentPage).pathname : "/"}
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+          <div className="flex items-center gap-1.5 shrink-0">
             {/* Auto-Translate Toggle */}
             <button
               type="button"
               onClick={() => setAutoTranslate(prev => !prev)}
-              className={`px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all flex items-center gap-1 active:scale-95 ${
+              className={`px-2 py-0.5 rounded-md border text-[10.5px] font-bold transition-all flex items-center gap-1 active:scale-95 ${
                 autoTranslate 
-                  ? "bg-teal-600 text-white border-teal-600 shadow-sm" 
+                  ? "bg-teal-600 text-white border-teal-600 shadow-2xs" 
                   : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
               }`}
               title="Toggle Real-time Multilingual Auto-Translation"
@@ -571,14 +691,14 @@ export default function ChatPanel({
                   setZeroAgentMode(false);
                 }
               }}
-              className={`px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all flex items-center gap-1 active:scale-95 ${
+              className={`px-2 py-0.5 rounded-md border text-[10.5px] font-bold transition-all flex items-center gap-1 active:scale-95 ${
                 zeroAgentMode
-                  ? "bg-purple-600 text-white border-purple-600 shadow-sm"
+                  ? "bg-purple-600 text-white border-purple-600 shadow-2xs"
                   : "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
               }`}
               title="Toggle Zero-Agent AI Auto-Resolution Mode"
             >
-              <Bot size={13} className={isSynthesizingAiReply ? "animate-spin" : ""} />
+              <Bot size={11} className={isSynthesizingAiReply ? "animate-spin" : ""} />
               <span>{zeroAgentMode ? "AI Auto ON" : "AI Auto Mode"}</span>
             </button>
 
@@ -586,10 +706,10 @@ export default function ChatPanel({
             {onConvertToTicket && (
               <button
                 onClick={() => onConvertToTicket(session)}
-                className="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all active:scale-95"
+                className="px-2 py-0.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-md text-[10.5px] font-bold flex items-center gap-1 transition-all active:scale-95"
                 title="Convert to Ticket"
               >
-                <Ticket size={13} />
+                <Ticket size={11} />
                 <span>Ticket</span>
               </button>
             )}
@@ -598,10 +718,10 @@ export default function ChatPanel({
             {onConvertToLead && !session.customerId && (
               <button
                 onClick={() => onConvertToLead(session)}
-                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all active:scale-95"
-                title="Convert to CRM Lead"
+                className="px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-md text-[10.5px] font-bold flex items-center gap-1 transition-all active:scale-95"
+                title="Convert this visitor chat into a CRM Lead"
               >
-                <UserPlus size={13} />
+                <UserCheck size={11} />
                 <span>Lead</span>
               </button>
             )}
@@ -808,63 +928,7 @@ export default function ChatPanel({
                 </div>
               )}
 
-              {/* AI Smart Quick-Reply Chips */}
-              <div className="flex items-center gap-1.5 pb-2 overflow-x-auto custom-scrollbar">
-                <button
-                  type="button"
-                  onClick={handleTriggerZeroAgentAiResponse}
-                  disabled={isSynthesizingAiReply}
-                  className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs hover:shadow-sm active:scale-95 transition-all shrink-0"
-                  title="Generate tailored AI response from visitor conversation context"
-                >
-                  <Sparkles size={11} className={isSynthesizingAiReply ? "animate-spin" : ""} />
-                  {isSynthesizingAiReply ? "Drafting..." : "AI Auto-Draft"}
-                </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDraft("Thank you for reaching out! We have prepared a customized business proposal for your requirements. Would you like me to email you the official quotation?");
-                    toast.success("Loaded Proposal Reply");
-                  }}
-                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 hover:bg-indigo-50 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 text-[10px] font-bold shrink-0 transition-all active:scale-95"
-                >
-                  ✨ Send Proposal
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDraft("We have live stock available in our central distribution warehouse with same-day dispatch and full warranty. What quantity would you like to reserve?");
-                    toast.success("Loaded Stock Check Reply");
-                  }}
-                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 hover:bg-indigo-50 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 text-[10px] font-bold shrink-0 transition-all active:scale-95"
-                >
-                  📦 Inventory & Stock
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDraft("Our commercial terms support WPS Bank Transfer, Corporate Card, and PDC Cheques with instant UAE VAT Tax Invoices. Let us know if you need an invoice issued.");
-                    toast.success("Loaded Payment Terms Reply");
-                  }}
-                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 hover:bg-indigo-50 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 text-[10px] font-bold shrink-0 transition-all active:scale-95"
-                >
-                  💳 Invoicing & Payment
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDraft("I am routing your request to our senior technical lead who will assist you step-by-step. Please stay connected!");
-                    toast.success("Loaded Specialist Transfer Reply");
-                  }}
-                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 hover:bg-indigo-50 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 text-[10px] font-bold shrink-0 transition-all active:scale-95"
-                >
-                  🤝 Connect Specialist
-                </button>
-              </div>
 
               <form onSubmit={submit} className="flex flex-col gap-2">
                 <div className="relative group">

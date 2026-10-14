@@ -87,7 +87,7 @@ export default function AccountsPage() {
     try {
       // If already has pdfUrl, open directly
       if (inv.pdfUrl) {
-        const base = import.meta.env.VITE_API_URL || "http://localhost:5000";
+        const base = import.meta.env.VITE_API_URL || "https://chatapi.jtsmiddleeast.com";
         window.open(`${base}${inv.pdfUrl}`, "_blank");
         return;
       }
@@ -96,7 +96,7 @@ export default function AccountsPage() {
       // Update local state with pdfUrl
       setInvoices(prev => prev.map(i => i._id === inv._id ? { ...i, pdfUrl: updated.pdfUrl } : i));
       if (updated.pdfUrl) {
-        const base = import.meta.env.VITE_API_URL || "http://localhost:5000";
+        const base = import.meta.env.VITE_API_URL || "https://chatapi.jtsmiddleeast.com";
         window.open(`${base}${updated.pdfUrl}`, "_blank");
       } else {
         alert("PDF generation failed. Please try again.");

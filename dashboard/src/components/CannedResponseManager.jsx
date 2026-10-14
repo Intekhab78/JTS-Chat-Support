@@ -109,53 +109,53 @@ export default function CannedResponseManager() {
   }, [searchQuery, scopeFilter, responses.length]);
 
   return (
-    <div className="space-y-5 animate-in fade-in duration-500">
+    <div className="space-y-3.5 animate-in fade-in duration-500">
       
-      {/* ── Executive Hero Header Banner ── */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-5 sm:p-6 text-white border border-indigo-500/20 shadow-2xl">
-        <div className="absolute top-0 right-0 -mt-8 -mr-8 w-64 h-64 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 -mb-12 w-80 h-80 rounded-full bg-violet-500/10 blur-3xl pointer-events-none" />
+      {/* ── Compact Executive Hero Header Banner ── */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 px-4 py-3.5 sm:px-5 sm:py-4 text-white border border-indigo-500/20 shadow-md">
+        <div className="absolute top-0 right-0 -mt-6 -mr-6 w-48 h-48 rounded-full bg-indigo-500/10 blur-2xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 -mb-8 w-60 h-60 rounded-full bg-violet-500/10 blur-2xl pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-          <div className="space-y-1.5 max-w-xl">
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="space-y-1 max-w-xl">
             <div className="flex items-center gap-2">
-              <span className="px-3 py-1 bg-indigo-500/20 text-indigo-300 text-[10px] font-black uppercase tracking-widest rounded-xl border border-indigo-500/30 flex items-center gap-1.5">
-                <Terminal size={12} className="text-indigo-400" /> Executive Command Center
+              <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 text-[9px] font-black uppercase tracking-wider rounded-md border border-indigo-500/30 inline-flex items-center gap-1">
+                <Terminal size={11} className="text-indigo-400" /> Protocol Quick Replies
               </span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+            <h2 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
               Protocol Shortcuts & Quick Replies
             </h2>
-            <p className="text-xs text-slate-300 font-medium leading-relaxed">
-              Type <code className="bg-white/10 px-2 py-0.5 rounded-lg font-mono text-indigo-300 font-bold">/shortcut</code> in any chat session to rapidly deploy pre-formatted customer response templates.
+            <p className="text-[11px] text-slate-300 font-medium leading-normal">
+              Type <code className="bg-white/10 px-1.5 py-0.5 rounded text-indigo-300 font-mono text-[10px] font-bold">/shortcut</code> in any chat to instantly deploy customer response templates.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             {/* Quick Metrics */}
-            <div className="flex items-center gap-2 bg-white/5 backdrop-blur-md p-2 rounded-2xl border border-white/10">
-              <div className="px-3 py-1 text-center">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Total</span>
-                <span className="text-sm font-black text-white">{totalCount}</span>
+            <div className="flex items-center gap-1.5 bg-white/5 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10">
+              <div className="px-1.5 py-0.5 text-center">
+                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block leading-none mb-0.5">Total</span>
+                <span className="text-xs font-black text-white">{totalCount}</span>
               </div>
-              <div className="w-px h-6 bg-white/10" />
-              <div className="px-3 py-1 text-center">
-                <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest block">Team</span>
-                <span className="text-sm font-black text-white">{sharedCount}</span>
+              <div className="w-px h-4 bg-white/10" />
+              <div className="px-1.5 py-0.5 text-center">
+                <span className="text-[8px] font-black text-emerald-400 uppercase tracking-widest block leading-none mb-0.5">Team</span>
+                <span className="text-xs font-black text-white">{sharedCount}</span>
               </div>
-              <div className="w-px h-6 bg-white/10" />
-              <div className="px-3 py-1 text-center">
-                <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest block">Private</span>
-                <span className="text-sm font-black text-white">{personalCount}</span>
+              <div className="w-px h-4 bg-white/10" />
+              <div className="px-1.5 py-0.5 text-center">
+                <span className="text-[8px] font-black text-amber-400 uppercase tracking-widest block leading-none mb-0.5">Private</span>
+                <span className="text-xs font-black text-white">{personalCount}</span>
               </div>
             </div>
 
             {canManageShortcuts ? (
               <button
                 onClick={() => setIsAdding(true)}
-                className="px-5 py-3 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 shrink-0"
+                className="px-3.5 py-2 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-black text-[11px] uppercase tracking-wider rounded-xl shadow-md shadow-indigo-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-1.5 shrink-0"
               >
-                <Plus size={16} />
+                <Plus size={14} />
                 <span>{canManagePersonalShortcuts && !canManageSharedShortcuts ? "New Private Shortcut" : "Create Shortcut"}</span>
               </button>
             ) : null}
@@ -164,26 +164,26 @@ export default function CannedResponseManager() {
       </div>
 
       {error && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 dark:bg-rose-950/20 dark:border-rose-900/30 p-3.5 text-xs font-bold text-rose-700 dark:text-rose-300 animate-in fade-in">
+        <div className="rounded-xl border border-rose-200 bg-rose-50 dark:bg-rose-950/20 dark:border-rose-900/30 px-3.5 py-2 text-xs font-bold text-rose-700 dark:text-rose-300 animate-in fade-in">
           ⚠️ {error}
         </div>
       )}
 
       {/* ── Search & Filter Controls Bar ── */}
-      <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-3xl border border-slate-200/80 dark:border-white/10 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 p-2 sm:p-2.5 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-xs flex flex-col md:flex-row items-center justify-between gap-2.5">
         
         {/* Search input */}
         <div className="relative flex-1 w-full group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={16} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={14} />
           <input
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search by shortcut name or text content..."
-            className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-white/10 rounded-2xl pl-11 pr-10 py-2.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-900 transition-all placeholder:text-slate-400"
+            className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-white/10 rounded-xl pl-9 pr-8 py-1.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-900 transition-all placeholder:text-slate-400"
           />
           {searchQuery && (
-            <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1">
-              <X size={14} />
+            <button onClick={() => setSearchQuery("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1">
+              <X size={13} />
             </button>
           )}
         </div>
@@ -192,9 +192,9 @@ export default function CannedResponseManager() {
         <div className="flex items-center gap-1.5 w-full md:w-auto shrink-0 overflow-x-auto pb-1 md:pb-0">
           <button
             onClick={() => setScopeFilter("all")}
-            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+            className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${
               scopeFilter === "all"
-                ? "bg-indigo-600 text-white shadow-sm"
+                ? "bg-indigo-600 text-white shadow-xs"
                 : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
             }`}
           >
@@ -202,23 +202,23 @@ export default function CannedResponseManager() {
           </button>
           <button
             onClick={() => setScopeFilter("shared")}
-            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
               scopeFilter === "shared"
-                ? "bg-indigo-600 text-white shadow-sm"
+                ? "bg-indigo-600 text-white shadow-xs"
                 : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
             }`}
           >
-            <Globe size={12} /> Team Shared ({sharedCount})
+            <Globe size={11} /> Team Shared ({sharedCount})
           </button>
           <button
             onClick={() => setScopeFilter("personal")}
-            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
               scopeFilter === "personal"
-                ? "bg-indigo-600 text-white shadow-sm"
+                ? "bg-indigo-600 text-white shadow-xs"
                 : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
             }`}
           >
-            <Lock size={12} /> Private ({personalCount})
+            <Lock size={11} /> Private ({personalCount})
           </button>
         </div>
 

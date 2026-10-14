@@ -275,7 +275,7 @@ export default function CrmContainer({
     priority: "medium", ownerId: "", tags: "", notes: "", sessionId: "",
     // UAE Compliance Fields
     trn: "", tradeLicenseNumber: "", tradeLicenseExpiryDate: "",
-    serviceType: "Corporate Tax Registration", workStatus: "Pending", paymentStatus: "Pending",
+    serviceType: "E-Invoicing & Billing Suite", workStatus: "Pending", paymentStatus: "Pending",
     vatFilingPeriod: "", vatFilingDueDate: "", corporateTaxDueDate: ""
   });
 
@@ -808,7 +808,7 @@ export default function CrmContainer({
       trn: initData.trn || "",
       tradeLicenseNumber: initData.tradeLicenseNumber || "",
       tradeLicenseExpiryDate: initData.tradeLicenseExpiryDate ? String(initData.tradeLicenseExpiryDate).substring(0, 10) : "",
-      serviceType: initData.serviceType || "Corporate Tax Registration",
+      serviceType: initData.serviceType || "E-Invoicing & Billing Suite",
       workStatus: initData.workStatus || "Pending",
       paymentStatus: initData.paymentStatus || "Pending",
       vatFilingPeriod: initData.vatFilingPeriod || "",
@@ -863,7 +863,7 @@ export default function CrmContainer({
       trn: target.trn || "",
       tradeLicenseNumber: target.tradeLicenseNumber || "",
       tradeLicenseExpiryDate: target.tradeLicenseExpiryDate ? String(target.tradeLicenseExpiryDate).substring(0, 10) : "",
-      serviceType: target.serviceType || "Corporate Tax Registration",
+      serviceType: target.serviceType || "E-Invoicing & Billing Suite",
       workStatus: target.workStatus || "Pending",
       paymentStatus: target.paymentStatus || "Pending",
       vatFilingPeriod: target.vatFilingPeriod || "",

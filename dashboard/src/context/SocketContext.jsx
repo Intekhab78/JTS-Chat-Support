@@ -6,6 +6,11 @@ import { getApiBase } from "../api/client.js";
 const SocketContext = createContext(null);
 
 function getSocketTransports(apiBase) {
+  const envTransport = import.meta.env.VITE_SOCKET_TRANSPORT;
+  if (envTransport) {
+    return envTransport.split(",").map((s) => s.trim());
+  }
+
   try {
     const { hostname } = new URL(apiBase);
     if (hostname === "localhost" || hostname === "127.0.0.1") {
@@ -14,6 +19,9 @@ function getSocketTransports(apiBase) {
   } catch {
     // Fall back to polling for malformed/relative URLs.
   }
+
+  // Remote servers (such as Nginx reverse proxies without websocket upgrade configured)
+  // return 400 Bad Request on websocket handshakes. Polling ensures reliable real-time updates.
   return ["polling"];
 }
 
@@ -57,6 +65,9 @@ export const SocketProvider = ({ children }) => {
 
     getApiBase().then((apiBase) => {
       if (cancelled) return;
+      const transports = getSocketTransports(apiBase);
+      const isRemotePollingOnly = transports.length === 1 && transports[0] === "polling";
+
       newSocket = io(apiBase, {
         auth: {
           type: "agent",
@@ -65,7 +76,8 @@ export const SocketProvider = ({ children }) => {
         reconnection: true,
         reconnectionAttempts: 15,
         reconnectionDelay: 1000,
-        transports: getSocketTransports(apiBase),
+        transports,
+        upgrade: !isRemotePollingOnly,
         withCredentials: true
       });
 

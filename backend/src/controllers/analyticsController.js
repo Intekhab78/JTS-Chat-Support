@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { ChatSession } from "../models/ChatSession.js";
 import { Message } from "../models/Message.js";
 import { User } from "../models/User.js";
@@ -9,7 +10,7 @@ import { normalizeRole, getOwnedWebsiteIds } from "../utils/roleUtils.js";
 
 
 
-const OWNER_ROLES = ["admin", "client", "manager", "accounts"];
+const OWNER_ROLES = ["admin", "client", "manager", "accounts", "management", "tax_consultant", "sales", "agent", "user"];
 
 function startOfDay(date) {
   const next = new Date(date);
@@ -52,11 +53,20 @@ export async function getManagerAnalytics(req, res) {
   const { start, end } = resolveDateRange(req.query);
 
   let websiteFilter = { _id: { $in: ownedWebsiteIds } };
-  if (websiteId) {
-    if (!ownedWebsiteIds.map(id => id.toString()).includes(websiteId)) {
-      return res.status(403).json({ message: "Access denied to this website" });
+  if (websiteId && websiteId !== "all" && websiteId !== "undefined" && websiteId !== "null") {
+    const isObjectId = mongoose.Types.ObjectId.isValid(websiteId);
+    const targetWebsite = await Website.findOne(
+      isObjectId ? { $or: [{ _id: websiteId }, { apiKey: websiteId }] } : { apiKey: websiteId }
+    ).select("_id");
+
+    if (targetWebsite) {
+      if (role !== "admin" && !ownedWebsiteIds.map(id => id.toString()).includes(targetWebsite._id.toString())) {
+        return res.status(403).json({ message: "Access denied to this website" });
+      }
+      websiteFilter = { _id: targetWebsite._id };
     }
-    websiteFilter._id = websiteId;
+  } else if (role === "admin" && (!websiteId || websiteId === "all")) {
+    websiteFilter = {};
   }
   
   const websites = await Website.find(websiteFilter).sort({ createdAt: -1 });

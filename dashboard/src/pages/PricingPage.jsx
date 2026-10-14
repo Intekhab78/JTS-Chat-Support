@@ -3,7 +3,7 @@ import { api } from "../api/client.js";
 import { useState, useEffect } from "react";
 import MockPaymentModal from "../components/MockPaymentModal";
 
-export default function PricingPage({ currentPlan, isExpired, billingPeriod = "monthly" }) {
+export default function PricingPage({ currentPlan, isExpired, billingPeriod = "monthly", hideHeader = false }) {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -90,14 +90,16 @@ export default function PricingPage({ currentPlan, isExpired, billingPeriod = "m
   };
 
   return (
-    <div className="space-y-8 py-6">
-      <div className="text-center max-w-2xl mx-auto space-y-2">
+    <div className="space-y-4">
+      {!hideHeader && (
+      <div className="text-center max-w-2xl mx-auto space-y-2 mb-4">
         <span className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.25em]">SaaS Subscription Engine</span>
         <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight uppercase">Select Your Growth Plan Package</h2>
         <p className="text-xs font-bold text-slate-500">Deploy custom domain support networks, unlock UAE VAT Compliance, and scale agent seats instantly.</p>
       </div>
+      )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
         {plans.map((plan) => {
           const planCode = plan.code || plan.id;
           const isCurrentActive = currentPlan === planCode && !isExpired;
@@ -107,7 +109,7 @@ export default function PricingPage({ currentPlan, isExpired, billingPeriod = "m
           return (
             <div 
               key={planCode}
-              className={`premium-card relative p-8 flex flex-col bg-white dark:bg-slate-900 border-2 transition-all hover:scale-[1.02] ${
+              className={`rounded-2xl relative p-4 sm:p-5 flex flex-col bg-white dark:bg-slate-900 border-2 transition-all hover:scale-[1.02] ${
                 plan.isPopular ? 'border-indigo-500 shadow-2xl shadow-indigo-500/10' : 'border-slate-100 dark:border-white/5'
               }`}
             >

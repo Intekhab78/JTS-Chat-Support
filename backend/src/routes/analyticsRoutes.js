@@ -16,7 +16,7 @@ import { attachTenantSubscription, requirePlanFeature } from "../middleware/plan
 
 const router = Router();
 
-router.get("/", requireAuth, requireRole("admin", "client", "manager", "accounts", "management", "tax_consultant"), getManagerAnalytics);
+router.get("/", requireAuth, requireRole("admin", "client", "manager", "accounts", "management", "tax_consultant", "sales", "agent", "user"), getManagerAnalytics);
 router.get("/sales", requireAuth, requireRole("admin", "client", "manager", "sales", "tax_consultant"), getSalesPerformanceStats);
 router.get("/agent", requireAuth, requireRole("agent", "sales", "user", "tax_consultant", "management", "manager", "accounts", "purchase"), getAgentAnalytics);
 router.get("/export/csv", requireAuth, requireRole("admin", "client", "manager", "accounts"), attachTenantSubscription, requirePlanFeature("reports"), exportAnalyticsCSV);
