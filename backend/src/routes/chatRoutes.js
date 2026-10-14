@@ -2,7 +2,7 @@ import { Router } from "express";
 import {
   uploadAttachment, acceptChatSession, closeChatSession, archiveChatSession, restoreChatSession,
   getSessionMessages, listAgentSessions, listManagerSessions, listSalesSessions,
-  listQueuedSessions, getChatHistory, transferChatSession,
+  listQueuedSessions, getChatHistory, transferChatSession, submitOfflineMessage,
   addInternalNote, getInternalNotes, getSessionActivity,
   bulkCloseSessions, bulkReassignSessions, bulkDeleteSessions, deleteChatSession
 } from "../controllers/chatController.js";
@@ -33,6 +33,7 @@ router.patch("/sessions/:sessionId/close", requireAuth, closeChatSession);
 router.patch("/sessions/:sessionId/archive", requireAuth, archiveChatSession);
 router.patch("/sessions/:sessionId/restore", requireAuth, restoreChatSession);
 router.delete("/sessions/:sessionId", requireAuth, deleteChatSession);
+router.post("/sessions/:sessionId/offline-message", submitOfflineMessage);
 
 // Bulk Operations
 router.post("/bulk-close", requireAuth, requireRole("admin", "client", "manager"), bulkCloseSessions);

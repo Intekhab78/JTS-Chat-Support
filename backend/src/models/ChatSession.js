@@ -61,6 +61,7 @@ const chatSessionSchema = new mongoose.Schema(
     offlineMessagePending: { type: Boolean, default: false, index: true },
     offlineMessageSubmittedAt: { type: Date, default: null, index: true },
     offlineTicketGeneratedAt: { type: Date, default: null },
+    ticketId: { type: mongoose.Schema.Types.ObjectId, ref: "Ticket", default: null },
     archivedAt: { type: Date, default: null, index: true },
     archivedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     archiveReason: { type: String, trim: true, default: "" },

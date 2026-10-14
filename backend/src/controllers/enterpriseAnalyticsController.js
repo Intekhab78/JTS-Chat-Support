@@ -2,6 +2,8 @@ import { Customer } from "../models/Customer.js";
 import { Ticket } from "../models/Ticket.js";
 import { Website } from "../models/Website.js";
 import { User } from "../models/User.js";
+import { Invoice } from "../models/Invoice.js";
+import { Payment } from "../models/Payment.js";
 import mongoose from "mongoose";
 
 const getDateFilter = (range) => {
@@ -343,38 +345,92 @@ export const getAgentPerformanceAnalytics = async (req, res) => {
 export const getRevenueAnalytics = async (req, res) => {
   try {
     const { range = 'month', clientId } = req.query;
-    // Mocking real revenue data based on Subscription models if they exist, or using advanced math.
-    // Assuming base ARR is 150k and growing.
-    const mrr = 12500 + Math.floor(Math.random() * 2000);
+
+    // Filter websites if clientId (managerId) provided
+    let websiteFilter = {};
+    if (clientId) {
+      const clientWebsites = await Website.find({ managerId: clientId }).select("_id");
+      websiteFilter.websiteId = { $in: clientWebsites.map(w => w._id) };
+    }
+
+    // 1. Aggregate real completed payments
+    const payments = await Payment.find({
+      ...websiteFilter,
+      status: "completed"
+    }).populate("customerId", "name companyName");
+
+    const totalRevenueCalc = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+    // 2. Real Invoices metrics
+    const invoices = await Invoice.find({
+      ...websiteFilter,
+      status: { $in: ["paid", "partially_paid", "pending"] }
+    }).populate("customerId", "name companyName");
+
+    const paidInvoicesTotal = invoices
+      .filter(i => i.status === "paid" || i.paymentStatus === "paid")
+      .reduce((sum, i) => sum + (Number(i.paidAmount || i.total) || 0), 0);
+
+    const effectiveTotal = totalRevenueCalc > 0 ? totalRevenueCalc : paidInvoicesTotal;
+
+    // Estimate MRR / ARR from actual recurring or 30-day run rate
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const recentRevenue = payments
+      .filter(p => new Date(p.paymentDate || p.createdAt) >= thirtyDaysAgo)
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+    const mrr = recentRevenue > 0 ? recentRevenue : Math.round(effectiveTotal / 12) || 0;
     const arr = mrr * 12;
-    const totalRevenue = arr * 2.5; // Lifetime/total
-    const subscriptionRevenue = totalRevenue * 0.8; 
-    
-    // Revenue by Client (mock distribution)
-    const revenueByClient = [
-      { name: "Acme Corp", value: 34000 },
-      { name: "Global Tech", value: 28000 },
-      { name: "Stark Ind.", value: 22000 },
-      { name: "Wayne Ent.", value: 18000 },
-      { name: "Other", value: 48000 }
-    ];
+
+    // 3. Real Revenue by Client
+    const clientRevenueMap = {};
+    for (const p of payments) {
+      const clientName = p.customerId?.companyName || p.customerId?.name || "Direct Customer";
+      clientRevenueMap[clientName] = (clientRevenueMap[clientName] || 0) + Number(p.amount || 0);
+    }
+    for (const inv of invoices.filter(i => i.status === "paid")) {
+      const clientName = inv.customerId?.companyName || inv.customerId?.name || "Direct Customer";
+      if (!clientRevenueMap[clientName]) {
+        clientRevenueMap[clientName] = Number(inv.paidAmount || inv.total || 0);
+      }
+    }
+
+    const revenueByClient = Object.entries(clientRevenueMap)
+      .map(([name, value]) => ({ name, value: Math.round(value) }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+
+    // 4. Real monthly revenue growth
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentMonthIdx = new Date().getMonth();
+    const last6Months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(currentMonthIdx - i);
+      const mIdx = d.getMonth();
+      const mYear = d.getFullYear();
+      
+      const mPayments = payments.filter(p => {
+        const pDate = new Date(p.paymentDate || p.createdAt);
+        return pDate.getMonth() === mIdx && pDate.getFullYear() === mYear;
+      });
+      const mRev = mPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
+      last6Months.push({
+        month: months[mIdx],
+        revenue: mRev,
+        subscriptions: mPayments.length
+      });
+    }
 
     res.json({
       metrics: {
-        totalRevenue: `$${totalRevenue.toLocaleString()}`,
-        subscriptionRevenue: `$${subscriptionRevenue.toLocaleString()}`,
+        totalRevenue: `$${effectiveTotal.toLocaleString()}`,
+        subscriptionRevenue: `$${Math.round(effectiveTotal * 0.7).toLocaleString()}`,
         mrr: `$${mrr.toLocaleString()}`,
         arr: `$${arr.toLocaleString()}`
       },
-      revenueGrowth: [
-        { month: 'Jan', revenue: 9000, subscriptions: 120 },
-        { month: 'Feb', revenue: 9500, subscriptions: 135 },
-        { month: 'Mar', revenue: 10200, subscriptions: 150 },
-        { month: 'Apr', revenue: 11000, subscriptions: 162 },
-        { month: 'May', revenue: 11800, subscriptions: 180 },
-        { month: 'Jun', revenue: 12500, subscriptions: 195 },
-      ],
-      revenueByClient
+      revenueGrowth: last6Months,
+      revenueByClient: revenueByClient.length > 0 ? revenueByClient : [{ name: "New Customers", value: effectiveTotal }]
     });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });

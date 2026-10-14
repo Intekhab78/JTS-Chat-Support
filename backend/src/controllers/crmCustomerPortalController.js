@@ -69,20 +69,166 @@ export const updateQuotationStatus = asyncHandler(async (req, res) => {
 
   if (action === "accept") {
     quote.status = "accepted";
+    quote.acceptedAt = new Date();
+    await quote.save();
+
+    // 1. Advance Customer CRM pipeline stage to Won
+    const customer = await Customer.findById(quote.customerId);
+    if (customer) {
+      const prevStage = customer.pipelineStage || "proposal";
+      customer.pipelineStage = "won";
+      customer.status = "customer";
+      customer.recordType = "customer";
+      customer.isLocked = true;
+      customer.lastActivity = new Date();
+      if (!customer.stageHistory) customer.stageHistory = [];
+      customer.stageHistory.push({
+        fromStage: prevStage,
+        toStage: "won",
+        changedBy: req.user._id,
+        changedAt: new Date(),
+        reason: `Quotation ${quote.quotationId || quote._id} accepted by customer in Client Portal`
+      });
+      await customer.save();
+
+      // 2. Initialize Customer Success Onboarding profile
+      try {
+        const { CustomerSuccess } = await import("../models/CustomerSuccess.js");
+        await CustomerSuccess.findOneAndUpdate(
+          { websiteId: customer.websiteId, customerId: customer._id },
+          { 
+            websiteId: customer.websiteId,
+            customerId: customer._id,
+            onboardingStatus: "pending",
+            healthScore: 85,
+            onboardingChecklist: {
+              workspaceCreated: false,
+              adminInvited: false,
+              usersAdded: false,
+              dataImported: false,
+              trainingCompleted: false,
+              goLive: false
+            }
+          },
+          { upsert: true, new: true }
+        );
+      } catch (err) {
+        console.error("Failed to initialize CustomerSuccess profile:", err);
+      }
+
+      // 3. Auto-generate the corresponding Invoice if one does not exist
+      let invoice = await Invoice.findOne({ quotationId: quote.quotationId });
+      if (!invoice) {
+        const invoiceId = `INV-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
+        const invoiceItems = (quote.items || []).map(item => ({
+          productId: item.productId || null,
+          sku: item.sku || "CUSTOM",
+          description: item.description,
+          quantity: item.quantity,
+          price: item.price,
+          discount: item.discount,
+          taxRate: item.taxRate,
+          taxAmount: item.taxAmount,
+          subtotal: item.subtotal,
+          total: item.total
+        }));
+
+        invoice = await Invoice.create({
+          invoiceId,
+          invoiceNumber: invoiceId,
+          customerId: quote.customerId,
+          websiteId: quote.websiteId,
+          ownerId: quote.ownerId || req.user._id,
+          quotationId: quote.quotationId,
+          items: invoiceItems,
+          subtotal: quote.subtotal,
+          discountAmount: quote.discountAmount,
+          tax: quote.tax,
+          shippingCharges: quote.shippingCharges,
+          total: quote.total,
+          currency: quote.currency || "INR",
+          status: "pending",
+          notes: quote.notes,
+          issuedAt: new Date()
+        });
+      }
+
+      // 4. Alert quotation sales owner & broadcast real-time event
+      if (quote.ownerId) {
+        try {
+          const { createNotification } = await import("../services/notificationService.js");
+          const { getSocketServer } = await import("../sockets/index.js");
+          const notif = await createNotification({
+            recipient: quote.ownerId,
+            type: "crm_deal_won",
+            title: `Quotation Accepted by Client!`,
+            message: `${customer.name || "Client"} has accepted quotation ${quote.quotationId || quote._id}. Deal moved to WON.`,
+            link: `/client?tab=crm`
+          });
+          const io = getSocketServer();
+          if (notif && io) {
+            io.to(`us_${String(quote.ownerId)}`).emit("notification:new", notif);
+            io.emit("lead:created", {
+              message: `Deal Won: ${customer.name} accepted quotation`,
+              user: customer.name,
+              customerId: customer._id,
+              websiteId: customer.websiteId,
+              recordType: "customer"
+            });
+          }
+        } catch (err) {
+          console.error("Failed to notify quote owner:", err);
+        }
+      }
+    }
   } else if (action === "reject") {
     quote.status = "rejected";
+    await quote.save();
+
+    // Feedback Loop: Move customer back to negotiation stage for revision!
+    const customer = await Customer.findById(quote.customerId);
+    if (customer && customer.pipelineStage !== "won") {
+      customer.pipelineStage = "negotiation";
+      customer.lastActivity = new Date();
+      if (!customer.stageHistory) customer.stageHistory = [];
+      customer.stageHistory.push({
+        fromStage: "proposal",
+        toStage: "negotiation",
+        changedBy: req.user._id,
+        changedAt: new Date(),
+        reason: `Quotation ${quote.quotationId || quote._id} rejected/revision requested by customer in Portal`
+      });
+      await customer.save();
+
+      // Alert sales owner that quote needs revision
+      if (quote.ownerId) {
+        try {
+          const { createNotification } = await import("../services/notificationService.js");
+          const { getSocketServer } = await import("../sockets/index.js");
+          const notif = await createNotification({
+            recipient: quote.ownerId,
+            type: "quotation_rejected",
+            title: `Quotation Revision Requested`,
+            message: `${customer.name || "Client"} rejected / requested changes on quote ${quote.quotationId || quote._id}. Deal returned to Negotiation.`,
+            link: `/client?tab=crm`
+          });
+          const io = getSocketServer();
+          if (notif && io) {
+            io.to(`us_${String(quote.ownerId)}`).emit("notification:new", notif);
+          }
+        } catch (err) {}
+      }
+    }
   } else {
     throw new AppError("Invalid action", 400);
   }
-
-  await quote.save();
 
   // Log activity
   await logCrmActivity({
     websiteId: quote.websiteId,
     type: "note",
     title: `Quotation ${action.toUpperCase()} by Customer`,
-    description: `Customer ${req.user.name} has ${action}ed quotation #${quote.quoteNumber || quote._id}`,
+    description: `Customer ${req.user.name} has ${action}ed quotation #${quote.quotationId || quote.quoteNumber || quote._id}`,
     customerId: req.user.customerId
   });
 
@@ -252,8 +398,8 @@ export const payInvoice = asyncHandler(async (req, res) => {
     invoiceId: invoice._id,
     customerId: invoice.customerId,
     amount: payAmount,
-    gateway: "portal_stripe_mock",
-    paymentMethod,
+    gateway: paymentMethod === "card" ? "stripe" : (paymentMethod || "online_portal"),
+    paymentMethod: paymentMethod || "card",
     referenceNumber: `REF-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
     status: "completed",
     paymentDate: new Date()

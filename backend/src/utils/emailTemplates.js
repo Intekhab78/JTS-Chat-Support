@@ -296,3 +296,27 @@ export function dealStaleTemplate({ ownerName, customerName, companyName, stageN
   };
 }
 
+/** Payment Failed Recovery Template (to customer) */
+export function paymentFailedRecoveryTemplate({ customerName, invoiceId, amount, currency = "INR", retryUrl, failureReason }) {
+  const content = `
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:20px;margin-bottom:28px;">
+      <p style="margin:0;color:#991b1b;font-size:13px;font-weight:700;">⚠️ Payment Unsuccessful — Action Required</p>
+    </div>
+    <h2 style="margin:0 0 8px;color:#1e293b;font-size:20px;font-weight:800;">Payment Attempt Failed</h2>
+    <p style="margin:0 0 24px;color:#64748b;font-size:14px;line-height:1.7;">Hi <strong>${customerName || "Customer"}</strong>, we were unable to process your transaction for Invoice <strong>${invoiceId}</strong>.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Invoice #</span></td><td style="text-align:right;"><strong style="color:#1e293b;font-size:14px;">${invoiceId}</strong></td></tr>
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Amount Due</span></td><td style="text-align:right;"><strong style="color:#1e293b;font-size:15px;">${currency} ${Number(amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong></td></tr>
+      <tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Status</span></td><td style="text-align:right;">${badge("Payment Failed", "#ef4444")}</td></tr>
+      ${failureReason ? `<tr><td style="padding:8px 0;"><span style="color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Reason</span></td><td style="text-align:right;"><span style="color:#ef4444;font-size:13px;">${failureReason}</span></td></tr>` : ""}
+    </table>
+    <p style="color:#64748b;font-size:14px;line-height:1.7;">No worries! You can retry the transaction securely using an alternate card or payment method via the link below:</p>
+    ${button("Retry Payment Now", retryUrl, "#ef4444")}
+    <p style="text-align:center;color:#94a3b8;font-size:12px;">If you have any questions or need an updated invoice, please reach out to our team.</p>
+  `;
+  return {
+    html: layout(content, `Payment failed for Invoice ${invoiceId} — Retry your payment`),
+    subject: `⚠️ Payment Unsuccessful for Invoice ${invoiceId} — Please Retry`
+  };
+}
+

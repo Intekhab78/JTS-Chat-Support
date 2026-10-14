@@ -7,6 +7,7 @@ import { createNotification } from "./notificationService.js";
 import { sendEmail } from "./emailService.js";
 import { slaBreachTemplate } from "../utils/emailTemplates.js";
 import { processCrmAutomation, processTicketAutomation } from "./automationService.js";
+import { runTicketEscalationEngine } from "./ticketEscalationService.js";
 import { emitSessionUpdate } from "../sockets/index.js";
 
 async function alertManager(manager, breachType, details, dashboardUrl) {
@@ -88,6 +89,7 @@ export async function processSlaBreaches() {
 
   await processCrmAutomation();
   await processTicketAutomation();
+  await runTicketEscalationEngine().catch(err => console.error("[SLA Monitor] Escalation engine run failed:", err.message));
 }
 
 export function startSlaMonitor() {

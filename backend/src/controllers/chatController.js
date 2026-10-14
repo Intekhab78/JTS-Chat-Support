@@ -224,11 +224,116 @@ export async function submitOfflineMessage(req, res) {
     metadata: { offlineMessagePending: true }
   });
 
+  // Automatically escalate after-hours message to SLA Helpdesk Ticket & Lead Pipeline
+  let createdTicket = null;
+  const targetEmail = String(email || session.visitorId?.email || "").trim();
+  const targetName = String(name || session.visitorId?.name || "Visitor").trim();
+
+  if (targetEmail && !targetEmail.endsWith("@visitor.local")) {
+    try {
+      const { Ticket } = await import("../models/Ticket.js");
+      const { getOrCreateCustomer } = await import("../services/customerService.js");
+      const { buildTicketSlaFields } = await import("../services/automationService.js");
+      const { buildTicketId, syncSalesOwnerFromTicket } = await import("../utils/ticketUtils.js");
+      const {
+        notifyVisitorOfTicketCreation,
+        notifyAssignedAgent,
+        createManagerTicketNotification,
+        autoAssignTicket,
+        shareTicketLinkInChat
+      } = await import("../services/ticketService.js");
+
+      const websiteId = session.websiteId?._id || session.websiteId;
+
+      // 1. Auto-create/link to Customer 360 as Lead
+      const customer = await getOrCreateCustomer({
+        name: targetName,
+        email: targetEmail,
+        websiteId,
+        leadSource: "After-Hours Live Chat",
+        ownerId: session.assignedAgent || null
+      });
+
+      if (customer) {
+        session.customerId = customer._id;
+        session.crn = customer.crn;
+        if (session.visitorId) {
+          session.visitorId.customerId = customer._id;
+          session.visitorId.crn = customer.crn;
+          await session.visitorId.save();
+        }
+      }
+
+      // 2. Create SLA Helpdesk Ticket with crmStage: "lead"
+      const crypto = (await import("crypto")).default;
+      const ticketPriority = "medium";
+      const ticket = new Ticket({
+        ticketId: buildTicketId(),
+        shareToken: crypto.randomBytes(12).toString("hex"),
+        websiteId,
+        visitorId: session.visitorId?._id || null,
+        customerId: customer?._id || null,
+        crn: customer?.crn || null,
+        assignedAgent: session.assignedAgent || null,
+        subject: `After-Hours Inquiry: ${String(message || "").slice(0, 45)}...`,
+        priority: ticketPriority,
+        crmStage: "lead", // Automatically routes to Leads & Kanban Pipeline!
+        status: "open",
+        channel: "live_chat",
+        lastMessagePreview: String(message || "").trim()
+      });
+
+      Object.assign(ticket, buildTicketSlaFields(ticketPriority, new Date()));
+      await ticket.save();
+
+      // 3. Auto-assign round robin if available
+      await autoAssignTicket(ticket);
+      await syncSalesOwnerFromTicket(ticket, ticket.assignedAgent);
+
+      // 4. Update session
+      session.offlineTicketGeneratedAt = new Date();
+      session.ticketId = ticket._id;
+      await session.save();
+
+      // 5. Notify visitor with tracking link
+      const website = await Website.findById(websiteId).select("websiteName");
+      await notifyVisitorOfTicketCreation({
+        ticket,
+        visitorEmail: targetEmail,
+        websiteName: website?.websiteName || "Support"
+      });
+
+      // 6. Share confirmation link inside chat
+      await shareTicketLinkInChat({ session, ticket, actor: null });
+      await notifyAssignedAgent(ticket);
+      await createManagerTicketNotification(ticket);
+
+      // 7. Emit lead & ticket creation event so agents / sales see it live
+      if (io) {
+        io.to(`ws_${websiteId}`).emit("ticket:new", ticket);
+        io.emit("lead:created", {
+          message: `New Lead auto-captured from off-hours chat (${ticket.ticketId})`,
+          user: customer?.name || targetName,
+          customerId: customer?._id,
+          websiteId,
+          recordType: "lead"
+        });
+      }
+
+      createdTicket = ticket;
+    } catch (ticketErr) {
+      console.error("[OfflineTicketCreation] Error auto-generating ticket from offline chat:", ticketErr);
+    }
+  }
+
   emitSessionUpdate(await loadRealtimeSession(session._id));
 
   return res.status(201).json({
-    message: "Offline message saved successfully",
-    sessionId: session.sessionId
+    message: createdTicket
+      ? `Offline message saved and SLA Ticket ${createdTicket.ticketId} auto-generated`
+      : "Offline message saved successfully",
+    sessionId: session.sessionId,
+    ticketId: createdTicket?.ticketId || null
   });
 }
 

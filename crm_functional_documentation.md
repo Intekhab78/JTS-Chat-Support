@@ -247,41 +247,107 @@ This matrix specifies dashboard and CRUD limits for every system role.
 
 ```mermaid
 graph TD
-    %% Entry Channels
-    A1[Omnichannel Inbox / Web Chats] -->|Creates Lead| B(Lead / Customer Profile)
-    A2[Website Inquiries / Forms] -->|Captures Profile| B
+    %% 1. Ingestion & Omnichannel Channels
+    subgraph S1 ["🌐 1. Entry & Ingestion"]
+        A1["Omnichannel Inbox / Web Chats"]
+        A2["Website Inquiries / Contact Forms"]
+        A3["AI Sentiment & Intent Engine"]
+        A1 --- A3
+        A1 -->|"Capture Lead"| B["Lead & Customer Profile"]
+        A2 -->|"Register Visitor"| B
+    end
     
-    %% CRM core structure
-    B -->|Promotes on Qualification| C(Contacts Database)
-    B -->|Promotes on Qualification| D(Companies Ledger)
+    %% 2. Support Escalations & Lead Feedback Loop
+    subgraph S2 ["🎫 2. Support & Helpdesk"]
+        L["Support Tickets / SLA Helpdesk"]
+        A1 -->|"🌙 Off-Hours Offline Escalation"| L
+        L ==>|"🌅 Morning Triage: Lead Qualification"| B
+    end
+
+    %% 3. CRM Core & Deal Opportunities
+    subgraph S3 ["💼 3. CRM & Pipeline"]
+        C["Contacts Database"]
+        D["Companies Ledger"]
+        E["Deals & Opportunities (Negotiation)"]
+        
+        B -->|"Promotes on Qualification"| C
+        B -->|"Links Corporate Entity"| D
+        C -->|"Identified Opportunity"| E
+        D -->|"B2B Organization"| E
+        L ==>|"🚀 High-Value Upsell / Expansion"| E
+    end
     
-    %% Opportunities
-    C -->|Identified as Opportunity| E(Deals & Opportunities)
-    D -->|Links Parent Organization| E
+    %% 4. Catalog & Quotations with Rejection Loop
+    subgraph S4 ["📑 4. Proposals & Approvals"]
+        F["Products & Services Catalog"]
+        G["Quotations Engine (Approval Gates)"]
+        
+        F -->|"SKU Line Items"| G
+        E -->|"Binds Estimates"| G
+        G -.->|"❌ Client Rejection / Revision Loop"| E
+    end
     
-    %% Catalog & Quotes
-    F[Products & Services Catalog] -->|Provides SKU Line Items| G(Quotations Engine)
-    E -->|Binds Estimates| G
+    %% 5. Fulfillment & Invoicing
+    subgraph S5 ["📦 5. Fulfillment & Invoices"]
+        H["Sales Orders / Fulfillment"]
+        I["Invoices Registry"]
+        
+        G -->|"✅ Accepted by Customer"| H
+        G -->|"✅ Accepted by Customer"| I
+        H -->|"Delivery Confirmation"| I
+    end
     
-    %% Operations & Conversion
-    G -->|Accepted by Customer| H(Sales Orders / Fulfillment)
-    G -->|Accepted by Customer| I(Invoices Registry)
-    H -->|Delivery Confirmation| I
+    %% 6. Transactions & Payment Failure Handling
+    subgraph S6 ["💳 6. Transactions & Payments"]
+        J["Payment Sandbox / Gateway"]
+        J_FAIL["⚠️ Payment Failed & Retry Engine"]
+        
+        I -->|"Trigger Portal Payment"| J
+        J -->|"✅ Completed (200 OK)"| I
+        J -->|"✅ Completed (200 OK)"| B
+        J -->|"❌ Declined / Failed Payment"| J_FAIL
+        J_FAIL -->|"Automated Reminders & Retry Link"| I
+    end
     
-    %% Finance & Transactions
-    I -->|Trigger Portal Payment| J(Payment Sandbox Transactions)
-    J -->|Completed Payment Status| I
-    J -->|Advances Stage to Won| B
+    %% 7. Subscriptions & Care
+    subgraph S7 ["🔄 7. Recurring Contracts"]
+        K["Subscriptions Manager (Daily Cron)"]
+        B -->|"Recurring Services"| K
+        K -->|"Billing Cycle Triggers"| I
+    end
     
-    %% Recurring & Care
-    B -->|Billed for Recurring Services| K(Subscriptions Manager)
-    K -->|Triggers Billing Cycles| I
-    B -->|Logs Support Requests| L(Support Tickets / Helpdesk)
-    C -->|Routes ticket to AM| L
-    
-    %% Automation & Business Reports
-    B & E & I & J & L -->|Logged in logs| M(Audit Logs & Workflows)
-    B & E & I & J & L -->|Queried for charts| N(BI Dashboard & Reports)
+    %% 8. Clean Intelligence & Audit Layer (Decoupled Bus)
+    subgraph S8 ["📊 8. Telemetry & Governance"]
+        BUS_BI{{"⚡ Real-Time BI Aggregation Bus"}}
+        BUS_AUDIT{{"🛡️ Security & State Audit Bus"}}
+        N["BI Dashboard & Master Reports"]
+        M["Audit Logs & Workflow History"]
+        
+        BUS_BI ==>|"Live KPIs"| N
+        BUS_AUDIT ==>|"Diff Changes"| M
+    end
+
+    %% Decoupled Bus Feeds (Clean non-overlapping pathways)
+    B -.-> BUS_BI
+    E -.-> BUS_BI
+    I -.-> BUS_BI
+    L -.-> BUS_BI
+
+    B ===> BUS_AUDIT
+    E ===> BUS_AUDIT
+    G ===> BUS_AUDIT
+    I ===> BUS_AUDIT
+
+    %% Color Coding & Hierarchy
+    classDef success fill:#052e16,stroke:#10b981,stroke-width:2px,color:#ecfdf5;
+    classDef danger fill:#4c0519,stroke:#f43f5e,stroke-width:2px,color:#ffe4e6;
+    classDef busBlue fill:#082f49,stroke:#0ea5e9,stroke-width:2px,color:#e0f2fe;
+    classDef busAmber fill:#451a03,stroke:#f59e0b,stroke-width:2px,color:#fef3c7;
+
+    class H,I success;
+    class J_FAIL danger;
+    class BUS_BI busBlue;
+    class BUS_AUDIT busAmber;
 ```
 
 ---

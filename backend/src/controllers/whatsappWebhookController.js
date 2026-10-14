@@ -1,4 +1,5 @@
 import { Customer } from "../models/Customer.js";
+import { Website } from "../models/Website.js";
 import { createActivityEvent } from "../services/activityService.js";
 import { getSocketServer } from "../sockets/index.js";
 import { generateCRN } from "../services/customerService.js";
@@ -55,15 +56,29 @@ export async function handleIncomingMessage(req, res) {
 
       if (!customer) {
         console.log(`[WhatsApp] No existing customer found for ${fromPhone}. Creating new CRM lead...`);
+        const defaultWebsite = await Website.findOne({ "voiceSettings.enableWhatsAppAlerts": true }) || await Website.findOne({});
         const crn = await generateCRN();
         customer = await Customer.create({
           crn,
           name: senderName,
           phone: "+" + fromPhone,
+          websiteId: defaultWebsite?._id || null,
           recordType: "lead",
           pipelineStage: "new",
           leadSource: "whatsapp_cloud_api"
         });
+
+        // Broadcast new lead event so Kanban reflects it immediately
+        const io = getSocketServer();
+        if (io) {
+          io.emit("lead:created", {
+            message: `New Lead arrived via WhatsApp: ${senderName} (${fromPhone})`,
+            user: senderName,
+            customerId: customer._id,
+            websiteId: customer.websiteId,
+            recordType: "lead"
+          });
+        }
       }
 
       // Log interaction in customer's Activity Feed/Timeline

@@ -587,59 +587,76 @@
 
       <div class="grid grid-cols-1 md:grid-cols-5 gap-4 relative">
         
-        <!-- Step 1 -->
-        <div class="p-5 rounded-3xl glass-card text-center space-y-3 relative">
+        <!-- Step 1: Ingestion & Escalation -->
+        <div class="p-5 rounded-3xl glass-card text-center space-y-3 relative border-brand-blue/30">
           <div class="w-10 h-10 rounded-2xl bg-brand-blue/20 text-brand-blue font-extrabold text-sm mx-auto flex items-center justify-center border border-brand-blue/30">
             1
           </div>
-          <h5 class="text-sm font-bold text-white">Live Visitor Entry</h5>
+          <h5 class="text-sm font-bold text-white">Live Visitor & AI Entry</h5>
           <p class="text-[11px] text-slate-400 leading-normal">
-            Visitor engages widget. AI Intent Engine evaluates score (🔥 96% Hot Lead) and auto-drafts reply.
+            Engages widget. AI Intent Engine evaluates score (🔥 96% Hot).
           </p>
+          <div class="pt-2 border-t border-white/5 text-[10px] font-bold text-brand-purple flex items-center justify-center gap-1">
+            <span>🌙 Off-Hours:</span> Routes to SLA Tickets
+          </div>
         </div>
 
-        <!-- Step 2 -->
-        <div class="p-5 rounded-3xl glass-card text-center space-y-3 relative">
+        <!-- Step 2: Triage & CRM Loop (Point 1 Solved) -->
+        <div class="p-5 rounded-3xl glass-card text-center space-y-3 relative border-brand-cyan/30">
           <div class="w-10 h-10 rounded-2xl bg-brand-cyan/20 text-brand-cyan font-extrabold text-sm mx-auto flex items-center justify-center border border-brand-cyan/30">
             2
           </div>
-          <h5 class="text-sm font-bold text-white">Lead Auto-Creation</h5>
+          <h5 class="text-sm font-bold text-white">Lead & Ticket Triage</h5>
           <p class="text-[11px] text-slate-400 leading-normal">
-            Contact info auto-syncs into Kanban Pipeline. Round-robin assigns to available sales rep.
+            Leads sync to Kanban. Round-robin assigns active sales reps.
           </p>
+          <div class="pt-2 border-t border-white/5 text-[10px] font-bold text-brand-emerald flex items-center justify-center gap-1">
+            <span>🌅 Morning Triage:</span> Ticket ➔ Lead/Deal Won
+          </div>
         </div>
 
-        <!-- Step 3 -->
-        <div class="p-5 rounded-3xl glass-card text-center space-y-3 relative">
+        <!-- Step 3: Quotations & Rejection Loop (Point 2 Solved) -->
+        <div class="p-5 rounded-3xl glass-card text-center space-y-3 relative border-brand-amber/30">
           <div class="w-10 h-10 rounded-2xl bg-brand-amber/20 text-brand-amber font-extrabold text-sm mx-auto flex items-center justify-center border border-brand-amber/30">
             3
           </div>
-          <h5 class="text-sm font-bold text-white">Quotation & Sign-off</h5>
+          <h5 class="text-sm font-bold text-white">Quotation & Approvals</h5>
           <p class="text-[11px] text-slate-400 leading-normal">
-            Sales draft quote with SKU catalog. Manager signs off if above threshold. PDF emailed to client.
+            SKU line-item quote drafted. Multi-tier manager approval gates.
           </p>
+          <div class="pt-2 border-t border-white/5 text-[10px] font-bold text-brand-rose flex items-center justify-center gap-1">
+            <span>🔄 Rejection Loop:</span> Revision ➔ Negotiation
+          </div>
         </div>
 
-        <!-- Step 4 -->
-        <div class="p-5 rounded-3xl glass-card text-center space-y-3 relative">
+        <!-- Step 4: Checkout & Payment Outcomes (Point 3 Solved) -->
+        <div class="p-5 rounded-3xl glass-card text-center space-y-3 relative border-brand-emerald/30">
           <div class="w-10 h-10 rounded-2xl bg-brand-emerald/20 text-brand-emerald font-extrabold text-sm mx-auto flex items-center justify-center border border-brand-emerald/30">
             4
           </div>
-          <h5 class="text-sm font-bold text-white">Checkout & Won Stage</h5>
+          <h5 class="text-sm font-bold text-white">Checkout & Dual Outcome</h5>
           <p class="text-[11px] text-slate-400 leading-normal">
-            Client pays via secure checkout portal. Backend auto-locks deal as "Won" and generates invoice.
+            Customer pays via portal sandbox / Razorpay gateway.
           </p>
+          <div class="pt-2 border-t border-white/5 text-[9px] font-bold space-y-0.5">
+            <span class="block text-brand-emerald">✅ Paid: Deal Auto-Won & Invoiced</span>
+            <span class="block text-brand-rose">⚠️ Failed: Auto-Reminder & Retry</span>
+          </div>
         </div>
 
-        <!-- Step 5 -->
-        <div class="p-5 rounded-3xl glass-card text-center space-y-3 relative">
+        <!-- Step 5: Clean Decoupled Telemetry Bus (Point 4 Solved) -->
+        <div class="p-5 rounded-3xl glass-card text-center space-y-3 relative border-brand-purple/30">
           <div class="w-10 h-10 rounded-2xl bg-brand-purple/20 text-brand-purple font-extrabold text-sm mx-auto flex items-center justify-center border border-brand-purple/30">
             5
           </div>
-          <h5 class="text-sm font-bold text-white">Tax & Helpdesk Sync</h5>
+          <h5 class="text-sm font-bold text-white">Clean Telemetry & Tax</h5>
           <p class="text-[11px] text-slate-400 leading-normal">
-            VAT ledger updates automatically. Support tickets routes to account owner. 24 BI reports update in real-time.
+            Automated UAE VAT 201 filing and Corporate Tax ledger sync.
           </p>
+          <div class="pt-2 border-t border-white/5 text-[9px] font-bold space-y-0.5">
+            <span class="block text-brand-cyan">⚡ Blue Bus: 24 BI Report Cards</span>
+            <span class="block text-brand-purple">🛡️ Purple Bus: Security Audit Trail</span>
+          </div>
         </div>
 
       </div>

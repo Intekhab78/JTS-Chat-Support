@@ -17,6 +17,7 @@ import { addWonRevenue } from "../services/analyticsService.js";
 import { generateInvoicePDF, generateQuotationPDF } from "../services/pdfService.js";
 import { sendEmail } from "../services/emailService.js";
 import { advancePurchaseWorkflow } from "../services/purchaseWorkflowService.js";
+import { paymentFailedRecoveryTemplate } from "../utils/emailTemplates.js";
 
 const getStripe = () => {
   if (!env.stripeSecretKey || env.stripeSecretKey === "") {
@@ -270,6 +271,79 @@ export const handleWebhook = asyncHandler(async (req, res) => {
         }
       } catch (err) {
         console.error("Error handling payment_intent.succeeded webhook:", err);
+      }
+      break;
+    }
+
+    case "payment_intent.payment_failed": {
+      try {
+        const pi = event.data.object;
+        const metadata = pi.metadata || {};
+        const invoiceId = metadata.invoiceId || metadata.invoice_id;
+        const quotationId = metadata.quotationId || metadata.quotation_id;
+        const failureReason = pi.last_payment_error?.message || "Card transaction was declined";
+
+        if (invoiceId) {
+          const invoice = await Invoice.findOne({ invoiceId }).populate("customerId");
+          if (invoice) {
+            const { Payment } = await import("../models/Payment.js");
+            await Payment.create({
+              websiteId: invoice.websiteId,
+              paymentNumber: `PMT-FAIL-${Date.now()}`,
+              invoiceId: invoice._id,
+              customerId: invoice.customerId?._id || invoice.customerId,
+              amount: invoice.total,
+              gateway: "stripe",
+              status: "failed",
+              transactionId: pi.id,
+              notes: `Stripe failure: ${failureReason}`
+            });
+
+            await logAuditEvent({
+              actor: null,
+              action: "crm.invoice_payment_failed",
+              entityType: "invoice",
+              entityId: invoice._id,
+              metadata: { invoiceId: invoice.invoiceId, failureReason }
+            }).catch(() => {});
+
+            // Dispatch customer recovery email with retry link
+            const customerEmail = invoice.customerId?.email;
+            const customerName = invoice.customerId?.name || "Customer";
+            if (customerEmail) {
+              const retryUrl = `${env.clientUrl}/customer-portal`;
+              const { html, subject } = paymentFailedRecoveryTemplate({
+                customerName,
+                invoiceId: invoice.invoiceId,
+                amount: invoice.total,
+                currency: invoice.currency || "INR",
+                retryUrl,
+                failureReason
+              });
+              await sendEmail({ to: customerEmail, subject, html }).catch(e => console.error("[Stripe Webhook] Error sending payment failed email:", e));
+            }
+
+            // In-app alert to sales owner
+            if (invoice.ownerId) {
+              const notif = await createNotification({
+                recipient: invoice.ownerId,
+                type: "payment_failed",
+                title: `Payment Failed: ${invoice.invoiceId}`,
+                message: `Customer ${customerName}'s Stripe payment for ${invoice.invoiceId} failed (${failureReason}).`,
+                link: `/client?tab=crm`
+              }).catch(() => {});
+
+              const io = getSocketServer();
+              if (notif && io) {
+                io.to(`us_${String(invoice.ownerId)}`).emit("notification:new", notif);
+              }
+            }
+
+            console.log(`[Stripe Webhook] Recorded payment failure and dispatched recovery email for ${invoice.invoiceId}.`);
+          }
+        }
+      } catch (err) {
+        console.error("Error handling payment_intent.payment_failed webhook:", err);
       }
       break;
     }
