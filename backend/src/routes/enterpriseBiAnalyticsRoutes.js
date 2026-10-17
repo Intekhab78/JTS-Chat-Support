@@ -5,10 +5,11 @@ import {
   scheduleBiReport
 } from "../controllers/enterpriseBiAnalyticsController.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { attachTenantSubscription, requirePlanFeature } from "../middleware/planAccess.js";
 
 const router = Router();
 
-router.use(requireAuth);
+router.use(requireAuth, attachTenantSubscription, requirePlanFeature("enterprise-bi"));
 
 router.get("/overview", requireRole("admin", "client", "manager", "management"), getBiOverview);
 router.post("/dashboards", requireRole("admin", "client", "manager"), saveBiDashboard);

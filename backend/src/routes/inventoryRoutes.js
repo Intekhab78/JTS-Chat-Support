@@ -17,11 +17,14 @@ import {
   deleteMaster
 } from "../controllers/masterController.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { attachTenantSubscription, requirePlanFeature } from "../middleware/planAccess.js";
 
 const router = Router();
 
+router.use(requireAuth, attachTenantSubscription, requirePlanFeature("inventory"));
+
 // Search is open to all CRM roles (for quotation item autocomplete)
-router.get("/search", requireAuth, requireRole("admin", "client", "manager", "sales", "agent", "purchase"), searchInventoryItems);
+router.get("/search", requireRole("admin", "client", "manager", "sales", "agent", "purchase"), searchInventoryItems);
 
 // READ access for inventory (Meta, Items, Movements, Masters)
 // Allowed for admin, client, manager, sales, purchase, accounts, tax_consultant

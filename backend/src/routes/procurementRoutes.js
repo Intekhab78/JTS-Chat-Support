@@ -15,6 +15,7 @@ import {
   submitBid,
   awardRFQ
 } from "../controllers/rfqController.js";
+import { attachTenantSubscription, requirePlanFeature } from "../middleware/planAccess.js";
 
 const router = express.Router();
 
@@ -24,8 +25,12 @@ router.use(requireAuth);
 router.get("/rfqs", getRFQs);
 router.post("/rfqs/:id/bids", requireRole("supplier"), submitBid);
 
-// Managerial Routes
-router.use(requireRole("admin", "client", "manager", "purchase", "accounts", "sales", "tax_consultant"));
+// Managerial Routes (gated by procurement plan feature)
+router.use(
+  requireRole("admin", "client", "manager", "purchase", "accounts", "sales", "tax_consultant"),
+  attachTenantSubscription,
+  requirePlanFeature("procurement")
+);
 
 router.get("/stats", getProcurementStats);
 router.route("/suppliers").get(getSuppliers).post(createSupplier);

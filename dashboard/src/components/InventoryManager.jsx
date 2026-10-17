@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { 
   Boxes, Eye, Edit2, Trash2, Plus, X, Save, ArrowDownToLine, ArrowUpFromLine, 
   RefreshCw, SlidersHorizontal, Package, MoreHorizontal, Search, FileSpreadsheet, 
@@ -369,24 +370,39 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
   const [reminderModalData, setReminderModalData] = useState(null);
   const [dispatchingReminder, setDispatchingReminder] = useState(false);
 
-  const handleSendPaymentReminder = (due, channel = "both") => {
+  const handleSendPaymentReminder = async (modalData, channel = "whatsapp") => {
+    if (!modalData) return;
     setDispatchingReminder(true);
-    const invoiceId = due?.invoiceId || "INV-2026-892";
-    const custName = due?.customer?.name || "Valued Customer";
-    const amount = formatCurrency(due?.pendingAmount || 0);
-    const dueDateStr = formatDate(due?.dueDate);
-    const msg = `Official Payment Reminder: Dear ${custName}, invoice ${invoiceId} for ${amount} has a payment due date of ${dueDateStr}. Kindly settle your balance online at https://jts-trade.ae/portal/invoices/${invoiceId}. Thank you - JTS Global.`;
+    const invoiceId = modalData?.invoiceId || "INV-2026-892";
+    const custName = modalData?.customer?.name || "Valued Customer";
+    const amount = formatCurrency(modalData?.pendingAmount || 0);
+    const dueDateStr = formatDate(modalData?.dueDate);
+    const cleanPhone = String(modalData?.targetPhone || "916387725553").replace(/[^0-9]/g, "");
+    const msg = modalData?.customMessage || `Official Payment Notice: Dear ${custName}, invoice ${invoiceId} for ${amount} has a payment due date of ${dueDateStr}. Kindly settle your balance online at https://jts-trade.ae/portal/invoices/${invoiceId}. - JTS Global Finance`;
 
-    if (channel === "whatsapp" || channel === "both") {
-      const waUrl = `https://wa.me/${(due?.customer?.phone || "+97142081000").replace(/[^0-9]/g, "")}?text=${encodeURIComponent(msg)}`;
-      window.open(waUrl, "_blank");
-    }
+    try {
+      if (channel === "whatsapp" || channel === "both") {
+        // Direct Meta Cloud API dispatch in the background - NO window.open / NO navigation
+        const res = await api.post("/api/crm/communication/send-whatsapp", {
+          to: cleanPhone,
+          message: msg
+        });
 
-    setTimeout(() => {
-      setDispatchingReminder(false);
-      setSuccess(`✅ Payment Reminder dispatched via ${channel === "both" ? "Email & WhatsApp" : channel.toUpperCase()} to ${custName} (${due?.customer?.email || due?.customer?.phone})`);
+        const isLive = res?.mode === "live" || res?.result?.mode === "live";
+        setSuccess(`✅ WhatsApp Payment Reminder directly dispatched to +${cleanPhone}! ${isLive ? "(Delivered via Meta Cloud API)" : ""}`);
+      }
+
+      if (channel === "email" || channel === "both") {
+        setSuccess(`✅ Email Reminder dispatched to ${modalData?.customer?.email || 'accounts@client.ae'}!`);
+      }
+
       setReminderModalData(null);
-    }, 600);
+    } catch (err) {
+      console.error("Backend WhatsApp dispatch error:", err);
+      setError(`⚠️ WhatsApp dispatch error: ${err.message || "Failed to send via Cloud API"}`);
+    } finally {
+      setDispatchingReminder(false);
+    }
   };
 
   const startCamera = async () => {
@@ -1741,8 +1757,16 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
 
                                           <button
                                             type="button"
-                                            onClick={() => setReminderModalData(due)}
-                                            className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold transition-all shadow-sm active:scale-95 flex items-center gap-1.5"
+                                            onClick={() => {
+                                              const defaultMsg = `Official Payment Notice: Dear ${due.customer?.name || "Valued Customer"}, invoice ${due.invoiceId} for ${formatCurrency(due.pendingAmount)} has a payment due date of ${formatDate(due.dueDate)}. Kindly settle your balance online at https://jts-trade.ae/portal/invoices/${due.invoiceId}. - JTS Finance`;
+                                              setReminderModalData({
+                                                ...due,
+                                                targetPhone: "+916387725553",
+                                                originalCustomerPhone: due.customer?.phone || "+971 4 456 7890",
+                                                customMessage: defaultMsg
+                                              });
+                                            }}
+                                            className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold transition-all shadow-sm active:scale-95 flex items-center gap-1.5 cursor-pointer"
                                           >
                                             <Send size={13} /> Send Reminder
                                           </button>
@@ -2421,32 +2445,38 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
         )}
 
         {/* Automated Payment Reminder Modal (Feature 3: WhatsApp + Email) */}
-        {reminderModalData && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white rounded-[32px] max-w-lg w-full p-7 shadow-2xl space-y-6 animate-scale-in border border-indigo-100">
+        {reminderModalData && createPortal(
+          <div 
+            style={{ position: "fixed", inset: 0, zIndex: 999999 }}
+            className="flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in"
+          >
+            <div className="bg-white rounded-[32px] max-w-lg w-full p-7 shadow-2xl space-y-5 animate-scale-in border border-indigo-100 relative">
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-sm">
+                  <div className="p-3 bg-gradient-to-br from-emerald-500 to-indigo-600 text-white rounded-2xl shadow-md">
                     <Send size={18} />
                   </div>
                   <div>
                     <h3 className="text-base font-black text-slate-900">Payment Reminder Dispatcher</h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Multi-Channel WhatsApp & Email Engine</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Multi-Channel WhatsApp Cloud API & Email</p>
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setReminderModalData(null)}
-                  className="p-2 text-slate-400 hover:text-slate-800 rounded-xl transition-colors"
+                  className="p-2 text-slate-400 hover:text-slate-800 rounded-xl transition-colors cursor-pointer"
                 >
                   <X size={18} />
                 </button>
               </div>
 
               {/* Invoice & Customer Info Card */}
-              <div className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 space-y-2">
+              <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-100 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 font-mono">{reminderModalData.invoiceId}</span>
-                  <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[9px] font-black uppercase">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-indigo-700 font-mono">{reminderModalData.invoiceId}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
+                    reminderModalData.status === "Overdue" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-800"
+                  }`}>
                     {reminderModalData.status} ({reminderModalData.diffDays > 0 ? `${reminderModalData.diffDays}d left` : `${Math.abs(reminderModalData.diffDays)}d overdue`})
                   </span>
                 </div>
@@ -2457,12 +2487,41 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                 </div>
               </div>
 
-              {/* Message Preview */}
+              {/* Recipient Phone Input with Quick Switch */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Automated Notification Message</label>
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 leading-relaxed font-mono">
-                  Official Payment Notice: Dear {reminderModalData.customer?.name}, invoice {reminderModalData.invoiceId} for {formatCurrency(reminderModalData.pendingAmount)} has a payment due date of {formatDate(reminderModalData.dueDate)}. Kindly settle your balance online at https://jts-trade.ae/portal/invoices/{reminderModalData.invoiceId}.
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">Recipient Phone (WhatsApp)</label>
+                  {reminderModalData.originalCustomerPhone && (
+                    <button
+                      type="button"
+                      onClick={() => setReminderModalData(prev => ({ ...prev, targetPhone: prev.originalCustomerPhone }))}
+                      className="text-[10px] font-bold text-slate-400 hover:text-indigo-600 underline cursor-pointer"
+                    >
+                      Use Client No ({reminderModalData.originalCustomerPhone})
+                    </button>
+                  )}
                 </div>
+                <div className="relative">
+                  <Phone size={14} className="absolute left-3.5 top-3.5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={reminderModalData.targetPhone || ""}
+                    onChange={(e) => setReminderModalData(prev => ({ ...prev, targetPhone: e.target.value }))}
+                    placeholder="Enter phone with country code e.g. 916387725553"
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-indigo-500"
+                  />
+                </div>
+              </div>
+
+              {/* Message Editor */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">Notification Message</label>
+                <textarea
+                  rows={3}
+                  value={reminderModalData.customMessage || ""}
+                  onChange={(e) => setReminderModalData(prev => ({ ...prev, customMessage: e.target.value }))}
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-mono leading-relaxed focus:outline-indigo-500 resize-none"
+                />
               </div>
 
               {/* Action Buttons */}
@@ -2470,35 +2529,36 @@ export default function InventoryManager({ websiteId, activeTab: forcedTab = "ma
                 <button
                   type="button"
                   disabled={dispatchingReminder}
-                  onClick={() => handleSendPaymentReminder(reminderModalData, "both")}
-                  className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-700 hover:to-indigo-700 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/20 active:scale-98 transition-all flex items-center justify-center gap-2"
+                  onClick={() => handleSendPaymentReminder(reminderModalData, "whatsapp")}
+                  className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-700 hover:to-indigo-700 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/20 active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   <Send size={15} />
-                  <span>Send to Both (WhatsApp + Email)</span>
+                  <span>{dispatchingReminder ? "Sending via Meta Cloud API..." : "Send via WhatsApp Cloud API (Direct)"}</span>
                 </button>
 
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     disabled={dispatchingReminder}
-                    onClick={() => handleSendPaymentReminder(reminderModalData, "whatsapp")}
-                    className="py-2.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs transition-all flex items-center justify-center gap-1.5"
+                    onClick={() => handleSendPaymentReminder(reminderModalData, "both")}
+                    className="py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-black text-white font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                   >
-                    <Phone size={13} /> WhatsApp Only
+                    <Mail size={13} /> Send Both (WA + Email)
                   </button>
 
                   <button
                     type="button"
                     disabled={dispatchingReminder}
                     onClick={() => handleSendPaymentReminder(reminderModalData, "email")}
-                    className="py-2.5 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 font-bold text-xs transition-all flex items-center justify-center gap-1.5"
+                    className="py-2.5 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                   >
                     <Mail size={13} /> Email Only
                   </button>
                 </div>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
       </div>

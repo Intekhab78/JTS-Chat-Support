@@ -87,9 +87,9 @@ export default function TicketsTab({ tickets }) {
             </div>
           </button>
         )) : (
-          <div className="py-20 text-center space-y-3">
-            <TicketIcon size={32} className="mx-auto text-slate-200" />
-            <p className="text-[10px] font-black uppercase text-slate-300 tracking-widest">No tickets linked</p>
+          <div className="py-10 text-center space-y-2 bg-slate-50/60 rounded-2xl border border-slate-100/80">
+            <TicketIcon size={24} className="mx-auto text-slate-300" />
+            <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">No tickets linked</p>
           </div>
         )}
       </div>

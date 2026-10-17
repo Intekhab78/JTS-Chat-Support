@@ -73,6 +73,9 @@ export async function apiUrl(path = "") {
 
 export async function api(path, options = {}) {
   const apiBase = await getApiBase();
+  const normalizedPath = path.startsWith("/api") || path.startsWith("http") || path.startsWith("/health") || path.startsWith("/uploads")
+    ? path
+    : `/api${path.startsWith("/") ? "" : "/"}${path}`;
   const token = localStorage.getItem("dashboard_token");
   const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
   const headers = {
@@ -84,7 +87,7 @@ export async function api(path, options = {}) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${apiBase}${path}`, {
+  const response = await fetch(`${apiBase}${normalizedPath}`, {
     ...options,
     headers
   });

@@ -6,10 +6,11 @@ import {
   deleteCustomModule
 } from "../controllers/customCrmModuleController.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { attachTenantSubscription, requirePlanFeature } from "../middleware/planAccess.js";
 
 const router = Router();
 
-router.use(requireAuth);
+router.use(requireAuth, attachTenantSubscription, requirePlanFeature("custom-crm-modules"));
 
 router.get("/overview", requireRole("admin", "client", "manager", "management"), getCustomModulesOverview);
 router.post("/modules", requireRole("admin", "client", "manager"), createCustomModule);

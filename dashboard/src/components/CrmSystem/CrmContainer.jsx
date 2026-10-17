@@ -1141,13 +1141,13 @@ export default function CrmContainer({
   ];
 
   return (
-    <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-700 relative">
+    <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-700 relative">
       {showCelebration && <MagicCelebration />}
 
       {/* ── Two-Tier Top Navigation (Premium No-Scroll) ── */}
-      <div className="bg-white border border-slate-200/80 rounded-[30px] p-5 shadow-sm space-y-4">
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-3.5 shadow-2xs space-y-2.5">
         {/* Tier 1: Main Category Groups */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 pb-4 justify-start">
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-100 pb-2.5 justify-start">
           {filteredCrmGroups.map(group => {
             const GroupIcon = group.icon;
             const isGroupActive = activeGroup.id === group.id;
@@ -1155,13 +1155,13 @@ export default function CrmContainer({
               <button
                 key={group.id}
                 onClick={() => handleGroupClick(group)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-[0.12em] transition-all duration-200 select-none ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all duration-150 select-none cursor-pointer ${
                   isGroupActive 
-                    ? "bg-slate-900 text-white shadow-md shadow-slate-900/10 scale-[1.02]" 
+                    ? "bg-slate-900 text-white shadow-xs scale-[1.01]" 
                     : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                 }`}
               >
-                <GroupIcon size={14} className={isGroupActive ? "text-indigo-400" : "text-slate-400 group-hover:text-slate-600"} />
+                <GroupIcon size={13} className={isGroupActive ? "text-indigo-400" : "text-slate-400"} />
                 <span>{group.label}</span>
               </button>
             );
@@ -1169,7 +1169,7 @@ export default function CrmContainer({
         </div>
 
         {/* Tier 2: Sub-modules of Active Category */}
-        <div className="flex flex-wrap items-center gap-2 justify-start animate-in fade-in duration-300">
+        <div className="flex flex-wrap items-center gap-1.5 justify-start">
           {activeGroup.items.map(item => {
             const ItemIcon = item.icon;
             const isItemActive = workspaceTab === item.id;
@@ -1177,13 +1177,13 @@ export default function CrmContainer({
               <button
                 key={item.id}
                 onClick={() => setWorkspaceTab(item.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] border transition-all duration-150 select-none ${
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-wider border transition-all duration-150 select-none cursor-pointer ${
                   isItemActive
-                    ? "bg-indigo-50/80 text-indigo-600 border-indigo-200/60 shadow-sm font-bold"
-                    : "bg-white text-slate-400 border-slate-200/60 hover:text-slate-600 hover:bg-slate-50"
+                    ? "bg-indigo-50/90 text-indigo-700 border-indigo-200/80 shadow-2xs font-bold"
+                    : "bg-white text-slate-500 border-slate-200/80 hover:text-slate-700 hover:bg-slate-50"
                 }`}
               >
-                <ItemIcon size={13} className={isItemActive ? "text-indigo-500" : "text-slate-400"} />
+                <ItemIcon size={12} className={isItemActive ? "text-indigo-600" : "text-slate-400"} />
                 <span>{item.label}</span>
               </button>
             );
@@ -1193,36 +1193,47 @@ export default function CrmContainer({
 
       {workspaceTab === "dashboard" && (
         <>
-          <section className="overflow-hidden rounded-[30px] border border-slate-200/80 bg-white shadow-sm">
-            <div className="border-b border-slate-200 bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_100%)] px-5 py-5 md:px-6">
-              <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-                <div className="space-y-3">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">
-                    <TrendingUp size={12} className="text-indigo-500" />
-                    Sales Workspace
+          <section className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs">
+            <div className="border-b border-slate-200/80 bg-gradient-to-r from-slate-50/90 via-white to-slate-50/60 px-4 py-3 sm:px-5 sm:py-3.5">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-col gap-1">
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-slate-500 shadow-2xs w-fit">
+                      <TrendingUp size={11} className="text-indigo-500" />
+                      Sales Workspace
+                    </div>
+                    <h2 className="text-base sm:text-lg font-black tracking-tight text-slate-900 leading-none">
+                      Ecosystem Analytics
+                    </h2>
                   </div>
-                  <h2 className="text-xl font-black tracking-tight text-slate-950">Ecosystem Analytics</h2>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5 xl:w-180">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 lg:max-w-2xl xl:max-w-3xl w-full">
                   {[
-                    { label: "Open Pipeline", value: summary.totalLeads || pagination.total, color: "text-slate-950" },
-                    { label: "Pipeline Value", value: formatCurrency(summary.pipelineValue), color: "text-slate-950" },
-                    { label: "Forecasting", value: formatCurrency(summary.weightedRevenue), color: "text-indigo-700", bg: "bg-indigo-50/50 border-indigo-100" },
+                    { label: "Open Pipeline", value: summary.totalLeads || pagination.total, color: "text-slate-900" },
+                    { label: "Pipeline Value", value: formatCurrency(summary.pipelineValue), color: "text-slate-900" },
+                    { label: "Forecasting", value: formatCurrency(summary.weightedRevenue), color: "text-indigo-700", bg: "bg-indigo-50/60 border-indigo-200/70" },
                     { label: "Conv. Rate", value: `${summary.conversionRate || 0}%`, color: "text-emerald-600" },
                     { label: "Won Revenue", value: formatCurrency(summary.revenue), color: "text-amber-600" }
                   ].map(card => (
-                    <div key={card.label} className={`rounded-2xl border border-slate-200 px-4 py-3 ${card.bg || "bg-slate-50"}`}>
-                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">{card.label}</p>
-                      <p className={`mt-2 text-lg font-black ${card.color}`}>{card.value}</p>
+                    <div
+                      key={card.label}
+                      className={`rounded-xl border border-slate-200/80 px-2.5 py-1.5 min-w-0 transition-all ${card.bg || "bg-white shadow-2xs"}`}
+                    >
+                      <p className="text-[7.5px] sm:text-[8px] font-black uppercase tracking-wider text-slate-400 truncate leading-tight">
+                        {card.label}
+                      </p>
+                      <p className={`mt-0.5 text-xs sm:text-sm font-black whitespace-nowrap truncate leading-tight ${card.color}`}>
+                        {card.value}
+                      </p>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
 
-            <div className="px-5 py-5 md:px-6">
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
+            <div className="p-3 sm:p-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1.5 sm:gap-2">
                 {workspaceCards.map(card => {
                   const Icon = card.icon;
                   const colors = cardColors[card.key] || cardColors.all;
@@ -1233,20 +1244,24 @@ export default function CrmContainer({
                         setLeadView(card.key);
                         setWorkspaceTab("leads");
                       }}
-                      className={`group rounded-3xl border p-4 text-left transition-all duration-300 ${colors.border} bg-slate-50/50 hover:bg-white hover:shadow-md hover:-translate-y-0.5`}
+                      className={`group rounded-xl border p-2 sm:p-2.5 text-left transition-all duration-200 cursor-pointer select-none ${colors.border} bg-slate-50/50 hover:bg-white hover:shadow-2xs hover:border-slate-300`}
                     >
-                      <div className="flex flex-col h-full justify-between gap-4">
-                        <div className="flex items-center justify-between">
-                          <div className={`flex h-9 w-9 items-center justify-center rounded-2xl transition-colors duration-300 ${colors.iconBg}`}>
-                            <Icon size={16} />
+                      <div className="flex flex-col h-full justify-between gap-2">
+                        <div className="flex items-center justify-between gap-1">
+                          <div className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors duration-200 shrink-0 ${colors.iconBg}`}>
+                            <Icon size={13} />
                           </div>
-                          <span className="text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded bg-slate-900/5 dark:bg-white/5 text-slate-400">
+                          <span className="text-[7px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded leading-none shrink-0 bg-slate-200/60 text-slate-500">
                             {card.key === "all" ? "Live" : card.value > 0 ? "Active" : "Empty"}
                           </span>
                         </div>
-                        <div className="space-y-1">
-                          <p className="text-[9px] font-black uppercase tracking-[0.15em] line-clamp-1 text-slate-400">{card.label}</p>
-                          <p className="text-2xl font-black tracking-tight text-slate-900">{card.value}</p>
+                        <div className="min-w-0">
+                          <p className="text-[8px] sm:text-[8.5px] font-bold uppercase tracking-tight text-slate-400 truncate leading-tight" title={card.label}>
+                            {card.label}
+                          </p>
+                          <p className="text-base sm:text-lg font-black tracking-tight text-slate-900 leading-none mt-1">
+                            {card.value}
+                          </p>
                         </div>
                       </div>
                     </button>
@@ -1278,36 +1293,50 @@ export default function CrmContainer({
 
       {workspaceTab === "leads" && (
         <>
-          <section className="overflow-hidden rounded-[30px] border border-slate-200/80 bg-white shadow-sm">
-            <div className="border-b border-slate-200 bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_100%)] px-5 py-5 md:px-6">
-              <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-                <div className="space-y-3">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">
-                    <TrendingUp size={12} className="text-indigo-500" />
-                    Sales Workspace
+          <section className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs">
+            {/* ── Top Header Banner: Title & 5 KPI Cards ── */}
+            <div className="border-b border-slate-200/80 bg-gradient-to-r from-slate-50/90 via-white to-slate-50/60 px-4 py-3 sm:px-5 sm:py-3.5">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-col gap-1">
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-slate-500 shadow-2xs w-fit">
+                      <TrendingUp size={11} className="text-indigo-500" />
+                      Sales Workspace
+                    </div>
+                    <h2 className="text-base sm:text-lg font-black tracking-tight text-slate-900 leading-none">
+                      Pipeline Management
+                    </h2>
                   </div>
-                  <h2 className="text-xl font-black tracking-tight text-slate-950">Pipeline Management</h2>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5 xl:w-180">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 lg:max-w-2xl xl:max-w-3xl w-full">
                   {[
-                    { label: "Open Pipeline", value: summary.totalLeads || pagination.total, color: "text-slate-950" },
-                    { label: "Pipeline Value", value: formatCurrency(summary.pipelineValue), color: "text-slate-950" },
-                    { label: "Forecasting", value: formatCurrency(summary.weightedRevenue), color: "text-indigo-700", bg: "bg-indigo-50/50 border-indigo-100" },
+                    { label: "Open Pipeline", value: summary.totalLeads || pagination.total, color: "text-slate-900" },
+                    { label: "Pipeline Value", value: formatCurrency(summary.pipelineValue), color: "text-slate-900" },
+                    { label: "Forecasting", value: formatCurrency(summary.weightedRevenue), color: "text-indigo-700", bg: "bg-indigo-50/60 border-indigo-200/70" },
                     { label: "Conv. Rate", value: `${summary.conversionRate || 0}%`, color: "text-emerald-600" },
                     { label: "Won Revenue", value: formatCurrency(summary.revenue), color: "text-amber-600" }
                   ].map(card => (
-                    <div key={card.label} className={`rounded-2xl border border-slate-200 px-4 py-3 ${card.bg || "bg-slate-50"}`}>
-                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">{card.label}</p>
-                      <p className={`mt-2 text-lg font-black ${card.color}`}>{card.value}</p>
+                    <div
+                      key={card.label}
+                      className={`rounded-xl border border-slate-200/80 px-2.5 py-1.5 min-w-0 transition-all ${card.bg || "bg-white shadow-2xs"}`}
+                    >
+                      <p className="text-[7.5px] sm:text-[8px] font-black uppercase tracking-wider text-slate-400 truncate leading-tight">
+                        {card.label}
+                      </p>
+                      <p className={`mt-0.5 text-xs sm:text-sm font-black whitespace-nowrap truncate leading-tight ${card.color}`}>
+                        {card.value}
+                      </p>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
 
-            <div className="px-5 py-5 md:px-6">
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
+            {/* ── Main Workspace Body ── */}
+            <div className="p-3 sm:p-4 space-y-2.5">
+              {/* 8 Smart Buckets Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1.5 sm:gap-2">
                 {workspaceCards.map(card => {
                   const Icon = card.icon;
                   const active = leadView === card.key;
@@ -1316,32 +1345,36 @@ export default function CrmContainer({
                     <button
                       key={card.key}
                       onClick={() => setLeadView(card.key)}
-                      className={`group rounded-3xl border p-4 text-left transition-all duration-300 ${
+                      className={`group rounded-xl border p-2 sm:p-2.5 text-left transition-all duration-200 cursor-pointer select-none ${
                         active 
-                          ? `${colors.activeBorder} shadow-lg shadow-slate-900/5 scale-[1.03]` 
-                          : `${colors.border} bg-slate-50/50 hover:bg-white hover:shadow-md hover:-translate-y-0.5`
+                          ? `${colors.activeBorder} shadow-sm ring-1 ring-slate-900/10 scale-[1.01]` 
+                          : `${colors.border} bg-slate-50/50 hover:bg-white hover:shadow-2xs hover:border-slate-300`
                       }`}
                     >
-                      <div className="flex flex-col h-full justify-between gap-4">
-                        <div className="flex items-center justify-between">
-                          <div className={`flex h-9 w-9 items-center justify-center rounded-2xl transition-colors duration-300 ${
+                      <div className="flex flex-col h-full justify-between gap-2">
+                        <div className="flex items-center justify-between gap-1">
+                          <div className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors duration-200 shrink-0 ${
                             active ? colors.activeIconBg : colors.iconBg
                           }`}>
-                            <Icon size={16} />
+                            <Icon size={13} />
                           </div>
-                          <span className={`text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded bg-slate-900/5 dark:bg-white/5 ${
-                            active ? "text-white/80" : "text-slate-400"
+                          <span className={`text-[7px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded leading-none shrink-0 ${
+                            active ? "bg-white/20 text-white" : "bg-slate-200/60 text-slate-500"
                           }`}>
                             {card.key === "all" ? "Live" : card.value > 0 ? "Active" : "Empty"}
                           </span>
                         </div>
-                        <div className="space-y-1">
-                          <p className={`text-[9px] font-black uppercase tracking-[0.15em] line-clamp-1 ${
+                        <div className="min-w-0">
+                          <p className={`text-[8px] sm:text-[8.5px] font-bold uppercase tracking-tight truncate leading-tight ${
                             active ? colors.activeLabel : colors.label
-                          }`}>{card.label}</p>
-                          <p className={`text-2xl font-black tracking-tight ${
+                          }`} title={card.label}>
+                            {card.label}
+                          </p>
+                          <p className={`text-base sm:text-lg font-black tracking-tight leading-none mt-1 ${
                             active ? colors.activeValue : colors.value
-                          }`}>{card.value}</p>
+                          }`}>
+                            {card.value}
+                          </p>
                         </div>
                       </div>
                     </button>
@@ -1349,7 +1382,8 @@ export default function CrmContainer({
                 })}
               </div>
 
-              <div className="mt-8 mb-2 flex items-center border-b border-slate-200">
+              {/* Record Category Tabs */}
+              <div className="flex items-center border-b border-slate-100 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pt-0.5">
                 {[
                   { id: "all", label: "All Records", icon: LayoutGrid },
                   { id: "lead", label: "Leads", icon: UserPlus },
@@ -1360,94 +1394,136 @@ export default function CrmContainer({
                   <button
                     key={tab.id}
                     onClick={() => setRecordCategoryTab(tab.id)}
-                    className={`flex items-center gap-2 px-6 py-3 text-[10px] font-black uppercase tracking-[0.18em] border-b-2 transition-all ${recordCategoryTab === tab.id ? "border-indigo-600 text-indigo-600 bg-indigo-50/30" : "border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50"}`}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider border-b-2 transition-all select-none cursor-pointer whitespace-nowrap ${
+                      recordCategoryTab === tab.id 
+                        ? "border-indigo-600 text-indigo-600 bg-indigo-50/40 rounded-t-lg font-black" 
+                        : "border-transparent text-slate-400 hover:text-slate-700 hover:bg-slate-50/80 rounded-t-lg"
+                    }`}
                   >
-                    <tab.icon size={14} /> {tab.label}
+                    <tab.icon size={12} /> {tab.label}
                   </button>
                 ))}
               </div>
 
-              <div className="mt-5 flex flex-col items-center justify-between gap-4 md:flex-row">
-                <div className="relative flex-1 w-full">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+              {/* Controls Toolbar: Search & Action Buttons */}
+              <div className="flex flex-col md:flex-row items-center justify-between gap-2 pt-0.5">
+                <div className="relative flex-1 w-full min-w-[200px]">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
                   <input
                     value={search}
                     onChange={(e) => handleSearchChange(e.target.value)}
                     placeholder="Search Company, Owner, TRN, License No, Service Scope…"
-                    className="w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 py-3 text-xs font-bold text-slate-700 outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-500/5 placeholder:text-slate-300"
+                    className="w-full h-8 sm:h-8.5 rounded-lg border border-slate-200/90 bg-white pl-8 pr-3 text-[11px] font-medium text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/10 placeholder:text-slate-400 shadow-2xs transition-all"
                   />
                 </div>
 
-                <div className="flex items-center rounded-2xl border border-slate-200 bg-slate-50 p-1.5">
-                  <button onClick={() => setViewMode("board")} className={`rounded-xl px-4 py-2 text-[10px] font-black uppercase ${viewMode === "board" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500"}`}>Board</button>
-                  <button onClick={() => setViewMode("list")} className={`rounded-xl px-4 py-2 text-[10px] font-black uppercase ${viewMode === "list" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500"}`}>List</button>
-                </div>
-
-                <button
-                  onClick={() => downloadCSV(customers, `crm_export_${leadView}.csv`)}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-white border border-slate-200 px-5 py-3 text-[10px] font-black uppercase text-slate-700 hover:bg-slate-50 transition-all"
-                >
-                  <Download size={14} /> Export
-                </button>
-
-                {canCreateLead && (
-                  <>
+                <div className="flex items-center gap-1.5 w-full md:w-auto shrink-0 justify-between md:justify-end overflow-x-auto">
+                  {/* Board / List Switcher */}
+                  <div className="flex items-center h-8 sm:h-8.5 rounded-lg border border-slate-200/90 bg-slate-100/70 p-0.5 shrink-0">
                     <button
-                      onClick={() => setShowImportModal(true)}
-                      className="inline-flex items-center gap-2 rounded-2xl bg-white border border-slate-200 px-4 py-3 text-[10px] font-black uppercase text-slate-700 hover:bg-slate-50 transition-all"
-                    >
-                      <Download size={14} className="rotate-180 text-indigo-500" /> Import Leads
-                    </button>
-                    <button onClick={() => openCreateModal()} className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-5 py-3 text-[10px] font-black uppercase text-white shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">
-                      <Plus size={14} /> New Lead
-                    </button>
-                  </>
-                )}
-              </div>
-
-              {/* Quick Filter Chips Bar */}
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 mr-1">Quick Filters:</span>
-                {[
-                  { key: "vat_due_today", label: "VAT Due Today" },
-                  { key: "ct_due", label: "Corporate Tax Due" },
-                  { key: "tl_expiring", label: "License Expiring" },
-                  { key: "payment_pending", label: "Payment Pending" },
-                  { key: "completed_clients", label: "Completed Clients" },
-                  { key: "pending_clients", label: "Pending Clients" }
-                ].map(chip => {
-                  const isActive = quickFilter === chip.key;
-                  return (
-                    <button
-                      key={chip.key}
-                      onClick={() => setQuickFilter(isActive ? "" : chip.key)}
-                      className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all border ${
-                        isActive
-                          ? "bg-indigo-600 text-white border-indigo-700 shadow-sm"
-                          : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                      onClick={() => setViewMode("board")}
+                      className={`h-full px-2.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all select-none cursor-pointer ${
+                        viewMode === "board" 
+                          ? "bg-white text-slate-900 shadow-2xs font-bold" 
+                          : "text-slate-500 hover:text-slate-800"
                       }`}
                     >
-                      {chip.label}
+                      Board
                     </button>
-                  );
-                })}
-                {(quickFilter || search || serviceTypeFilter || workStatusFilter || paymentStatusFilter) && (
+                    <button
+                      onClick={() => setViewMode("list")}
+                      className={`h-full px-2.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all select-none cursor-pointer ${
+                        viewMode === "list" 
+                          ? "bg-white text-slate-900 shadow-2xs font-bold" 
+                          : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      List
+                    </button>
+                  </div>
+
+                  {/* Export Button */}
                   <button
-                    onClick={() => {
-                      setQuickFilter("");
-                      setSearch("");
-                      setServiceTypeFilter("");
-                      setWorkStatusFilter("");
-                      setPaymentStatusFilter("");
-                    }}
-                    className="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider text-rose-500 hover:bg-rose-50 transition-all"
+                    onClick={() => downloadCSV(customers, `crm_export_${leadView}.csv`)}
+                    className="inline-flex items-center gap-1.5 h-8 sm:h-8.5 rounded-lg bg-white border border-slate-200/90 px-3 text-[9px] font-black uppercase tracking-wider text-slate-700 hover:bg-slate-50 shadow-2xs transition-all shrink-0 cursor-pointer"
                   >
-                    Reset Filters
+                    <Download size={12} /> Export
                   </button>
-                )}
+
+                  {canCreateLead && (
+                    <>
+                      {/* Import Button */}
+                      <button
+                        onClick={() => setShowImportModal(true)}
+                        className="inline-flex items-center gap-1.5 h-8 sm:h-8.5 rounded-lg bg-white border border-slate-200/90 px-3 text-[9px] font-black uppercase tracking-wider text-slate-700 hover:bg-slate-50 shadow-2xs transition-all shrink-0 cursor-pointer"
+                      >
+                        <Download size={12} className="rotate-180 text-indigo-500" /> Import Leads
+                      </button>
+
+                      {/* New Lead Button */}
+                      <button
+                        onClick={() => openCreateModal()}
+                        className="inline-flex items-center gap-1.5 h-8 sm:h-8.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 px-3.5 text-[9px] font-black uppercase tracking-wider text-white shadow-xs transition-all shrink-0 cursor-pointer"
+                      >
+                        <Plus size={12} /> New Lead
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Quick Filter Chips Bar & Edit Stages */}
+              <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 mr-0.5 select-none">
+                    Quick Filters:
+                  </span>
+                  {[
+                    { key: "vat_due_today", label: "VAT Due Today" },
+                    { key: "ct_due", label: "Corporate Tax Due" },
+                    { key: "tl_expiring", label: "License Expiring" },
+                    { key: "payment_pending", label: "Payment Pending" },
+                    { key: "completed_clients", label: "Completed Clients" },
+                    { key: "pending_clients", label: "Pending Clients" }
+                  ].map(chip => {
+                    const isActive = quickFilter === chip.key;
+                    return (
+                      <button
+                        key={chip.key}
+                        onClick={() => setQuickFilter(isActive ? "" : chip.key)}
+                        className={`px-2.5 py-1 rounded-md text-[8px] sm:text-[8.5px] font-bold uppercase tracking-wider transition-all border select-none cursor-pointer leading-tight ${
+                          isActive
+                            ? "bg-indigo-600 text-white border-indigo-700 shadow-2xs"
+                            : "bg-white text-slate-600 border-slate-200/90 hover:bg-slate-50 hover:border-slate-300"
+                        }`}
+                      >
+                        {chip.label}
+                      </button>
+                    );
+                  })}
+
+                  {(quickFilter || search || serviceTypeFilter || workStatusFilter || paymentStatusFilter) && (
+                    <button
+                      onClick={() => {
+                        setQuickFilter("");
+                        setSearch("");
+                        setServiceTypeFilter("");
+                        setWorkStatusFilter("");
+                        setPaymentStatusFilter("");
+                      }}
+                      className="px-2 py-1 rounded-md text-[8px] sm:text-[8.5px] font-bold uppercase tracking-wider text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
+                    >
+                      Reset Filters
+                    </button>
+                  )}
+                </div>
+
                 {canManagePipeline && (
-                  <button onClick={() => setShowStageEditor(true)} className="inline-flex items-center gap-2 rounded-2xl bg-white border border-slate-200 px-4 py-3 text-[10px] font-black uppercase text-slate-700 hover:bg-slate-50 transition-all">
-                    <UserCheck size={14} /> Edit Stages
+                  <button
+                    onClick={() => setShowStageEditor(true)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-slate-200/90 text-[8px] sm:text-[8.5px] font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-50 shadow-2xs transition-all cursor-pointer shrink-0"
+                  >
+                    <UserCheck size={11} className="text-slate-500" /> Edit Stages
                   </button>
                 )}
               </div>

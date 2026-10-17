@@ -19,6 +19,7 @@ const ticketSchema = new mongoose.Schema(
     ticketId: { type: String, required: true, unique: true },
     shareToken: { type: String },
     websiteId: { type: mongoose.Schema.Types.ObjectId, ref: "Website", required: true },
+    organizationId: { type: mongoose.Schema.Types.ObjectId, ref: "MultiOrganization", default: null, index: true },
     visitorId: { type: mongoose.Schema.Types.ObjectId, ref: "Visitor" },
     customerId: { type: mongoose.Schema.Types.ObjectId, ref: "Customer" },
     crn: { type: String, index: true },

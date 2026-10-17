@@ -5,7 +5,8 @@ import autoTable from "jspdf-autotable";
 import {
   WinProbabilityBadge,
   HeatIndicator,
-  formatCurrency
+  formatCurrency,
+  formatRequirement
 } from "./CrmUIComponents.jsx";
 import { isStaleLead, isHighValueLead } from "./crmUtils.js";
 
@@ -338,8 +339,11 @@ function BoardCard({ customer, canManagePipeline, onOpenCustomer, draggedCustome
           </div>
           <div className="flex items-center justify-between gap-3 text-[9px] font-black uppercase tracking-[0.16em]">
             <span className="text-slate-400">Requirement</span>
-            <span className={`truncate text-right max-w-[120px] ${customer.requirement ? 'text-indigo-600' : 'text-slate-300'}`}>
-              {customer.requirement || "—"}
+            <span
+              className={`truncate text-right max-w-[120px] ${customer.requirement ? 'text-indigo-600' : 'text-slate-300'}`}
+              title={formatRequirement(customer.requirement)}
+            >
+              {customer.requirement ? formatRequirement(customer.requirement) : "—"}
             </span>
           </div>
           <div className="flex items-center justify-between gap-3 text-[9px] font-black uppercase tracking-[0.16em]">

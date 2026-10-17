@@ -5,10 +5,11 @@ import {
   retrySyncQueue
 } from "../controllers/enterpriseIntegrationController.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { attachTenantSubscription, requirePlanFeature } from "../middleware/planAccess.js";
 
 const router = Router();
 
-router.use(requireAuth);
+router.use(requireAuth, attachTenantSubscription, requirePlanFeature("enterprise-integrations"));
 
 router.get("/overview", requireRole("admin", "client", "manager", "management"), getIntegrationOverview);
 router.post("/connect/:id", requireRole("admin", "client", "manager"), toggleConnectorStatus);

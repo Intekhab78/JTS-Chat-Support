@@ -137,6 +137,7 @@ const customerSchema = new mongoose.Schema(
     expectedCloseDate: { type: Date, default: null },
     decisionMaker: { type: String, trim: true, default: "" },
     websiteId: { type: mongoose.Schema.Types.ObjectId, ref: "Website", required: true },
+    organizationId: { type: mongoose.Schema.Types.ObjectId, ref: "MultiOrganization", default: null, index: true },
     ownerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     ownerAssignedAt: { type: Date, default: null },
     priority: {

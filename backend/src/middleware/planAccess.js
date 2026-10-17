@@ -38,16 +38,80 @@ export const attachTenantSubscription = asyncHandler(async (req, _res, next) => 
 
 export function requirePlanFeature(moduleName) {
   return asyncHandler(async (req, _res, next) => {
+    // SuperAdmin bypass
+    const userRole = String(req.user?.role || "").toLowerCase().trim();
+    if (userRole.includes("admin") || userRole === "superadmin" || userRole === "global_admin") {
+      return next();
+    }
+
     if (!req.subscription) {
       const tenantUser = await getTenantUser(req.user);
       req.tenantUser = tenantUser;
       req.subscription = resolveSubscriptionForUser(tenantUser || req.user);
     }
 
-    if (req.user?.role !== "admin" && req.user?.role !== "client" && !hasModuleAccess(req.subscription, moduleName)) {
-      throw new AppError(`Your current plan does not include ${moduleName}.`, 403);
+    const sub = req.subscription;
+    if (sub?.status === "expired" || sub?.status === "suspended") {
+      throw new AppError("Your subscription has expired or is suspended. Please renew your plan to continue.", 403);
+    }
+
+    if (!hasModuleAccess(sub, moduleName)) {
+      throw new AppError(
+        `Your current subscription plan (${sub?.plan || "basic"}) does not include access to the '${moduleName}' module. Please upgrade your plan.`,
+        403
+      );
     }
 
     next();
   });
 }
+
+export function checkPlanLimit(resourceType) {
+  return asyncHandler(async (req, _res, next) => {
+    const userRole = String(req.user?.role || "").toLowerCase().trim();
+    if (userRole.includes("admin") || userRole === "superadmin" || userRole === "global_admin") {
+      return next();
+    }
+
+    if (!req.subscription) {
+      const tenantUser = await getTenantUser(req.user);
+      req.tenantUser = tenantUser;
+      req.subscription = resolveSubscriptionForUser(tenantUser || req.user);
+    }
+
+    const sub = req.subscription;
+    if (sub?.status === "expired" || sub?.status === "suspended") {
+      throw new AppError("Your subscription has expired. Please renew your plan.", 403);
+    }
+
+    const allowedLimit = sub?.limits?.[resourceType];
+    if (typeof allowedLimit === "number") {
+      let currentCount = 0;
+      if (resourceType === "websites") {
+        const { Website } = await import("../models/Website.js");
+        currentCount = await Website.countDocuments({
+          $or: [
+            { clientId: req.tenantUser?._id || req.user._id },
+            { _id: { $in: req.user.websiteIds || [] } }
+          ]
+        });
+      } else if (resourceType === "agents") {
+        const { User } = await import("../models/User.js");
+        currentCount = await User.countDocuments({
+          managerId: req.tenantUser?._id || req.user._id,
+          role: { $in: ["agent", "manager", "purchase", "accounts"] }
+        });
+      }
+
+      if (currentCount >= allowedLimit) {
+        throw new AppError(
+          `You have reached the maximum allowed ${resourceType} limit (${allowedLimit}) for your current plan (${sub.plan}). Please upgrade to add more.`,
+          403
+        );
+      }
+    }
+
+    next();
+  });
+}
+

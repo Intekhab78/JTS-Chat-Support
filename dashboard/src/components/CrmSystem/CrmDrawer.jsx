@@ -11,7 +11,8 @@ import CRMQuotationTab from "./CrmQuotationTab.jsx";
 import {
   CRMStageBadge,
   formatCurrency,
-  NBARecommendationCard
+  NBARecommendationCard,
+  formatRequirement
 } from "./CrmUIComponents.jsx";
 
 import TicketsTab from "./DrawerTabs/TicketsTab.jsx";
@@ -119,14 +120,14 @@ export default function CrmDrawer({
       <div className="fixed inset-y-0 right-0 w-full max-w-full md:w-[860px] bg-white border-l border-slate-200 z-[100] shadow-[0_0_50px_rgba(0,0,0,0.15)] overflow-hidden animate-in slide-in-from-right duration-500 flex flex-col">
 
         {/* Drawer Header */}
-        <div className="px-5 py-5 md:px-8 border-b border-slate-100 flex items-start justify-between gap-4 bg-white shrink-0">
-          <div className="flex items-center gap-4 min-w-0">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-700 text-white flex items-center justify-center font-black text-xl shadow-xl shadow-indigo-500/20 shrink-0">
+        <div className="px-5 py-4 md:px-6 border-b border-slate-100 flex items-start justify-between gap-4 bg-white shrink-0">
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-700 text-white flex items-center justify-center font-black text-lg shadow-md shadow-indigo-500/20 shrink-0">
               {selectedCustomer?.name?.[0]?.toUpperCase() || "U"}
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <h3 className="text-lg md:text-xl font-black text-slate-900 tracking-tight truncate">
+                <h3 className="text-base md:text-lg font-black text-slate-900 tracking-tight truncate">
                   {selectedCustomer?.name}
                 </h3>
                 {selectedCustomer?.priority && (
@@ -139,35 +140,35 @@ export default function CrmDrawer({
                 )}
               </div>
               <div className="flex items-center gap-3">
-                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">
+                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.16em]">
                   {selectedCustomer?.crn}
                 </p>
                 {selectedCustomer?.email && (
-                  <p className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
+                  <p className="text-[10px] text-slate-400 font-bold flex items-center gap-1 truncate">
                     <Mail size={10} /> {selectedCustomer.email}
                   </p>
                 )}
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-4 shrink-0">
+          <div className="flex items-center gap-3 shrink-0">
             {othersViewing.length > 0 && (
-              <div className="flex items-center -space-x-2 mr-2">
+              <div className="flex items-center -space-x-2 mr-1">
                 {othersViewing.map((u) => (
                   <div
                     key={u._id}
                     title={`${u.name} is also viewing`}
-                    className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm animate-in zoom-in-50 duration-300"
+                    className="w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[9px] font-black border-2 border-white shadow-xs"
                   >
                     {u.name?.[0]?.toUpperCase()}
                   </div>
                 ))}
-                <div className="pl-3 text-[9px] font-black text-indigo-500 uppercase tracking-widest animate-pulse">
+                <div className="pl-2.5 text-[8px] font-black text-indigo-500 uppercase tracking-wider animate-pulse">
                   Viewing Now
                 </div>
               </div>
             )}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               {onOpenFullProfile && (
                 <button
                   onClick={() => {
@@ -175,9 +176,9 @@ export default function CrmDrawer({
                     setShowDrawer(false);
                   }}
                   title="Open Customer 360 Full Profile"
-                  className="p-2 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-100 rounded-xl transition-all flex items-center gap-1.5"
+                  className="p-1.5 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-100 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
                 >
-                  <PlusCircle size={15} />
+                  <PlusCircle size={14} />
                   <span className="text-[9px] font-black uppercase tracking-wider">Full Profile</span>
                 </button>
               )}
@@ -185,43 +186,43 @@ export default function CrmDrawer({
                 <button
                   onClick={() => onAutoAssign(selectedCustomer)}
                   title="Auto-Assign Lead"
-                  className="p-2.5 rounded-xl text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-all border border-transparent hover:border-teal-100"
+                  className="p-2 rounded-xl text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-all border border-transparent hover:border-teal-100 cursor-pointer"
                 >
-                  <UserCheck size={18} />
+                  <UserCheck size={16} />
                 </button>
               )}
               {canEditCRM && (
                 <button
                   onClick={() => onOpenEditLead()}
                   title="Edit Lead"
-                  className="p-2.5 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all border border-transparent hover:border-indigo-100"
+                  className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all border border-transparent hover:border-indigo-100 cursor-pointer"
                 >
-                  <Edit2 size={18} />
+                  <Edit2 size={16} />
                 </button>
               )}
               {canAssignOwners && onArchive && (
                 <button
                   onClick={() => onArchive(selectedCustomer)}
                   title="Archive Lead"
-                  className="p-2.5 rounded-xl text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all border border-transparent hover:border-amber-100"
+                  className="p-2.5 rounded-xl text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all border border-transparent hover:border-amber-100 cursor-pointer"
                 >
-                  <Archive size={18} />
+                  <Archive size={16} />
                 </button>
               )}
               {canAssignOwners && onDelete && (
                 <button
                   onClick={() => onDelete(selectedCustomer)}
                   title="Delete Lead Permanently"
-                  className="p-2.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all border border-transparent hover:border-rose-100"
+                  className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all border border-transparent hover:border-rose-100 cursor-pointer"
                 >
-                  <Trash2 size={18} />
+                  <Trash2 size={16} />
                 </button>
               )}
               <button
                 onClick={() => setShowDrawer(false)}
-                className="p-2.5 rounded-xl text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-all"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
           </div>
@@ -243,20 +244,20 @@ export default function CrmDrawer({
             const displayEstValue = totalDocSum > 0 ? totalDocSum : (selectedCustomer?.leadValue || 0);
 
             return (
-              <div className="px-5 py-4 md:px-8 border-b border-slate-100 bg-white flex flex-wrap items-start gap-x-8 gap-y-4 sticky top-0 z-[11] shadow-sm">
-                <div className="space-y-1 min-w-[120px]">
+              <div className="px-5 py-2.5 md:px-6 border-b border-slate-100 bg-slate-50/70 flex flex-wrap items-center gap-x-6 gap-y-2 sticky top-0 z-[11] backdrop-blur-md shadow-2xs">
+                <div className="space-y-0.5 min-w-[110px]">
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Pipeline Stage</p>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <CRMStageBadge stage={selectedCustomer?.pipelineStage} />
                     {selectedCustomer?.isLocked && selectedCustomer?.pipelineStage === "won" && (
-                      <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-100 text-[8px] font-black uppercase tracking-widest">
+                      <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-100 text-[8px] font-black uppercase tracking-widest">
                         <Shield size={10} className="fill-amber-600/20" /> Locked
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="space-y-1 min-w-[100px]">
+                <div className="space-y-0.5 min-w-[90px]">
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Est. Value</p>
                   <div className="flex items-center gap-1.5">
                     <p className="text-xs font-black text-slate-900">{formatCurrency(displayEstValue)}</p>
@@ -264,7 +265,7 @@ export default function CrmDrawer({
                       <button
                         onClick={() => onOpenEditLead()}
                         title="Edit Estimated Lead Value"
-                        className="text-slate-300 hover:text-indigo-600 transition-colors"
+                        className="text-slate-300 hover:text-indigo-600 transition-colors cursor-pointer"
                       >
                         <Edit2 size={10} />
                       </button>
@@ -272,91 +273,93 @@ export default function CrmDrawer({
                   </div>
                 </div>
 
-            <div className="space-y-1 min-w-[100px]">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Budget</p>
-              <p className="text-xs font-black text-indigo-600">{formatCurrency(selectedCustomer?.budget)}</p>
-            </div>
-
-            <div className="space-y-1 min-w-[80px]">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Prob.</p>
-              <div className="flex items-center gap-1.5">
-                <div className="h-1.5 w-8 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${Math.max(0, Math.min(100, Number(selectedCustomer?.probability || 0)))}%` }} />
+                <div className="space-y-0.5 min-w-[80px]">
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Budget</p>
+                  <p className="text-xs font-black text-indigo-600">{formatCurrency(selectedCustomer?.budget)}</p>
                 </div>
-                <span className="text-[10px] font-black text-indigo-600">{selectedCustomer?.probability || 0}%</span>
-              </div>
-            </div>
 
-            <div className="space-y-1 min-w-[100px]">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Exp. Close</p>
-              <p className="text-xs font-black text-slate-900 truncate">
-                {selectedCustomer?.expectedCloseDate ? new Date(selectedCustomer.expectedCloseDate).toLocaleDateString() : "TBD"}
-              </p>
-            </div>
-
-            <div className="space-y-1 min-w-[120px]">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Decision Maker</p>
-              <p className="text-xs font-black text-slate-900 truncate">{selectedCustomer?.decisionMaker || "Unknown"}</p>
-            </div>
-
-            <div className="space-y-1 min-w-[160px] max-w-[240px]">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Requirement</p>
-              <p className="text-xs font-black text-indigo-600 truncate" title={selectedCustomer?.requirement}>{selectedCustomer?.requirement || "Not specified"}</p>
-            </div>
-
-            {selectedCustomer?.pipelineStage === "won" && (
-              <div className="space-y-1 min-w-[140px] border-l border-slate-100 pl-8 ml-auto">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Special Actions</p>
-                <div className="flex flex-col gap-1.5">
-                  {selectedCustomer?.pipelineStage === "won" && !selectedCustomer?.isLocked ? (
-                    (() => {
-                      const hasQuote = Boolean(
-                        (customerDetails?.quotations && customerDetails.quotations.length > 0) ||
-                        customerDetails?.hasQuotation ||
-                        selectedCustomer?.hasQuotation
-                      );
-                      return (
-                        <button
-                          onClick={() => hasQuote && onGenerateCode(selectedCustomer._id)}
-                          disabled={!hasQuote}
-                          title={!hasQuote ? "A Digital Quotation must be created under Quotes tab before generating code" : "Generate code and start purchase workflow"}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-                            hasQuote
-                              ? "bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-100 cursor-pointer"
-                              : "bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-60"
-                          }`}
-                        >
-                          <Zap size={10} className={hasQuote ? "fill-white" : "fill-slate-400"} /> Generate Code
-                        </button>
-                      );
-                    })()
-                  ) : selectedCustomer?.isLocked ? (
-                    <div className="text-[9px] font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 inline-block">
-                      Code: <span className="font-black text-indigo-600 ml-1">{selectedCustomer.generatedCode}</span>
+                <div className="space-y-0.5 min-w-[70px]">
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Prob.</p>
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-1.5 w-7 bg-slate-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${Math.max(0, Math.min(100, Number(selectedCustomer?.probability || 0)))}%` }} />
                     </div>
-                  ) : null}
-                  {/* Unlock button – always show for Won/Locked leads */}
-                  {onUnlock && (
-                    <button
-                      onClick={() => {
-                        if (window.confirm("Unlock this lead and move it back to Negotiation stage?")) {
-                          onUnlock(selectedCustomer._id);
-                        }
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 text-[9px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all"
-                    >
-                      <Shield size={10} /> Unlock Lead
-                    </button>
-                  )}
+                    <span className="text-[10px] font-black text-indigo-600">{selectedCustomer?.probability || 0}%</span>
+                  </div>
                 </div>
+
+                <div className="space-y-0.5 min-w-[80px]">
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Exp. Close</p>
+                  <p className="text-xs font-black text-slate-900 truncate">
+                    {selectedCustomer?.expectedCloseDate ? new Date(selectedCustomer.expectedCloseDate).toLocaleDateString() : "TBD"}
+                  </p>
+                </div>
+
+                <div className="space-y-0.5 min-w-[100px]">
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Decision Maker</p>
+                  <p className="text-xs font-black text-slate-900 truncate">{selectedCustomer?.decisionMaker || "Unknown"}</p>
+                </div>
+
+                <div className="space-y-0.5 min-w-[140px] max-w-[260px]">
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Requirement</p>
+                  <p className="text-xs font-black text-indigo-600 truncate" title={formatRequirement(selectedCustomer?.requirement)}>
+                    {formatRequirement(selectedCustomer?.requirement)}
+                  </p>
+                </div>
+
+                {selectedCustomer?.pipelineStage === "won" && (
+                  <div className="space-y-0.5 min-w-[130px] border-l border-slate-200 pl-4 ml-auto">
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Special Actions</p>
+                    <div className="flex flex-col gap-1">
+                      {selectedCustomer?.pipelineStage === "won" && !selectedCustomer?.isLocked ? (
+                        (() => {
+                          const hasQuote = Boolean(
+                            (customerDetails?.quotations && customerDetails.quotations.length > 0) ||
+                            customerDetails?.hasQuotation ||
+                            selectedCustomer?.hasQuotation
+                          );
+                          return (
+                            <button
+                              onClick={() => hasQuote && onGenerateCode(selectedCustomer._id)}
+                              disabled={!hasQuote}
+                              title={!hasQuote ? "A Digital Quotation must be created under Quotes tab before generating code" : "Generate code and start purchase workflow"}
+                              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${
+                                hasQuote
+                                  ? "bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-100 cursor-pointer"
+                                  : "bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-60"
+                              }`}
+                            >
+                              <Zap size={10} className={hasQuote ? "fill-white" : "fill-slate-400"} /> Generate Code
+                            </button>
+                          );
+                        })()
+                      ) : selectedCustomer?.isLocked ? (
+                        <div className="text-[9px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 inline-block">
+                          Code: <span className="font-black text-indigo-600 ml-1">{selectedCustomer.generatedCode}</span>
+                        </div>
+                      ) : null}
+                      {/* Unlock button – always show for Won/Locked leads */}
+                      {onUnlock && (
+                        <button
+                          onClick={() => {
+                            if (window.confirm("Unlock this lead and move it back to Negotiation stage?")) {
+                              onUnlock(selectedCustomer._id);
+                            }
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 text-[8px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all cursor-pointer"
+                        >
+                          <Shield size={10} /> Unlock Lead
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        );
-      })()}
+            );
+          })()}
 
           {/* Tab Navigation */}
-          <div className="flex border-b border-slate-100 bg-white sticky top-[65px] z-10 overflow-x-auto scrollbar-hide">
+          <div className="flex border-b border-slate-100 bg-white sticky top-[48px] z-10 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             {[
               { key: "tickets", label: "Tickets", icon: TicketIcon, badge: customerDetails?.tickets?.length },
               { key: "chats", label: "Chats", icon: MessageCircle, badge: customerDetails?.sessions?.length },
@@ -373,15 +376,15 @@ export default function CrmDrawer({
               <button
                 key={t.key}
                 onClick={() => setDrawerTab(t.key)}
-                className={`flex-1 flex items-center justify-center gap-2 py-4 px-3 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all min-w-[110px] ${drawerTab === t.key
-                  ? "border-indigo-600 text-indigo-600 bg-indigo-50/10"
-                  : "border-transparent text-slate-400 hover:text-slate-600"
+                className={`flex items-center justify-center gap-1.5 py-2.5 px-3 text-[10px] font-black uppercase tracking-wider border-b-2 transition-all shrink-0 whitespace-nowrap cursor-pointer ${drawerTab === t.key
+                  ? "border-indigo-600 text-indigo-600 bg-indigo-50/20"
+                  : "border-transparent text-slate-400 hover:text-slate-700 hover:bg-slate-50"
                   }`}
               >
                 <t.icon size={12} />
                 {t.label}
                 {t.badge > 0 && (
-                  <span className={`w-4 h-4 rounded-full text-[8px] flex items-center justify-center ${drawerTab === t.key ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-500"
+                  <span className={`w-4 h-4 rounded-full text-[8px] flex items-center justify-center ${drawerTab === t.key ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-600"
                     }`}>
                     {t.badge}
                   </span>
@@ -391,7 +394,7 @@ export default function CrmDrawer({
           </div>
 
           {/* Drawer Content */}
-          <div className="p-5 md:p-8 space-y-6">
+          <div className="p-4 sm:p-5 md:p-6 space-y-4">
             {selectedCustomer?.nbaMetadata && (
               <NBARecommendationCard nba={selectedCustomer.nbaMetadata} />
             )}

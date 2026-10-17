@@ -9,6 +9,7 @@ const dealProductSchema = new mongoose.Schema({
 const dealSchema = new mongoose.Schema(
   {
     websiteId: { type: mongoose.Schema.Types.ObjectId, ref: "Website", required: true, index: true },
+    organizationId: { type: mongoose.Schema.Types.ObjectId, ref: "MultiOrganization", default: null, index: true },
     dealName: { type: String, required: true, trim: true },
     dealValue: { type: Number, default: 0 },
     currency: { type: String, default: "USD" },

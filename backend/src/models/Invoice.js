@@ -18,6 +18,7 @@ const invoiceSchema = new mongoose.Schema({
   invoiceNumber: { type: String, trim: true, index: true },
   customerId: { type: mongoose.Schema.Types.ObjectId, ref: "Customer", required: true, index: true },
   websiteId: { type: mongoose.Schema.Types.ObjectId, ref: "Website", required: true, index: true },
+  organizationId: { type: mongoose.Schema.Types.ObjectId, ref: "MultiOrganization", default: null, index: true },
   ownerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
   salesOrderId: { type: mongoose.Schema.Types.ObjectId, ref: "SalesOrder", default: null, index: true },
   quotationId: { type: String, trim: true },

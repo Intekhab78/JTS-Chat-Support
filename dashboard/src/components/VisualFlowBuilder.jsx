@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   GitFork, Plus, Save, Trash2, Play, Sparkles, MessageSquare,
   HelpCircle, Ticket, UserCheck, ArrowRight, Check, X, RefreshCw,
-  Bot, UserPlus, Eye, Layers, Zap, Settings2, FileText, ChevronRight,
+  Bot, UserPlus, Eye, Layers, Zap, Settings2, FileText, ChevronRight, ChevronLeft,
   Send, CornerDownRight, Smartphone, BookOpen, CheckCircle2, AlertCircle
 } from "lucide-react";
 import { api } from "../api/client.js";
@@ -122,6 +122,13 @@ const PREBUILT_TEMPLATES = [
 
 export default function VisualFlowBuilder({ websiteId }) {
   const toast = useToast();
+  const canvasRef = useRef(null);
+  const scrollCanvas = (offset) => {
+    if (canvasRef.current) {
+      canvasRef.current.scrollBy({ left: offset, behavior: "smooth" });
+    }
+  };
+
   const [flows, setFlows] = useState([]);
   const [selectedFlow, setSelectedFlow] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -430,104 +437,123 @@ export default function VisualFlowBuilder({ websiteId }) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2.5">
       {/* ── Top Header Toolbar ── */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-md">
-            <GitFork size={20} />
+      <div className="bg-white dark:bg-slate-900 px-3.5 py-2 sm:px-4 rounded-xl border border-slate-200/90 dark:border-white/10 shadow-2xs flex flex-col xl:flex-row xl:items-center justify-between gap-2.5">
+        {/* Left: Icon & Title */}
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-xs shrink-0">
+            <GitFork size={16} />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">Chatbot Decision Tree Builder</h2>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+              <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white tracking-tight leading-none truncate">
+                Chatbot Decision Tree Builder
+              </h2>
+              <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 flex items-center gap-1 shrink-0">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 Active
               </span>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Design automated interactive decision trees & AI routing visually</p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-400 font-medium truncate mt-0.5">
+              Design automated interactive decision trees & AI routing visually
+            </p>
           </div>
         </div>
 
-        {/* View Switcher & Primary Actions */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-white/5 text-xs font-semibold">
+        {/* Right: View Switcher & Primary Actions in single clean inline row */}
+        <div className="flex items-center gap-1.5 shrink-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          {/* Tab Switcher */}
+          <div className="flex items-center bg-slate-100/80 dark:bg-slate-800/80 p-0.5 rounded-lg border border-slate-200/80 dark:border-white/5 h-8 shrink-0">
             <button
+              type="button"
               onClick={() => setActiveTab("canvas")}
-              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-                activeTab === "canvas" ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-600 dark:text-slate-300"
+              className={`h-full px-2.5 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5 select-none cursor-pointer ${
+                activeTab === "canvas"
+                  ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-2xs font-black"
+                  : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
               }`}
             >
-              <Layers size={14} /> Visual Canvas
+              <Layers size={13} /> Visual Canvas
             </button>
             <button
+              type="button"
               onClick={() => {
                 setActiveTab("simulator");
                 resetSimulator();
               }}
-              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-                activeTab === "simulator" ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-600 dark:text-slate-300"
+              className={`h-full px-2.5 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5 select-none cursor-pointer ${
+                activeTab === "simulator"
+                  ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-2xs font-black"
+                  : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
               }`}
             >
-              <Smartphone size={14} /> Test Bot Simulator
+              <Smartphone size={13} /> Test Bot Simulator
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab("templates")}
-              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-                activeTab === "templates" ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-600 dark:text-slate-300"
+              className={`h-full px-2.5 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5 select-none cursor-pointer ${
+                activeTab === "templates"
+                  ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-2xs font-black"
+                  : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
               }`}
             >
-              <BookOpen size={14} /> Templates
+              <BookOpen size={13} /> Templates
             </button>
           </div>
 
+          {/* New Flow Button */}
           <button
+            type="button"
             onClick={createNewFlow}
-            className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+            className="h-8 px-2.5 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/90 dark:border-white/10 text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1 shadow-2xs shrink-0 cursor-pointer"
           >
-            <Plus size={14} /> New Flow
+            <Plus size={13} /> New Flow
           </button>
 
+          {/* Save Flow Button */}
           <button
+            type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-md shadow-indigo-500/20 flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
+            className="h-8 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-black uppercase tracking-wider transition-all shadow-xs flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
           >
-            <Save size={14} /> {isSaving ? "Saving..." : "Save Flow"}
+            <Save size={13} /> {isSaving ? "Saving..." : "Save Flow"}
           </button>
         </div>
       </div>
 
       {/* ── Flow Metadata Strip ── */}
-      <div className="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="bg-white dark:bg-slate-900 p-2.5 sm:px-3.5 sm:py-2.5 rounded-xl border border-slate-200/90 dark:border-white/10 shadow-2xs grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-2.5">
         <div>
-          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 block">Flow Name</label>
+          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-400 mb-0.5 block">Flow Name</label>
           <input
             type="text"
             value={flowName}
             onChange={(e) => setFlowName(e.target.value)}
-            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            className="w-full h-8 bg-slate-50 dark:bg-slate-800 border border-slate-200/90 dark:border-white/10 rounded-lg px-2.5 text-xs font-semibold text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
             placeholder="e.g. UAE Tax & Accounting Intake Bot"
           />
         </div>
 
         <div>
-          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 block">Trigger Keyword</label>
+          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-400 mb-0.5 block">Trigger Keyword</label>
           <input
             type="text"
             value={triggerKeyword}
             onChange={(e) => setTriggerKeyword(e.target.value)}
-            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            className="w-full h-8 bg-slate-50 dark:bg-slate-800 border border-slate-200/90 dark:border-white/10 rounded-lg px-2.5 text-xs font-semibold text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
             placeholder="e.g. hello, pricing, vat, support"
           />
         </div>
 
         <div>
-          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 block">Trigger Condition</label>
+          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-400 mb-0.5 block">Trigger Condition</label>
           <select
             value={triggerType}
             onChange={(e) => setTriggerType(e.target.value)}
-            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-900 dark:text-white outline-none focus:border-indigo-500 cursor-pointer"
+            className="w-full h-8 bg-slate-50 dark:bg-slate-800 border border-slate-200/90 dark:border-white/10 rounded-lg px-2.5 text-xs font-semibold text-slate-900 dark:text-white outline-none focus:border-indigo-500 cursor-pointer"
           >
             <option value="keyword">On Keyword Match (User types keyword)</option>
             <option value="welcome">On Widget Open (Instant Welcome Greeting)</option>
@@ -538,51 +564,83 @@ export default function VisualFlowBuilder({ websiteId }) {
 
       {/* ── Active View Rendering ── */}
       {activeTab === "canvas" && (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {/* Node Library Action Strip */}
-          <div className="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm flex items-center justify-between gap-2 flex-wrap">
-            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Add Decision Node:</span>
+          <div className="bg-white dark:bg-slate-900 p-2 sm:px-3 sm:py-1.5 rounded-xl border border-slate-200/90 dark:border-white/10 shadow-2xs flex items-center justify-between gap-1.5 flex-wrap">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 select-none">Add Decision Node:</span>
             
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <button
                 onClick={() => addNode("question")}
-                className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+                className="h-7 px-2.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 text-[10px] sm:text-[11px] font-bold transition-all flex items-center gap-1 shadow-2xs active:scale-95 cursor-pointer"
               >
-                <HelpCircle size={13} /> Question & Choices
+                <HelpCircle size={12} /> Question & Choices
               </button>
 
               <button
                 onClick={() => addNode("ai_faq")}
-                className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+                className="h-7 px-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 text-[10px] sm:text-[11px] font-bold transition-all flex items-center gap-1 shadow-2xs active:scale-95 cursor-pointer"
               >
-                <Bot size={13} /> AI Knowledge Node
+                <Bot size={12} /> AI Knowledge Node
               </button>
 
               <button
                 onClick={() => addNode("lead_action")}
-                className="px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+                className="h-7 px-2.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200/80 text-[10px] sm:text-[11px] font-bold transition-all flex items-center gap-1 shadow-2xs active:scale-95 cursor-pointer"
               >
-                <UserPlus size={13} /> Capture CRM Lead
+                <UserPlus size={12} /> Capture CRM Lead
               </button>
 
               <button
                 onClick={() => addNode("ticket_action")}
-                className="px-3 py-1.5 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border border-cyan-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+                className="h-7 px-2.5 rounded-lg bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border border-cyan-200/80 text-[10px] sm:text-[11px] font-bold transition-all flex items-center gap-1 shadow-2xs active:scale-95 cursor-pointer"
               >
-                <Ticket size={13} /> Auto Ticket Action
+                <Ticket size={12} /> Auto Ticket Action
               </button>
 
               <button
                 onClick={() => addNode("transfer_agent")}
-                className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+                className="h-7 px-2.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/80 text-[10px] sm:text-[11px] font-bold transition-all flex items-center gap-1 shadow-2xs active:scale-95 cursor-pointer"
               >
-                <UserCheck size={13} /> Transfer to Agent
+                <UserCheck size={12} /> Transfer to Agent
+              </button>
+            </div>
+          </div>
+
+          {/* ── Interactive Horizontal Visual Canvas Header & Controls ── */}
+          <div className="flex items-center justify-between px-1 pt-1">
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
+              <span>Decision Tree Canvas</span>
+              <span className="text-[10px] text-slate-400 lowercase font-medium">({nodes.length} steps connected)</span>
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-slate-400 font-semibold mr-1 hidden sm:inline">Scroll branches:</span>
+              <button
+                type="button"
+                onClick={() => scrollCanvas(-380)}
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-xs cursor-pointer flex items-center gap-1 text-[11px] font-bold"
+                title="Scroll Left"
+              >
+                <ChevronLeft size={13} />
+                <span className="hidden sm:inline">Left</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollCanvas(380)}
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-xs cursor-pointer flex items-center gap-1 text-[11px] font-bold"
+                title="Scroll Right"
+              >
+                <span className="hidden sm:inline">Right</span>
+                <ChevronRight size={13} />
               </button>
             </div>
           </div>
 
           {/* ── Interactive Horizontal Visual Canvas ── */}
-          <div className="bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-white/10 p-5 overflow-x-auto custom-scrollbar min-h-[460px]">
+          <div
+            ref={canvasRef}
+            className="bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-white/10 p-5 overflow-x-auto custom-scrollbar min-h-[460px]"
+          >
             <div className="flex items-start gap-6 min-w-max pb-4">
               {nodes.map((node, index) => {
                 const badge = getNodeBadge(node.type);

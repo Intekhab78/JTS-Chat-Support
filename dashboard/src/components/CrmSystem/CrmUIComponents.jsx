@@ -141,3 +141,49 @@ export function NBARecommendationCard({ nba }) {
     </div>
   );
 }
+
+export function formatRequirement(val) {
+  if (!val) return "Not specified";
+  if (typeof val === "object") {
+    const candidate =
+      val.requirement ||
+      val.inquiry ||
+      val.serviceName ||
+      val.serviceType ||
+      val.service ||
+      val.plan ||
+      val.topic ||
+      val.subject ||
+      val.message;
+    if (candidate && typeof candidate === "string" && !candidate.trim().startsWith("{")) {
+      return candidate;
+    }
+    return val.preferred_date_time ? `Booking: ${val.preferred_date_time}` : "Client Consultation & Inquiry";
+  }
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        const candidate =
+          parsed.requirement ||
+          parsed.inquiry ||
+          parsed.serviceName ||
+          parsed.serviceType ||
+          parsed.service ||
+          parsed.plan ||
+          parsed.topic ||
+          parsed.subject ||
+          parsed.message;
+        if (candidate && typeof candidate === "string" && !candidate.trim().startsWith("{")) {
+          return candidate;
+        }
+        return parsed.preferred_date_time ? `Booking: ${parsed.preferred_date_time}` : "Client Consultation & Inquiry";
+      } catch {
+        return "Client Consultation & Inquiry";
+      }
+    }
+    return val;
+  }
+  return String(val);
+}

@@ -1,10 +1,22 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { TrendingUp, Download, Printer, Filter, ChevronDown } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 export default function CRMPipelineBar({ customers }) {
   const [selectedStageMenu, setSelectedStageMenu] = useState("");
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!selectedStageMenu) return;
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setSelectedStageMenu("");
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [selectedStageMenu]);
 
   const pipelineCounts = customers.reduce((acc, c) => {
     const stage = c.pipelineStage || "new";
@@ -204,34 +216,37 @@ export default function CRMPipelineBar({ customers }) {
   };
 
   return (
-    <div className="premium-card p-6 space-y-4">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">CRM Pipeline Overview</p>
-          <p className="text-sm font-black text-slate-900">{customers.length} Total Records Active</p>
+    <div ref={containerRef} className="bg-white border border-slate-200/90 rounded-2xl p-3 sm:p-3.5 space-y-2.5 shadow-xs">
+      {/* Header Row: Title, Badge, & Master Export Buttons */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100/80 pb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] sm:text-xs font-black uppercase text-slate-800 tracking-wider">CRM Pipeline Overview</span>
+          <span className="text-[9px] font-black text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
+            {customers.length} Active Records
+          </span>
         </div>
 
         {/* Global Pipeline Export Options */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={() => exportAllStagesMaster("csv")}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider hover:bg-emerald-100 transition-all"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-[9px] font-black uppercase tracking-wider hover:bg-emerald-100 transition-all cursor-pointer shadow-2xs"
             title="Export All Pipeline Stages to 1 Excel Sheet"
           >
-            <Download size={13} /> Export All Stages (Excel)
+            <Download size={11} /> Export Excel
           </button>
           <button
             onClick={() => exportAllStagesMaster("pdf")}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-wider hover:bg-indigo-100 transition-all"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200/80 text-indigo-700 text-[9px] font-black uppercase tracking-wider hover:bg-indigo-100 transition-all cursor-pointer shadow-2xs"
             title="Export All Pipeline Stages to Master PDF"
           >
-            <Printer size={13} /> Export All Stages (PDF)
+            <Printer size={11} /> Export PDF
           </button>
         </div>
       </div>
 
       {/* Progress Bar */}
-      <div className="flex rounded-xl overflow-hidden h-2.5 bg-slate-100 gap-0.5">
+      <div className="flex rounded-full overflow-hidden h-2 bg-slate-100 gap-0.5">
         {stages.map(s => s.count > 0 && (
           <div
             key={s.key}
@@ -242,44 +257,46 @@ export default function CRMPipelineBar({ customers }) {
         ))}
       </div>
 
-      {/* Interactive Stage-by-Stage Chips */}
-      <div className="flex gap-2 flex-wrap items-center pt-1">
-        <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider mr-1">Stage Export:</span>
+      {/* Interactive Stage-by-Stage Chips - Single Inline Row */}
+      <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pt-0.5">
+        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest shrink-0 mr-0.5">Stages:</span>
         {stages.map(s => (
-          <div key={s.key} className="relative group">
+          <div key={s.key} className="relative group shrink-0">
             <button
               onClick={() => setSelectedStageMenu(selectedStageMenu === s.key ? "" : s.key)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-all ${selectedStageMenu === s.key ? "ring-2 ring-indigo-500 border-indigo-500" : ""}`}
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200/80 bg-white hover:bg-slate-50 transition-all cursor-pointer text-[9px] font-black uppercase whitespace-nowrap ${
+                selectedStageMenu === s.key ? "ring-1.5 ring-indigo-500 border-indigo-500 bg-indigo-50/20" : ""
+              }`}
             >
-              <span className={`w-2 h-2 rounded-full ${s.color}`} />
-              <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">{s.label}</span>
-              <span className={`text-[10px] font-black ${s.textColor} bg-slate-100 px-1.5 py-0.2 rounded-md`}>{s.count}</span>
-              <ChevronDown size={11} className="text-slate-400" />
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${s.color}`} />
+              <span className="text-slate-700 tracking-wider">{s.label}</span>
+              <span className={`text-[9px] font-black ${s.textColor} bg-slate-100/90 px-1 py-0.2 rounded ml-0.5`}>{s.count}</span>
+              <ChevronDown size={10} className="text-slate-400" />
             </button>
 
             {/* Dropdown Menu for Individual Stage Export */}
             {selectedStageMenu === s.key && (
-              <div className="absolute left-0 mt-1 z-30 w-44 bg-slate-900 rounded-xl shadow-xl border border-slate-800 p-1.5 text-white animate-in fade-in zoom-in-95 duration-150">
-                <div className="px-3 py-1 text-[8px] font-black text-slate-400 uppercase border-b border-slate-800 mb-1">
-                  Export {s.label} Stage Only
+              <div className={`absolute ${s.key === "won" || s.key === "lost" ? "right-0" : "left-0"} mt-1 z-30 w-40 bg-slate-900 rounded-xl shadow-xl border border-slate-800 p-1.5 text-white animate-in fade-in zoom-in-95 duration-150`}>
+                <div className="px-2 py-0.5 text-[8px] font-black text-slate-400 uppercase border-b border-slate-800 mb-1">
+                  Export {s.label} Only
                 </div>
                 <button
                   onClick={() => {
                     exportStageReport(s.key, s.label, "csv");
                     setSelectedStageMenu("");
                   }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-[10px] font-bold text-emerald-400 hover:bg-slate-800 rounded-lg transition-colors"
+                  className="w-full flex items-center gap-1.5 px-2.5 py-1.5 text-[9px] font-bold text-emerald-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
                 >
-                  <Download size={12} /> {s.label} Excel CSV
+                  <Download size={11} /> Excel CSV
                 </button>
                 <button
                   onClick={() => {
                     exportStageReport(s.key, s.label, "pdf");
                     setSelectedStageMenu("");
                   }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-[10px] font-bold text-indigo-300 hover:bg-slate-800 rounded-lg transition-colors"
+                  className="w-full flex items-center gap-1.5 px-2.5 py-1.5 text-[9px] font-bold text-indigo-300 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
                 >
-                  <Printer size={12} /> {s.label} PDF Report
+                  <Printer size={11} /> PDF Report
                 </button>
               </div>
             )}

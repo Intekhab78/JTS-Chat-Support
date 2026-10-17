@@ -350,6 +350,7 @@ function SidebarContent({ links, collapsed, onNavigate, user, isDarkMode, setIsD
 
 /* ── main layout ──────────────────────────────────── */
 export default function Layout({ title, subtitle, children, menuItems = [] }) {
+  const location = useLocation();
   const { user, logout } = useAuth();
   const socket = useSocket();
   const { websites, selectedWebsiteId, setSelectedWebsiteId, selectedWebsite } = useWebsite() || {};
@@ -1017,7 +1018,23 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
 
         {/* ── Page Content ─────────────────────────── */}
         {(() => {
-          const isChatView = title === "Conversation Hub" || title === "Operation Room" || title.includes("Chat") || title.includes("Conversation");
+          const currentTab = new URLSearchParams(location?.search || "").get("tab") || "";
+          const isDedicatedChat = (
+            currentTab === "chats" ||
+            title === "Conversation Hub" ||
+            title === "Operation Room" ||
+            title === "Sales Chats" ||
+            title === "Assigned Chats" ||
+            title === "Live Chat Console"
+          );
+          const isChatView = isDedicatedChat &&
+            !title.toLowerCase().includes("builder") &&
+            !title.toLowerCase().includes("flow") &&
+            !title.toLowerCase().includes("decision") &&
+            !title.toLowerCase().includes("bot") &&
+            !currentTab.includes("flow") &&
+            !currentTab.includes("builder");
+
           return (
             <main className={`flex-1 flex flex-col min-h-0 ${isChatView ? "overflow-hidden" : "overflow-y-auto custom-scrollbar"}`}>
               {user?.subscription?.status === "expired" && (

@@ -5,7 +5,7 @@ import {
   BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area, Cell, LineChart, Line
 } from 'recharts';
 import {
-  Users, Globe, Headphones, MessageSquare, LayoutDashboard, Search, Bell, Menu, X, Trash2, Send, Paperclip, AlertTriangle
+  Users, Globe, Headphones, MessageSquare, LayoutDashboard, Search, Bell, Menu, X, Trash2, Send, Paperclip, AlertTriangle, Lock
 } from "lucide-react";
 import Layout from "../components/Layout.jsx";
 import ChatPanel from "../components/ChatPanel.jsx";
@@ -565,12 +565,13 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
 export default function ClientPage() {
   const { user } = useAuth();
   const { websites, selectedWebsiteId, setSelectedWebsiteId, selectedWebsite } = useWebsite() || {};
-  const toast = useToast();
-  const canUseTickets = user?.role === "admin" || user?.role === "client" || hasModule(user, "tickets");
-  const canUseCRM = user?.role === "admin" || user?.role === "client" || hasModule(user, "crm");
-  const canUseReports = user?.role === "admin" || user?.role === "client" || hasModule(user, "reports");
-  const canUseSecurity = user?.role === "admin" || user?.role === "client" || hasModule(user, "security");
-  const canUseShortcuts = user?.role === "admin" || user?.role === "client" || hasModule(user, "shortcuts");
+  const userRole = String(user?.role || "").trim().toLowerCase();
+  const isAdminUser = !userRole || userRole.includes("admin") || userRole === "superadmin" || userRole === "global_admin";
+  const canUseTickets = isAdminUser || hasModule(user, "tickets");
+  const canUseCRM = isAdminUser || hasModule(user, "crm");
+  const canUseReports = isAdminUser || hasModule(user, "reports");
+  const canUseSecurity = isAdminUser || hasModule(user, "security");
+  const canUseShortcuts = isAdminUser || hasModule(user, "shortcuts");
   const isExpired = user?.subscription?.status === "expired" || user?.subscription?.status === "suspended";
   const [searchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
@@ -660,9 +661,6 @@ export default function ClientPage() {
       socket.off("newSession");
     };
   }, [user, socket, selectedWebsiteId, reportRange.startDate, reportRange.endDate]);
-
-  const userRole = String(user?.role || "").trim().toLowerCase();
-  const isAdminUser = !userRole || userRole.includes("admin") || userRole === "superadmin" || userRole === "global_admin";
 
   const menuItems = isAdminUser
     ? [
@@ -763,35 +761,59 @@ export default function ClientPage() {
     menuItems.push({ label: "Customer Master", href: "/tax-consultant?tab=inventory-customer" });
   } else if (user?.role === "client") {
     menuItems.push({ label: "Agents", href: "/client?tab=agents" });
-    menuItems.push({ label: "Chats", href: "/client?tab=chats" });
-    menuItems.push({ label: "Tickets", href: "/client?tab=tickets" });
-    menuItems.push({
-      label: "Inventory",
-      children: [
-        { label: "Item Master", href: "/client?tab=inventory-master" },
-        { label: "Category Master", href: "/client?tab=inventory-category" },
-        { label: "Subcategory Master", href: "/client?tab=inventory-subcategory" },
-        { label: "Brand Master", href: "/client?tab=inventory-brand" },
-        { label: "Size Master", href: "/client?tab=inventory-size" },
-        { label: "Color Master", href: "/client?tab=inventory-color" },
-        { label: "Unit Master", href: "/client?tab=inventory-unit" },
-        { label: "Supplier Master", href: "/client?tab=inventory-supplier" },
-        { label: "Stock In", href: "/client?tab=inventory-stock-in" },
-        { label: "Stock Out", href: "/client?tab=inventory-stock-out" },
-        { label: "Adjustment", href: "/client?tab=inventory-adjustment" }
-      ]
-    });
-    menuItems.push({ label: "Customer Master", href: "/client?tab=inventory-customer" });
-    menuItems.push({ label: "CRM", href: "/client?tab=crm" });
-    menuItems.push({ label: "Flow Builder", href: "/client?tab=flow-builder" });
-    menuItems.push({ label: "AI Voice Logs", href: "/client?tab=voice-logs" });
-    menuItems.push({ label: "Departments", href: "/client?tab=departments" });
-    menuItems.push({ label: "Categories", href: "/client?tab=categories" });
-    menuItems.push({ label: "Shortcuts", href: "/client?tab=shortcuts" });
-    menuItems.push({ label: "Reports", href: "/client?tab=reports" });
-    menuItems.push({ label: "History", href: "/client?tab=history" });
-    menuItems.push({ label: "Security", href: "/client?tab=security" });
-    menuItems.push({ label: "Role Master", href: "/client?tab=roles" });
+    if (hasModule(user, "chat")) menuItems.push({ label: "Chats", href: "/client?tab=chats" });
+    if (hasModule(user, "tickets")) menuItems.push({ label: "Tickets", href: "/client?tab=tickets" });
+    if (hasModule(user, "inventory") || hasModule(user, "operations")) {
+      menuItems.push({
+        label: "Inventory",
+        children: [
+          { label: "Item Master", href: "/client?tab=inventory-master" },
+          { label: "Category Master", href: "/client?tab=inventory-category" },
+          { label: "Subcategory Master", href: "/client?tab=inventory-subcategory" },
+          { label: "Brand Master", href: "/client?tab=inventory-brand" },
+          { label: "Size Master", href: "/client?tab=inventory-size" },
+          { label: "Color Master", href: "/client?tab=inventory-color" },
+          { label: "Unit Master", href: "/client?tab=inventory-unit" },
+          { label: "Supplier Master", href: "/client?tab=inventory-supplier" },
+          { label: "Stock In", href: "/client?tab=inventory-stock-in" },
+          { label: "Stock Out", href: "/client?tab=inventory-stock-out" },
+          { label: "Adjustment", href: "/client?tab=inventory-adjustment" }
+        ]
+      });
+    }
+    if (hasModule(user, "crm") || hasModule(user, "customer-master")) {
+      menuItems.push({ label: "Customer Master", href: "/client?tab=inventory-customer" });
+    }
+    if (hasModule(user, "crm")) menuItems.push({ label: "CRM", href: "/client?tab=crm" });
+    if (hasModule(user, "flow-builder") || hasModule(user, "automation")) {
+      menuItems.push({ label: "Flow Builder", href: "/client?tab=flow-builder" });
+    }
+    if (hasModule(user, "voice-logs") || hasModule(user, "automation")) {
+      menuItems.push({ label: "AI Voice Logs", href: "/client?tab=voice-logs" });
+    }
+    if (hasModule(user, "lowcode-studio") || hasModule(user, "automation")) {
+      menuItems.push({ label: "Low-Code Studio", href: "/client?tab=lowcode-studio" });
+    }
+    if (hasModule(user, "ai-automation") || hasModule(user, "automation")) {
+      menuItems.push({ label: "AI & OCR Hub", href: "/client?tab=ai-automation" });
+    }
+    if (hasModule(user, "multi-organization") || hasModule(user, "enterprise")) {
+      menuItems.push({ label: "Multi-Org Center", href: "/client?tab=multi-organization" });
+    }
+    if (hasModule(user, "enterprise-bi") || hasModule(user, "enterprise")) {
+      menuItems.push({ label: "Enterprise BI", href: "/client?tab=enterprise-bi" });
+    }
+    if (hasModule(user, "tickets") || hasModule(user, "service")) {
+      menuItems.push({ label: "Departments", href: "/client?tab=departments" });
+      menuItems.push({ label: "Categories", href: "/client?tab=categories" });
+      menuItems.push({ label: "Shortcuts", href: "/client?tab=shortcuts" });
+      menuItems.push({ label: "History", href: "/client?tab=history" });
+    }
+    if (hasModule(user, "reports")) menuItems.push({ label: "Reports", href: "/client?tab=reports" });
+    if (hasModule(user, "security")) {
+      menuItems.push({ label: "Security", href: "/client?tab=security" });
+      menuItems.push({ label: "Role Master", href: "/client?tab=roles" });
+    }
   } else if (!isAdminUser) {
     menuItems.push({ label: "Agents", href: "/client?tab=agents" });
     if (hasPermission(user, PERMISSIONS.CHAT_VIEW)) menuItems.push({ label: "Chats", href: "/client?tab=chats" });
@@ -1193,50 +1215,37 @@ export default function ClientPage() {
     content = <BillingPage />;
   }
 
-  if (user?.role !== "admin") {
-    if ((tab === "tickets" || tab === "departments" || tab === "categories") && !canUseTickets) {
-      title = "Plan Upgrade Required";
-      subtitle = "Your current package does not include the ticket workspace";
-      content = (
-        <div className="rounded-[40px] border border-amber-100 bg-amber-50 p-12 text-center">
-          <h3 className="text-lg font-black text-amber-900 uppercase tracking-tight">Standard plan required</h3>
-          <p className="mt-3 text-sm font-bold text-amber-700">Upgrade from Basic to Standard or Pro to unlock tickets, departments, and categories.</p>
+  if (!isAdminUser && !hasModule(user, tab)) {
+    title = "Plan Upgrade Required";
+    subtitle = "This workspace is locked under your current subscription tier";
+    content = (
+      <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-[32px] p-12 text-center text-white border border-indigo-500/30 shadow-2xl relative overflow-hidden my-6">
+        <div className="max-w-md mx-auto space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center mx-auto text-amber-400">
+            <Lock size={32} />
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-400 block">Subscription Tier Lock</span>
+          <h2 className="text-2xl font-black text-white">Upgrade to Access {String(tab || "").replace(/-/g, " ").toUpperCase()}</h2>
+          <p className="text-sm font-medium text-slate-300 leading-relaxed">
+            Your current plan (<span className="text-amber-400 font-bold uppercase">{user?.subscription?.plan || "Starter"}</span>) does not include this module. Upgrade your subscription to unlock this workspace immediately.
+          </p>
+          <div className="pt-4 flex justify-center gap-3">
+            <a
+              href="/client?tab=billing"
+              className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-black uppercase tracking-wider rounded-xl shadow-lg shadow-amber-500/25 transition-all flex items-center gap-2"
+            >
+              View Upgrade Plans
+            </a>
+            <a
+              href="/client?tab=overview"
+              className="px-6 py-3 bg-white/10 hover:bg-white/15 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all"
+            >
+              Back to Overview
+            </a>
+          </div>
         </div>
-      );
-    }
-
-    if (tab === "crm" && !canUseCRM) {
-      title = "Plan Upgrade Required";
-      subtitle = "Your current package does not include CRM";
-      content = (
-        <div className="rounded-[40px] border border-emerald-100 bg-emerald-50 p-12 text-center">
-          <h3 className="text-lg font-black text-emerald-900 uppercase tracking-tight">Pro plan required</h3>
-          <p className="mt-3 text-sm font-bold text-emerald-700">Upgrade to Pro to unlock CRM, lead pipeline, follow-up tasks, and sales workflow.</p>
-        </div>
-      );
-    }
-
-    if ((tab === "reports" || tab === "analytics") && !canUseReports) {
-      title = "Plan Upgrade Required";
-      subtitle = "Your current package does not include reports";
-      content = (
-        <div className="rounded-[40px] border border-sky-100 bg-sky-50 p-12 text-center">
-          <h3 className="text-lg font-black text-sky-900 uppercase tracking-tight">Reporting not included</h3>
-          <p className="mt-3 text-sm font-bold text-sky-700">Upgrade to Standard or Pro to unlock reports and analytics exports.</p>
-        </div>
-      );
-    }
-
-    if (tab === "security" && !canUseSecurity) {
-      title = "Plan Upgrade Required";
-      subtitle = "Your current package does not include the full security center";
-      content = (
-        <div className="rounded-[40px] border border-violet-100 bg-violet-50 p-12 text-center">
-          <h3 className="text-lg font-black text-violet-900 uppercase tracking-tight">Security add-on required</h3>
-          <p className="mt-3 text-sm font-bold text-violet-700">Enable the security package to access audit logs and advanced protection tools.</p>
-        </div>
-      );
-    }
+      </div>
+    );
   }
 
   // Handle other tabs generically for now

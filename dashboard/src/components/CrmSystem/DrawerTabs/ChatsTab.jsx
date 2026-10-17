@@ -26,9 +26,9 @@ export default function ChatsTab({ sessions }) {
           <ChevronRight size={18} className="text-slate-300 group-hover:text-indigo-600 group-hover:-translate-x-1 transition-all" />
         </button>
       )) : (
-        <div className="py-20 text-center space-y-3">
-          <MessageCircle size={32} className="mx-auto text-slate-200" />
-          <p className="text-[10px] font-black uppercase text-slate-300 tracking-widest">No chat history</p>
+        <div className="py-10 text-center space-y-2 bg-slate-50/60 rounded-2xl border border-slate-100/80">
+          <MessageCircle size={24} className="mx-auto text-slate-300" />
+          <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">No chat history</p>
         </div>
       )}
     </div>

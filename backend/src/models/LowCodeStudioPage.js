@@ -19,6 +19,14 @@ const lowCodeStudioPageSchema = new mongoose.Schema(
       default: "dashboard",
       index: true
     },
+    slug: { type: String, trim: true, sparse: true, index: true },
+    targetEntity: {
+      type: String,
+      enum: ["none", "lead", "ticket"],
+      default: "lead"
+    },
+    submitButtonText: { type: String, default: "Submit Request" },
+    successMessage: { type: String, default: "Thank you! Your submission has been received and our team will contact you shortly." },
     layoutComponents: [studioComponentSchema],
     themeConfig: {
       primaryColor: { type: String, default: "#4f46e5" },
@@ -26,6 +34,7 @@ const lowCodeStudioPageSchema = new mongoose.Schema(
       fontFamily: { type: String, default: "Inter, sans-serif" }
     },
     isPublished: { type: Boolean, default: true, index: true },
+    websiteId: { type: mongoose.Schema.Types.ObjectId, ref: "Website", default: null, index: true },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }
   },
   { timestamps: true }

@@ -1,24 +1,74 @@
 import { SubscriptionPlan } from "../models/SubscriptionPlan.js";
 
+export const MODULE_CATEGORIES = {
+  service: [
+    "chat", "tickets", "shortcuts", "canned_responses", "departments",
+    "categories", "help-center", "service", "history"
+  ],
+  crm: [
+    "crm", "leads", "deals", "customer-master", "inventory-customer",
+    "contacts", "crm_pipeline", "crm_deals", "sales"
+  ],
+  operations: [
+    "inventory", "inventory-master", "inventory-stock-in", "inventory-stock-out",
+    "inventory-adjustment", "inventory-history", "inventory-category",
+    "inventory-subcategory", "inventory-brand", "inventory-size",
+    "inventory-color", "inventory-unit", "inventory-supplier",
+    "procurement", "purchase", "operations"
+  ],
+  finance: [
+    "billing", "invoices", "quotations", "payments", "ledger",
+    "sales-orders", "subscriptions", "finance"
+  ],
+  compliance: [
+    "vat", "vat-compliance", "corporate-tax", "trade-license",
+    "compliance-reports", "risk-register", "compliance"
+  ],
+  automation: [
+    "flows", "flow-builder", "flow-analytics", "ai-automation",
+    "voice-calls", "voice-logs", "lowcode-studio", "workflow-builder",
+    "custom-crm-modules", "automation"
+  ],
+  enterprise: [
+    "multi-organization", "enterprise-bi", "enterprise-integrations",
+    "mission-control", "sla-center", "observability", "load-testing",
+    "release-management", "developer-portal", "product-management",
+    "compliance-governance", "mobile-readiness", "enterprise"
+  ],
+  reports: [
+    "reports", "analytics", "financial-analytics"
+  ],
+  security: [
+    "security", "audit", "roles"
+  ]
+};
+
 export const PLAN_DEFINITIONS = {
   basic: {
     plan: "basic",
-    enabledModules: ["chat", "shortcuts", "security"],
+    name: "Starter Basic Tier",
+    enabledModules: ["service", "chat", "shortcuts", "security"],
     limits: { agents: 2, websites: 1 }
   },
   standard: {
     plan: "standard",
-    enabledModules: ["chat", "tickets", "shortcuts", "reports", "security"],
+    name: "Business Standard Tier",
+    enabledModules: ["service", "chat", "tickets", "crm", "finance", "shortcuts", "reports", "security"],
     limits: { agents: 5, websites: 3 }
   },
   pro: {
     plan: "pro",
-    enabledModules: ["chat", "tickets", "crm", "shortcuts", "reports", "security"],
+    name: "Pro Enterprise Tier",
+    enabledModules: ["service", "crm", "operations", "finance", "compliance", "automation", "reports", "security"],
     limits: { agents: 10, websites: 10 }
   },
   enterprise: {
     plan: "enterprise",
-    enabledModules: ["chat", "tickets", "crm", "shortcuts", "reports", "security", "vat", "tax", "audit"],
+    name: "Custom Enterprise Unlimited",
+    enabledModules: [
+      "service", "crm", "operations", "finance", "compliance", "automation", "enterprise",
+      "reports", "security"
+    ],
     limits: { agents: 50, websites: 25 }
   }
 };
@@ -71,7 +121,7 @@ export async function buildSubscriptionAsync(plan = "pro", overrides = {}) {
 }
 
 export function resolveSubscriptionForUser(user) {
-  if (user?.role === "admin") {
+  if (user?.role === "admin" || user?.role === "superadmin" || user?.role === "global_admin") {
     return {
       ...buildSubscription("enterprise"),
       expiresAt: null
@@ -106,11 +156,35 @@ export function resolveSubscriptionForUser(user) {
 
 export function hasModuleAccess(subscription, moduleName) {
   if (!subscription) return false;
+
+  const cleanMod = String(moduleName || "").toLowerCase().trim();
+  // Essential admin / account management routes are always allowed so client can upgrade
+  const ALWAYS_ALLOWED = ["overview", "billing", "websites", "agents"];
+  if (ALWAYS_ALLOWED.includes(cleanMod)) return true;
+
   let status = subscription.status || "active";
   if (subscription.expiresAt && new Date(subscription.expiresAt) < new Date()) {
     status = "expired";
   }
   if (status === "expired" || status === "suspended") return false;
-  if (!Array.isArray(subscription.enabledModules)) return true;
-  return subscription.enabledModules.includes(moduleName);
+
+  const planCode = String(subscription.plan || "pro").toLowerCase().trim();
+  if (planCode === "enterprise") return true;
+
+  const enabled = Array.isArray(subscription.enabledModules)
+    ? subscription.enabledModules.map(m => String(m).toLowerCase().trim())
+    : [];
+
+  if (enabled.includes("*") || enabled.includes("all")) return true;
+  if (enabled.includes(cleanMod)) return true;
+
+  // Check category hierarchy mapping
+  for (const [category, moduleList] of Object.entries(MODULE_CATEGORIES)) {
+    if (moduleList.includes(cleanMod)) {
+      if (enabled.includes(category)) return true;
+    }
+  }
+
+  return false;
 }
+
