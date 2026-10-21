@@ -26,6 +26,10 @@ jobs:
         run: mkdir -p backend/uploads
 
       - name: Backend Tests
+        env:
+          NODE_ENV: test
+          MONGODB_URI: mongodb://localhost:27017/ci_test
+          JWT_SECRET: ci-temporary-jwt-secret-for-testing-only-12345
         run: npm --workspace backend test
 
       - name: Build Chat Widget

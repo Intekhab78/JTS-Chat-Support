@@ -89,33 +89,37 @@ export async function generateQuotationPDF(quotation) {
     try {
       // Find customer details
       let customerDetails = { name: "Valued Customer" };
-      try {
-        const cust = await Customer.findById(quotation.customerId);
-        if (cust) {
-          customerDetails = {
-            name: cust.name || "Valued Customer",
-            person: cust.companyName || "",
-            email: cust.email || "",
-            phone: cust.phone || "",
-            address: cust.requirement || ""
-          };
+      if (quotation.customerId) {
+        try {
+          const cust = await Customer.findById(quotation.customerId);
+          if (cust) {
+            customerDetails = {
+              name: cust.name || "Valued Customer",
+              person: cust.companyName || "",
+              email: cust.email || "",
+              phone: cust.phone || "",
+              address: cust.requirement || ""
+            };
+          }
+        } catch (err) {
+          console.error("Failed to load customer details for Quote PDF:", err);
         }
-      } catch (err) {
-        console.error("Failed to load customer details for Quote PDF:", err);
       }
 
       // Find website details
       let websiteDetails = { name: "JTS Support", domain: "chat.jtsmiddleeast.com" };
-      try {
-        const web = await Website.findById(quotation.websiteId);
-        if (web) {
-          websiteDetails = {
-            name: web.websiteName || "JTS Support",
-            domain: web.domain || "chat.jtsmiddleeast.com"
-          };
+      if (quotation.websiteId) {
+        try {
+          const web = await Website.findById(quotation.websiteId);
+          if (web) {
+            websiteDetails = {
+              name: web.websiteName || "JTS Support",
+              domain: web.domain || "chat.jtsmiddleeast.com"
+            };
+          }
+        } catch (err) {
+          console.error("Failed to load website details for Quote PDF:", err);
         }
-      } catch (err) {
-        console.error("Failed to load website details for Quote PDF:", err);
       }
 
       const fileName = `quote_${quotation.quotationId}_${Date.now()}.pdf`;
@@ -192,33 +196,37 @@ export async function generateInvoicePDF(invoice) {
     try {
       // Find customer details
       let customerDetails = { name: "Valued Customer" };
-      try {
-        const cust = await Customer.findById(invoice.customerId);
-        if (cust) {
-          customerDetails = {
-            name: cust.name || "Valued Customer",
-            person: cust.companyName || "",
-            email: cust.email || "",
-            phone: cust.phone || "",
-            address: cust.requirement || ""
-          };
+      if (invoice.customerId) {
+        try {
+          const cust = await Customer.findById(invoice.customerId);
+          if (cust) {
+            customerDetails = {
+              name: cust.name || "Valued Customer",
+              person: cust.companyName || "",
+              email: cust.email || "",
+              phone: cust.phone || "",
+              address: cust.requirement || ""
+            };
+          }
+        } catch (err) {
+          console.error("Failed to load customer details for Invoice PDF:", err);
         }
-      } catch (err) {
-        console.error("Failed to load customer details for Invoice PDF:", err);
       }
 
       // Find website details
       let websiteDetails = { name: "JTS Support", domain: "chat.jtsmiddleeast.com" };
-      try {
-        const web = await Website.findById(invoice.websiteId);
-        if (web) {
-          websiteDetails = {
-            name: web.websiteName || "JTS Support",
-            domain: web.domain || "chat.jtsmiddleeast.com"
-          };
+      if (invoice.websiteId) {
+        try {
+          const web = await Website.findById(invoice.websiteId);
+          if (web) {
+            websiteDetails = {
+              name: web.websiteName || "JTS Support",
+              domain: web.domain || "chat.jtsmiddleeast.com"
+            };
+          }
+        } catch (err) {
+          console.error("Failed to load website details for Invoice PDF:", err);
         }
-      } catch (err) {
-        console.error("Failed to load website details for Invoice PDF:", err);
       }
 
       const fileName = `invoice_${invoice.invoiceId}_${Date.now()}.pdf`;
