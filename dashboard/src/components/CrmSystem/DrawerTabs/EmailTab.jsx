@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { Mail, Send, MessageSquare, Copy, ExternalLink, ArrowRight, Check } from "lucide-react";
+import React, { useState } from "react";
+import { Mail, Send, MessageSquare, Copy, ExternalLink, Check, AlertCircle, CheckCircle2, Smartphone } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext.jsx";
+import { api } from "../../../api/client.js";
 
 const emailTemplates = [
   {
@@ -49,7 +50,9 @@ export default function EmailTab({
   setEmailDraft, 
   onSendEmail, 
   sendingEmail,
-  customer
+  customer,
+  onSendWhatsApp,
+  sendingWhatsApp
 }) {
   const { user } = useAuth();
   
@@ -57,6 +60,11 @@ export default function EmailTab({
   const [selectedWaTpl, setSelectedWaTpl] = useState("");
   const [waText, setWaText] = useState("");
   const [copied, setCopied] = useState(false);
+  const [localSendingWa, setLocalSendingWa] = useState(false);
+  const [emailNotice, setEmailNotice] = useState(null);
+  const [waNotice, setWaNotice] = useState(null);
+
+  const isSendingWa = sendingWhatsApp || localSendingWa;
 
   const getInterpolatedText = (templateBody) => {
     const customerName = customer?.name || "there";
@@ -96,7 +104,6 @@ export default function EmailTab({
     const idx = e.target.value;
     setSelectedWaTpl(idx);
     if (idx === "") {
-      setWaText("");
       return;
     }
     const tpl = whatsappTemplates[idx];
@@ -110,7 +117,50 @@ export default function EmailTab({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleOpenWhatsApp = () => {
+  // Direct In-Page WhatsApp Dispatch (Zero navigation away)
+  const handleSendDirectWhatsApp = async () => {
+    if (!customer?.phone) {
+      setWaNotice({ type: "error", message: "This lead does not have a registered phone number." });
+      return;
+    }
+    if (!waText || !waText.trim()) {
+      setWaNotice({ type: "error", message: "Please compose or select a WhatsApp message body first." });
+      return;
+    }
+
+    setWaNotice(null);
+    setLocalSendingWa(true);
+    try {
+      if (onSendWhatsApp) {
+        await onSendWhatsApp({
+          to: customer.phone,
+          message: waText.trim(),
+          customerId: customer._id
+        });
+      } else {
+        await api.post("/api/crm/communication/send-whatsapp", {
+          to: customer.phone,
+          message: waText.trim(),
+          customerId: customer._id
+        });
+      }
+      setWaNotice({
+        type: "success",
+        message: `WhatsApp message dispatched directly to ${customer.phone}!`
+      });
+      setTimeout(() => setWaNotice(null), 5000);
+    } catch (err) {
+      setWaNotice({
+        type: "error",
+        message: err.message || "Failed to dispatch WhatsApp message directly."
+      });
+    } finally {
+      setLocalSendingWa(false);
+    }
+  };
+
+  // Fallback: Open WhatsApp Web externally
+  const handleOpenWhatsAppWeb = () => {
     if (!customer?.phone) {
       alert("This customer doesn't have a registered phone number.");
       return;
@@ -120,17 +170,55 @@ export default function EmailTab({
     window.open(url, "_blank");
   };
 
+  const handleEmailFormSubmit = async (e) => {
+    e.preventDefault();
+    setEmailNotice(null);
+    try {
+      await onSendEmail(e);
+      setEmailNotice({
+        type: "success",
+        message: `Direct email dispatched successfully to ${customer?.email || "customer"}!`
+      });
+      setTimeout(() => setEmailNotice(null), 5000);
+    } catch (err) {
+      setEmailNotice({
+        type: "error",
+        message: err.message || "Email dispatch failed. Please check SMTP settings."
+      });
+    }
+  };
+
+  const customerPhoneClean = customer?.phone ? customer.phone.trim() : "";
+  const hasPhone = Boolean(customerPhoneClean);
+  const hasEmail = Boolean(customer?.email?.trim());
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-      {/* Direct Sales Email Panel */}
+      {/* ──────────────── Direct Sales Email Panel ──────────────── */}
       <div className="bg-white rounded-2xl border border-indigo-100 p-5 shadow-xs space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
-            <Mail size={16} />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+              <Mail size={16} />
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-900">Direct Sales Email</p>
+              <p className="text-[8px] font-bold text-slate-400">Direct SMTP dispatch to prospect mailbox.</p>
+            </div>
           </div>
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-900">Direct Sales Email</p>
-            <p className="text-[8px] font-bold text-slate-400">Send prefilled templates directly to the lead.</p>
+
+          <div className="text-right">
+            {hasEmail ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-[9px] font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                {customer.email}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[9px] font-bold">
+                <AlertCircle size={10} />
+                No Email
+              </span>
+            )}
           </div>
         </div>
 
@@ -140,7 +228,7 @@ export default function EmailTab({
           <select
             value={selectedEmailTpl}
             onChange={handleEmailTemplateChange}
-            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-700 outline-none"
+            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-700 outline-none focus:bg-white focus:border-indigo-300 transition-all cursor-pointer"
           >
             <option value="">-- Choose Email Template --</option>
             {emailTemplates.map((tpl, idx) => (
@@ -149,14 +237,14 @@ export default function EmailTab({
           </select>
         </div>
 
-        <form onSubmit={onSendEmail} className="space-y-3">
+        <form onSubmit={handleEmailFormSubmit} className="space-y-3">
           <div className="space-y-1">
             <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Subject Line</label>
             <input
               value={emailDraft.subject}
               onChange={(e) => setEmailDraft(prev => ({ ...prev, subject: e.target.value }))}
               placeholder="e.g. Follow-up regarding your inquiry"
-              className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-[11px] font-bold outline-none focus:bg-white transition-all"
+              className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-[11px] font-bold outline-none focus:bg-white focus:border-indigo-300 transition-all"
               required
             />
           </div>
@@ -166,70 +254,141 @@ export default function EmailTab({
               value={emailDraft.body}
               onChange={(e) => setEmailDraft(prev => ({ ...prev, body: e.target.value }))}
               rows={7}
-              className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 text-[11px] font-medium outline-none focus:bg-white transition-all resize-none"
+              placeholder="Type message directly to customer..."
+              className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 text-[11px] font-medium outline-none focus:bg-white focus:border-indigo-300 transition-all resize-none"
               required
             />
           </div>
+
+          {/* Email Inline Feedback Banner */}
+          {emailNotice && (
+            <div className={`p-3 rounded-xl border text-[10px] font-bold flex items-center gap-2 animate-in fade-in duration-200 ${
+              emailNotice.type === "success" 
+                ? "bg-emerald-50 border-emerald-200 text-emerald-700" 
+                : "bg-red-50 border-red-200 text-red-600"
+            }`}>
+              {emailNotice.type === "success" ? <CheckCircle2 size={13} /> : <AlertCircle size={13} />}
+              <span>{emailNotice.message}</span>
+            </div>
+          )}
+
           <button
             type="submit"
-            disabled={sendingEmail || !emailDraft.subject.trim() || !emailDraft.body.trim()}
-            className="w-full py-3 bg-slate-900 text-white rounded-xl text-[9px] font-black uppercase tracking-[0.25em] hover:bg-slate-800 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            disabled={sendingEmail || !emailDraft.subject.trim() || !emailDraft.body.trim() || !hasEmail}
+            className="w-full py-3 bg-slate-900 text-white rounded-xl text-[9px] font-black uppercase tracking-[0.25em] hover:bg-slate-800 active:scale-[0.99] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm cursor-pointer"
           >
             {sendingEmail ? (
-              <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                <span>Dispatching Direct Email...</span>
+              </>
             ) : (
               <>
-                <Send size={12} /> Deploy Email
+                <Send size={12} /> Deploy Direct Email
               </>
             )}
           </button>
         </form>
       </div>
 
-      {/* WhatsApp Quick Follow-up Panel */}
+      {/* ──────────────── WhatsApp Direct Follow-up Panel ──────────────── */}
       <div className="bg-white rounded-2xl border border-emerald-100 p-5 shadow-xs space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
-            <MessageSquare size={16} />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
+              <MessageSquare size={16} />
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-900">Direct WhatsApp</p>
+              <p className="text-[8px] font-bold text-slate-400">Direct outbound delivery without page navigation.</p>
+            </div>
           </div>
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-900">WhatsApp Follow-up</p>
-            <p className="text-[8px] font-bold text-slate-400">Reach prospects directly on WhatsApp Web.</p>
+
+          <div className="text-right">
+            {hasPhone ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700 text-[9px] font-bold">
+                <Smartphone size={10} />
+                {customer.phone}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[9px] font-bold">
+                <AlertCircle size={10} />
+                No Phone
+              </span>
+            )}
           </div>
         </div>
 
         {/* WhatsApp Template Select */}
         <div className="space-y-1">
-          <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Select WhatsApp Template</label>
+          <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Select WhatsApp Template (Optional)</label>
           <select
             value={selectedWaTpl}
             onChange={handleWhatsAppTemplateChange}
-            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-700 outline-none"
+            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-700 outline-none focus:bg-white focus:border-emerald-300 transition-all cursor-pointer"
           >
-            <option value="">-- Choose WhatsApp Template --</option>
+            <option value="">-- Choose WhatsApp Template (Optional) --</option>
             {whatsappTemplates.map((tpl, idx) => (
               <option key={tpl.name} value={idx}>{tpl.name}</option>
             ))}
           </select>
         </div>
 
-        {selectedWaTpl && (
-          <div className="space-y-3 animate-in fade-in duration-200">
-            <div className="space-y-1">
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
               <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">WhatsApp Message Body</label>
-              <textarea
-                value={waText}
-                onChange={(e) => setWaText(e.target.value)}
-                rows={6}
-                className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 text-[11px] font-medium outline-none focus:bg-white transition-all resize-none"
-              />
+              <span className="text-[8px] font-bold text-slate-400">{waText.length} chars</span>
             </div>
-            
+            <textarea
+              value={waText}
+              onChange={(e) => setWaText(e.target.value)}
+              rows={7}
+              placeholder="Type message directly or choose a template above..."
+              className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 text-[11px] font-medium outline-none focus:bg-white focus:border-emerald-300 transition-all resize-none"
+            />
+          </div>
+
+          {/* WhatsApp Inline Feedback Banner */}
+          {waNotice && (
+            <div className={`p-3 rounded-xl border text-[10px] font-bold flex items-center gap-2 animate-in fade-in duration-200 ${
+              waNotice.type === "success" 
+                ? "bg-emerald-50 border-emerald-200 text-emerald-700" 
+                : "bg-red-50 border-red-200 text-red-600"
+            }`}>
+              {waNotice.type === "success" ? <CheckCircle2 size={13} /> : <AlertCircle size={13} />}
+              <span>{waNotice.message}</span>
+            </div>
+          )}
+
+          {/* Direct WhatsApp Action Buttons */}
+          <div className="space-y-2 pt-1">
+            {/* Primary Direct Send Button (No Navigation) */}
+            <button
+              type="button"
+              onClick={handleSendDirectWhatsApp}
+              disabled={isSendingWa || !waText.trim() || !hasPhone}
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white rounded-xl text-[9px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {isSendingWa ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  <span>Dispatching Direct WhatsApp...</span>
+                </>
+              ) : (
+                <>
+                  <Send size={13} /> Send WhatsApp Direct
+                </>
+              )}
+            </button>
+
+            {/* Secondary Actions: Copy Msg & WhatsApp Web Fallback */}
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={handleCopyWhatsApp}
-                className="flex-1 py-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
+                disabled={!waText.trim()}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
               >
                 {copied ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
                 {copied ? "Copied" : "Copy Msg"}
@@ -237,20 +396,16 @@ export default function EmailTab({
 
               <button
                 type="button"
-                onClick={handleOpenWhatsApp}
-                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md shadow-emerald-500/10"
+                onClick={handleOpenWhatsAppWeb}
+                disabled={!hasPhone}
+                title="Open manually in WhatsApp Web (external tab fallback)"
+                className="px-3.5 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 hover:text-slate-900 rounded-xl text-[9px] font-bold tracking-wider flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
               >
                 <ExternalLink size={12} /> WhatsApp Web
               </button>
             </div>
           </div>
-        )}
-
-        {!selectedWaTpl && (
-          <div className="h-[180px] border border-dashed border-slate-200 rounded-xl flex items-center justify-center text-center p-4">
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Select a WhatsApp Template to launch quick follow-up.</p>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );

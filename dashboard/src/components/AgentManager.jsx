@@ -1,5 +1,10 @@
-import { useState, useEffect, useRef } from "react";
-import { UserPlus, Mail, Shield, Activity, Search, Trash2, Settings, BarChart2 } from "lucide-react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
+import {
+  UserPlus, Mail, Shield, Activity, Search, Trash2, Settings, BarChart2,
+  CheckCircle2, X, Globe, Layers, Check, AlertCircle, Lock, UserCheck,
+  Building2, Tag, RefreshCw
+} from "lucide-react";
 import { api } from "../api/client.js";
 import PaginationControls from "./PaginationControls.jsx";
 import { getPaginationMeta } from "../utils/pagination.js";
@@ -46,9 +51,9 @@ export default function AgentManager({ websiteId = "" }) {
         api("/api/websites"),
         api("/api/roles")
       ]);
-      setAgents(agentData);
-      setWebsites(websiteData);
-      setDynamicRoles(roleData.data || []);
+      setAgents(Array.isArray(agentData) ? agentData : []);
+      setWebsites(Array.isArray(websiteData) ? websiteData : []);
+      setDynamicRoles(roleData?.data || []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -75,7 +80,7 @@ export default function AgentManager({ websiteId = "" }) {
       }
       try {
         const categorySets = await Promise.all(
-          formData.websiteIds.map((websiteId) => api(`/api/categories?websiteId=${websiteId}`))
+          formData.websiteIds.map((webId) => api(`/api/categories?websiteId=${webId}`))
         );
         const merged = [];
         const seen = new Set();
@@ -128,9 +133,6 @@ export default function AgentManager({ websiteId = "" }) {
       websiteIds: (agent.websiteIds || []).map((website) => typeof website === "string" ? website : website._id)
     });
     setIsAdding(true);
-    setTimeout(() => {
-      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 50);
   };
 
   const handleDelete = async (id) => {
@@ -167,358 +169,516 @@ export default function AgentManager({ websiteId = "" }) {
     }
   };
 
-  const filteredAgents = agents.filter(agent => 
-    agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    agent.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-  const paginatedAgents = getPaginationMeta(filteredAgents, page);
+  const filteredAgents = useMemo(() => {
+    return agents.filter(agent => 
+      agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      agent.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (agent.role && agent.role.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (agent.department && agent.department.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  }, [agents, searchTerm]);
+
+  const pageSize = 12;
+  const paginatedAgents = getPaginationMeta(filteredAgents, page, pageSize);
 
   useEffect(() => {
     setPage(1);
   }, [searchTerm, agents.length]);
 
-  if (loading) return <div className="text-center py-20 animate-pulse text-slate-400 font-black uppercase text-[10px] tracking-widest">Synchronizing Force...</div>;
+  const onlineCount = agents.filter(a => a.isOnline).length;
+  const readyCount = agents.filter(a => a.isAvailable).length;
+
+  if (loading) {
+    return (
+      <div className="py-16 text-center text-xs font-bold text-slate-400 flex items-center justify-center gap-2">
+        <RefreshCw size={14} className="animate-spin text-indigo-500" />
+        <span>Synchronizing personnel command directory...</span>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-700">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-         <div className="space-y-1">
-            <h3 className="heading-md dark:text-white">Team Command</h3>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">Manage security cleared support personnel and managers.</p>
-         </div>
-         <div className="flex gap-4">
-            <div className="relative">
-               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-               <input 
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Filter agents..."
-                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-2xl pl-10 pr-6 py-3.5 text-xs font-bold focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all w-64 shadow-sm dark:text-white"
-               />
+    <div className="space-y-3 animate-in fade-in duration-300">
+      
+      {/* ── Compact Executive Toolbar ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 rounded-xl p-3 shadow-xs">
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-2">
+            <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
+              <Shield size={14} className="text-indigo-600 dark:text-indigo-400" />
+              <span>Team Personnel Command</span>
+            </h3>
+            <span className="px-1.5 py-0.5 rounded text-[9.5px] font-black bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-500/20">
+              {filteredAgents.length} Agents
+            </span>
+          </div>
+          <p className="text-[10px] text-slate-400 font-medium">
+            Manage security-cleared support personnel, roles, and routing assignments.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          {/* Quick Stats Pill */}
+          <div className="hidden md:flex items-center gap-2 bg-slate-50 dark:bg-slate-800/60 px-2.5 py-1 rounded-lg border border-slate-200/60 dark:border-white/5 text-[9.5px] font-bold">
+            <div className="flex items-center gap-1 text-slate-600 dark:text-slate-300">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>{onlineCount} Online</span>
             </div>
-            <button 
-               onClick={() => isAdding ? handleCancel() : setIsAdding(true)}
-               className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all shadow-xl shadow-indigo-100 flex items-center gap-3"
-            >
-               <UserPlus size={16} />
-               {editingId ? "Close Edit" : isAdding ? "Cancel" : "Add Personnel"}
-            </button>
-         </div>
+            <div className="w-px h-3 bg-slate-200 dark:bg-white/10" />
+            <div className="flex items-center gap-1 text-slate-600 dark:text-slate-300">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+              <span>{readyCount} Ready</span>
+            </div>
+          </div>
+
+          {/* Search Box */}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={11} />
+            <input 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Filter by name, email, role..."
+              className="bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10 rounded-lg pl-7 pr-6 py-1 text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-indigo-500 w-44 sm:w-56 transition-all"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X size={10} />
+              </button>
+            )}
+          </div>
+
+          {/* Add Personnel Button */}
+          <button 
+            onClick={() => {
+              if (isAdding) handleCancel();
+              else {
+                setError("");
+                setIsAdding(true);
+              }
+            }}
+            className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10.5px] uppercase tracking-wider rounded-lg transition-all shadow-xs flex items-center gap-1.5 shrink-0"
+          >
+            <UserPlus size={12} />
+            <span>Add Personnel</span>
+          </button>
+        </div>
       </div>
 
-      {isAdding && (
-         <form ref={formRef} onSubmit={handleSubmit} className="premium-card p-10 animate-in zoom-in-95 duration-500 bg-white dark:bg-slate-900/50 space-y-8">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-slate-100 dark:border-white/5">
-               <div className="space-y-1">
-                  <h4 className="text-sm font-black uppercase tracking-[0.18em] text-slate-900 dark:text-white">
-                     {editingId ? "Update Personnel" : "Create Personnel"}
-                  </h4>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                     {editingId
-                       ? "Edit role, website access, department, and category routing for this staff account."
-                       : "Create a new staff login and assign secure routing access."}
-                  </p>
-               </div>
-               {editingId && (
-                 <div className="inline-flex items-center gap-2 self-start rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300">
-                    Editing existing personnel
-                 </div>
-               )}
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-               <div className="space-y-1.5">
-                  <label className="small-label text-slate-400 flex justify-between">
-                     Identity Name <span className="text-[9px] text-indigo-400 font-bold uppercase">Required</span>
-                  </label>
-                  <input
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-2xl px-5 py-3.5 text-xs font-bold focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all placeholder-slate-300 dark:text-white"
-                    placeholder="John Doe"
-                    required
-                  />
-               </div>
-               <div className="space-y-1.5">
-                  <label className="small-label text-slate-400 flex justify-between">
-                     Secure Email <span className="text-[9px] text-indigo-400 font-bold uppercase">Required</span>
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-2xl px-5 py-3.5 text-xs font-bold focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all placeholder-slate-300 dark:text-white"
-                    placeholder="agent@example.com"
-                    required
-                  />
-               </div>
-               <div className="space-y-1.5">
-                  <label className="small-label text-slate-400 flex justify-between">
-                     Access Password <span className="text-[9px] text-slate-300 font-bold uppercase">{editingId ? 'Optional' : 'Required'}</span>
-                  </label>
-                  <input
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-2xl px-5 py-3.5 text-xs font-bold focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all placeholder-slate-300 dark:text-white"
-                    placeholder={editingId ? "Leave blank to keep current" : "••••••••"}
-                    required={!editingId}
-                  />
-               </div>
-               <div className="space-y-1.5">
-                  <label className="small-label text-slate-400 flex justify-between">
-                     Role Assignment <span className="text-[9px] text-indigo-400 font-bold uppercase">Required</span>
-                  </label>
-                  <select
-                    value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-2xl px-5 py-3.5 text-xs font-bold focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all dark:text-white"
-                  >
-                     <option value="">Select a role...</option>
-                     {dynamicRoles.filter(r => r.isActive).map(role => (
-                       <option key={role._id} value={role.name.toLowerCase()}>{role.name}</option>
-                     ))}
-                  </select>
-               </div>
-               <div className="space-y-1.5">
-                  <label className="small-label text-slate-400 flex justify-between">
-                     Department <span className="text-[9px] text-indigo-400 font-bold uppercase">Routing</span>
-                  </label>
-                  <select
-                    value={formData.department}
-                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    disabled={!formData.websiteIds.length}
-                    className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-2xl px-5 py-3.5 text-xs font-bold focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all dark:text-white disabled:opacity-60 disabled:cursor-not-allowed"
-                    required
-                  >
-                    {departmentOptions.map((department) => (
-                      <option key={department} value={department}>
-                        {department}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-[10px] font-bold text-slate-400">
-                    {!formData.websiteIds.length
-                      ? "Select at least one website first to enable department routing."
-                      : "Departments come from the categories mapped to the selected websites."}
-                  </p>
-               </div>
-               <div className="space-y-1.5 md:col-span-2 lg:col-span-4">
-                  <label className="small-label text-slate-400 flex justify-between">
-                     Website Assignment <span className="text-[9px] text-indigo-400 font-bold uppercase">Scoped Access</span>
-                  </label>
-                  <div className="rounded-2xl border border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/20 p-4">
-                    {websites.length > 0 ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {websites.map((website) => {
-                          const isSelected = formData.websiteIds.includes(website._id);
-                          return (
-                            <button
-                              key={website._id}
-                              type="button"
-                              onClick={() => toggleMultiValue("websiteIds", website._id)}
-                              className={`text-left rounded-2xl border px-4 py-3 transition-all ${
-                                isSelected
-                                  ? "border-indigo-500 bg-indigo-50 text-indigo-700 shadow-sm dark:bg-indigo-500/10 dark:border-indigo-400 dark:text-indigo-300"
-                                  : "border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50/40 dark:border-white/5 dark:bg-slate-900 dark:text-slate-300"
-                              }`}
-                            >
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                  <p className="text-[11px] font-black uppercase tracking-wider truncate">{website.websiteName}</p>
-                                  <p className="text-[10px] font-bold normal-case text-slate-400 dark:text-slate-500 truncate">{website.domain}</p>
-                                </div>
-                                <span className={`mt-0.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full border text-[9px] font-black uppercase px-1.5 ${
-                                  isSelected
-                                    ? "border-indigo-500 bg-indigo-600 text-white"
-                                    : "border-slate-200 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/5"
-                                }`}>
-                                  {isSelected ? "On" : "Off"}
-                                </span>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-[10px] font-bold text-slate-400">No websites available yet.</p>
-                    )}
-                  </div>
-                  <p className="text-[10px] font-bold text-slate-400">
-                    Click one or more websites. This user will only work inside the selected websites.
-                  </p>
-               </div>
-               <div className="space-y-1.5 md:col-span-2 lg:col-span-4">
-                  <label className="small-label text-slate-400 flex justify-between">
-                     Ticket Categories <span className="text-[9px] text-indigo-400 font-bold uppercase">Department Match</span>
-                  </label>
-                  <div className="rounded-2xl border border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/20 p-4">
-                    {categoryOptions.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {categoryOptions.map((category) => {
-                          const isSelected = formData.assignedCategories.includes(category.value);
-                          return (
-                            <button
-                              key={category.value}
-                              type="button"
-                              onClick={() => toggleMultiValue("assignedCategories", category.value)}
-                              className={`px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${
-                                isSelected
-                                  ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-400 dark:text-emerald-300"
-                                  : "border-slate-200 bg-white text-slate-500 hover:border-emerald-200 hover:bg-emerald-50/40 dark:border-white/5 dark:bg-slate-900 dark:text-slate-300"
-                              }`}
-                            >
-                              {category.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-[10px] font-bold text-slate-400">Select a website first to load its categories.</p>
-                    )}
-                  </div>
-                  <p className="text-[10px] font-bold text-slate-400">
-                    Client can map this person to ticket categories. Matching tickets will auto-route to this department when available.
-                  </p>
-               </div>
-            </div>
-            <div className="pt-8 border-t border-slate-100 dark:border-white/5 flex flex-col-reverse sm:flex-row justify-end gap-3">
-               <button type="button" onClick={handleCancel} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 font-black text-[10px] uppercase tracking-[0.2em] px-8 py-4 rounded-2xl transition-all min-w-[180px]">
-                  Cancel
-               </button>
-               <button type="submit" className="bg-slate-900 dark:bg-indigo-600 hover:bg-black dark:hover:bg-indigo-500 text-white font-black text-[10px] uppercase tracking-[0.2em] px-10 py-4 rounded-2xl shadow-xl shadow-slate-200 dark:shadow-none transition-all flex items-center justify-center min-w-[200px] hover:scale-105 active:scale-95">
-                  {editingId ? "Update Identity" : "Confirm Clearance"}
-               </button>
-            </div>
-         </form>
-      )}
-
       {error && (
-        <div className="bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/20 text-red-600 dark:text-red-400 px-6 py-4 rounded-2xl text-[11px] font-bold">
-          {error}
+        <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <AlertCircle size={13} />
+            <span>{error}</span>
+          </div>
+          <button onClick={() => setError("")} className="text-red-400 hover:text-red-600">
+            <X size={12} />
+          </button>
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {paginatedAgents.pageItems.map((agent) => (
-          <div key={agent._id} className="premium-card p-8 group hover:shadow-2xl hover:shadow-indigo-500/5 transition-all relative bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
-             <div className="flex items-start justify-between mb-8">
-                <div className={`w-14 h-14 rounded-2xl bg-slate-900 dark:bg-black flex items-center justify-center text-white text-xl font-black shadow-xl group-hover:bg-indigo-600 transition-all border border-white/5`}>
-                   {agent.name.split(" ").map(n => n[0]).join("")}
-                </div>
-                <div className="relative h-10 flex items-center justify-end w-[100px]">
-                   <div className={`absolute right-0 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm transition-all duration-300 pointer-events-none group-hover:opacity-0 group-hover:translate-x-4 ${agent.isOnline ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' : 'bg-slate-50 dark:bg-white/5 text-slate-400'}`}>
-                      {agent.isOnline ? 'Active' : 'Offline'}
-                   </div>
-                   <div className="absolute right-0 opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 flex gap-1">
-                      <button type="button" onClick={() => handleEdit(agent)} className="p-2.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-white/5 rounded-xl transition-all">
-                         <Settings size={15} />
-                      </button>
-                      <button type="button" onClick={() => handleDelete(agent._id)} className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-white/5 rounded-xl transition-all">
-                         <Trash2 size={15} />
-                      </button>
-                   </div>
-                </div>
-             </div>
-             
-             <div className="space-y-4">
-                <div className="space-y-1">
-                   <h4 className="text-sm font-black text-slate-900 dark:text-white tracking-tight uppercase">{agent.name}</h4>
-                   <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-400 dark:text-slate-500 font-bold">
-                      <div className="flex items-center gap-1.5 truncate">
-                         <Mail size={12} />
-                         {agent.email}
-                      </div>
-                   </div>
+      {/* ── High-Density 4-Column Agent Cards Grid ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-3">
+        {paginatedAgents.pageItems.map((agent) => {
+          const initials = (agent.name || "Agent")
+            .split(" ")
+            .map(n => n[0])
+            .join("")
+            .slice(0, 3)
+            .toUpperCase();
+
+          return (
+            <div
+              key={agent._id}
+              className="p-3 rounded-xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-slate-900 hover:border-indigo-400/50 dark:hover:border-indigo-500/30 transition-all shadow-xs hover:shadow-md flex flex-col justify-between space-y-2 group"
+            >
+              {/* Header: Avatar, Info, Status & Actions */}
+              <div className="space-y-1.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-900 to-indigo-950 dark:from-slate-800 dark:to-indigo-900 text-white text-[11px] font-black flex items-center justify-center shrink-0 shadow-xs border border-white/10 group-hover:bg-indigo-600 transition-colors">
+                      {initials}
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase truncate tracking-tight leading-snug">
+                        {agent.name}
+                      </h4>
+                      <p className="text-[9.5px] text-slate-400 truncate flex items-center gap-1 font-medium">
+                        <Mail size={9} className="shrink-0" />
+                        <span className="truncate">{agent.email}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase tracking-wider ${
+                        agent.isOnline
+                          ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-400"
+                      }`}
+                    >
+                      {agent.isOnline ? "Online" : "Offline"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleEdit(agent)}
+                      className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors"
+                      title="Edit Personnel"
+                    >
+                      <Settings size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(agent._id)}
+                      className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded transition-colors"
+                      title="Revoke Clearance"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
                 </div>
 
-                <div className="pt-6 border-t border-slate-100 dark:border-white/5 grid grid-cols-3 gap-2">
-                   <div className="space-y-1">
-                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Role</span>
-                      <p className="text-[10px] font-black text-slate-950 dark:text-white flex items-center gap-1.5 lowercase">
-                         <Shield size={10} className="text-indigo-400" />
-                         {agent.role}
-                      </p>
-                   </div>
-                   <div className="space-y-1 text-center border-x border-slate-50 dark:border-white/5 px-2">
-                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Workload</span>
-                      <p className="text-[10px] font-black text-slate-950 dark:text-white flex items-center justify-center gap-1">
-                         <BarChart2 size={10} className="text-indigo-400" />
-                         <span className={`${agent.activeChats > 0 ? "text-indigo-600 dark:text-indigo-400" : "text-slate-400"}`}>{agent.activeChats || 0}</span>
-                         <span className="text-slate-300 dark:text-slate-700">/</span>
-                         <span className="text-slate-400 dark:text-slate-600">{agent.maxWorkload || 5}</span>
-                      </p>
-                   </div>
-                   <div className="space-y-1 text-right">
-                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Status</span>
-                      <div className="flex items-center justify-end gap-1.5">
-                         <span className={`w-1.5 h-1.5 rounded-full ${agent.isAvailable ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-300'}`}></span>
-                         <span className="text-[10px] font-black text-slate-950 dark:text-white uppercase">{agent.isAvailable ? 'Ready' : 'Standby'}</span>
-                      </div>
-                   </div>
+                {/* 3-Cell Metrics Strip */}
+                <div className="grid grid-cols-3 gap-1 bg-slate-50 dark:bg-slate-800/40 p-1.5 rounded-lg border border-slate-100 dark:border-white/5 text-center">
+                  <div className="space-y-0.5">
+                    <span className="text-[7.5px] font-black uppercase tracking-wider text-slate-400 block leading-none">Role</span>
+                    <p className="text-[9.5px] font-black text-slate-900 dark:text-white truncate capitalize">
+                      {agent.role || "agent"}
+                    </p>
+                  </div>
+                  <div className="space-y-0.5 border-x border-slate-200/60 dark:border-white/5 px-1">
+                    <span className="text-[7.5px] font-black uppercase tracking-wider text-slate-400 block leading-none">Workload</span>
+                    <p className="text-[9.5px] font-black text-slate-900 dark:text-white flex items-center justify-center gap-0.5">
+                      <span className={agent.activeChats > 0 ? "text-indigo-600 dark:text-indigo-400" : "text-slate-400"}>
+                        {agent.activeChats || 0}
+                      </span>
+                      <span className="text-slate-300 dark:text-slate-600">/</span>
+                      <span className="text-slate-400">{agent.maxWorkload || 5}</span>
+                    </p>
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className="text-[7.5px] font-black uppercase tracking-wider text-slate-400 block leading-none">Status</span>
+                    <div className="flex items-center justify-center gap-1">
+                      <span className={`w-1.5 h-1.5 rounded-full ${agent.isAvailable ? 'bg-emerald-500 shadow-xs' : 'bg-slate-300 dark:bg-slate-600'}`} />
+                      <span className="text-[9px] font-black uppercase text-slate-900 dark:text-white">
+                        {agent.isAvailable ? 'Ready' : 'Standby'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="pt-4 border-t border-slate-100 dark:border-white/5">
-                   <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Department</span>
-                   <p className="text-[10px] font-black text-slate-950 dark:text-white mt-2 uppercase tracking-widest">
-                      {agent.department || "general"}
-                   </p>
-                   <div className="flex flex-wrap gap-1.5 mt-2">
-                      {agent.assignedCategories?.length > 0 ? agent.assignedCategories.map((category) => (
-                         <span key={category} className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[8px] font-black uppercase tracking-widest border border-emerald-100 dark:border-emerald-500/20">
-                            {category}
-                         </span>
-                      )) : (
-                         <span className="text-[9px] font-bold text-slate-300">No categories mapped</span>
-                      )}
-                   </div>
-                </div>
-                <div className="pt-4 border-t border-slate-100 dark:border-white/5">
-                   <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Websites</span>
-                   <div className="flex flex-wrap gap-1.5 mt-2">
-                      {agent.websiteIds?.length > 0 ? agent.websiteIds.map((website) => (
-                         <span key={website._id || website} className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[8px] font-black uppercase tracking-widest border border-indigo-100 dark:border-indigo-500/20">
-                            {website.websiteName || website}
-                         </span>
-                      )) : (
-                         <span className="text-[9px] font-bold text-slate-300">All tenant websites (legacy user)</span>
-                      )}
-                   </div>
-                </div>
-                <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex gap-2">
-                   <button
-                     type="button"
-                     onClick={() => handleEdit(agent)}
-                     className="flex-1 rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-indigo-600 transition-all hover:bg-indigo-100 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300"
-                   >
-                     Edit
-                   </button>
-                   <button
-                     type="button"
-                     onClick={() => handleDelete(agent._id)}
-                     className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-red-600 transition-all hover:bg-red-100 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300"
-                   >
-                     Delete
-                   </button>
-                </div>
-             </div>
-          </div>
-        ))}
 
-        {filteredAgents.length === 0 && !isAdding && (
-          <div className="col-span-full p-24 border-2 border-dashed border-slate-100 dark:border-white/5 rounded-[40px] text-center space-y-4">
-             <div className="w-16 h-16 bg-slate-50 dark:bg-white/5 rounded-3xl flex items-center justify-center mx-auto text-slate-300">
-                <Activity size={32} />
-             </div>
-             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">No personnel found.</p>
+                {/* Department & Categories */}
+                <div className="space-y-1 pt-0.5">
+                  <div className="flex items-center justify-between text-[8px] font-black uppercase tracking-wider text-slate-400">
+                    <span className="flex items-center gap-1">
+                      <Building2 size={9} /> Department: <strong className="text-slate-700 dark:text-slate-200">{agent.department || "general"}</strong>
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {agent.assignedCategories?.length > 0 ? (
+                      agent.assignedCategories.map((cat) => (
+                        <span
+                          key={cat}
+                          className="px-1.5 py-0.2 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[8px] font-black uppercase tracking-wider border border-emerald-200/50 dark:border-emerald-500/20"
+                        >
+                          {cat}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-[8.5px] font-medium text-slate-400 italic">No categories mapped</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Assigned Websites */}
+                <div className="space-y-1 pt-0.5">
+                  <span className="text-[8px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                    <Globe size={9} /> Websites:
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {agent.websiteIds?.length > 0 ? (
+                      agent.websiteIds.map((web) => (
+                        <span
+                          key={web._id || web}
+                          className="px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 text-[8px] font-black uppercase tracking-wider border border-indigo-200/50 dark:border-indigo-500/20"
+                        >
+                          {web.websiteName || web}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-[8.5px] font-medium text-slate-400 italic">All tenant websites</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Card Footer Action Bar */}
+              <div className="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-1.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => handleEdit(agent)}
+                  className="flex-1 py-1 rounded-md bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-950/70 text-indigo-600 dark:text-indigo-300 text-[9.5px] font-black uppercase tracking-wider transition-colors border border-indigo-200/60 dark:border-indigo-500/20 text-center"
+                >
+                  Edit Access
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(agent._id)}
+                  className="px-2.5 py-1 rounded-md bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-950/60 text-red-600 dark:text-red-400 text-[9.5px] font-black uppercase tracking-wider transition-colors border border-red-200/60 dark:border-red-500/20"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          );
+        })}
+
+        {filteredAgents.length === 0 && (
+          <div className="col-span-full py-16 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-2xl text-center space-y-2">
+            <Activity size={24} className="mx-auto text-slate-300 dark:text-slate-600" />
+            <p className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">No personnel found</p>
+            <p className="text-[10px] text-slate-400">Click "+ Add Personnel" above to create an agent account.</p>
           </div>
         )}
       </div>
-      <PaginationControls
-        currentPage={paginatedAgents.currentPage}
-        totalPages={paginatedAgents.totalPages}
-        totalItems={paginatedAgents.totalItems}
-        itemLabel="personnel"
-        onPageChange={setPage}
-      />
+
+      {/* ── Compact Pagination Controls ── */}
+      {paginatedAgents.totalPages > 1 && (
+        <PaginationControls
+          currentPage={paginatedAgents.currentPage}
+          totalPages={paginatedAgents.totalPages}
+          totalItems={paginatedAgents.totalItems}
+          itemLabel="personnel"
+          onPageChange={setPage}
+        />
+      )}
+
+      {/* ── Add / Edit Personnel Modal via createPortal to document.body ── */}
+      {isAdding && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-[99999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
+          <form
+            ref={formRef}
+            onSubmit={handleSubmit}
+            className="relative w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl p-4 sm:p-5 my-auto space-y-3.5 animate-in zoom-in-95 duration-200"
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                  <UserPlus size={14} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                    {editingId ? "Update Personnel Clearance" : "Create Support Personnel"}
+                  </h3>
+                  <p className="text-[10px] text-slate-400">
+                    {editingId
+                      ? "Modify role, website scope, department, and category routing."
+                      : "Create a new agent account with scoped access and routing credentials."}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            {/* Form Fields Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              
+              {/* Name */}
+              <div className="space-y-1">
+                <label className="text-[9.5px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 flex justify-between">
+                  <span>Identity Name</span>
+                  <span className="text-[8.5px] text-indigo-500 font-bold">Required</span>
+                </label>
+                <input
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-indigo-500"
+                  placeholder="e.g. John Doe"
+                  required
+                />
+              </div>
+
+              {/* Email */}
+              <div className="space-y-1">
+                <label className="text-[9.5px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 flex justify-between">
+                  <span>Secure Email</span>
+                  <span className="text-[8.5px] text-indigo-500 font-bold">Required</span>
+                </label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-indigo-500"
+                  placeholder="agent@company.com"
+                  required
+                />
+              </div>
+
+              {/* Password */}
+              <div className="space-y-1">
+                <label className="text-[9.5px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 flex justify-between">
+                  <span>Access Password</span>
+                  <span className="text-[8.5px] text-slate-400 font-bold">{editingId ? 'Optional (leave blank)' : 'Required'}</span>
+                </label>
+                <input
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-indigo-500"
+                  placeholder={editingId ? "••••••••" : "Create password"}
+                  required={!editingId}
+                />
+              </div>
+
+              {/* Role */}
+              <div className="space-y-1">
+                <label className="text-[9.5px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 flex justify-between">
+                  <span>Role Clearance</span>
+                  <span className="text-[8.5px] text-indigo-500 font-bold">Required</span>
+                </label>
+                <select
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-indigo-500"
+                  required
+                >
+                  <option value="">Select a role...</option>
+                  {dynamicRoles.filter(r => r.isActive).map(role => (
+                    <option key={role._id} value={role.name.toLowerCase()}>{role.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Department */}
+              <div className="space-y-1 sm:col-span-2">
+                <label className="text-[9.5px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 flex justify-between">
+                  <span>Department Routing</span>
+                  <span className="text-[8.5px] text-slate-400">Determined from website categories</span>
+                </label>
+                <select
+                  value={formData.department}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  disabled={!formData.websiteIds.length}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-indigo-500 disabled:opacity-50"
+                  required
+                >
+                  {departmentOptions.map((department) => (
+                    <option key={department} value={department}>
+                      {department}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Website Assignment */}
+              <div className="space-y-1 sm:col-span-2">
+                <label className="text-[9.5px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 flex justify-between">
+                  <span>Website Scoped Access</span>
+                  <span className="text-[8.5px] text-indigo-500 font-bold">Click to assign</span>
+                </label>
+                <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-800/40 p-2.5 max-h-36 overflow-y-auto">
+                  {websites.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      {websites.map((web) => {
+                        const isSelected = formData.websiteIds.includes(web._id);
+                        return (
+                          <button
+                            key={web._id}
+                            type="button"
+                            onClick={() => toggleMultiValue("websiteIds", web._id)}
+                            className={`p-2 rounded-lg border text-left transition-all flex items-center justify-between gap-2 ${
+                              isSelected
+                                ? "bg-indigo-50 dark:bg-indigo-950/60 border-indigo-500 text-indigo-700 dark:text-indigo-300 shadow-xs"
+                                : "bg-white dark:bg-slate-800 border-slate-200 dark:border-white/5 text-slate-600 dark:text-slate-300 hover:border-slate-300"
+                            }`}
+                          >
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-black uppercase truncate">{web.websiteName}</p>
+                              <p className="text-[8.5px] text-slate-400 truncate">{web.domain}</p>
+                            </div>
+                            <span className={`px-1.5 py-0.2 rounded text-[8px] font-black uppercase shrink-0 ${
+                              isSelected ? "bg-indigo-600 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-400"
+                            }`}>
+                              {isSelected ? "Active" : "Off"}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-slate-400 italic">No websites configured in ecosystem.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Ticket Categories */}
+              <div className="space-y-1 sm:col-span-2">
+                <label className="text-[9.5px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 flex justify-between">
+                  <span>Mapped Ticket Categories</span>
+                  <span className="text-[8.5px] text-slate-400">Auto-routes tickets</span>
+                </label>
+                <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-800/40 p-2.5 max-h-32 overflow-y-auto">
+                  {categoryOptions.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {categoryOptions.map((cat) => {
+                        const isSelected = formData.assignedCategories.includes(cat.value);
+                        return (
+                          <button
+                            key={cat.value}
+                            type="button"
+                            onClick={() => toggleMultiValue("assignedCategories", cat.value)}
+                            className={`px-2 py-1 rounded-md border text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-1 ${
+                              isSelected
+                                ? "bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 text-emerald-700 dark:text-emerald-300 shadow-xs"
+                                : "bg-white dark:bg-slate-800 border-slate-200 dark:border-white/5 text-slate-500 hover:border-slate-300"
+                            }`}
+                          >
+                            {isSelected && <Check size={9} />}
+                            <span>{cat.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-slate-400 italic">Select at least one website above to load its categories.</p>
+                  )}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2 border-t border-slate-100 dark:border-white/5 pt-3">
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-sm"
+              >
+                {editingId ? "Update Identity" : "Confirm Clearance"}
+              </button>
+            </div>
+
+          </form>
+        </div>,
+        document.body
+      )}
+
     </div>
   );
 }

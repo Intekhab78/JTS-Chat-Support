@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { api } from "../api/client.js";
 import { useWebsite } from "../context/WebsiteContext.jsx";
+import PaginationControls from "./PaginationControls.jsx";
+import { getPaginationMeta } from "../utils/pagination.js";
 import { 
   Shield, 
   X, 
@@ -32,13 +35,16 @@ import {
   CheckSquare,
   FileSpreadsheet,
   Mail,
-  UserCheck
+  UserCheck,
+  Search,
+  Plus
 } from "lucide-react";
 
 const ALL_PERMISSION_GROUPS = [
   {
     id: "crm",
     label: "CRM Management",
+    shortLabel: "CRM",
     icon: Users,
     color: "indigo",
     permissions: [
@@ -56,6 +62,7 @@ const ALL_PERMISSION_GROUPS = [
   {
     id: "compliance",
     label: "Tax & Compliance",
+    shortLabel: "Compliance",
     icon: FileSpreadsheet,
     color: "emerald",
     permissions: [
@@ -71,6 +78,7 @@ const ALL_PERMISSION_GROUPS = [
   {
     id: "tickets",
     label: "Support Ticketing",
+    shortLabel: "Tickets",
     icon: Ticket,
     color: "amber",
     permissions: [
@@ -85,8 +93,9 @@ const ALL_PERMISSION_GROUPS = [
   {
     id: "chat",
     label: "Live Chat Operations",
+    shortLabel: "Chat",
     icon: MessageSquare,
-    color: "emerald",
+    color: "teal",
     permissions: [
       { id: "chat.view", label: "Access Live Chat", desc: "Participate in visitor conversations", icon: MessageSquare },
       { id: "chat.transfer", label: "Transfer Chats", desc: "Move live sessions between agents", icon: GitMerge },
@@ -98,8 +107,9 @@ const ALL_PERMISSION_GROUPS = [
   {
     id: "accounts",
     label: "Accounting & Billing",
+    shortLabel: "Accounts",
     icon: CreditCard,
-    color: "indigo",
+    color: "blue",
     permissions: [
       { id: "accounts.view", label: "View Ledger", desc: "Access financial overview & ledger", icon: Eye },
       { id: "invoice.manage", label: "Manage Invoices", desc: "Generate and track customer invoices", icon: FileText },
@@ -109,6 +119,7 @@ const ALL_PERMISSION_GROUPS = [
   {
     id: "inventory",
     label: "Inventory & Procurement",
+    shortLabel: "Inventory",
     icon: Package,
     color: "purple",
     permissions: [
@@ -120,6 +131,7 @@ const ALL_PERMISSION_GROUPS = [
   {
     id: "system",
     label: "System & Analytics",
+    shortLabel: "System",
     icon: Settings,
     color: "rose",
     permissions: [
@@ -139,52 +151,80 @@ export default function RoleManager() {
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({ name: "", description: "", permissions: [], isActive: true });
   const [activeGroup, setActiveGroup] = useState("crm");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, roles.length]);
 
   const { selectedWebsite } = useWebsite() || {};
   const enabledModules = selectedWebsite?.enabledModules || [];
 
+  // Lock body scroll and attach Escape key listener when modal is open
+  useEffect(() => {
+    if (isModalOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+
+      const handleKeyDown = (e) => {
+        if (e.key === "Escape") setIsModalOpen(false);
+      };
+      window.addEventListener("keydown", handleKeyDown);
+
+      return () => {
+        document.body.style.overflow = originalOverflow;
+        window.removeEventListener("keydown", handleKeyDown);
+      };
+    }
+  }, [isModalOpen]);
+
   // Filter permission groups based on active website's enabled modules
-  const PERMISSION_GROUPS = ALL_PERMISSION_GROUPS.filter(group => {
-    if (!selectedWebsite || !Array.isArray(selectedWebsite.enabledModules) || selectedWebsite.enabledModules.length === 0) {
+  const PERMISSION_GROUPS = useMemo(() => {
+    return ALL_PERMISSION_GROUPS.filter(group => {
+      if (!selectedWebsite || !Array.isArray(selectedWebsite.enabledModules) || selectedWebsite.enabledModules.length === 0) {
+        return true;
+      }
+      if (group.id === "compliance") {
+        return enabledModules.includes("compliance");
+      }
+      if (group.id === "inventory") {
+        return enabledModules.includes("operations") || enabledModules.includes("inventory");
+      }
+      if (group.id === "crm") {
+        return enabledModules.includes("crm");
+      }
+      if (group.id === "accounts") {
+        return enabledModules.includes("finance");
+      }
+      if (group.id === "tickets") {
+        return enabledModules.includes("service") || selectedWebsite.enableTicketing !== false;
+      }
+      if (group.id === "chat") {
+        return selectedWebsite.enableChat !== false;
+      }
       return true;
-    }
-    if (group.id === "compliance") {
-      return enabledModules.includes("compliance");
-    }
-    if (group.id === "inventory") {
-      return enabledModules.includes("operations") || enabledModules.includes("inventory");
-    }
-    if (group.id === "crm") {
-      return enabledModules.includes("crm");
-    }
-    if (group.id === "accounts") {
-      return enabledModules.includes("finance");
-    }
-    if (group.id === "tickets") {
-      return enabledModules.includes("service") || selectedWebsite.enableTicketing !== false;
-    }
-    if (group.id === "chat") {
-      return selectedWebsite.enableChat !== false;
-    }
-    return true;
-  });
+    });
+  }, [selectedWebsite, enabledModules]);
 
   // Ensure activeGroup is valid
   useEffect(() => {
     if (!PERMISSION_GROUPS.some(g => g.id === activeGroup) && PERMISSION_GROUPS.length > 0) {
       setActiveGroup(PERMISSION_GROUPS[0].id);
     }
-  }, [selectedWebsite?._id, activeGroup]);
+  }, [PERMISSION_GROUPS, activeGroup]);
 
   useEffect(() => { loadRoles(); }, []);
 
   const loadRoles = async () => {
     try {
       const response = await api("/api/roles");
-      // The API returns { status: 'success', data: [...] }
       setRoles(response.data || []);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
+    } catch (err) { 
+      console.error(err); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const handleTogglePermission = (id) => {
@@ -238,201 +278,320 @@ export default function RoleManager() {
       }
       setIsModalOpen(false);
       loadRoles();
-    } catch (err) { alert(err.message); }
+    } catch (err) { 
+      alert(err.message); 
+    }
+  };
+
+  const filteredRoles = useMemo(() => {
+    if (!Array.isArray(roles)) return [];
+    if (!searchQuery.trim()) return roles;
+    const q = searchQuery.toLowerCase().trim();
+    return roles.filter(r => 
+      r.name?.toLowerCase().includes(q) || 
+      r.description?.toLowerCase().includes(q)
+    );
+  }, [roles, searchQuery]);
+
+  // Helper to extract active group pills for a role
+  const getRoleGroupBadges = (rolePerms = []) => {
+    const matched = [];
+    PERMISSION_GROUPS.forEach(g => {
+      const hasPerm = g.permissions.some(p => rolePerms.includes(p.id));
+      if (hasPerm) matched.push(g.shortLabel);
+    });
+    return matched;
   };
 
   if (loading) return (
-    <div className="p-20 flex flex-col items-center justify-center space-y-4">
-      <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+    <div className="py-20 flex flex-col items-center justify-center space-y-3">
+      <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin" />
       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Synchronizing Security Context...</p>
     </div>
   );
 
   return (
-    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-indigo-600 rounded-2xl shadow-xl shadow-indigo-100">
-              <Shield className="text-white" size={24} />
-            </div>
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Security Role Master</h2>
+    <div className="space-y-4 animate-in fade-in duration-300">
+      {/* ── Compact Header & Toolbar ────────────────────────── */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 rounded-2xl p-3.5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center shadow-xs text-white shrink-0">
+            <Shield size={18} />
           </div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] pl-1">
-            Global authorization engine for JTS Support ecosystem
-          </p>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-black text-slate-900 dark:text-white tracking-tight uppercase">
+                Security Role Master
+              </h2>
+              <span className="px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 text-[9px] font-black">
+                {roles.length} {roles.length === 1 ? "Role" : "Roles"}
+              </span>
+            </div>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+              Authorization & access control engine for JTS ecosystem
+            </p>
+          </div>
         </div>
-        <button 
-          onClick={() => openModal()}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-2xl shadow-indigo-100 transition-all active:scale-95 flex items-center gap-3 group"
-        >
-          <Zap size={16} className="group-hover:animate-pulse" />
-          Deploy New Identity
-        </button>
+
+        {/* Search & Actions */}
+        <div className="flex items-center gap-2 self-end sm:self-auto w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-48">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search identities..."
+              className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-[11px] font-medium text-slate-700 dark:text-slate-200 outline-none focus:bg-white focus:border-indigo-400 transition-all"
+            />
+          </div>
+
+          <button 
+            onClick={() => openModal()}
+            className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-xs transition-all active:scale-95 flex items-center gap-1.5 shrink-0 cursor-pointer"
+          >
+            <Plus size={13} />
+            Deploy Identity
+          </button>
+        </div>
       </div>
 
-      {/* Roles Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-        {Array.isArray(roles) && roles.map(role => (
-          <div key={role._id} className="premium-card p-10 group hover:border-indigo-200 transition-all relative overflow-hidden bg-white/40 backdrop-blur-md border border-slate-200/50 rounded-[40px] shadow-sm">
-            {!role.isActive && (
-              <div className="absolute top-0 right-0 bg-slate-100 text-slate-400 px-5 py-2 text-[8px] font-black uppercase rounded-bl-[20px] border-l border-b border-slate-200">
-                Archived
-              </div>
-            )}
-            
-            <div className="flex items-start justify-between mb-8">
-              <div className="w-16 h-16 rounded-3xl bg-slate-50 group-hover:bg-indigo-50 flex items-center justify-center transition-all duration-500 group-hover:rotate-6 shadow-sm">
-                <Lock className="text-slate-300 group-hover:text-indigo-600" size={28} />
-              </div>
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => openModal(role)}
-                  title="Edit Role"
-                  className="bg-slate-50 hover:bg-indigo-600 text-slate-400 hover:text-white p-3 rounded-xl transition-all shadow-sm group-hover:shadow-indigo-100"
-                >
-                  <Edit3 size={16} />
-                </button>
-                <button 
-                  onClick={() => handleDeleteRole(role._id, role.name)}
-                  title="Delete Role"
-                  className="bg-slate-50 hover:bg-rose-600 text-slate-400 hover:text-white p-3 rounded-xl transition-all shadow-sm hover:shadow-rose-100"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </div>
+      {/* ── Compact Roles Grid ─────────────────────────────── */}
+      {(() => {
+        const pagination = getPaginationMeta(filteredRoles, page, 19);
+        return (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 items-stretch">
+              {pagination.pageItems.map(role => {
+          const groupBadges = getRoleGroupBadges(role.permissions || []);
+          const isSystemRole = ["admin", "client", "agent", "manager"].includes(role.name?.toLowerCase());
 
-            <div className="space-y-4">
-              <h3 className="text-xl font-black text-slate-900 tracking-tight uppercase group-hover:text-indigo-600 transition-colors">
-                {role.name}
-              </h3>
-              <p className="text-[11px] text-slate-500 font-bold leading-relaxed line-clamp-2 min-h-[32px]">
-                {role.description || "No specific functional summary provided for this identity role."}
-              </p>
-            </div>
+          return (
+            <div 
+              key={role._id} 
+              className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 rounded-2xl p-3.5 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:shadow-md transition-all group flex flex-col justify-between relative"
+            >
+              <div>
+                {/* Top Row: Icon + Status + Edit/Delete */}
+                <div className="flex items-center justify-between gap-2 mb-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/5 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-950/40 border border-slate-200/60 dark:border-white/10 flex items-center justify-center text-slate-500 group-hover:text-indigo-600 transition-colors">
+                      <Lock size={15} />
+                    </div>
+                    {role.isActive === false && (
+                      <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-400 text-[8px] font-black uppercase rounded-md">
+                        Archived
+                      </span>
+                    )}
+                  </div>
 
-            <div className="mt-8 pt-8 border-t border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-full group-hover:bg-indigo-50 transition-colors">
-                <Shield size={12} className="text-indigo-400" />
-                <span className="text-[9px] font-black text-slate-500 group-hover:text-indigo-600 uppercase tracking-widest">
+                  <div className="flex items-center gap-1">
+                    <button 
+                      onClick={() => openModal(role)}
+                      title="Edit Role"
+                      className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg transition-all cursor-pointer"
+                    >
+                      <Edit3 size={13} />
+                    </button>
+                    {!isSystemRole && (
+                      <button 
+                        onClick={() => handleDeleteRole(role._id, role.name)}
+                        title="Delete Role"
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-all cursor-pointer"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Role Title & Summary */}
+                <h3 className="text-xs font-black text-slate-900 dark:text-white tracking-tight uppercase group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+                  {role.name}
+                </h3>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium line-clamp-2 min-h-[28px] mt-1 leading-snug">
+                  {role.description || "No specific functional summary provided for this identity role."}
+                </p>
+
+                {/* Active Module Pills */}
+                {groupBadges.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2.5">
+                    {groupBadges.slice(0, 3).map(badge => (
+                      <span key={badge} className="px-1.5 py-0.5 rounded bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 text-[8px] font-bold text-slate-600 dark:text-slate-300 uppercase">
+                        {badge}
+                      </span>
+                    ))}
+                    {groupBadges.length > 3 && (
+                      <span className="px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-[8px] font-bold text-indigo-600 dark:text-indigo-300">
+                        +{groupBadges.length - 3}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Bottom Row: Modules Pill + Modify Link */}
+              <div 
+                onClick={() => openModal(role)}
+                className="mt-3 pt-2.5 border-t border-slate-100 dark:border-white/5 flex items-center justify-between cursor-pointer"
+              >
+                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  <Shield size={11} className="text-indigo-500" />
                   {role.permissions?.length || 0} Modules
                 </span>
-              </div>
-              <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
-                <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">Modify</span>
-                <ChevronRight size={14} className="text-indigo-600" />
+                <span className="inline-flex items-center gap-0.5 text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
+                  Modify <ChevronRight size={11} />
+                </span>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
-        {/* Empty State / Add Card */}
+        {/* Compact Register New Card */}
         <div 
           onClick={() => openModal()}
-          className="p-10 border-2 border-dashed border-slate-200 rounded-[40px] flex flex-col items-center justify-center gap-4 text-slate-400 hover:border-indigo-300 hover:bg-indigo-50/20 transition-all cursor-pointer group"
+          className="border border-dashed border-slate-200 dark:border-white/15 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50/20 dark:hover:bg-indigo-950/10 transition-all cursor-pointer min-h-[140px] group select-none"
         >
-          <div className="w-12 h-12 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center group-hover:border-indigo-400 group-hover:rotate-90 transition-all duration-500">
-            <X size={20} className="rotate-45" />
+          <div className="w-8 h-8 rounded-full border border-dashed border-slate-300 dark:border-white/20 flex items-center justify-center group-hover:border-indigo-400 group-hover:rotate-90 transition-all">
+            <Plus size={15} />
           </div>
-          <p className="text-[10px] font-black uppercase tracking-widest">Register New Identity</p>
+          <p className="text-[9px] font-black uppercase tracking-wider">Register Identity</p>
         </div>
       </div>
 
-      {/* Modal Overlay */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8">
-          <div className="absolute inset-0 bg-slate-950/20 backdrop-blur-xl animate-in fade-in duration-500" onClick={() => setIsModalOpen(false)} />
-          <div className="relative bg-white/90 backdrop-blur-2xl rounded-[48px] shadow-2xl w-full max-w-6xl max-h-[92vh] overflow-hidden flex flex-col animate-in zoom-in-95 slide-in-from-bottom-10 duration-500 border border-white/40">
+      {/* Pagination Controls */}
+      {!loading && filteredRoles.length > 0 && (
+        <PaginationControls
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          pageSize={19}
+          itemLabel="roles"
+          onPageChange={setPage}
+        />
+      )}
+          </>
+        );
+      })()}
+
+      {/* ── Compact & Professional Modal Rendered via createPortal to document.body ── */}
+      {isModalOpen && createPortal(
+        <div className="fixed inset-0 z-[99999] overflow-y-auto p-2 sm:p-4 md:p-6 flex items-center justify-center">
+          {/* Dimmed Backdrop across entire window */}
+          <div 
+            className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm transition-opacity" 
+            onClick={() => setIsModalOpen(false)} 
+          />
+          
+          {/* Centered Modal Card */}
+          <div className="relative z-10 my-auto bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200 border border-slate-200 dark:border-white/10 overflow-hidden">
             
             {/* Modal Header */}
-            <div className="px-10 py-10 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white/50">
-              <div className="flex items-center gap-6">
-                <div className="w-16 h-16 bg-indigo-600 rounded-[28px] flex items-center justify-center shadow-2xl shadow-indigo-200 animate-pulse-slow">
-                  <Shield className="text-white" size={32} />
+            <div className="px-5 py-3 border-b border-slate-100 dark:border-white/10 flex items-center justify-between shrink-0 bg-slate-50/80 dark:bg-white/[0.02]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center shadow-xs text-white shrink-0">
+                  <Shield size={16} />
                 </div>
                 <div>
-                  <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">
-                    {currentRole ? "Modify Dynamic Role" : "Register New Identity"}
+                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                    {currentRole ? `Modify Role: ${currentRole.name}` : "Register New Identity"}
                   </h3>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] mt-2">Authorization Core Context</p>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">
+                    Role permissions & system authorization context
+                  </p>
                 </div>
               </div>
               <button 
+                type="button"
                 onClick={() => setIsModalOpen(false)} 
-                className="p-4 text-slate-300 hover:text-slate-900 hover:bg-white rounded-3xl transition-all shadow-sm hover:shadow-md"
+                className="p-1.5 text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/10 rounded-lg transition-all cursor-pointer"
               >
-                <X size={24} />
+                <X size={16} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="flex-1 overflow-hidden flex flex-col lg:flex-row">
+            <form onSubmit={handleSubmit} className="flex-1 overflow-hidden flex flex-col md:flex-row min-h-0">
               
-              {/* Left Column: Metadata */}
-              <div className="w-full lg:w-[420px] p-10 bg-slate-50/30 border-r border-slate-100 space-y-12 overflow-y-auto">
-                <div className="space-y-10">
-                  <div className="space-y-4">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block pl-1">Role Designation</label>
-                    <div className="relative group">
-                      <input
-                        value={formData.name}
-                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                        placeholder="e.g. Sales Senior, Support Lead..."
-                        className="w-full bg-white/80 border border-slate-200 rounded-[24px] px-8 py-5 text-sm font-bold focus:ring-8 focus:ring-indigo-500/5 focus:border-indigo-600 outline-none transition-all placeholder:text-slate-300 shadow-sm"
-                        required
-                        readOnly={!!currentRole && ["admin", "client", "agent", "manager"].includes(currentRole.name)}
-                      />
-                      <div className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-200">
-                        <Lock size={18} />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block pl-1">Functional Summary</label>
-                    <textarea
-                      value={formData.description}
-                      onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                      placeholder="Briefly describe what this role oversees in the JTS ecosystem..."
-                      rows={5}
-                      className="w-full bg-white/80 border border-slate-200 rounded-[24px] px-8 py-5 text-sm font-bold focus:ring-8 focus:ring-indigo-500/5 focus:border-indigo-600 outline-none transition-all placeholder:text-slate-300 resize-none shadow-sm leading-relaxed"
+              {/* Left Column: Role Details & Actions */}
+              <div className="w-full md:w-72 p-4 bg-slate-50/40 dark:bg-white/[0.01] border-b md:border-b-0 md:border-r border-slate-100 dark:border-white/10 space-y-3 overflow-y-auto shrink-0 custom-scrollbar">
+                <div className="space-y-1">
+                  <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Role Designation</label>
+                  <div className="relative">
+                    <input
+                      value={formData.name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="e.g. Sales Senior, Support Lead"
+                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-bold focus:border-indigo-500 outline-none transition-all placeholder:text-slate-300"
+                      required
+                      readOnly={!!currentRole && ["admin", "client", "agent", "manager"].includes(currentRole.name?.toLowerCase())}
                     />
-                  </div>
-
-                  <div className="p-8 bg-white border border-slate-100 rounded-[36px] shadow-sm space-y-6">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight">Active Status</p>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Turn off to archive this role</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setFormData(prev => ({ ...prev, isActive: !prev.isActive }))}
-                        className={`w-16 h-9 rounded-full transition-all relative ${formData.isActive ? 'bg-indigo-600 shadow-lg shadow-indigo-100' : 'bg-slate-200'}`}
-                      >
-                        <div className={`absolute top-1 w-7 h-7 rounded-full bg-white shadow-md transition-all duration-300 ${formData.isActive ? 'right-1' : 'left-1'}`} />
-                      </button>
-                    </div>
+                    {!!currentRole && ["admin", "client", "agent", "manager"].includes(currentRole.name?.toLowerCase()) && (
+                      <Lock size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    )}
                   </div>
                 </div>
 
-                <div className="pt-8 space-y-4">
-                  <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-[0.25em] py-6 rounded-[24px] shadow-2xl shadow-indigo-100 transition-all flex items-center justify-center gap-4 active:scale-[0.97]">
-                    <Zap size={18} />
-                    {currentRole ? "Synchronize updates" : "Deploy identity"}
+                <div className="space-y-1">
+                  <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Functional Summary</label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Briefly describe responsibilities..."
+                    rows={3}
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl p-2.5 text-[11px] font-medium focus:border-indigo-500 outline-none transition-all placeholder:text-slate-300 resize-none leading-relaxed"
+                  />
+                </div>
+
+                {/* Active Status Toggle */}
+                <div className="p-2.5 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-white/10 rounded-xl flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-tight">Active Identity</p>
+                    <p className="text-[8px] font-bold text-slate-400">Toggle off to archive</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, isActive: !prev.isActive }))}
+                    className={`w-9 h-5 rounded-full transition-all relative cursor-pointer ${formData.isActive ? 'bg-indigo-600' : 'bg-slate-200 dark:bg-slate-700'}`}
+                  >
+                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-xs transition-all duration-200 ${formData.isActive ? 'right-0.5' : 'left-0.5'}`} />
                   </button>
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="w-full text-slate-400 hover:text-slate-900 font-black text-[10px] uppercase tracking-[0.2em] py-3 transition-colors text-center">
-                    Discard changes
+                </div>
+
+                {/* Selected Permissions Counter */}
+                <div className="p-2.5 bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300">
+                    <Shield size={13} />
+                    <span className="text-[9px] font-black uppercase tracking-wider">Assigned Modules</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full bg-indigo-600 text-white text-[9px] font-black">
+                    {formData.permissions.length}
+                  </span>
+                </div>
+
+                {/* Save & Cancel Buttons */}
+                <div className="pt-1 space-y-1.5">
+                  <button 
+                    type="submit" 
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-wider py-2.5 rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 active:scale-98 cursor-pointer"
+                  >
+                    <Zap size={13} />
+                    {currentRole ? "Synchronize Updates" : "Deploy Identity"}
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => setIsModalOpen(false)} 
+                    className="w-full text-slate-400 hover:text-slate-800 dark:hover:text-white font-bold text-[9px] uppercase tracking-wider py-1.5 transition-colors text-center cursor-pointer"
+                  >
+                    Discard Changes
                   </button>
                 </div>
               </div>
 
-              {/* Right Column: Permissions Content */}
-              <div className="flex-1 flex flex-col overflow-hidden bg-white/40">
+              {/* Right Column: Permission Tabs & Grid */}
+              <div className="flex-1 flex flex-col overflow-hidden min-h-0">
                 
-                {/* Custom Category Navigation */}
-                <div className="px-10 pt-10 flex items-center gap-4 shrink-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {/* Horizontal Category Navigation Tabs */}
+                <div className="px-3 py-2 border-b border-slate-100 dark:border-white/10 flex items-center gap-1.5 shrink-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden bg-slate-50/40 dark:bg-white/[0.01]">
                   {PERMISSION_GROUPS.map(group => {
                     const GroupIcon = group.icon;
                     const isActive = activeGroup === group.id;
@@ -443,16 +602,16 @@ export default function RoleManager() {
                         key={group.id}
                         type="button"
                         onClick={() => setActiveGroup(group.id)}
-                        className={`px-8 py-5 rounded-[24px] text-[10px] font-black uppercase tracking-widest flex items-center gap-4 transition-all whitespace-nowrap border-2 ${
+                        className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer border ${
                           isActive 
-                            ? `bg-white border-indigo-600 text-indigo-600 shadow-xl shadow-indigo-50` 
-                            : 'bg-transparent text-slate-400 border-transparent hover:bg-white/60 hover:text-slate-600'
+                            ? `bg-white dark:bg-slate-800 border-indigo-500 text-indigo-600 dark:text-indigo-400 shadow-xs` 
+                            : 'border-transparent text-slate-500 hover:bg-white dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200'
                         }`}
                       >
-                        <GroupIcon size={16} />
+                        <GroupIcon size={12} />
                         {group.label}
                         {groupSelectedCount > 0 && (
-                          <span className={`px-2 py-1 rounded-lg text-[9px] ${isActive ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                          <span className={`px-1.5 py-0.2 rounded text-[8px] font-black ${isActive ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
                             {groupSelectedCount}
                           </span>
                         )}
@@ -461,9 +620,9 @@ export default function RoleManager() {
                   })}
                 </div>
 
-                {/* Permissions List Area */}
-                <div className="flex-1 overflow-y-auto p-10 space-y-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Permissions List Grid */}
+                <div className="flex-1 overflow-y-auto p-3 space-y-2.5 custom-scrollbar min-h-0">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {PERMISSION_GROUPS.find(g => g.id === activeGroup)?.permissions.map(perm => {
                       const isChecked = formData.permissions.includes(perm.id);
                       const PermIcon = perm.icon || Shield;
@@ -472,65 +631,51 @@ export default function RoleManager() {
                         <div 
                           key={perm.id}
                           onClick={() => handleTogglePermission(perm.id)}
-                          className={`p-8 rounded-[36px] border transition-all cursor-pointer group relative overflow-hidden ${
+                          className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2.5 ${
                             isChecked 
-                              ? 'bg-white border-indigo-600 shadow-2xl shadow-indigo-50 ring-4 ring-indigo-500/5' 
-                              : 'bg-white/40 border-slate-100 hover:border-slate-300 hover:bg-white'
+                              ? 'bg-indigo-50/50 dark:bg-indigo-950/30 border-indigo-400 dark:border-indigo-600 shadow-xs' 
+                              : 'bg-white dark:bg-slate-800/60 border-slate-200/80 dark:border-white/10 hover:border-slate-300'
                           }`}
                         >
-                          <div className="flex items-center gap-6 relative z-10">
-                            <div className={`w-14 h-14 rounded-[20px] flex items-center justify-center transition-all duration-500 ${
-                              isChecked ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100 scale-110' : 'bg-slate-50 text-slate-300'
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                              isChecked ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-white/5 text-slate-400'
                             }`}>
-                              <PermIcon size={24} />
+                              <PermIcon size={13} />
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-sm font-black uppercase tracking-tight transition-colors ${isChecked ? 'text-indigo-900' : 'text-slate-800'}`}>
+                            <div className="min-w-0">
+                              <p className={`text-[11px] font-bold truncate ${isChecked ? 'text-indigo-950 dark:text-indigo-200' : 'text-slate-800 dark:text-slate-200'}`}>
                                 {perm.label}
                               </p>
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 truncate">
+                              <p className="text-[8px] font-medium text-slate-400 truncate">
                                 {perm.desc}
                               </p>
                             </div>
-                            <div className={`w-8 h-8 rounded-xl border-2 transition-all flex items-center justify-center shrink-0 ${
-                              isChecked ? 'bg-indigo-600 border-indigo-600 text-white rotate-0' : 'border-slate-100 group-hover:border-slate-300 rotate-12'
-                            }`}>
-                              {isChecked && <Check size={16} strokeWidth={4} />}
-                            </div>
                           </div>
-                          
-                          {/* Animated Background Accent */}
-                          {isChecked && (
-                            <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-indigo-50 rounded-full blur-3xl opacity-60 animate-in fade-in duration-1000" />
-                          )}
+
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-all ${
+                            isChecked ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-600'
+                          }`}>
+                            {isChecked && <Check size={11} strokeWidth={3} />}
+                          </div>
                         </div>
                       );
                     })}
                   </div>
 
-                  {/* Security Policy Footer */}
-                  <div className="pt-10">
-                    <div className="p-10 bg-indigo-950 rounded-[40px] border border-slate-800 shadow-2xl flex flex-col md:flex-row items-center gap-10 text-white relative overflow-hidden">
-                      <div className="absolute top-0 right-0 p-8 opacity-10">
-                        <Shield size={120} />
-                      </div>
-                      <div className="w-16 h-16 bg-white/10 rounded-3xl flex items-center justify-center shrink-0 border border-white/10">
-                        <AlertCircle className="text-indigo-400" size={32} />
-                      </div>
-                      <div className="space-y-2 relative z-10">
-                        <p className="text-[11px] font-black text-indigo-400 uppercase tracking-[0.3em]">Security Enforcement</p>
-                        <h4 className="text-xl font-black tracking-tight leading-none mb-1">Authorization Context Notice</h4>
-                        <p className="text-xs font-bold text-slate-400 leading-relaxed max-w-2xl">
-                          Permissions granted here enable direct access to core JTS Support modules. Ensure that administrative privileges (Delete, Archive, Settings) are only assigned to verified personnel within the organization.
-                        </p>
-                      </div>
-                    </div>
+                  {/* Security Policy Strip */}
+                  <div className="p-2.5 bg-slate-900 text-white rounded-xl flex items-center gap-2 text-[9px] font-medium">
+                    <AlertCircle size={13} className="text-amber-400 shrink-0" />
+                    <p className="leading-snug text-slate-300">
+                      Permissions define workspace capabilities. Destructive actions (Delete, Archive) should only be assigned to verified personnel.
+                    </p>
                   </div>
                 </div>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

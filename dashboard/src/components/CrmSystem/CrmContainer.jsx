@@ -260,6 +260,8 @@ export default function CrmContainer({
   const [emailDraft, setEmailDraft] = useState({ subject: "", body: "" });
   const [sendingEmail, setSendingEmail] = useState(false);
   const sendingEmailRef = useRef(false);
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
+  const sendingWhatsAppRef = useRef(false);
 
   // -- Modal Lead Modal State --
   const [showCreateLead, setShowCreateLead] = useState(false);
@@ -725,7 +727,7 @@ export default function CrmContainer({
   };
 
   const onSendEmail = async (e) => {
-    e.preventDefault();
+    e?.preventDefault?.();
     if (sendingEmailRef.current) return;
     if (!selectedCustomer?._id || !emailDraft.subject.trim() || !emailDraft.body.trim()) return;
 
@@ -740,13 +742,51 @@ export default function CrmContainer({
         })
       });
       syncCustomerState(updated);
-      setActionMessage({ type: "success", text: "Email sent." });
+      setActionMessage({ type: "success", text: "Email sent directly." });
       setEmailDraft({ subject: "", body: "" }); // Clear draft fields on successful dispatch
+      return updated;
     } catch (err) {
       setActionMessage({ type: "error", text: "Email failed: " + (err.message || "Unknown error") });
+      throw err;
     } finally {
       setSendingEmail(false);
       sendingEmailRef.current = false;
+    }
+  };
+
+  const onSendWhatsApp = async ({ to, message, customerId }) => {
+    if (sendingWhatsAppRef.current) return;
+    const targetId = customerId || selectedCustomer?._id;
+    const targetPhone = to || selectedCustomer?.phone;
+    if (!targetPhone) {
+      throw new Error("Customer has no registered phone number.");
+    }
+    if (!message || !message.trim()) {
+      throw new Error("WhatsApp message body cannot be empty.");
+    }
+
+    sendingWhatsAppRef.current = true;
+    setSendingWhatsApp(true);
+    try {
+      const res = await api("/api/crm/communication/send-whatsapp", {
+        method: "POST",
+        body: JSON.stringify({
+          customerId: targetId,
+          to: targetPhone,
+          message: message.trim()
+        })
+      });
+      if (res?.customer) {
+        syncCustomerState(res.customer);
+      }
+      setActionMessage({ type: "success", text: `WhatsApp message dispatched directly to ${targetPhone}!` });
+      return res;
+    } catch (err) {
+      setActionMessage({ type: "error", text: "WhatsApp dispatch failed: " + (err.message || "Unknown error") });
+      throw err;
+    } finally {
+      setSendingWhatsApp(false);
+      sendingWhatsAppRef.current = false;
     }
   };
 
@@ -1757,6 +1797,8 @@ export default function CrmContainer({
         setEmailDraft={setEmailDraft}
         onSendEmail={onSendEmail}
         sendingEmail={sendingEmail}
+        onSendWhatsApp={onSendWhatsApp}
+        sendingWhatsApp={sendingWhatsApp}
         onGenerateCode={onGenerateCode}
         onUnlock={onUnlock}
         onPostWin={(updatedCustomer) => {

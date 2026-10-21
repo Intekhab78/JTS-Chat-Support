@@ -3,6 +3,7 @@ import * as webhookController from "../controllers/crmCommunicationWebhookContro
 import { WhatsAppProviderManager } from "../services/providers/whatsappProvider.js";
 import { TelegramProviderManager } from "../services/providers/telegramProvider.js";
 import { logCrmActivity } from "../services/activityLoggerService.js";
+import { Customer } from "../models/Customer.js";
 
 const router = Router();
 
@@ -29,7 +30,28 @@ router.post("/send-whatsapp", async (req, res) => {
       result = await provider.sendMessage({ to, message });
     }
 
+    let customer = null;
     if (customerId) {
+      try {
+        customer = await Customer.findById(customerId);
+        if (customer) {
+          customer.communications = customer.communications || [];
+          customer.communications.unshift({
+            type: "whatsapp",
+            direction: "outbound",
+            to,
+            body: message || `Template: ${templateName}`,
+            status: "sent",
+            sentBy: req.user?._id || null,
+            sentAt: new Date()
+          });
+          customer.lastInteraction = new Date();
+          await customer.save();
+        }
+      } catch (custErr) {
+        console.warn("[CRM] Could not log customer communication:", custErr.message);
+      }
+
       await logCrmActivity({
         type: "communication",
         title: `WhatsApp Message Dispatched to ${to}`,
@@ -42,7 +64,8 @@ router.post("/send-whatsapp", async (req, res) => {
     return res.json({
       success: true,
       result,
-      provider: "meta_cloud_api",
+      customer,
+      provider: result?.provider || "meta_cloud_api",
       mode: result?.mode || "live"
     });
   } catch (error) {

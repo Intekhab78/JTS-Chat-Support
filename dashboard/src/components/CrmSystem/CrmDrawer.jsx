@@ -61,6 +61,8 @@ export default function CrmDrawer({
   emailDraft,
   setEmailDraft,
   sendingEmail,
+  onSendWhatsApp,
+  sendingWhatsApp,
   onGenerateCode,
   onUnlock,
   onPostWin,
@@ -415,6 +417,8 @@ export default function CrmDrawer({
                     onSendEmail={onSendEmail}
                     sendingEmail={sendingEmail}
                     customer={selectedCustomer}
+                    onSendWhatsApp={onSendWhatsApp}
+                    sendingWhatsApp={sendingWhatsApp}
                   />
                 )}
                 {drawerTab === "notes" && (

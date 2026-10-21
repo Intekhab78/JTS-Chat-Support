@@ -204,83 +204,221 @@ export default function WebsiteManager() {
     </div>
   );
 
-  const PreviewWidget = ({ data }) => (
-    <div className="hidden lg:flex flex-col h-full w-full bg-slate-50 dark:bg-black/20 border border-slate-200/60 dark:border-white/5 rounded-[40px] relative overflow-hidden pt-8 px-8 transition-colors">
-      <div className="space-y-2 mb-6">
-        <h4 className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.3em] text-center">Real-Time Synthesis</h4>
-      </div>
-      <div className="flex-1 w-full bg-white dark:bg-slate-900 rounded-t-[32px] shadow-2xl border-t border-x border-slate-200 dark:border-white/5 relative overflow-hidden flex flex-col transition-colors">
-        {/* Browser Chrome */}
-        <div className="p-4 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-white/5 flex items-center gap-2 shrink-0">
-          <div className="w-2.5 h-2.5 rounded-full bg-red-400/50 shadow-inner"></div>
-          <div className="w-2.5 h-2.5 rounded-full bg-amber-400/50 shadow-inner"></div>
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-400/50 shadow-inner"></div>
-          <div className="ml-4 bg-white dark:bg-black/30 px-4 py-2 rounded-xl text-[9px] font-black text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-white/5 w-1/2 flex items-center gap-2 tracking-tight">
-            <Globe size={11} className="text-slate-300 dark:text-slate-700" /> {data.domain || 'yourdomain.com'}
+  const PreviewWidget = ({ data }) => {
+    const [previewMode, setPreviewMode] = useState("widget");
+
+    return (
+      <div className="hidden lg:flex flex-col h-full w-full bg-slate-50 dark:bg-slate-900/40 border border-slate-200/80 dark:border-white/10 rounded-xl relative overflow-hidden p-2.5 transition-colors">
+        {/* Top Header bar with status and mode switcher */}
+        <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-slate-200/80 dark:border-white/10">
+          <div className="flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <h4 className="text-[8.5px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">
+              Real-Time Synthesis
+            </h4>
           </div>
-        </div>
-        {/* Page Content Ghost */}
-        <div className="p-10 space-y-5 opacity-20 flex-1">
-          <div className="h-6 w-1/3 bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
-          <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
-          <div className="h-3 w-5/6 bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
-          <div className="h-3 w-4/6 bg-slate-100 dark:bg-slate-800 rounded-lg"></div>
+          <div className="flex items-center gap-1 bg-slate-200/60 dark:bg-slate-800 p-0.5 rounded-md text-[8px] font-bold">
+            <button
+              type="button"
+              onClick={() => setPreviewMode("widget")}
+              className={`px-1.5 py-0.5 rounded transition-all ${previewMode === "widget" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs" : "text-slate-400 hover:text-slate-600"}`}
+            >
+              Widget
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreviewMode("launcher")}
+              className={`px-1.5 py-0.5 rounded transition-all ${previewMode === "launcher" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs" : "text-slate-400 hover:text-slate-600"}`}
+            >
+              Bubble
+            </button>
+          </div>
         </div>
 
-        {/* Live Chat Widget */}
-        <div className="absolute bottom-4 right-4 flex flex-col items-end gap-3.5 z-10 w-[220px] pointer-events-none transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)]" style={{ filter: data.isActive ? 'none' : 'grayscale(1) opacity(0.6)' }}>
-          <div className="w-full bg-white dark:bg-slate-950 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.3)] rounded-[24px] overflow-hidden border border-slate-100 dark:border-white/5 flex flex-col transform transition-all hover:-translate-y-1 origin-bottom-right">
-            {/* Widget Header */}
-            <div className="p-4 transition-colors relative h-16 flex flex-col justify-center" style={{ backgroundColor: data.primaryColor }}>
-              <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/10 to-transparent pointer-events-none"></div>
-              <h5 className="text-white text-[11px] font-black drop-shadow-md uppercase tracking-tight truncate">{data.websiteName || 'New Brand'}</h5>
-              <div className="flex items-center gap-1 mt-0.5">
-                <div className="w-1 h-1 rounded-full bg-white animate-pulse" />
-                <p className="text-white/80 text-[8px] font-bold">Agents Active</p>
+        {/* Browser Mockup Window */}
+        <div className="flex-1 w-full bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-200/80 dark:border-white/10 relative overflow-hidden flex flex-col transition-colors min-h-[360px]">
+          {/* Browser Chrome Navbar */}
+          <div className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-white/10 flex items-center justify-between gap-2 shrink-0">
+            <div className="flex items-center gap-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-red-400"></div>
+              <div className="w-1.5 h-1.5 rounded-full bg-amber-400"></div>
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
+            </div>
+            <div className="bg-white dark:bg-slate-900 px-2 py-0.5 rounded text-[8.5px] font-mono text-slate-500 border border-slate-200/60 dark:border-white/10 flex-1 max-w-[180px] flex items-center gap-1 truncate">
+              <Globe size={9} className="text-slate-400 shrink-0" />
+              <span className="truncate">{data.domain || 'yourdomain.com'}</span>
+            </div>
+            <div className="w-8"></div>
+          </div>
+
+          {/* Browser Content (Realistic Mock Webpage to remove empty gaps) */}
+          <div className="p-3 space-y-2.5 flex-1 overflow-hidden select-none opacity-85">
+            {/* Header Ghost */}
+            <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-1">
+                <div className="w-2.5 h-2.5 rounded bg-indigo-500" />
+                <div className="w-12 h-1.5 rounded bg-slate-300 dark:bg-slate-700" />
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-1 rounded bg-slate-200 dark:bg-slate-700" />
+                <div className="w-6 h-1 rounded bg-slate-200 dark:bg-slate-700" />
+                <div className="w-8 h-2.5 rounded bg-slate-900 dark:bg-white/80" />
               </div>
             </div>
-            {/* Widget Messages */}
-            <div className="p-4 bg-[#f8fafc] dark:bg-black/30 space-y-3 min-h-[110px] border-b border-indigo-50/10 transition-colors">
-              <div className="flex items-start gap-2 animate-in fade-in slide-in-from-bottom-2 duration-700">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] text-white shadow-lg transition-all shrink-0 border border-white/10" style={{ backgroundColor: data.primaryColor }}>
-                  {data.launcherIcon}
-                </div>
-                <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/5 p-2.5 rounded-xl rounded-tl-sm text-[10px] text-slate-700 dark:text-slate-200 shadow-sm leading-relaxed font-bold">
-                  Initiating support protocol...
-                </div>
+
+            {/* Hero Section */}
+            <div className="space-y-1.5 pt-0.5">
+              <div className="w-16 h-2 rounded-full bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-800" />
+              <div className="w-36 h-2.5 rounded bg-slate-800 dark:bg-white/90" />
+              <div className="w-28 h-1.5 rounded bg-slate-300 dark:bg-slate-700" />
+              <div className="flex gap-1.5 pt-1">
+                <div className="w-10 h-3 rounded bg-indigo-600" />
+                <div className="w-10 h-3 rounded border border-slate-200 dark:border-slate-700" />
               </div>
             </div>
-            {/* Widget Input Mock */}
-            <div className="p-3 bg-white dark:bg-slate-950 flex gap-2 items-center transition-colors">
-              <div className="flex-1 bg-slate-50 dark:bg-black/20 rounded-lg p-2 text-[9px] text-slate-400 dark:text-slate-600 border border-slate-100 dark:border-white/5 font-bold">Type a message...</div>
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white shadow-lg transition-all" style={{ backgroundColor: data.primaryColor }}>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+
+            {/* 2-Card Feature Grid */}
+            <div className="grid grid-cols-2 gap-1.5 pt-1">
+              <div className="p-1.5 rounded-md border border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 space-y-1">
+                <div className="w-2.5 h-2.5 rounded bg-emerald-500/20" />
+                <div className="w-14 h-1.5 rounded bg-slate-300 dark:bg-slate-700" />
+                <div className="w-10 h-1 rounded bg-slate-200 dark:bg-slate-800" />
+              </div>
+              <div className="p-1.5 rounded-md border border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 space-y-1">
+                <div className="w-2.5 h-2.5 rounded bg-indigo-500/20" />
+                <div className="w-14 h-1.5 rounded bg-slate-300 dark:bg-slate-700" />
+                <div className="w-10 h-1 rounded bg-slate-200 dark:bg-slate-800" />
+              </div>
+            </div>
+
+            {/* Stats row */}
+            <div className="flex items-center gap-3 pt-1 text-[7.5px] font-bold text-slate-400">
+              <div className="flex items-center gap-1">
+                <div className="w-1 h-1 rounded-full bg-emerald-500" />
+                <span>99.9% Uptime</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-1 h-1 rounded-full bg-indigo-500" />
+                <span>24/7 AI Support</span>
               </div>
             </div>
           </div>
 
-          {/* Launcher Button */}
-          <div className="w-12 h-12 rounded-[16px] shadow-xl flex items-center justify-center text-xl text-white transition-all hover:scale-110 duration-500 border-2 border-white dark:border-slate-800 shrink-0 animate-in zoom-in duration-500" style={{ backgroundColor: data.primaryColor }}>
-            <span className="drop-shadow-lg">{data.launcherIcon}</span>
+          {/* Live Chat Widget / Launcher in Bottom Right */}
+          <div
+            className="absolute bottom-2 right-2 z-10 transition-all duration-300"
+            style={{ filter: data.isActive ? 'none' : 'grayscale(1) opacity(0.6)' }}
+          >
+            {previewMode === "widget" ? (
+              <div className="w-[215px] bg-white dark:bg-slate-950 shadow-xl rounded-xl overflow-hidden border border-slate-200/80 dark:border-white/10 flex flex-col animate-in zoom-in-95 duration-200">
+                {/* Widget Header */}
+                <div
+                  className="px-2.5 py-2 transition-colors relative flex items-center justify-between"
+                  style={{ backgroundColor: data.primaryColor }}
+                >
+                  <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/15 to-transparent pointer-events-none"></div>
+                  <div className="flex items-center gap-1.5 relative z-10 min-w-0">
+                    <div className="w-5 h-5 rounded-md bg-white/20 backdrop-blur-md flex items-center justify-center text-[10px] text-white shadow-xs shrink-0 border border-white/20">
+                      {data.launcherIcon}
+                    </div>
+                    <div className="min-w-0">
+                      <h5 className="text-white text-[9.5px] font-black drop-shadow-xs uppercase tracking-tight truncate">
+                        {data.websiteName || 'New Brand'}
+                      </h5>
+                      <div className="flex items-center gap-1">
+                        <div className="w-1 h-1 rounded-full bg-white animate-pulse" />
+                        <p className="text-white/85 text-[7px] font-bold">Agents Active</p>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewMode("launcher")}
+                    className="relative z-10 text-white/80 hover:text-white text-[10px] font-bold px-1"
+                    title="Minimize"
+                  >
+                    ─
+                  </button>
+                </div>
+
+                {/* Widget Messages */}
+                <div className="p-2 bg-[#f8fafc] dark:bg-black/30 space-y-1.5 border-b border-indigo-50/10 transition-colors">
+                  <div className="flex items-start gap-1.5">
+                    <div
+                      className="w-4 h-4 rounded-md flex items-center justify-center text-[8px] text-white shadow-xs shrink-0 mt-0.5"
+                      style={{ backgroundColor: data.primaryColor }}
+                    >
+                      {data.launcherIcon}
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-white/10 p-1.5 rounded-lg rounded-tl-none text-[8.5px] text-slate-700 dark:text-slate-200 shadow-2xs font-medium leading-snug">
+                      {data.welcomeMessage || "Hi there! How can we help you today?"}
+                    </div>
+                  </div>
+                  {/* Quick suggestion chips */}
+                  <div className="flex flex-wrap gap-1 pl-5">
+                    <span className="px-1.5 py-0.5 rounded text-[7.5px] font-bold bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-white/10 text-slate-600 dark:text-slate-300 shadow-2xs">
+                      💬 Talk to Agent
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded text-[7.5px] font-bold bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-white/10 text-slate-600 dark:text-slate-300 shadow-2xs">
+                      🎫 New Ticket
+                    </span>
+                  </div>
+                </div>
+
+                {/* Widget Input Mock */}
+                <div className="p-1.5 bg-white dark:bg-slate-950 flex gap-1.5 items-center transition-colors">
+                  <div className="flex-1 bg-slate-50 dark:bg-slate-900 rounded-md px-2 py-1 text-[8px] text-slate-400 border border-slate-100 dark:border-white/5 font-medium">
+                    Type a message...
+                  </div>
+                  <div
+                    className="w-5 h-5 rounded-md flex items-center justify-center text-white shadow-xs shrink-0"
+                    style={{ backgroundColor: data.primaryColor }}
+                  >
+                    <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="22" y1="2" x2="11" y2="13"></line>
+                      <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setPreviewMode("widget")}
+                className="w-9 h-9 rounded-xl shadow-lg flex items-center justify-center text-sm text-white border border-white dark:border-slate-800 transition-transform hover:scale-110 active:scale-95 animate-in zoom-in-95 duration-200"
+                style={{ backgroundColor: data.primaryColor }}
+                title="Click to open widget preview"
+              >
+                <span className="drop-shadow-xs">{data.launcherIcon}</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   if (customizingWebsite) {
     return (
-      <div className="space-y-10 animate-in fade-in duration-1000">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="heading-xl dark:text-white">Design System</h2>
-            <p className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-2">Customizing <span className="text-indigo-500">{customizingWebsite.websiteName}</span></p>
+      <div className="space-y-3.5 animate-in fade-in duration-300">
+        <div className="flex items-center justify-between bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 rounded-xl p-3 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+              <Palette size={14} />
+            </div>
+            <div>
+              <h2 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Widget Design System</h2>
+              <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">
+                Customizing <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">{customizingWebsite.websiteName}</span>
+              </p>
+            </div>
           </div>
           <button
             onClick={() => setCustomizingWebsite(null)}
-            className="w-14 h-14 rounded-[24px] bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-white/5 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 hover:border-red-100 dark:hover:border-red-500/20 transition-all hover:rotate-90 hover:scale-110 shadow-sm"
+            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-all"
+            title="Close Customizer"
           >
-            <X size={24} />
+            <X size={15} />
           </button>
         </div>
         <WidgetCustomizer
@@ -338,99 +476,110 @@ export default function WebsiteManager() {
   }
 
   return (
-    <div className="space-y-12 animate-in slide-in-from-bottom-4 duration-700">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
-        <div className="space-y-1.5">
-          <h3 className="heading-md dark:text-white">Multi-Domain Ecosystem</h3>
-          <p className="small-label dark:text-slate-500">Securely monitor registered domains and manage cryptographic widget credentials.</p>
+    <div className="space-y-3.5 animate-in slide-in-from-bottom-2 duration-300">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 rounded-xl p-3 shadow-xs">
+        <div className="space-y-0.5">
+          <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
+            <Globe size={14} className="text-indigo-600 dark:text-indigo-400" />
+            <span>Multi-Domain Ecosystem</span>
+          </h3>
+          <p className="text-[10px] text-slate-400 font-medium">Securely monitor registered domains and manage cryptographic widget credentials.</p>
         </div>
         <button
           onClick={() => isAdding ? handleCancel() : setIsAdding(true)}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-5 rounded-[24px] font-black text-[11px] uppercase tracking-[0.3em] transition-all shadow-2xl shadow-indigo-500/20 flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98]"
+          className="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-1.5 rounded-lg font-black text-[10px] uppercase tracking-wider transition-all shadow-xs flex items-center justify-center gap-1.5 self-start sm:self-auto shrink-0"
         >
-          {isAdding ? <X size={18} /> : <Plus size={18} />}
+          {isAdding ? <X size={13} /> : <Plus size={13} />}
           {isAdding ? "Cancel Operation" : "Deploy New Terminal"}
         </button>
       </div>
 
       {isAdding && createPortal(
-        <div className="fixed inset-0 z-[9999] p-4 sm:p-6 lg:p-10 flex items-center justify-center pointer-events-none">
+        <div className="fixed inset-0 z-[9999] p-2 sm:p-4 flex items-center justify-center pointer-events-none">
           <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md pointer-events-auto" onClick={handleCancel} />
-          <div className="relative z-10 pointer-events-auto w-full max-w-6xl bg-white dark:bg-slate-900 rounded-[40px] shadow-2xl border border-slate-100 dark:border-white/5 flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="flex justify-between items-center px-8 py-5 border-b border-slate-100 dark:border-white/5 shrink-0 bg-slate-50/50 dark:bg-black/20">
-              <div>
-                <h3 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight">
-                  {editingId ? `Configure Website: ${formData.websiteName || formData.domain}` : "Deploy New Terminal"}
-                </h3>
-                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">
-                  Manage domain credentials, module entitlements & widget settings
-                </p>
+          <div className="relative z-10 pointer-events-auto w-full max-w-5xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/80 dark:border-white/10 flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center px-4 py-2.5 border-b border-slate-200/80 dark:border-white/10 shrink-0 bg-slate-50/80 dark:bg-slate-900/80">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                  <Globe size={14} />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                    {editingId ? `Configure Website: ${formData.websiteName || formData.domain}` : "Deploy New Terminal"}
+                  </h3>
+                  <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    Manage domain credentials, module entitlements &amp; widget settings
+                  </p>
+                </div>
               </div>
-              <button type="button" onClick={handleCancel} className="p-3 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-all">
-                <X size={20} />
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all"
+              >
+                <X size={15} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-8 md:p-12 overflow-y-auto custom-scrollbar flex-1">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
+            <form onSubmit={handleSubmit} className="p-3.5 sm:p-4 overflow-y-auto custom-scrollbar flex-1 space-y-3.5">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
                 {/* Left Segment: Form Inputs */}
-                <div className="lg:col-span-7 space-y-10">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    <div className="space-y-8">
-                      <div className="space-y-3">
-                        <label className="small-label dark:text-slate-400">Terminal Identity (Name)</label>
-                        <input
-                          value={formData.websiteName}
-                          onChange={(e) => setFormData({ ...formData, websiteName: e.target.value })}
-                          className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-6 py-4.5 text-xs font-black focus:border-indigo-500/50 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-800 dark:text-white shadow-inner"
-                          placeholder="Platform Alpha"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-3">
-                        <label className="small-label dark:text-slate-400">Domain Authority (URL)</label>
-                        <input
-                          value={formData.domain}
-                          onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
-                          className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-6 py-4.5 text-xs font-black focus:border-indigo-500/50 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-800 dark:text-white shadow-inner"
-                          placeholder="alpha.enterprise.com"
-                          required
-                        />
-                      </div>
+                <div className="lg:col-span-7 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div className="space-y-1">
+                      <label className="text-[8.5px] font-black uppercase tracking-wider text-slate-400">Terminal Identity (Name)</label>
+                      <input
+                        value={formData.websiteName}
+                        onChange={(e) => setFormData({ ...formData, websiteName: e.target.value })}
+                        className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-bold focus:border-indigo-500 outline-none transition-all placeholder:text-slate-400 dark:text-white"
+                        placeholder="Platform Alpha"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[8.5px] font-black uppercase tracking-wider text-slate-400">Domain Authority (URL)</label>
+                      <input
+                        value={formData.domain}
+                        onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
+                        className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-bold focus:border-indigo-500 outline-none transition-all placeholder:text-slate-400 dark:text-white"
+                        placeholder="alpha.enterprise.com"
+                        required
+                      />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    <div className="space-y-4">
-                      <label className="small-label dark:text-slate-400">Primary Color Vector</label>
-                      <div className="flex flex-wrap gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div className="space-y-1">
+                      <label className="text-[8.5px] font-black uppercase tracking-wider text-slate-400">Primary Color Vector</label>
+                      <div className="flex flex-wrap gap-1.5 pt-0.5">
                         {COLOR_PRESETS.map((preset) => (
                           <button
                             key={preset.name}
                             type="button"
                             onClick={() => setFormData({ ...formData, primaryColor: preset.primary, accentColor: preset.accent })}
-                            className={`w-11 h-11 rounded-2xl border-[4px] transition-all hover:scale-110 active:scale-90 ${formData.primaryColor === preset.primary ? 'border-slate-900 dark:border-white scale-110 shadow-2xl' : 'border-transparent dark:border-white/5 shadow-sm'}`}
+                            className={`w-6 h-6 rounded-lg border-2 transition-all hover:scale-110 ${formData.primaryColor === preset.primary ? 'border-slate-900 dark:border-white scale-110 shadow-sm' : 'border-transparent'}`}
                             style={{ backgroundColor: preset.primary }}
                             title={preset.name}
                           />
                         ))}
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-6">
-                      <div className="space-y-3">
-                        <label className="small-label dark:text-slate-400">Launcher Icon</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-[8.5px] font-black uppercase tracking-wider text-slate-400">Launcher Icon</label>
                         <input
                           value={formData.launcherIcon}
                           onChange={(e) => setFormData({ ...formData, launcherIcon: e.target.value })}
-                          className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-6 py-4.5 text-xs font-black text-center"
+                          className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10 rounded-lg px-2 py-1.5 text-xs font-bold text-center dark:text-white outline-none"
                         />
                       </div>
-                      <div className="space-y-3">
-                        <label className="small-label dark:text-slate-400">Status</label>
+                      <div className="space-y-1">
+                        <label className="text-[8.5px] font-black uppercase tracking-wider text-slate-400">Status</label>
                         <button
                           type="button"
                           onClick={() => setFormData({ ...formData, isActive: !formData.isActive })}
-                          className={`w-full py-4.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all ${formData.isActive ? 'bg-emerald-50 text-emerald-600 border-2 border-emerald-200' : 'bg-rose-50 text-rose-600 border-2 border-rose-200'}`}
+                          className={`w-full py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border ${formData.isActive ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20' : 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20'}`}
                         >
                           {formData.isActive ? "Active" : "Inactive"}
                         </button>
@@ -438,46 +587,47 @@ export default function WebsiteManager() {
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <label className="small-label dark:text-slate-400">Welcome Message Prompt</label>
+                  <div className="space-y-1">
+                    <label className="text-[8.5px] font-black uppercase tracking-wider text-slate-400">Welcome Message Prompt</label>
                     <textarea
                       value={formData.welcomeMessage}
                       onChange={(e) => setFormData({ ...formData, welcomeMessage: e.target.value })}
-                      rows={3}
-                      className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl p-6 text-xs font-bold focus:border-indigo-500/50 outline-none transition-all"
+                      rows={2}
+                      className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10 rounded-lg p-2 text-xs font-medium focus:border-indigo-500 outline-none transition-all dark:text-white resize-none"
                     />
                   </div>
 
-                  <div className="pt-10 border-t border-slate-50 dark:border-white/5 space-y-6">
+                  {/* Enterprise Modules */}
+                  <div className="pt-2.5 border-t border-slate-100 dark:border-white/5 space-y-2">
                     <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <label className="small-label dark:text-slate-400 flex items-center gap-2">
-                          Enterprise Modules & Navigation Features
+                      <div className="space-y-0.5">
+                        <label className="text-[9.5px] font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
+                          Enterprise Modules &amp; Entitlements
                           {!isAdmin && (
-                            <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border border-amber-200 dark:border-amber-500/20">
-                              <Lock size={10} /> Superadmin Managed
+                            <span className="inline-flex items-center gap-0.5 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 px-1.5 py-0.2 rounded text-[8px] font-black uppercase tracking-wider border border-amber-200 dark:border-amber-500/20">
+                              <Lock size={9} /> Managed
                             </span>
                           )}
                         </label>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">
+                        <p className="text-[8.5px] text-slate-400">
                           {isAdmin 
-                            ? "Enable or disable specific modules for this domain (e.g. Turn OFF UAE Compliance Suite for pure Product Sales clients)."
-                            : "SaaS Enterprise Module Entitlements are locked & configured by your Superadmin based on your subscription plan."
+                            ? "Configure active modules for this domain terminal."
+                            : "Enterprise entitlements configured by your superadmin."
                           }
                         </p>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {[
                         { key: "enableChat", label: "Live Chat Widget" },
                         { key: "enableLeadGeneration", label: "Lead Gen (CRM)" },
                         { key: "enableTicketing", label: "Helpdesk Tickets" },
                         { key: "enableKnowledgeBase", label: "Help Center" },
-                        { module: "compliance", label: "UAE Compliance Suite (VAT)" },
+                        { module: "compliance", label: "UAE Compliance (VAT)" },
                         { module: "finance", label: "Finance & Invoicing" },
                         { module: "operations", label: "Operations & Catalog" },
                         { module: "service", label: "Service & Care Inbox" },
-                        { module: "automation", label: "Workflows & AI Platform" },
+                        { module: "automation", label: "Workflows & AI" },
                       ]
                       .filter((feat) => {
                         const isModule = !!feat.module;
@@ -485,7 +635,6 @@ export default function WebsiteManager() {
                           ? (formData.enabledModules || []).includes(feat.module)
                           : (formData[feat.key] !== false);
 
-                        // If not superadmin, do not display modules that are disabled/unsubscribed
                         if (!isAdmin && isModule && !isEnabled) {
                           return false;
                         }
@@ -518,15 +667,15 @@ export default function WebsiteManager() {
                             type="button"
                             disabled={isLockedForClient}
                             onClick={toggleFunc}
-                            className={`flex flex-col items-start gap-3 p-4 rounded-[20px] border-2 transition-all relative ${isLockedForClient ? 'cursor-not-allowed opacity-75' : 'hover:scale-[1.02]'} ${isEnabled ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-50 dark:bg-black/20 border-slate-100 dark:border-white/5 opacity-60'}`}
+                            className={`flex items-center justify-between gap-1.5 p-2 rounded-lg border transition-all text-left ${isLockedForClient ? 'cursor-not-allowed opacity-75' : 'hover:scale-[1.01]'} ${isEnabled ? 'bg-emerald-50/80 dark:bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200/80 dark:border-white/10 opacity-60'}`}
                           >
-                            <div className="flex items-center justify-between w-full">
-                              <div className={`w-3 h-3 rounded-full ${isEnabled ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-300 dark:bg-slate-700'}`} />
-                              {isLockedForClient && <Lock size={12} className="text-slate-400" />}
-                            </div>
-                            <span className={`text-[10px] font-black uppercase tracking-widest ${isEnabled ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400'}`}>
+                            <span className={`text-[9px] font-black uppercase tracking-wider truncate ${isEnabled ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400'}`}>
                               {feat.label}
                             </span>
+                            <div className="flex items-center gap-1 shrink-0">
+                              {isLockedForClient && <Lock size={10} className="text-slate-400" />}
+                              <div className={`w-2 h-2 rounded-full ${isEnabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'}`} />
+                            </div>
                           </button>
                         );
                       })}
@@ -534,145 +683,139 @@ export default function WebsiteManager() {
                   </div>
 
                   {/* AI Voice Call Ticketing Strategy */}
-                  <div className="pt-6 border-t border-slate-50 dark:border-white/5 space-y-4">
+                  <div className="pt-2.5 border-t border-slate-100 dark:border-white/5 space-y-1.5">
                     <div>
-                      <h4 className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                      <h4 className="text-[9.5px] font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
                         <span>🎙️</span> AI Voice Call Ticketing Strategy
                       </h4>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                        Control whether every AI voice call creates a ticket or only when human follow-up is requested.
+                      <p className="text-[8.5px] text-slate-400">
+                        Control whether every AI voice call creates a ticket or only on human action.
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => setFormData({ ...formData, autoCreateVoiceTicket: false })}
-                        className={`p-4 rounded-[20px] border-2 text-left transition-all ${!formData.autoCreateVoiceTicket ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-500/40 shadow-lg' : 'bg-slate-50 dark:bg-black/20 border-slate-100 dark:border-white/5 opacity-60'}`}
+                        className={`p-2 rounded-lg border text-left transition-all ${!formData.autoCreateVoiceTicket ? 'bg-indigo-50/80 dark:bg-indigo-500/10 border-indigo-500/40 shadow-xs' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200/80 dark:border-white/10 opacity-60'}`}
                       >
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
-                            🎯 Smart Intent Mode (Recommended)
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-[9.5px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                            🎯 Smart Intent Mode
                           </span>
-                          {!formData.autoCreateVoiceTicket && <Check size={14} className="text-indigo-600" />}
+                          {!formData.autoCreateVoiceTicket && <Check size={12} className="text-indigo-600" />}
                         </div>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                          Tickets created ONLY when human action / callback / quotation is requested. Prevents FAQ ticket spam.
+                        <p className="text-[8.5px] text-slate-500 dark:text-slate-400 leading-snug">
+                          Tickets created ONLY when human action / quotation requested.
                         </p>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setFormData({ ...formData, autoCreateVoiceTicket: true })}
-                        className={`p-4 rounded-[20px] border-2 text-left transition-all ${formData.autoCreateVoiceTicket ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-500/40 shadow-lg' : 'bg-slate-50 dark:bg-black/20 border-slate-100 dark:border-white/5 opacity-60'}`}
+                        className={`p-2 rounded-lg border text-left transition-all ${formData.autoCreateVoiceTicket ? 'bg-amber-50/80 dark:bg-amber-500/10 border-amber-500/40 shadow-xs' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200/80 dark:border-white/10 opacity-60'}`}
                       >
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-[9.5px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
                             🎫 Always Create Tickets
                           </span>
-                          {formData.autoCreateVoiceTicket && <Check size={14} className="text-amber-600" />}
+                          {formData.autoCreateVoiceTicket && <Check size={12} className="text-amber-600" />}
                         </div>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                          Automatically generates a support ticket for EVERY voice call, even simple resolved inquiries.
+                        <p className="text-[8.5px] text-slate-500 dark:text-slate-400 leading-snug">
+                          Automatically generates a support ticket for EVERY voice call.
                         </p>
                       </button>
                     </div>
                   </div>
 
-                  {/* Voice Customization & Real-Time Alerts */}
-                  <div className="pt-6 border-t border-slate-50 dark:border-white/5 space-y-4">
+                  {/* Voice Customization & Alerts */}
+                  <div className="pt-2.5 border-t border-slate-100 dark:border-white/5 space-y-2">
                     <div>
-                      <h4 className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                        <span>🔊</span> AI Voice Customization & WhatsApp/SMS Alerts
+                      <h4 className="text-[9.5px] font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                        <span>🔊</span> AI Voice Persona &amp; Mobile Alerts
                       </h4>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                        Configure AI voice persona (gender & speed) and mobile alert notifications.
-                      </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {/* Voice Gender */}
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">AI Voice Persona</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-[8.5px] font-black text-slate-400 uppercase tracking-wider">Voice Persona</label>
                         <select
                           value={formData.voiceSettings?.gender || "female"}
                           onChange={(e) => setFormData({ ...formData, voiceSettings: { ...formData.voiceSettings, gender: e.target.value } })}
-                          className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-xs font-bold text-slate-900 dark:text-white"
+                          className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10 rounded-lg p-1.5 text-xs font-bold text-slate-900 dark:text-white outline-none"
                         >
-                          <option value="female">👧 Natural Female Voice</option>
-                          <option value="male">👨 Professional Male Voice</option>
+                          <option value="female">👧 Natural Female</option>
+                          <option value="male">👨 Professional Male</option>
                         </select>
                       </div>
 
-                      {/* Speech Speed */}
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Speech Speed Rate</label>
+                      <div className="space-y-1">
+                        <label className="text-[8.5px] font-black text-slate-400 uppercase tracking-wider">Speech Speed</label>
                         <select
                           value={formData.voiceSettings?.speed || 1.0}
                           onChange={(e) => setFormData({ ...formData, voiceSettings: { ...formData.voiceSettings, speed: parseFloat(e.target.value) } })}
-                          className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-xs font-bold text-slate-900 dark:text-white"
+                          className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10 rounded-lg p-1.5 text-xs font-bold text-slate-900 dark:text-white outline-none"
                         >
-                          <option value={0.85}>🐢 0.85x (Calm & Clear)</option>
-                          <option value={1.0}>⚡ 1.0x (Normal Pace)</option>
-                          <option value={1.15}>🚀 1.15x (Fast Pace)</option>
+                          <option value={0.85}>🐢 0.85x (Calm)</option>
+                          <option value={1.0}>⚡ 1.0x (Normal)</option>
+                          <option value={1.15}>🚀 1.15x (Fast)</option>
                         </select>
                       </div>
 
-                      {/* Alert Mobile Phone */}
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Alert Mobile Number</label>
+                      <div className="space-y-1">
+                        <label className="text-[8.5px] font-black text-slate-400 uppercase tracking-wider">Alert Phone</label>
                         <input
                           type="text"
                           placeholder="+971-50-9876543"
                           value={formData.voiceSettings?.alertPhoneNumber || ""}
                           onChange={(e) => setFormData({ ...formData, voiceSettings: { ...formData.voiceSettings, alertPhoneNumber: e.target.value } })}
-                          className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-xs font-bold text-slate-900 dark:text-white"
+                          className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10 rounded-lg p-1.5 text-xs font-bold text-slate-900 dark:text-white outline-none"
                         />
                       </div>
                     </div>
 
-                    {/* Alert Toggles */}
-                    <div className="flex flex-wrap gap-4 pt-2">
-                      <label className="flex items-center gap-2 cursor-pointer bg-slate-50 dark:bg-black/20 px-4 py-2.5 rounded-xl border border-slate-100 dark:border-white/5">
+                    <div className="flex flex-wrap gap-2 pt-0.5">
+                      <label className="flex items-center gap-1.5 cursor-pointer bg-slate-50 dark:bg-slate-800/60 px-2.5 py-1.5 rounded-lg border border-slate-200/80 dark:border-white/10">
                         <input
                           type="checkbox"
                           checked={formData.voiceSettings?.enableWhatsAppAlerts !== false}
                           onChange={(e) => setFormData({ ...formData, voiceSettings: { ...formData.voiceSettings, enableWhatsAppAlerts: e.target.checked } })}
                           className="rounded text-emerald-500"
                         />
-                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">📲 WhatsApp Alerts</span>
+                        <span className="text-[9px] font-bold text-slate-700 dark:text-slate-300">📲 WhatsApp Alerts</span>
                       </label>
 
-                      <label className="flex items-center gap-2 cursor-pointer bg-slate-50 dark:bg-black/20 px-4 py-2.5 rounded-xl border border-slate-100 dark:border-white/5">
+                      <label className="flex items-center gap-1.5 cursor-pointer bg-slate-50 dark:bg-slate-800/60 px-2.5 py-1.5 rounded-lg border border-slate-200/80 dark:border-white/10">
                         <input
                           type="checkbox"
                           checked={formData.voiceSettings?.enableSmsAlerts !== false}
                           onChange={(e) => setFormData({ ...formData, voiceSettings: { ...formData.voiceSettings, enableSmsAlerts: e.target.checked } })}
                           className="rounded text-indigo-500"
                         />
-                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">💬 SMS Text Alerts</span>
+                        <span className="text-[9px] font-bold text-slate-700 dark:text-slate-300">💬 SMS Text Alerts</span>
                       </label>
                     </div>
                   </div>
 
-                  <div className="pt-10 border-t border-slate-50 dark:border-white/5 space-y-6">
+                  {/* Webhooks */}
+                  <div className="pt-2.5 border-t border-slate-100 dark:border-white/5 space-y-2">
                     <div className="flex items-center justify-between">
                       <div>
-                        <label className="small-label dark:text-slate-400">Webhooks</label>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Receive `ticket.created`, `ticket.updated`, `chat.closed`, and `chat.assigned` events.</p>
+                        <label className="text-[9.5px] font-black uppercase tracking-wider text-slate-900 dark:text-white">Webhooks</label>
+                        <p className="text-[8.5px] text-slate-400">Receive real-time ticket and chat events.</p>
                       </div>
                       <button
                         type="button"
                         onClick={() => setFormData({ ...formData, webhooks: [...(formData.webhooks || []), { url: "", secret: "", events: ["ticket.created"] }] })}
-                        className="bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest"
+                        className="bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-colors"
                       >
                         Add Webhook
                       </button>
                     </div>
-                    <div className="space-y-4">
+                    <div className="space-y-2">
                       {(formData.webhooks || []).map((hook, idx) => (
-                        <div key={idx} className="rounded-[28px] border border-slate-100 p-5 dark:border-white/5">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div key={idx} className="rounded-lg border border-slate-200/80 dark:border-white/10 p-2.5 space-y-1.5 bg-slate-50/50 dark:bg-slate-800/40">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <input
                               value={hook.url}
                               onChange={(e) => {
@@ -680,8 +823,8 @@ export default function WebsiteManager() {
                                 webhooks[idx] = { ...webhooks[idx], url: e.target.value };
                                 setFormData({ ...formData, webhooks });
                               }}
-                              placeholder="https://example.com/webhooks/support"
-                              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-2xl px-4 py-3 text-xs font-bold"
+                              placeholder="https://example.com/webhooks"
+                              className="w-full bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-bold outline-none"
                             />
                             <input
                               value={hook.secret || ""}
@@ -691,7 +834,7 @@ export default function WebsiteManager() {
                                 setFormData({ ...formData, webhooks });
                               }}
                               placeholder="Signing secret"
-                              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-2xl px-4 py-3 text-xs font-bold"
+                              className="w-full bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-bold outline-none"
                             />
                           </div>
                           <input
@@ -702,23 +845,23 @@ export default function WebsiteManager() {
                               setFormData({ ...formData, webhooks });
                             }}
                             placeholder="ticket.created, ticket.updated"
-                            className="mt-4 w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-2xl px-4 py-3 text-xs font-bold"
+                            className="w-full bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-bold outline-none"
                           />
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="pt-10 border-t border-slate-50 dark:border-white/5">
-                    <button type="submit" className="w-full bg-slate-950 dark:bg-indigo-600 hover:bg-black dark:hover:bg-indigo-500 text-white font-black text-[11px] uppercase tracking-[0.4em] py-6 rounded-[24px] shadow-2xl transition-all hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-4">
-                      <Check size={20} />
-                      {editingId ? "Update Configuration" : "Finalize Ecosystem Deployment"}
+                  <div className="pt-2">
+                    <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider py-2.5 rounded-lg shadow-xs transition-all flex items-center justify-center gap-2">
+                      <Check size={14} />
+                      <span>{editingId ? "Update Configuration" : "Finalize Ecosystem Deployment"}</span>
                     </button>
                   </div>
                 </div>
 
                 {/* Right Segment: Live Preview */}
-                <div className="lg:col-span-5 h-[640px]">
+                <div className="lg:col-span-5 h-[460px]">
                   <PreviewWidget data={formData} />
                 </div>
               </div>
@@ -729,39 +872,43 @@ export default function WebsiteManager() {
       )}
 
       {error && (
-        <div className="bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/20 text-red-600 dark:text-red-400 px-8 py-5 rounded-[24px] text-[11px] font-black uppercase tracking-widest shadow-xl animate-in shake duration-500">
+        <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs">
           Neural Interface Error: {error}
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-10">
+      <div className="grid grid-cols-1 gap-3">
         {getPaginationMeta(websites, page).pageItems.map((website) => (
-          <div key={website._id} className={`premium-card p-0 overflow-hidden group hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.2)] transition-all duration-700 bg-white dark:bg-slate-900 border-2 ${website.isActive !== false ? 'border-transparent dark:border-white/5 hover:border-indigo-100 dark:hover:border-indigo-500/30' : 'border-slate-100 dark:border-white/5 opacity-70 grayscale hover:grayscale-0'}`}>
-            <div className="p-10 border-b border-slate-50 dark:border-white/5 flex flex-col xl:flex-row xl:items-center justify-between gap-8 relative transition-colors">
-              {website.isActive === false && <div className="absolute inset-0 bg-slate-50/40 dark:bg-black/40 z-0"></div>}
+          <div key={website._id} className={`rounded-xl overflow-hidden shadow-xs bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 transition-all ${website.isActive !== false ? 'hover:border-indigo-400/50 dark:hover:border-indigo-500/30' : 'opacity-70 grayscale hover:grayscale-0'}`}>
+            
+            {/* Card Header Bar */}
+            <div className="p-3 sm:p-3.5 border-b border-slate-100 dark:border-white/5 flex flex-col xl:flex-row xl:items-center justify-between gap-3 relative transition-colors">
+              {website.isActive === false && <div className="absolute inset-0 bg-slate-50/40 dark:bg-black/40 z-0" />}
 
-              <div className="flex items-center gap-8 relative z-10 transition-transform group-hover:translate-x-1 duration-500">
+              <div className="flex items-center gap-3 relative z-10">
                 <div
-                  className="w-20 h-20 rounded-[28px] flex items-center justify-center text-4xl shadow-2xl transition-all group-hover:rotate-6 shrink-0 border border-white/10"
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-xs shrink-0 border border-white/10"
                   style={{ backgroundColor: website.primaryColor, color: '#fff' }}
                 >
-                  <Globe size={32} />
+                  <Globe size={18} />
                 </div>
-                <div className="space-y-2.5">
-                  <div className="flex items-center gap-4">
-                    <h4 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter leading-none group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{website.websiteName}</h4>
-                    <span className={`px-3 py-1 text-[9px] font-black uppercase tracking-[0.2em] rounded-lg shadow-sm ${website.isActive !== false ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}>
+                <div className="space-y-0.5 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight leading-snug truncate">
+                      {website.websiteName}
+                    </h4>
+                    <span className={`px-1.5 py-0.2 text-[8.5px] font-black uppercase tracking-wider rounded ${website.isActive !== false ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}>
                       {website.isActive !== false ? 'Live' : 'Paused'}
                     </span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 font-black uppercase tracking-widest flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-[10px] text-slate-400 font-mono font-medium flex items-center gap-1 truncate">
                       {website.domain}
                     </p>
                     {website.managerId?.name && (
                       <>
-                        <div className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-slate-800"></div>
-                        <span className="text-[9px] text-indigo-500 dark:text-indigo-400 font-black px-3 py-1 bg-indigo-50 dark:bg-indigo-500/10 rounded-lg uppercase tracking-widest">
+                        <div className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-700" />
+                        <span className="text-[8.5px] text-indigo-600 dark:text-indigo-400 font-bold px-1.5 py-0.2 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-500/20 rounded uppercase tracking-wider">
                           Master: {website.managerId.name}
                         </span>
                       </>
@@ -769,7 +916,9 @@ export default function WebsiteManager() {
                   </div>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2.5 relative z-10 shrink-0">
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-1.5 relative z-10 shrink-0">
                 <button
                   onClick={async () => {
                     try {
@@ -781,104 +930,119 @@ export default function WebsiteManager() {
                       setBuildingFlowWebsite(website);
                     }
                   }}
-                  className="px-4 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[11px] uppercase tracking-[0.2em] transition-all shadow-xl shadow-indigo-500/10 flex items-center gap-2 hover:scale-105 active:scale-95"
+                  className="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-wider transition-all shadow-xs flex items-center gap-1"
                 >
-                  <Network size={15} /> Flow Builder
+                  <Network size={12} />
+                  <span>Flow Builder</span>
                 </button>
+
                 <button
                   onClick={() => setLocalizingWebsite(website)}
-                  className="px-4 py-3 rounded-2xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black text-[11px] uppercase tracking-[0.2em] hover:bg-emerald-600 hover:text-white transition-all shadow-sm border border-slate-200 dark:border-white/5 flex items-center gap-2 hover:scale-105 active:scale-95 hover:border-emerald-600"
+                  className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-black text-[10px] uppercase tracking-wider hover:bg-emerald-600 hover:text-white transition-all shadow-xs border border-slate-200/80 dark:border-white/10 flex items-center gap-1"
                 >
-                  <DollarSign size={15} /> Currency
+                  <DollarSign size={12} />
+                  <span>Currency</span>
                 </button>
+
                 <button
                   onClick={() => setCustomizingWebsite(website)}
-                  className="px-4 py-3 rounded-2xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black text-[11px] uppercase tracking-[0.2em] hover:bg-slate-950 dark:hover:bg-black hover:text-white transition-all shadow-sm border border-slate-200 dark:border-white/5 flex items-center gap-2 hover:scale-105 active:scale-95"
+                  className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-black text-[10px] uppercase tracking-wider hover:bg-slate-900 hover:text-white dark:hover:bg-slate-700 transition-all shadow-xs border border-slate-200/80 dark:border-white/10 flex items-center gap-1"
                 >
-                  <Palette size={15} /> Design
+                  <Palette size={12} />
+                  <span>Design</span>
                 </button>
+
                 <button
                   onClick={() => handleEdit(website)}
-                  className="px-4 py-3 rounded-2xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black text-[11px] uppercase tracking-[0.2em] hover:bg-slate-950 dark:hover:bg-black hover:text-white transition-all shadow-sm border border-slate-200 dark:border-white/5 flex items-center gap-2 hover:scale-105 active:scale-95"
+                  className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-black text-[10px] uppercase tracking-wider hover:bg-slate-900 hover:text-white dark:hover:bg-slate-700 transition-all shadow-xs border border-slate-200/80 dark:border-white/10 flex items-center gap-1"
                 >
-                  <Settings size={15} /> Configure
+                  <Settings size={12} />
+                  <span>Configure</span>
                 </button>
+
                 <button
                   type="button"
                   onClick={() => handleDeleteWebsite(website)}
                   title="Delete Website"
-                  className="p-3 bg-red-50 hover:bg-red-600 dark:bg-red-500/10 dark:hover:bg-red-600 text-red-500 hover:text-white rounded-2xl transition-all shadow-sm border border-red-200 dark:border-red-500/20 hover:scale-105 active:scale-95 cursor-pointer"
+                  className="p-1.5 bg-red-50 hover:bg-red-600 dark:bg-red-950/30 dark:hover:bg-red-600 text-red-600 hover:text-white rounded-lg transition-all shadow-xs border border-red-200/60 dark:border-red-500/20 cursor-pointer"
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size={13} />
                 </button>
               </div>
             </div>
 
-            <div className="p-10 bg-slate-50/30 dark:bg-black/10 grid grid-cols-1 xl:grid-cols-12 gap-12 items-start relative z-10 transition-colors">
-              <div className="xl:col-span-8 space-y-5">
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-[0.3em]">Quantum Deployment Snippet</span>
-                  <div className="flex gap-2">
-                    <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>
-                    <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse delay-75"></div>
-                    <div className="w-2 h-2 rounded-full bg-pink-500 animate-pulse delay-150"></div>
+            {/* Snippet & Keys Body */}
+            <div className="p-3 sm:p-3.5 bg-slate-50/50 dark:bg-black/10 grid grid-cols-1 xl:grid-cols-12 gap-3 items-start relative z-10 transition-colors">
+              
+              {/* Snippet Block */}
+              <div className="xl:col-span-8 space-y-1.5">
+                <div className="flex items-center justify-between px-0.5">
+                  <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Quantum Deployment Snippet</span>
+                  <div className="flex gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse delay-75" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse delay-150" />
                   </div>
                 </div>
+                
                 <div className="relative group/copy">
-                  <div className="bg-[#0f172a] dark:bg-black border border-slate-800 dark:border-white/5 rounded-[32px] p-8 font-mono text-[12px] leading-relaxed flex items-start gap-8 pr-20 shadow-2xl relative overflow-hidden transition-all group-hover/copy:border-indigo-500/50">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-60"></div>
-                    <div className="text-slate-700/50 select-none hidden sm:block text-right pt-[2px] font-black">01<br />02<br />03<br />04<br />05<br />06<br />07</div>
-                    <div className="text-indigo-100/90 whitespace-pre-wrap break-all w-full overflow-x-auto selection:bg-indigo-500/40 tracking-tight">
+                  <div className="bg-[#0f172a] dark:bg-black border border-slate-800 dark:border-white/5 rounded-xl p-3 sm:p-3.5 font-mono text-[10px] sm:text-[10.5px] leading-relaxed flex items-start gap-3 pr-12 shadow-md relative overflow-hidden transition-all group-hover/copy:border-indigo-500/50">
+                    <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-60" />
+                    <div className="text-slate-600 select-none hidden sm:block text-right pt-[1px] font-black text-[9px] leading-relaxed">
+                      01<br />02<br />03<br />04<br />05<br />06<br />07
+                    </div>
+                    <div className="text-indigo-100/90 whitespace-pre-wrap break-all w-full overflow-x-auto selection:bg-indigo-500/40 tracking-tight font-medium">
                       {`<script>\n  (function(){\n    var s = document.createElement("script");\n    s.src = "${widgetBaseUrl}/chat-widget.js";\n    s.setAttribute("data-website-id", "${website.apiKey}");\n    document.body.appendChild(s);\n  })();\n</script>`}
                     </div>
                   </div>
                   <button
                     onClick={() => handleCopy(`<script>\n  (function(){\n    var s = document.createElement("script");\n    s.src = "${widgetBaseUrl}/chat-widget.js";\n    s.setAttribute("data-website-id", "${website.apiKey}");\n    document.body.appendChild(s);\n  })();\n</script>`, website._id)}
-                    className="absolute right-6 top-1/2 -translate-y-1/2 w-14 h-14 bg-white/10 hover:bg-indigo-600 text-white rounded-2xl backdrop-blur-xl shadow-2xl hover:scale-110 active:scale-90 transition-all outline-none border border-white/10 flex items-center justify-center group-hover/copy:bg-indigo-500"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/10 hover:bg-indigo-600 text-white rounded-lg backdrop-blur-md shadow-md hover:scale-105 active:scale-95 transition-all outline-none border border-white/10 flex items-center justify-center group-hover/copy:bg-indigo-500"
+                    title="Copy Snippet"
                   >
-                    {copiedId === website._id ? <Check size={20} className="text-emerald-400" /> : <Copy size={20} />}
+                    {copiedId === website._id ? <Check size={14} className="text-emerald-400" /> : <Copy size={13} />}
                   </button>
                 </div>
               </div>
 
-              <div className="xl:col-span-4 grid grid-cols-2 xl:grid-cols-1 gap-6 h-full">
-                <div className="bg-white dark:bg-slate-900 p-8 rounded-[32px] border border-slate-200 dark:border-white/5 shadow-xl shadow-slate-200/20 dark:shadow-none space-y-4 hover:-translate-y-1 transition-all flex flex-col justify-center">
-                  <span className="text-[9px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-widest flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-indigo-500"></div> Secret Key
+              {/* Secret Key & Icon State Column */}
+              <div className="xl:col-span-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-2 h-full">
+                {/* Secret Key */}
+                <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200/80 dark:border-white/5 shadow-xs space-y-1.5 flex flex-col justify-center">
+                  <span className="text-[8.5px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" /> Secret Key
                   </span>
-                  <div className="bg-slate-50 dark:bg-black/20 px-5 py-3 rounded-xl border border-slate-100 dark:border-white/5 font-mono text-[11px] font-black text-slate-900 dark:text-indigo-300 truncate tracking-tight">
+                  <div className="bg-slate-50 dark:bg-black/20 px-2.5 py-1.5 rounded-lg border border-slate-200/60 dark:border-white/5 font-mono text-[10px] font-bold text-slate-800 dark:text-indigo-300 truncate tracking-tight select-all">
                     {website.apiKey}
                   </div>
                 </div>
-                <div className="bg-white dark:bg-slate-900 p-8 rounded-[32px] border border-slate-200 dark:border-white/5 shadow-xl shadow-slate-200/20 dark:shadow-none space-y-4 hover:-translate-y-1 transition-all flex flex-col justify-center">
-                  <span className="text-[9px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-widest flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-pink-500"></div> Icon State
+
+                {/* Icon State */}
+                <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200/80 dark:border-white/10 shadow-xs space-y-1.5 flex flex-col justify-center">
+                  <span className="text-[8.5px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-pink-500" /> Icon State
                   </span>
-                  <div className="flex items-center gap-6">
-                    <div className="w-14 h-14 rounded-2xl shadow-2xl flex items-center justify-center text-2xl group-hover:scale-110 transition-all border-2 border-white dark:border-slate-800 shrink-0" style={{ backgroundColor: website.primaryColor, color: '#fff' }}>
-                      <span className="drop-shadow-lg">{website.launcherIcon}</span>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg shadow-xs flex items-center justify-center text-sm border border-white/10 shrink-0" style={{ backgroundColor: website.primaryColor, color: '#fff' }}>
+                      <span className="drop-shadow-xs">{website.launcherIcon}</span>
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-tight">Verified</p>
-                      <p className="text-[9px] text-slate-400 dark:text-slate-600 font-bold uppercase truncate">Protocol Asset</p>
+                      <p className="text-[9.5px] font-black text-slate-900 dark:text-white uppercase tracking-tight">Verified</p>
+                      <p className="text-[8.5px] text-slate-400 dark:text-slate-500 font-bold uppercase truncate">Protocol Asset</p>
                     </div>
                   </div>
                 </div>
               </div>
+
             </div>
           </div>
         ))}
+
         {websites.length === 0 && !isAdding && (
-          <div className="p-40 border-4 border-dashed border-slate-100 dark:border-white/5 rounded-[64px] text-center space-y-8 bg-slate-50/30 dark:bg-white/5 transition-colors">
-            <div className="relative w-28 h-28 mx-auto flex items-center justify-center">
-              <div className="absolute inset-0 bg-indigo-500 rounded-full animate-ping opacity-10"></div>
-              <div className="absolute inset-4 bg-indigo-500/10 rounded-full animate-pulse"></div>
-              <Globe size={48} className="text-indigo-600 dark:text-indigo-400 relative z-10" />
-            </div>
-            <div className="space-y-3">
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter uppercase">Ecosystem Vacuum</h3>
-              <p className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em] max-w-sm mx-auto leading-relaxed">No active domains detected. Register a terminal to begin multi-website support deployment.</p>
-            </div>
+          <div className="py-16 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-2xl text-center space-y-2 bg-slate-50/30 dark:bg-white/5">
+            <Globe size={28} className="text-indigo-600 dark:text-indigo-400 mx-auto" />
+            <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">No Active Domains</h3>
+            <p className="text-[10px] text-slate-400 max-w-sm mx-auto">Register a terminal to begin multi-website support deployment.</p>
           </div>
         )}
       </div>
@@ -963,55 +1127,58 @@ function LocalizationModal({ website, onClose, onSaved }) {
     }
   };
 
-  const inp = "w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-2xl px-4 py-3 text-xs font-bold outline-none focus:border-emerald-500/50 dark:text-white transition-all";
+  const inp = "w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-emerald-500 transition-colors";
   const preview = formatPreview(settings);
 
   return (
-    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="space-y-3.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-200">
-              <DollarSign size={20} />
-            </div>
-            <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Currency &amp; Localization</h2>
+      <div className="flex items-center justify-between bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 rounded-xl p-3 shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
+            <DollarSign size={15} />
           </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-[52px]">
-            Configuring <span className="text-emerald-500">{website.websiteName}</span>
-          </p>
+          <div>
+            <h2 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+              Currency &amp; Localization
+            </h2>
+            <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">
+              Configuring <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">{website.websiteName}</span>
+            </p>
+          </div>
         </div>
         <button
           onClick={onClose}
-          className="w-14 h-14 rounded-[24px] bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-white/5 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all hover:rotate-90 hover:scale-110 shadow-sm"
+          className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-all"
+          title="Close Localization"
         >
-          <X size={24} />
+          <X size={15} />
         </button>
       </div>
 
       {/* Live Preview Banner */}
-      <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-[32px] p-8 text-white shadow-xl shadow-emerald-200/40 flex items-center justify-between gap-6">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-70 mb-1">Live Preview</p>
-          <p className="text-4xl font-black tracking-tight">{preview}</p>
-          <p className="text-[10px] font-bold opacity-60 mt-2 uppercase tracking-widest">{settings.currencyCode} · {settings.currency}</p>
+      <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl p-3.5 sm:p-4 text-white shadow-sm flex items-center justify-between gap-4">
+        <div className="space-y-0.5">
+          <p className="text-[8.5px] font-black uppercase tracking-wider opacity-80">Live Preview</p>
+          <p className="text-xl sm:text-2xl font-black tracking-tight">{preview}</p>
+          <p className="text-[9.5px] font-bold opacity-80 uppercase tracking-wider">{settings.currencyCode} · {settings.currency}</p>
         </div>
-        <div className="text-right hidden sm:block">
-          <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Symbol</p>
-          <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-xl flex items-center justify-center text-3xl font-black border border-white/20">
+        <div className="text-right shrink-0">
+          <p className="text-[8px] font-black uppercase tracking-wider opacity-80 mb-1">Symbol</p>
+          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-lg font-black border border-white/20">
             {settings.currencySymbol}
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Left Column */}
-        <div className="space-y-6 bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-white/5 p-8 shadow-sm">
-          <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.4em]">Currency Master</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {/* Left Column: Currency Master */}
+        <div className="space-y-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-white/10 p-3 sm:p-3.5 shadow-xs">
+          <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Currency Master</p>
 
           {/* Currency Picker */}
-          <div className="space-y-2">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Select Currency</label>
+          <div className="space-y-1">
+            <label className="text-[8.5px] font-black text-slate-400 uppercase tracking-wider">Select Currency</label>
             <select
               className={inp}
               value={settings.currencyCode}
@@ -1027,48 +1194,48 @@ function LocalizationModal({ website, onClose, onSaved }) {
           </div>
 
           {/* Currency Name */}
-          <div className="space-y-2">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Currency Name</label>
+          <div className="space-y-1">
+            <label className="text-[8.5px] font-black text-slate-400 uppercase tracking-wider">Currency Name</label>
             <input
               className={inp}
               value={settings.currency}
               onChange={e => setSettings(s => ({ ...s, currency: e.target.value }))}
-              placeholder="e.g. Indian Rupee"
+              placeholder="e.g. UAE Dirham"
             />
           </div>
 
           {/* Symbol + Code row */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Symbol</label>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <label className="text-[8.5px] font-black text-slate-400 uppercase tracking-wider">Symbol</label>
               <input
                 className={inp}
                 value={settings.currencySymbol}
                 onChange={e => setSettings(s => ({ ...s, currencySymbol: e.target.value }))}
-                placeholder="₹"
+                placeholder="د.إ"
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Currency Code</label>
+            <div className="space-y-1">
+              <label className="text-[8.5px] font-black text-slate-400 uppercase tracking-wider">Currency Code</label>
               <input
                 className={inp}
                 value={settings.currencyCode}
                 onChange={e => setSettings(s => ({ ...s, currencyCode: e.target.value.toUpperCase() }))}
-                placeholder="INR"
+                placeholder="AED"
                 maxLength={5}
               />
             </div>
           </div>
         </div>
 
-        {/* Right Column */}
-        <div className="space-y-6 bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-white/5 p-8 shadow-sm">
-          <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.4em]">Formatting Rules</p>
+        {/* Right Column: Formatting Rules */}
+        <div className="space-y-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-white/10 p-3 sm:p-3.5 shadow-xs">
+          <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Formatting Rules</p>
 
           {/* Symbol Position */}
-          <div className="space-y-2">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Symbol Position</label>
-            <div className="flex gap-3">
+          <div className="space-y-1">
+            <label className="text-[8.5px] font-black text-slate-400 uppercase tracking-wider">Symbol Position</label>
+            <div className="flex gap-2">
               {[
                 { v: "before", label: "Before Amount", example: "₹100" },
                 { v: "after",  label: "After Amount",  example: "100₹" }
@@ -1077,25 +1244,25 @@ function LocalizationModal({ website, onClose, onSaved }) {
                   key={opt.v}
                   type="button"
                   onClick={() => setSettings(s => ({ ...s, symbolPosition: opt.v }))}
-                  className={`flex-1 py-3 rounded-2xl border-2 text-[10px] font-black uppercase tracking-widest transition-all ${settings.symbolPosition === opt.v ? "bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-100" : "bg-slate-50 text-slate-400 border-slate-100 hover:border-emerald-300"}`}
+                  className={`flex-1 py-1.5 px-2 rounded-lg border text-[9.5px] font-black uppercase tracking-wider transition-all ${settings.symbolPosition === opt.v ? "bg-emerald-600 text-white border-emerald-600 shadow-xs" : "bg-slate-50 dark:bg-slate-800 text-slate-500 border-slate-200/80 dark:border-white/10 hover:border-emerald-300"}`}
                 >
                   {opt.label}
-                  <span className="block text-[8px] mt-1 opacity-70">{opt.example}</span>
+                  <span className="block text-[8px] mt-0.5 opacity-80 normal-case font-medium">{opt.example}</span>
                 </button>
               ))}
             </div>
           </div>
 
           {/* Decimal Places */}
-          <div className="space-y-2">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Decimal Places</label>
-            <div className="flex gap-3">
+          <div className="space-y-1">
+            <label className="text-[8.5px] font-black text-slate-400 uppercase tracking-wider">Decimal Places</label>
+            <div className="flex gap-2">
               {[0, 2, 3].map(dp => (
                 <button
                   key={dp}
                   type="button"
                   onClick={() => setSettings(s => ({ ...s, decimalPlaces: dp }))}
-                  className={`flex-1 py-3 rounded-2xl border-2 text-[10px] font-black uppercase tracking-widest transition-all ${settings.decimalPlaces === dp ? "bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-100" : "bg-slate-50 text-slate-400 border-slate-100 hover:border-emerald-300"}`}
+                  className={`flex-1 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-wider transition-all ${settings.decimalPlaces === dp ? "bg-emerald-600 text-white border-emerald-600 shadow-xs" : "bg-slate-50 dark:bg-slate-800 text-slate-500 border-slate-200/80 dark:border-white/10 hover:border-emerald-300"}`}
                 >
                   {dp}
                 </button>
@@ -1104,9 +1271,9 @@ function LocalizationModal({ website, onClose, onSaved }) {
           </div>
 
           {/* Separators */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Thousand Sep.</label>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <label className="text-[8.5px] font-black text-slate-400 uppercase tracking-wider">Thousand Sep.</label>
               <select
                 className={inp}
                 value={settings.thousandSeparator}
@@ -1118,8 +1285,8 @@ function LocalizationModal({ website, onClose, onSaved }) {
                 <option value="">(none)</option>
               </select>
             </div>
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Decimal Sep.</label>
+            <div className="space-y-1">
+              <label className="text-[8.5px] font-black text-slate-400 uppercase tracking-wider">Decimal Sep.</label>
               <select
                 className={inp}
                 value={settings.decimalSeparator}
@@ -1134,9 +1301,9 @@ function LocalizationModal({ website, onClose, onSaved }) {
       </div>
 
       {/* Quick Presets */}
-      <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-white/5 p-8 shadow-sm">
-        <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.4em] mb-5">Quick Currency Presets</p>
-        <div className="flex flex-wrap gap-3">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-white/10 p-3 sm:p-3.5 shadow-xs space-y-2">
+        <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Quick Currency Presets</p>
+        <div className="flex flex-wrap gap-1.5">
           {CURRENCY_MASTER.map(c => (
             <button
               key={c.code}
@@ -1150,45 +1317,46 @@ function LocalizationModal({ website, onClose, onSaved }) {
                 thousandSeparator: c.thousandSep,
                 decimalSeparator:  c.decimalSep,
               })}
-              className={`px-4 py-2.5 rounded-2xl border-2 text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${settings.currencyCode === c.code ? "bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-100" : "bg-slate-50 dark:bg-black/20 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-white/5 hover:border-emerald-300"}`}
+              className={`px-2.5 py-1 rounded-lg border text-[9px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${settings.currencyCode === c.code ? "bg-emerald-600 text-white border-emerald-600 shadow-xs" : "bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200/80 dark:border-white/10 hover:border-emerald-300"}`}
             >
-              <span className="text-sm">{c.symbol}</span> {c.code}
+              <span className="font-bold">{c.symbol}</span>
+              <span>{c.code}</span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Errors / Success */}
+      {/* Errors / Success Alerts */}
       {error && (
-        <div className="bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/20 text-red-600 dark:text-red-400 px-6 py-4 rounded-[20px] text-[11px] font-black uppercase tracking-widest">
+        <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 px-3 py-2 rounded-xl text-xs font-bold">
           {error}
         </div>
       )}
       {success && (
-        <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-6 py-4 rounded-[20px] text-[11px] font-black uppercase tracking-widest flex items-center gap-3">
-          <Check size={16} /> Currency settings saved! Updating across CRM...
+        <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2">
+          <Check size={14} /> <span>Currency settings saved! Updating across CRM...</span>
         </div>
       )}
 
       {/* Save Button */}
-      <div className="flex gap-4">
+      <div className="flex items-center justify-end gap-2 pt-1">
         <button
           onClick={onClose}
-          className="flex-1 py-5 rounded-[24px] border-2 border-slate-100 dark:border-white/5 text-slate-500 dark:text-slate-400 font-black text-[11px] uppercase tracking-[0.3em] hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
+          className="px-4 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 font-bold text-xs uppercase tracking-wider hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
         >
           Cancel
         </button>
         <button
           onClick={handleSave}
           disabled={saving || success}
-          className="flex-[2] bg-emerald-600 hover:bg-emerald-700 text-white py-5 rounded-[24px] font-black text-[11px] uppercase tracking-[0.3em] transition-all shadow-2xl shadow-emerald-500/20 flex items-center justify-center gap-3 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60"
+          className="px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-black text-xs uppercase tracking-wider transition-all shadow-xs flex items-center justify-center gap-1.5 disabled:opacity-60"
         >
           {saving ? (
-            <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Saving...</>
+            <><div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> <span>Saving...</span></>
           ) : success ? (
-            <><Check size={16} /> Saved Successfully</>
+            <><Check size={13} /> <span>Saved Successfully</span></>
           ) : (
-            <><DollarSign size={16} /> Save Currency Settings</>
+            <><DollarSign size={13} /> <span>Save Currency Settings</span></>
           )}
         </button>
       </div>

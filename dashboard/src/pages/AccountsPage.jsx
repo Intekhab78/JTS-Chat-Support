@@ -8,7 +8,7 @@ import {
 import Layout from "../components/Layout.jsx";
 import StatCard from "../components/StatCard.jsx";
 import EnterpriseReportsCenter from "../components/EnterpriseReportsCenter.jsx";
-import { api } from "../api/client.js";
+import { api, getApiBase } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useWebsite } from "../context/WebsiteContext.jsx";
 
@@ -87,7 +87,7 @@ export default function AccountsPage() {
     try {
       // If already has pdfUrl, open directly
       if (inv.pdfUrl) {
-        const base = import.meta.env.VITE_API_URL || "https://chatapi.jtsmiddleeast.com";
+        const base = await getApiBase();
         window.open(`${base}${inv.pdfUrl}`, "_blank");
         return;
       }
@@ -96,7 +96,7 @@ export default function AccountsPage() {
       // Update local state with pdfUrl
       setInvoices(prev => prev.map(i => i._id === inv._id ? { ...i, pdfUrl: updated.pdfUrl } : i));
       if (updated.pdfUrl) {
-        const base = import.meta.env.VITE_API_URL || "https://chatapi.jtsmiddleeast.com";
+        const base = await getApiBase();
         window.open(`${base}${updated.pdfUrl}`, "_blank");
       } else {
         alert("PDF generation failed. Please try again.");

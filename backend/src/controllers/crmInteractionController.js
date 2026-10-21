@@ -44,14 +44,35 @@ export const sendCustomerEmail = asyncHandler(async (req, res) => {
   if (!customer) throw new AppError("Customer not found", 404);
 
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
-  if (!ownedWebsiteIds.map(String).includes(String(customer.websiteId._id || customer.websiteId))) {
+  const custWebId = customer.websiteId?._id ? String(customer.websiteId._id) : (customer.websiteId ? String(customer.websiteId) : null);
+  if (custWebId && !ownedWebsiteIds.map(String).includes(custWebId)) {
     throw new AppError("Access denied", 403);
   }
 
-  const { html } = salesOutreachTemplate({ customerName: customer.name, salesName: req.user.name, body, websiteName: customer.websiteId.websiteName });
+  if (!customer.email) {
+    throw new AppError("Customer does not have a registered email address", 400);
+  }
+
+  const websiteName = customer.websiteId?.websiteName || "JTS Support";
+  const { html } = salesOutreachTemplate({ 
+    customerName: customer.name, 
+    salesName: req.user.name, 
+    body, 
+    websiteName 
+  });
+  
   await sendEmail({ to: customer.email, subject, html, replyTo: req.user.email });
 
-  customer.communications.unshift({ type: "email", direction: "outbound", to: customer.email, subject, body, sentBy: req.user._id, sentAt: new Date() });
+  customer.communications.unshift({ 
+    type: "email", 
+    direction: "outbound", 
+    to: customer.email, 
+    subject, 
+    body, 
+    sentBy: req.user._id, 
+    sentAt: new Date() 
+  });
+  customer.lastInteraction = new Date();
   await customer.save();
   res.json(customer);
 });

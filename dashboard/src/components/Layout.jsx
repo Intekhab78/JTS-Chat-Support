@@ -12,7 +12,7 @@ import {
   Landmark, BarChart2, BookOpen, Receipt, TrendingUp, BrainCircuit, Target, UserPlus,
   Briefcase, Grid, Zap, GitMerge, Lock, HelpCircle, UserCheck, FileCheck, Code2, RefreshCw
 } from "lucide-react";
-import { api } from "../api/client.js";
+import { api, getBackendStatus, resolveActiveBackend } from "../api/client.js";
 import { useSocket } from "../context/SocketContext.jsx";
 import { useWebsite } from "../context/WebsiteContext.jsx";
 import GlobalSearch from "./CrmSystem/GlobalSearch.jsx";
@@ -366,6 +366,20 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notificationFilter, setNotificationFilter] = useState("all");
+
+  const [backendStatus, setBackendStatus] = useState(getBackendStatus);
+
+  useEffect(() => {
+    const handleSwitch = (e) => {
+      setBackendStatus({
+        apiBase: e.detail?.apiBase || "",
+        isLocal: Boolean(e.detail?.isLocal)
+      });
+    };
+    window.addEventListener("backend-switch", handleSwitch);
+    resolveActiveBackend().then(() => setBackendStatus(getBackendStatus()));
+    return () => window.removeEventListener("backend-switch", handleSwitch);
+  }, []);
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
   const role = normalizeRole(user?.role);
@@ -824,6 +838,20 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
 
           {/* Right: global website selector + notification bell + avatar */}
           <div className="flex items-center gap-2.5 shrink-0">
+
+            {/* Live Dual-Backend Smart Indicator */}
+            <div
+              onClick={() => resolveActiveBackend(true)}
+              title={`Active API: ${backendStatus.apiBase}\nClick to re-check local backend`}
+              className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all select-none ${
+                backendStatus.isLocal
+                  ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100"
+                  : "bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-100"
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${backendStatus.isLocal ? "bg-emerald-500 animate-pulse" : "bg-blue-500"}`} />
+              <span>{backendStatus.isLocal ? "API: Local (5000)" : "API: Cloud"}</span>
+            </div>
 
             {/* Global Ecosystem Website Filter Selector */}
             {websites && websites.length > 0 && (

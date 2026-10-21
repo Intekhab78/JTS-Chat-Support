@@ -11,6 +11,7 @@ export default function WidgetCustomizer({ website, onUpdate }) {
   });
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(true);
 
   async function handleSave() {
     setSaving(true);
@@ -30,57 +31,66 @@ export default function WidgetCustomizer({ website, onUpdate }) {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 animate-in slide-in-from-bottom-4 duration-700">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 animate-in slide-in-from-bottom-2 duration-300">
       {/* Settings Form */}
-      <div className="premium-card p-10 space-y-10 bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5 transition-colors">
-        <div className="flex flex-col gap-1.5">
-          <h3 className="heading-md dark:text-white">Aesthetic Intelligence</h3>
-          <p className="small-label dark:text-slate-500">Configure how the primary neural interface appears to your visitors.</p>
+      <div className="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 rounded-xl p-3.5 sm:p-4 space-y-3 shadow-xs">
+        <div className="space-y-0.5">
+          <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+            Aesthetic Intelligence
+          </h3>
+          <p className="text-[9.5px] text-slate-400 font-medium">
+            Configure how the primary neural interface appears to your visitors.
+          </p>
         </div>
 
-        <div className="space-y-8">
+        <div className="space-y-2.5">
           {/* Color Picker */}
-          <div className="space-y-4">
-            <label className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-              <Palette size={16} className="text-indigo-500" /> Brand Color Vector
+          <div className="space-y-1">
+            <label className="flex items-center gap-1.5 text-[8.5px] font-black uppercase tracking-wider text-slate-400">
+              <Palette size={12} className="text-indigo-500" /> Brand Color Vector
             </label>
-            <div className="flex items-center gap-4 bg-slate-50 dark:bg-black/20 p-4 rounded-[28px] border-2 border-slate-100 dark:border-white/5 shadow-inner">
-              <div className="relative group">
-                 <input
-                   type="color"
-                   value={config.primaryColor}
-                   onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })}
-                   className="w-14 h-14 rounded-2xl cursor-pointer border-none bg-transparent overflow-hidden"
-                 />
-                 <div className="absolute inset-0 rounded-2xl border-2 border-white/20 pointer-events-none group-hover:scale-105 transition-transform" />
+            <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-800/80 p-2 rounded-lg border border-slate-200/80 dark:border-white/10">
+              <div className="relative group shrink-0">
+                <div
+                  className="w-8 h-8 rounded-lg shadow-xs border border-black/10 cursor-pointer transition-transform group-hover:scale-105"
+                  style={{ backgroundColor: config.primaryColor }}
+                />
+                <input
+                  type="color"
+                  value={config.primaryColor}
+                  onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  title="Pick Color"
+                />
               </div>
-              <div className="flex-1 space-y-1">
-                 <input
-                   type="text"
-                   value={config.primaryColor}
-                   onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })}
-                   className="w-full bg-transparent border-none text-sm font-black font-mono tracking-tighter text-slate-900 dark:text-white outline-none"
-                   placeholder="#HEXVAL"
-                 />
-                 <p className="text-[8px] font-black text-slate-300 dark:text-slate-700 uppercase tracking-widest">Primary Cryptographic Color</p>
+              <div className="flex-1 space-y-0.5">
+                <input
+                  type="text"
+                  value={config.primaryColor}
+                  onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })}
+                  className="w-full bg-transparent border-none text-xs font-black font-mono tracking-tight text-slate-900 dark:text-white outline-none"
+                  placeholder="#HEXVAL"
+                />
+                <p className="text-[7.5px] font-bold text-slate-400 uppercase tracking-wider">Primary Cryptographic Color</p>
               </div>
             </div>
           </div>
 
-          {/* Position */}
-          <div className="space-y-4">
-            <label className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-              <LayoutIcon size={16} className="text-indigo-500" /> Spatial Positioning
+          {/* Spatial Position */}
+          <div className="space-y-1">
+            <label className="flex items-center gap-1.5 text-[8.5px] font-black uppercase tracking-wider text-slate-400">
+              <LayoutIcon size={12} className="text-indigo-500" /> Spatial Positioning
             </label>
-            <div className="grid grid-cols-2 gap-4 bg-slate-50 dark:bg-black/20 p-2 rounded-[28px] border-2 border-slate-100 dark:border-white/5 shadow-inner">
+            <div className="grid grid-cols-2 gap-1.5 bg-slate-50 dark:bg-slate-800/80 p-1 rounded-lg border border-slate-200/80 dark:border-white/10">
               {["left", "right"].map((pos) => (
                 <button
                   key={pos}
+                  type="button"
                   onClick={() => setConfig({ ...config, position: pos })}
-                  className={`py-4.5 rounded-[22px] text-[10px] font-black uppercase tracking-[0.25em] border-2 transition-all duration-500 ${
+                  className={`py-1.5 rounded-md text-[9.5px] font-black uppercase tracking-wider transition-all ${
                     config.position === pos
-                      ? "bg-slate-950 dark:bg-indigo-600 text-white border-slate-950 dark:border-white/10 shadow-2xl scale-100"
-                      : "bg-transparent text-slate-400 dark:text-slate-700 border-transparent hover:text-slate-600 dark:hover:text-slate-400"
+                      ? "bg-slate-950 dark:bg-indigo-600 text-white shadow-xs"
+                      : "bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                   }`}
                 >
                   {pos} Alignment
@@ -90,14 +100,14 @@ export default function WidgetCustomizer({ website, onUpdate }) {
           </div>
 
           {/* Welcome Message */}
-          <div className="space-y-4">
-            <label className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-              <MessageSquare size={16} className="text-indigo-500" /> Initialization Sequence
+          <div className="space-y-1">
+            <label className="flex items-center gap-1.5 text-[8.5px] font-black uppercase tracking-wider text-slate-400">
+              <MessageSquare size={12} className="text-indigo-500" /> Initialization Sequence
             </label>
             <textarea
               value={config.welcomeMessage}
               onChange={(e) => setConfig({ ...config, welcomeMessage: e.target.value })}
-              className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-[28px] px-8 py-6 text-sm font-bold text-slate-700 dark:text-slate-200 focus:border-indigo-500/50 outline-none transition-all min-h-[140px] resize-none shadow-inner leading-relaxed placeholder:text-slate-200 dark:placeholder:text-slate-800"
+              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10 rounded-lg p-2.5 text-xs font-medium text-slate-800 dark:text-slate-100 focus:border-indigo-500 outline-none transition-all min-h-[72px] resize-none leading-relaxed placeholder:text-slate-400"
               placeholder="How can we help you today?"
             />
           </div>
@@ -106,76 +116,147 @@ export default function WidgetCustomizer({ website, onUpdate }) {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="w-full bg-slate-950 dark:bg-indigo-600 hover:bg-black dark:hover:bg-indigo-500 text-white font-black text-[11px] uppercase tracking-[0.4em] py-6 rounded-[28px] shadow-2xl shadow-indigo-500/10 transition-all flex items-center justify-center gap-4 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+          className="w-full bg-slate-950 hover:bg-black dark:bg-indigo-600 dark:hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider py-2 rounded-lg shadow-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
         >
           {saving ? (
-             <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            <><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> <span>Saving...</span></>
           ) : success ? (
-             <><Check size={18} className="text-emerald-400" /> Config Initialized</>
+            <><Check size={14} className="text-emerald-400" /> <span>Config Initialized</span></>
           ) : (
-             <><Sparkles size={18} /> Apply Visual Identity</>
+            <><Sparkles size={14} /> <span>Apply Visual Identity</span></>
           )}
         </button>
       </div>
 
       {/* Live Preview */}
-      <div className="relative bg-slate-50 dark:bg-black/40 rounded-[64px] border-4 border-dashed border-slate-200/50 dark:border-white/5 flex flex-col items-center justify-center p-12 overflow-hidden min-h-[600px] transition-colors">
-        <div className="absolute top-10 left-10 flex items-center gap-3 bg-white dark:bg-slate-900 px-5 py-2.5 rounded-2xl shadow-xl border border-slate-100 dark:border-white/5">
-          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-          <span className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 dark:text-slate-600">Simulated Synthesis</span>
-        </div>
-
-        {/* Mock App Context */}
-        <div className="w-full space-y-8 opacity-10 dark:opacity-5 pointer-events-none scale-90 translate-y-10">
-          <div className="h-6 bg-slate-300 dark:bg-slate-700 rounded-full w-3/4" />
-          <div className="h-6 bg-slate-300 dark:bg-slate-700 rounded-full w-1/2" />
-          <div className="grid grid-cols-2 gap-6">
-            <div className="h-48 bg-slate-400 dark:bg-slate-600 rounded-[40px]" />
-            <div className="h-48 bg-slate-400 dark:bg-slate-600 rounded-[40px]" />
+      <div className="lg:col-span-7 relative bg-slate-50/60 dark:bg-slate-900/40 rounded-xl border-2 border-dashed border-slate-200/80 dark:border-white/10 flex flex-col p-3 overflow-hidden min-h-[380px] transition-colors">
+        {/* Preview Header */}
+        <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200/80 dark:border-white/10 shrink-0">
+          <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md shadow-xs border border-slate-200/80 dark:border-white/10">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[8.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Simulated Synthesis</span>
           </div>
-          <div className="h-6 bg-slate-300 dark:bg-slate-700 rounded-full w-2/3" />
+          <div className="flex items-center gap-1 bg-slate-200/60 dark:bg-slate-800 p-0.5 rounded-md text-[8px] font-bold">
+            <button
+              type="button"
+              onClick={() => setPreviewOpen(true)}
+              className={`px-1.5 py-0.5 rounded transition-all ${previewOpen ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs" : "text-slate-400 hover:text-slate-600"}`}
+            >
+              Open Widget
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreviewOpen(false)}
+              className={`px-1.5 py-0.5 rounded transition-all ${!previewOpen ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs" : "text-slate-400 hover:text-slate-600"}`}
+            >
+              Launcher Bubble
+            </button>
+          </div>
         </div>
 
-        {/* Mock Widget */}
-        <div 
-          className="absolute bottom-12 transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.3)] rounded-[40px] overflow-hidden flex flex-col w-[320px] h-[480px] bg-white dark:bg-slate-950 border border-slate-200/50 dark:border-white/5 group hover:scale-[1.02]"
-          style={{ [config.position]: "40px" }}
-        >
-          <div className="p-7 flex items-center gap-4 text-white relative h-24 flex flex-col justify-center" style={{ background: config.primaryColor }}>
-            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent pointer-events-none" />
-            <div className="flex items-center gap-3 relative z-10 w-full">
-               <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-2xl shadow-lg border border-white/20">{config.launcherIcon}</div>
-               <div className="flex flex-col min-w-0">
-                 <span className="text-[14px] font-black uppercase tracking-tight leading-none mb-1 truncate">{website?.websiteName || 'Unknown Entity'}</span>
-                 <div className="flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                    <span className="text-[9px] font-black opacity-80 uppercase tracking-widest">Protocol Active</span>
-                 </div>
-               </div>
+        {/* Mock App Background Ghost (Filled, compact, realistic to eliminate dead gaps) */}
+        <div className="w-full space-y-2 opacity-20 pointer-events-none select-none flex-1 p-2">
+          {/* Top header bar */}
+          <div className="flex items-center justify-between pb-1.5 border-b border-slate-300 dark:border-slate-700">
+            <div className="w-20 h-2 bg-slate-400 dark:bg-slate-600 rounded" />
+            <div className="flex gap-2">
+              <div className="w-8 h-1.5 bg-slate-300 dark:bg-slate-700 rounded" />
+              <div className="w-8 h-1.5 bg-slate-300 dark:bg-slate-700 rounded" />
             </div>
           </div>
-          <div className="flex-1 p-8 space-y-6 bg-[#f8fafc] dark:bg-black/20 transition-colors">
-             <div className="flex gap-3 animate-in fade-in slide-in-from-bottom-3 duration-1000">
-                <div className="w-8 h-8 rounded-xl shrink-0 flex items-center justify-center text-[12px] shadow-lg border border-white/10 text-white" style={{ background: config.primaryColor }}>
-                   {config.launcherIcon}
-                </div>
-                <div className="p-4 bg-white dark:bg-slate-900 text-[11px] font-bold text-slate-700 dark:text-slate-300 rounded-[22px] rounded-tl-none border border-slate-100 dark:border-white/5 shadow-sm leading-relaxed">
-                  {config.welcomeMessage}
-                </div>
-             </div>
+          {/* Metrics row */}
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <div className="p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white/40 dark:bg-slate-800/40 space-y-1">
+              <div className="w-12 h-1.5 bg-slate-400 dark:bg-slate-600 rounded" />
+              <div className="w-16 h-2.5 bg-slate-600 dark:bg-slate-400 rounded" />
+            </div>
+            <div className="p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white/40 dark:bg-slate-800/40 space-y-1">
+              <div className="w-12 h-1.5 bg-slate-400 dark:bg-slate-600 rounded" />
+              <div className="w-16 h-2.5 bg-slate-600 dark:bg-slate-400 rounded" />
+            </div>
           </div>
-          <div className="p-6 bg-white dark:bg-slate-950 border-t border-slate-50 dark:border-white/5 flex gap-3 transition-colors">
-            <div className="flex-1 h-12 bg-slate-50 dark:bg-black/20 rounded-2xl border border-slate-100 dark:border-white/5 shadow-inner" />
-            <div className="w-12 h-12 rounded-2xl shadow-xl transition-all border border-white/10" style={{ background: config.primaryColor }} />
+          {/* Activity lines */}
+          <div className="space-y-1.5 pt-1">
+            <div className="h-1.5 bg-slate-300 dark:bg-slate-700 rounded w-5/6" />
+            <div className="h-1.5 bg-slate-300 dark:bg-slate-700 rounded w-4/6" />
+            <div className="h-1.5 bg-slate-300 dark:bg-slate-700 rounded w-3/6" />
           </div>
         </div>
-        
-        {/* Launcher preview under the widget */}
-        <div 
-          className="absolute bottom-[-10px] w-14 h-14 rounded-2xl shadow-2xl flex items-center justify-center text-2xl text-white transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] border-2 border-white dark:border-slate-800"
-          style={{ [config.position]: "40px", backgroundColor: config.primaryColor, transform: 'translateY(-20px)' }}
+
+        {/* Interactive Mock Widget / Launcher */}
+        <div
+          className="absolute bottom-3 transition-all duration-300 z-10"
+          style={{ [config.position]: "16px" }}
         >
-           <span className="drop-shadow-lg">{config.launcherIcon}</span>
+          {previewOpen ? (
+            <div className="shadow-xl rounded-xl overflow-hidden flex flex-col w-[240px] bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-white/10 animate-in zoom-in-95 duration-200">
+              {/* Header */}
+              <div className="p-2.5 flex items-center justify-between text-white relative transition-colors" style={{ backgroundColor: config.primaryColor }}>
+                <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/15 to-transparent pointer-events-none" />
+                <div className="flex items-center gap-2 relative z-10 min-w-0">
+                  <div className="w-6 h-6 rounded-md bg-white/20 backdrop-blur-md flex items-center justify-center text-xs shadow-xs border border-white/20 shrink-0">
+                    {config.launcherIcon}
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[10px] font-black uppercase tracking-tight leading-none mb-0.5 truncate drop-shadow-xs">
+                      {website?.websiteName || 'Unknown Entity'}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <div className="w-1 h-1 rounded-full bg-white animate-pulse" />
+                      <span className="text-[7px] font-bold opacity-85 uppercase tracking-wider">Protocol Active</span>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPreviewOpen(false)}
+                  className="relative z-10 text-white/80 hover:text-white text-[10px] font-bold px-1"
+                  title="Minimize"
+                >
+                  ─
+                </button>
+              </div>
+
+              {/* Message Area */}
+              <div className="p-2.5 space-y-2 bg-[#f8fafc] dark:bg-black/20 transition-colors">
+                <div className="flex gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="w-5 h-5 rounded-md shrink-0 flex items-center justify-center text-[9px] shadow-xs text-white" style={{ backgroundColor: config.primaryColor }}>
+                    {config.launcherIcon}
+                  </div>
+                  <div className="p-2 bg-white dark:bg-slate-900 text-[9px] font-bold text-slate-700 dark:text-slate-300 rounded-lg rounded-tl-none border border-slate-200/80 dark:border-white/10 shadow-2xs leading-snug">
+                    {config.welcomeMessage}
+                  </div>
+                </div>
+                {/* Quick Action Chips */}
+                <div className="flex flex-wrap gap-1 pl-6">
+                  <span className="px-1.5 py-0.5 rounded text-[7.5px] font-bold bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-white/10 text-slate-600 dark:text-slate-300 shadow-2xs">
+                    💬 Live Chat
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded text-[7.5px] font-bold bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-white/10 text-slate-600 dark:text-slate-300 shadow-2xs">
+                    🎫 Support
+                  </span>
+                </div>
+              </div>
+
+              {/* Input Bar */}
+              <div className="p-2 bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-white/5 flex gap-1.5 transition-colors">
+                <div className="flex-1 h-7 bg-slate-50 dark:bg-black/20 rounded-md border border-slate-200/80 dark:border-white/10 text-[8px] text-slate-400 flex items-center px-2">Type a message...</div>
+                <div className="w-7 h-7 rounded-md shadow-xs flex items-center justify-center text-white shrink-0" style={{ backgroundColor: config.primaryColor }}>
+                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setPreviewOpen(true)}
+              className="w-9 h-9 rounded-xl shadow-lg flex items-center justify-center text-sm text-white border border-white dark:border-slate-800 transition-transform hover:scale-110 active:scale-95 animate-in zoom-in-95 duration-200"
+              style={{ backgroundColor: config.primaryColor }}
+              title="Click to open widget preview"
+            >
+              <span className="drop-shadow-xs">{config.launcherIcon}</span>
+            </button>
+          )}
         </div>
       </div>
     </div>
