@@ -68,7 +68,7 @@ export const simulateIncomingCall = asyncHandler(async (req, res) => {
 
   let resolvedWebsite = null;
   if (websiteId) {
-    if (String(websiteId).length === 24) {
+    if (/^[0-9a-fA-F]{24}$/.test(String(websiteId))) {
       resolvedWebsite = await Website.findById(websiteId);
     }
     if (!resolvedWebsite) {

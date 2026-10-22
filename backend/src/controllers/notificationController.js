@@ -6,9 +6,8 @@ export const getNotifications = async (req, res) => {
     const query = { recipient: req.user._id };
     if (isRead === "true") query.isRead = true;
     if (isRead === "false") query.isRead = false;
-    if (type) query.type = type;
-    const notifications = await Notification.find({ recipient: req.user._id })
-      .find(query)
+    if (type && type !== "all") query.type = type;
+    const notifications = await Notification.find(query)
       .sort({ createdAt: -1 })
       .limit(200);
     res.json(notifications);

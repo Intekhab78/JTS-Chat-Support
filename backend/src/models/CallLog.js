@@ -12,6 +12,10 @@ const callLogSchema = new mongoose.Schema(
     outcome: { type: String, trim: true, default: "" },
     callerPhone: { type: String, trim: true, default: "" },
     aiSummary: { type: String, trim: true, default: "" },
+    agentId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
+    agentName: { type: String, trim: true, default: "" },
+    sessionId: { type: String, trim: true, default: "", index: true },
+    visitorName: { type: String, trim: true, default: "" },
     ticketId: { type: mongoose.Schema.Types.ObjectId, ref: "Ticket", default: null },
     autoTicketCreated: { type: Boolean, default: false },
     followUpTaskId: { type: mongoose.Schema.Types.ObjectId, ref: "FollowUpTask", default: null }

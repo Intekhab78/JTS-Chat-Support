@@ -37,10 +37,17 @@ export const SocketProvider = ({ children }) => {
   const socketRef = useRef(null);
   const currentBaseRef = useRef("");
 
+  const userRef = useRef(user);
+  userRef.current = user;
+
   const connectSocket = useCallback((targetBase) => {
-    if (!user) return;
     const token = typeof localStorage !== "undefined" ? localStorage.getItem("dashboard_token") : null;
-    if (!token) return;
+    if (!token && !userRef.current) return;
+
+    // Guard: Never disconnect an active, healthy socket to the same backend
+    if (socketRef.current && socketRef.current.connected && currentBaseRef.current === targetBase) {
+      return;
+    }
 
     if (socketRef.current) {
       socketRef.current.disconnect();
@@ -54,18 +61,37 @@ export const SocketProvider = ({ children }) => {
     const newSocket = io(targetBase, {
       auth: {
         type: "agent",
-        token
+        token: token || ""
       },
       reconnection: true,
-      reconnectionAttempts: 15,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
       transports,
       upgrade: !isRemotePollingOnly,
       withCredentials: true
     });
 
+    newSocket.on("connect", () => {
+      console.info(`%c[Socket] Successfully connected to ${targetBase} (Socket ID: ${newSocket.id})`, "color: #10b981; font-weight: bold;");
+    });
+
+    newSocket.on("disconnect", (reason) => {
+      console.warn(`[Socket] Disconnected from ${targetBase} (Reason: ${reason})`);
+    });
+
     newSocket.on("connect_error", async (err) => {
-      // If local socket fails to connect, test if local backend is down and fail over to cloud
+      // In local development, NEVER fail over to cloud. Socket.io will automatically reconnect to localhost:5000.
+      const isLocalTab = typeof window !== "undefined" && (
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1" ||
+        window.location.hostname.endsWith(".local")
+      );
+      if (isLocalTab) {
+        console.warn(`[Socket] Reconnecting to local backend (${targetBase})...`, err.message);
+        return;
+      }
+
+      // If remote production socket fails to connect, test if local backend is down and fail over to cloud
       const isLocal = targetBase.includes("localhost") || targetBase.includes("127.0.0.1");
       if (isLocal) {
         const isUp = await canReachLocalApi();
@@ -78,7 +104,7 @@ export const SocketProvider = ({ children }) => {
 
     socketRef.current = newSocket;
     setSocket(newSocket);
-  }, [user]);
+  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -111,10 +137,7 @@ export const SocketProvider = ({ children }) => {
     return () => {
       isMounted = false;
       window.removeEventListener("backend-switch", handleBackendSwitch);
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
+      // Retain socket connection across re-renders; disconnect only when user explicitly logs out (!user).
     };
   }, [user?._id, connectSocket]);
 

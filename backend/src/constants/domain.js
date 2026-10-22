@@ -82,7 +82,8 @@ export const NOTIFICATION_TYPES = Object.freeze([
   "corporate_tax_due",
   "trade_license_expiring",
   "overdue_compliance",
-  "unattended_client_alert"
+  "unattended_client_alert",
+  "missed_call"
 ]);
 
 export const UAE_SERVICES = Object.freeze([

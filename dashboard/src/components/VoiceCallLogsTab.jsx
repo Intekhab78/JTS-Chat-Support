@@ -510,23 +510,44 @@ export default function VoiceCallLogsTab({ websiteId }) {
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                     <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-200/50 dark:border-indigo-500/20">
-                        <PhoneIncoming size={11} />
+                      <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 border ${
+                        call.direction === "outgoing"
+                          ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200/50 dark:border-emerald-500/20"
+                          : "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border-indigo-200/50 dark:border-indigo-500/20"
+                      }`}>
+                        {call.direction === "outgoing" ? <PhoneOutgoing size={11} /> : <PhoneIncoming size={11} />}
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-black text-slate-900 dark:text-white font-mono">
-                          {call.callerPhone || "+971 Caller"}
+                          {call.callerPhone || (call.direction === "outgoing" ? "Outbound Call" : "Web Voice Call")}
                         </span>
                         <span className="text-[9.5px] text-slate-400 font-semibold">
                           • {new Date(call.createdAt).toLocaleDateString([], { day: "2-digit", month: "short" })}{" "}
                           {new Date(call.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         </span>
-                        <span className="px-1.5 py-0.2 bg-slate-200/60 dark:bg-slate-700/60 text-[8.5px] font-bold text-slate-600 dark:text-slate-300 rounded">
-                          ⏱️ {call.duration || 45}s
+                        <span className="px-1.5 py-0.2 bg-slate-200/60 dark:bg-slate-700/60 text-[8.5px] font-bold text-slate-600 dark:text-slate-300 rounded font-mono">
+                          ⏱️ {call.duration >= 60 ? `${Math.floor(call.duration / 60)}m ${call.duration % 60}s` : `${call.duration || 0}s`}
                         </span>
-                        <span className="px-1.5 py-0.2 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-300 text-[8.5px] font-bold rounded border border-indigo-100 dark:border-indigo-500/20">
-                          AI IVR
-                        </span>
+                        {call.agentName ? (
+                          <span className="px-1.5 py-0.2 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-[8.5px] font-bold rounded border border-emerald-100 dark:border-emerald-500/20 flex items-center gap-1">
+                            <User size={9} />
+                            <span>Agent: {call.agentName}</span>
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.2 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-300 text-[8.5px] font-bold rounded border border-indigo-100 dark:border-indigo-500/20">
+                            AI IVR
+                          </span>
+                        )}
+                        {call.visitorName && call.visitorName !== "Visitor" && (
+                          <span className="px-1.5 py-0.2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[8.5px] font-semibold rounded">
+                            {call.visitorName}
+                          </span>
+                        )}
+                        {call.status === "missed" && (
+                          <span className="px-1.5 py-0.2 bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 text-[8.5px] font-bold rounded border border-rose-200/60 dark:border-rose-500/20">
+                            Missed
+                          </span>
+                        )}
                       </div>
                     </div>
 

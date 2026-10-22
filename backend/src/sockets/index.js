@@ -15,8 +15,13 @@ import { dispatchWebsiteWebhook } from "../services/webhookService.js";
 import { getUserFromToken } from "../middleware/auth.js";
 import { processChatIntelligence } from "../services/intelligenceService.js";
 import { env } from "../config/env.js";
+import { CallLog } from "../models/CallLog.js";
+import { Ticket } from "../models/Ticket.js";
+import { buildTicketId } from "../utils/ticketUtils.js";
 
 let ioInstance = null;
+const activeVoiceCalls = new Map(); // Global in-memory call routing registry (callId -> callData)
+const isValidObjectId = (val) => Boolean(val && typeof val === "string" && /^[0-9a-fA-F]{24}$/.test(val));
 
 function getSessionWebsiteId(session) {
   return session?.websiteId?._id || session?.websiteId || null;
@@ -67,6 +72,378 @@ async function createAndEmitNotification(io, { recipient, type, title, message, 
     return notification;
   } catch (error) {
     console.error("Notification Error:", error);
+  }
+}
+
+// ── 4-Tier Automated Missed Call Handling Pipeline ──
+async function handleMissedCall(io, { callId, callInfo, reason }) {
+  if (!callInfo || callInfo._missedLogged) return;
+  callInfo._missedLogged = true;
+
+  try {
+    const callerName = callInfo.visitorName || "Website Visitor";
+    const callerPhone = callInfo.callerPhone || "Web Direct Voice Call";
+    const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+    // ── 1. Resolve Website & Manager ──
+    let targetWebsite = null;
+    let resolvedWebsiteId = null;
+    if (callInfo.websiteId) {
+      if (isValidObjectId(callInfo.websiteId)) {
+        targetWebsite = await Website.findById(callInfo.websiteId).catch(() => null);
+      }
+      if (!targetWebsite) {
+        targetWebsite = await Website.findOne({
+          $or: [{ apiKey: callInfo.websiteId }, { domain: callInfo.websiteId }]
+        }).catch(() => null);
+      }
+    }
+    if (targetWebsite) {
+      resolvedWebsiteId = targetWebsite._id;
+    }
+
+    // ── 2. Resolve ChatSession ──
+    let sessionDoc = null;
+    if (callInfo.sessionId) {
+      sessionDoc = await ChatSession.findOne({
+        $or: [
+          { sessionId: callInfo.sessionId },
+          ...(isValidObjectId(callInfo.sessionId) ? [{ _id: callInfo.sessionId }] : [])
+        ]
+      }).populate("websiteId").populate("visitorId").populate("customerId").populate("assignedAgent");
+    }
+
+    if (!sessionDoc && resolvedWebsiteId && callInfo.visitorId) {
+      sessionDoc = await ChatSession.findOne({
+        websiteId: resolvedWebsiteId,
+        $or: [
+          { visitorId: callInfo.visitorId },
+          ...(isValidObjectId(callInfo.visitorId) ? [{ _id: callInfo.visitorId }] : [])
+        ]
+      }).sort({ updatedAt: -1 }).populate("websiteId").populate("visitorId").populate("customerId").populate("assignedAgent");
+    }
+
+    if (!sessionDoc && resolvedWebsiteId) {
+      try {
+        let visDoc = null;
+        if (callInfo.visitorId) {
+          visDoc = await Visitor.findOne({
+            $or: [
+              { visitorId: callInfo.visitorId },
+              ...(isValidObjectId(callInfo.visitorId) ? [{ _id: callInfo.visitorId }] : [])
+            ]
+          });
+        }
+        const newSessionId = callInfo.sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+        sessionDoc = await ChatSession.create({
+          sessionId: newSessionId,
+          websiteId: resolvedWebsiteId,
+          visitorId: visDoc?._id || null,
+          customerId: visDoc?.customerId || null,
+          status: "queued"
+        });
+      } catch (createErr) {
+        console.warn("[Sockets] Could not auto-create session for missed call:", createErr.message);
+      }
+    }
+
+    if (sessionDoc && !resolvedWebsiteId && sessionDoc.websiteId) {
+      resolvedWebsiteId = sessionDoc.websiteId._id || sessionDoc.websiteId;
+      if (!targetWebsite) targetWebsite = sessionDoc.websiteId;
+    }
+
+    const isOutbound = callInfo.direction === "outbound";
+    // ── 3. Tier 1: Insert System Message into Chat Timeline ──
+    let missedCallMessage;
+    if (isOutbound) {
+      if (reason && (reason.toLowerCase().includes("cancel") || reason.toLowerCase().includes("ended before"))) {
+        missedCallMessage = `📞 Outbound call cancelled by ${callInfo.agentName || 'Agent'} at ${timeStr}`;
+      } else {
+        missedCallMessage = `📞 Outbound call by ${callInfo.agentName || 'Agent'} unanswered at ${timeStr}`;
+      }
+    } else {
+      missedCallMessage = `📞 Missed voice call from ${callerName} at ${timeStr}`;
+    }
+    if (sessionDoc) {
+      const savedMsg = await addMessage({
+        chatSession: sessionDoc,
+        sender: "system",
+        message: missedCallMessage
+      }).catch(err => {
+        console.error("[Sockets] Error adding missed call message to chat session:", err.message);
+        return null;
+      });
+
+      if (savedMsg) {
+        const msgPayload = {
+          _id: savedMsg._id,
+          sessionId: sessionDoc.sessionId,
+          message: missedCallMessage,
+          sender: "system",
+          senderName: "Voice System",
+          channel: "voice",
+          createdAt: savedMsg.createdAt
+        };
+
+        io.to(sessionDoc.sessionId).emit("chat:message", msgPayload);
+        if (resolvedWebsiteId) {
+          io.to(`ws_${resolvedWebsiteId}`).emit("chat:new-message", msgPayload);
+        }
+        if (sessionDoc.assignedAgent) {
+          const aId = sessionDoc.assignedAgent._id || sessionDoc.assignedAgent;
+          io.to(`us_${aId}`).emit("chat:message", msgPayload);
+        }
+
+        sessionDoc.lastMessageAt = new Date();
+        sessionDoc.lastMessagePreview = missedCallMessage;
+        await sessionDoc.save().catch(() => {});
+        emitSessionUpdate(sessionDoc);
+      }
+    }
+
+    // ── 4. Tier 4: Auto-Ticket Generation (Inbound Calls Only) ──
+    let callbackTicket = null;
+    const ticketId = buildTicketId();
+    const rawVisId = sessionDoc?.visitorId?._id || sessionDoc?.visitorId || callInfo.visitorId;
+    const visitorObjId = isValidObjectId(String(rawVisId)) ? rawVisId : null;
+    const customerObjId = sessionDoc?.customerId?._id || (isValidObjectId(String(sessionDoc?.customerId)) ? sessionDoc.customerId : null);
+
+    if (resolvedWebsiteId && !isOutbound) {
+      try {
+        callbackTicket = await Ticket.create({
+          ticketId,
+          websiteId: resolvedWebsiteId,
+          visitorId: visitorObjId,
+          customerId: customerObjId,
+          crn: sessionDoc?.crn || null,
+          assignedAgent: sessionDoc?.assignedAgent?._id || sessionDoc?.assignedAgent || null,
+          subject: `📞 Missed Call Callback: ${callerName}`,
+          priority: "high",
+          status: "open",
+          channel: "phone",
+          department: "support",
+          lastMessagePreview: `Missed call from ${callerName} at ${timeStr}. Requires immediate callback.`,
+          notes: [{
+            content: `Auto-generated callback ticket for missed voice call at ${new Date().toLocaleString()}. Caller: ${callerName}, Phone: ${callerPhone}, Session: ${sessionDoc?.sessionId || callInfo.sessionId || 'N/A'}. Reason: ${reason || 'Unanswered'}.`,
+            isPublic: false
+          }]
+        });
+
+        io.emit("ticket:created", {
+          ticket: callbackTicket,
+          message: `Callback ticket ${ticketId} created for ${callerName}`,
+          user: callerName
+        });
+      } catch (ticketErr) {
+        console.error("[Sockets] Error creating callback ticket for missed call:", ticketErr.message);
+      }
+    }
+
+    // ── 5. Tier 3: Record Voice Call Logs (CallLog) ──
+    let callLog = null;
+    try {
+      callLog = await CallLog.create({
+        websiteId: resolvedWebsiteId,
+        customerId: customerObjId,
+        direction: isOutbound ? "outbound" : "incoming",
+        status: "missed",
+        duration: 0,
+        callerPhone: callerPhone,
+        transcript: callInfo.transcript || (isOutbound 
+          ? `Outbound call by ${callInfo.agentName || 'Agent'} to ${callerName} was unanswered (${reason || 'Visitor unavailable'}).`
+          : `Incoming voice call from ${callerName} was missed (${reason || 'Agent unavailable / Unanswered'}).`),
+        outcome: reason || (isOutbound ? "Outbound Call - Unanswered" : "Missed call - Unanswered"),
+        aiSummary: callInfo.aiSummary || (isOutbound
+          ? `Outbound call to ${callerName} was unanswered at ${timeStr}.`
+          : `Missed call from ${callerName} at ${timeStr}.`),
+        ticketId: callbackTicket?._id || null,
+        autoTicketCreated: Boolean(callbackTicket)
+      });
+
+      io.emit("call:log-updated", { callId, logId: callLog?._id });
+    } catch (logErr) {
+      console.error("[Sockets] Error creating CallLog for missed call:", logErr.message);
+    }
+
+    if (isOutbound) {
+      // Outbound calls don't notify agents of a missed inbound call
+      return;
+    }
+
+    // ── 6. Tier 2: Dashboard Notification Bell ──
+    const recipients = new Set();
+    if (sessionDoc?.assignedAgent) {
+      recipients.add(String(sessionDoc.assignedAgent._id || sessionDoc.assignedAgent));
+    }
+    if (targetWebsite?.managerId) {
+      recipients.add(String(targetWebsite.managerId));
+    }
+
+    // Always include all support agents under this manager or assigned to this website
+    try {
+      const agentConditions = [];
+      if (targetWebsite?.managerId) {
+        agentConditions.push({ managerId: targetWebsite.managerId });
+      }
+      if (resolvedWebsiteId) {
+        agentConditions.push({ websiteIds: resolvedWebsiteId });
+      }
+      if (agentConditions.length > 0) {
+        const teamAgents = await User.find({
+          role: "agent",
+          $or: agentConditions
+        }, "_id").lean();
+        for (const ag of teamAgents) {
+          recipients.add(String(ag._id));
+        }
+      }
+    } catch (agentLookupErr) {
+      console.warn("[Sockets] Could not query team agents for missed call notification:", agentLookupErr.message);
+    }
+
+    // Also include any online agents or managers connected right now
+    for (const [sId, s] of io.sockets.sockets) {
+      if (s.data?.user) {
+        const u = s.data.user;
+        const uRole = normalizeRole(u.role);
+        if (uRole === "agent" || uRole === "manager" || uRole === "admin" || uRole === "client") {
+          if (
+            uRole === "admin" ||
+            String(u._id) === String(targetWebsite?.managerId) ||
+            String(u.managerId) === String(targetWebsite?.managerId) ||
+            (s.data.websiteIds && s.data.websiteIds.includes(String(resolvedWebsiteId)))
+          ) {
+            recipients.add(String(u._id));
+          }
+        }
+      }
+    }
+
+    const notifLink = sessionDoc?.sessionId 
+      ? `/agent?tab=chats&sessionId=${sessionDoc.sessionId}` 
+      : (callbackTicket ? `/agent?tab=tickets&search=${callbackTicket.ticketId}` : `/client?tab=voice-logs`);
+
+    for (const recipientId of recipients) {
+      await createAndEmitNotification(io, {
+        recipient: recipientId,
+        type: "missed_call",
+        title: "📞 Missed Call Alert",
+        message: `Missed call from ${callerName} (${callerPhone}). Immediate callback required.`,
+        link: notifLink
+      }).catch(() => {});
+    }
+
+    // General broadcast to all admin dashboards
+    io.to("us_admin").emit("notification:new", {
+      _id: `temp_${Date.now()}`,
+      type: "missed_call",
+      title: "📞 Missed Call Alert",
+      message: `Missed call from ${callerName} (${callerPhone}) on ${targetWebsite?.websiteName || 'Website'}.`,
+      link: notifLink,
+      createdAt: new Date(),
+      isRead: false
+    });
+
+    io.emit("call:missed", {
+      callId,
+      sessionId: sessionDoc?.sessionId,
+      visitorName: callerName,
+      message: `Missed call from ${callerName}`
+    });
+
+    if (resolvedWebsiteId) {
+      broadcastStatsUpdate(io, resolvedWebsiteId, targetWebsite?.managerId);
+    }
+
+    console.log(`[Sockets] Missed call successfully processed for callId: ${callId}, visitor: ${callerName}, ticket: ${callbackTicket?.ticketId || 'none'}`);
+  } catch (err) {
+    console.error(`[Sockets] Error handling missed call for callId: ${callId}:`, err);
+  }
+}
+
+// ── Automated Completed Call Logging ──
+async function handleCompletedCall(io, { callId, callInfo, duration }) {
+  if (!callInfo || callInfo._completedLogged) return;
+  callInfo._completedLogged = true;
+
+  try {
+    let resolvedWebsiteId = null;
+    if (isValidObjectId(callInfo.websiteId)) {
+      resolvedWebsiteId = callInfo.websiteId;
+    } else if (callInfo.websiteId) {
+      const wDoc = await Website.findOne({ apiKey: callInfo.websiteId }).catch(() => null);
+      if (wDoc) resolvedWebsiteId = wDoc._id;
+    }
+
+    const callDuration = duration || Math.max(1, Math.round((Date.now() - (callInfo.connectedAt ? new Date(callInfo.connectedAt).getTime() : Date.now())) / 1000));
+
+    await CallLog.create({
+      websiteId: resolvedWebsiteId,
+      customerId: callInfo.customerId || null,
+      agentId: isValidObjectId(callInfo.agentId) ? callInfo.agentId : null,
+      agentName: callInfo.agentName || "Agent",
+      sessionId: callInfo.sessionId || "",
+      visitorName: callInfo.visitorName || "Visitor",
+      direction: callInfo.direction || "incoming",
+      status: "completed",
+      duration: callDuration,
+      callerPhone: callInfo.callerPhone || "Web Voice Call",
+      transcript: callInfo.transcript || `Live voice call completed with agent ${callInfo.agentName || 'Agent'}. Duration: ${callDuration}s.`,
+      outcome: `Completed call handled by ${callInfo.agentName || 'Agent'} (${callDuration}s)`,
+      aiSummary: callInfo.aiSummary || `Direct voice call completed with ${callInfo.agentName || 'Agent'} (Duration: ${callDuration}s).`,
+      ticketId: null,
+      autoTicketCreated: false
+    });
+
+    // ── Insert Completed Call Record into Chat Session Timeline ──
+    let sessionDoc = null;
+    if (callInfo.sessionId) {
+      sessionDoc = await ChatSession.findOne({
+        $or: [
+          { sessionId: callInfo.sessionId },
+          ...(isValidObjectId(callInfo.sessionId) ? [{ _id: callInfo.sessionId }] : [])
+        ]
+      });
+    }
+
+    const mins = Math.floor(callDuration / 60).toString().padStart(2, "0");
+    const secs = (callDuration % 60).toString().padStart(2, "0");
+    const formattedDuration = `${mins}:${secs}`;
+    const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const completedMsg = `📞 Voice call completed • Duration: ${formattedDuration} • Agent: ${callInfo.agentName || 'Agent'} at ${timeStr}`;
+
+    if (sessionDoc) {
+      const savedMsg = await addMessage({
+        chatSession: sessionDoc,
+        sender: "system",
+        message: completedMsg
+      }).catch(err => {
+        console.error("[Sockets] Error adding completed call message to chat session:", err.message);
+        return null;
+      });
+
+      if (savedMsg) {
+        const msgPayload = {
+          _id: savedMsg._id,
+          sessionId: sessionDoc.sessionId,
+          message: completedMsg,
+          sender: "system",
+          senderName: "Voice System",
+          channel: "voice",
+          createdAt: savedMsg.createdAt
+        };
+        io.to(sessionDoc.sessionId).emit("chat:message", msgPayload);
+        sessionDoc.lastMessageAt = new Date();
+        sessionDoc.lastMessagePreview = completedMsg;
+        await sessionDoc.save().catch(() => {});
+        emitSessionUpdate(sessionDoc);
+      }
+    }
+
+    io.emit("call:log-updated", { callId });
+    console.log(`[Sockets] Completed call logged for callId: ${callId}, duration: ${formattedDuration} (${callDuration}s)`);
+  } catch (err) {
+    console.error(`[Sockets] Error logging completed call:`, err);
   }
 }
 
@@ -215,7 +592,542 @@ export function createSocketServer(httpServer) {
     }
   });
 
-  io.on("connection", async (socket) => {
+  io.on("connection", (socket) => {
+    console.log(`[Sockets] Connection established: sid=${socket.id}, type=${socket.data?.type || 'unknown'}`);
+
+    // ── Live AI-to-Human Voice Call Handoff & WebRTC Signaling (Registered First) ──
+    socket.on("call:request-human", async (payload) => {
+      try {
+        const { sessionId, websiteId, visitorName, visitorId, callerPhone, transcript, aiSummary, telemetry } = payload || {};
+        const callId = payload?.callId || `CALL_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+        
+        // ── Resolve Visitor's Real Name from Payload, ChatSession, or Visitor Model ──
+        let resolvedVisitorName = (visitorName && visitorName !== "Website Visitor" && visitorName !== "Visitor" && String(visitorName).trim()) 
+          ? String(visitorName).trim() 
+          : "";
+
+        if (!resolvedVisitorName && (sessionId || visitorId)) {
+          try {
+            if (sessionId) {
+              const sessionDoc = await ChatSession.findOne({
+                $or: [{ sessionId }, ...(isValidObjectId(sessionId) ? [{ _id: sessionId }] : [])]
+              }).populate("visitorId").populate("customerId");
+              
+              if (sessionDoc?.visitorId?.name && sessionDoc.visitorId.name.trim()) {
+                resolvedVisitorName = sessionDoc.visitorId.name.trim();
+              } else if (sessionDoc?.customerId?.name && sessionDoc.customerId.name.trim()) {
+                resolvedVisitorName = sessionDoc.customerId.name.trim();
+              }
+            }
+            if (!resolvedVisitorName && visitorId) {
+              const visitorDoc = await Visitor.findOne({
+                $or: [{ visitorId }, ...(isValidObjectId(visitorId) ? [{ _id: visitorId }] : [])]
+              });
+              if (visitorDoc?.name && visitorDoc.name.trim()) {
+                resolvedVisitorName = visitorDoc.name.trim();
+              }
+            }
+          } catch (lookupErr) {
+            console.warn("[Sockets] Could not resolve visitor real name from DB:", lookupErr.message);
+          }
+        }
+
+        if (!resolvedVisitorName) {
+          const loc = telemetry?.city || (telemetry?.country && telemetry.country !== "Unknown" ? telemetry.country : null);
+          if (loc) {
+            resolvedVisitorName = `Visitor (${loc})`;
+          } else if (visitorId && visitorId.length >= 4) {
+            resolvedVisitorName = `Visitor #${visitorId.slice(-4).toUpperCase()}`;
+          } else {
+            resolvedVisitorName = "Visitor";
+          }
+        }
+
+        console.log(`[Sockets] >>> call:request-human received for callId: ${callId} from socket: ${socket.id}, visitor: ${resolvedVisitorName}`);
+        
+        socket.join(`call_${callId}`);
+        if (sessionId) socket.join(sessionId);
+        if (visitorId) socket.join(`visitor_${visitorId}`);
+
+        const callData = {
+          callId,
+          sessionId,
+          visitorSocketId: socket.id,
+          visitorId,
+          visitorName: resolvedVisitorName,
+          callerPhone: callerPhone || "Web Direct Voice Call",
+          websiteId: websiteId || socket.data?.website?._id?.toString() || "",
+          transcript: transcript || "",
+          aiSummary: aiSummary || "Visitor requested live human agent voice assistance.",
+          telemetry: telemetry || {},
+          status: "ringing",
+          requestedAt: new Date()
+        };
+
+        activeVoiceCalls.set(callId, {
+          ...callData,
+          visitorSocket: socket
+        });
+
+        let targetWebsite = socket.data?.website;
+        if (!targetWebsite && websiteId) {
+          const isObjId = isValidObjectId(websiteId);
+          targetWebsite = await Website.findOne({
+            $or: [
+              { apiKey: websiteId },
+              ...(isObjId ? [{ _id: websiteId }] : [])
+            ]
+          }).catch(() => null);
+        }
+
+        if (targetWebsite) {
+          callData.websiteId = targetWebsite._id.toString();
+        }
+
+        // Universal Broadcast to all connected agent dashboards
+        io.emit("call:incoming", callData);
+        console.log(`[Sockets] >>> call:incoming broadcasted for callId: ${callId}. Total active sockets: ${io.sockets.sockets.size}`);
+
+        const queuedPayload = { message: "Connecting to an available support agent...", callId };
+        io.to(`call_${callId}`).emit("call:queued", queuedPayload);
+        if (sessionId) io.to(sessionId).emit("call:queued", queuedPayload);
+        socket.emit("call:queued", queuedPayload);
+      } catch (err) {
+        console.error(`[Sockets] ERROR handling call:request-human:`, err);
+      }
+    });
+
+    socket.on("call:accept", async (payload) => {
+      const { callId, sessionId, visitorSocketId, visitorId, isTransferred, transferredBySocketId } = payload || {};
+      const agentUser = socket.data.user;
+      console.log(`[Sockets] >>> call:accept received for callId: ${callId} by agent: ${agentUser?.name || 'Agent'} (sid: ${socket.id})`);
+
+      if (callId) {
+        socket.join(`call_${callId}`);
+      }
+
+      const activeRecord = callId ? activeVoiceCalls.get(callId) : null;
+      if (activeRecord) {
+        activeRecord.agentSocketId = socket.id;
+        activeRecord.agentName = agentUser?.name || "Support Specialist";
+        activeRecord.status = "connected";
+        activeRecord.connectedAt = new Date();
+      }
+
+      const acceptPayload = {
+        callId,
+        sessionId: sessionId || activeRecord?.sessionId,
+        agentSocketId: socket.id,
+        agentName: agentUser?.name || "Support Specialist",
+        agentRole: agentUser?.role || "Senior Specialist"
+      };
+
+      if (callId) {
+        io.to(`call_${callId}`).emit("call:accepted", acceptPayload);
+      }
+      const targetVisitorSid = visitorSocketId || activeRecord?.visitorSocketId;
+      if (targetVisitorSid) {
+        io.to(targetVisitorSid).emit("call:accepted", acceptPayload);
+      }
+      const targetSessionId = sessionId || activeRecord?.sessionId;
+      if (targetSessionId) {
+        io.to(targetSessionId).emit("call:accepted", acceptPayload);
+      }
+      const targetVisitorId = visitorId || activeRecord?.visitorId;
+      if (targetVisitorId) {
+        io.to(`visitor_${targetVisitorId}`).emit("call:accepted", acceptPayload);
+      }
+
+      if (transferredBySocketId) {
+        io.to(transferredBySocketId).emit("call:transferred-success", {
+          callId,
+          newAgentName: agentUser?.name || "Senior Specialist"
+        });
+      }
+
+      socket.broadcast.emit("call:answered", { callId, answeredBy: agentUser?.name });
+    });
+
+    socket.on("call:transfer", async (payload) => {
+      const { callId, sessionId, visitorSocketId, targetAgentId, transferNote, callerDetails } = payload || {};
+      const agentUser = socket.data.user;
+      console.log(`[Sockets] Call ${callId} transferred by ${agentUser?.name} to targetAgent ${targetAgentId}`);
+
+      let transferVisitorName = (callerDetails?.visitorName && callerDetails.visitorName !== "Website Visitor" && callerDetails.visitorName !== "Visitor" && callerDetails.visitorName.trim())
+        ? callerDetails.visitorName.trim()
+        : "";
+
+      if (!transferVisitorName && (sessionId || callerDetails?.visitorId)) {
+        try {
+          const sDoc = await ChatSession.findOne({ 
+            $or: [{ sessionId }, ...(isValidObjectId(sessionId) ? [{ _id: sessionId }] : [])]
+          }).populate("visitorId");
+          if (sDoc?.visitorId?.name && sDoc.visitorId.name.trim()) {
+            transferVisitorName = sDoc.visitorId.name.trim();
+          }
+        } catch {}
+      }
+
+      const transferCallData = {
+        callId: callId || `CALL_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+        sessionId,
+        visitorSocketId,
+        visitorName: transferVisitorName || "Visitor",
+        callerPhone: callerDetails?.callerPhone || "Web Voice",
+        telemetry: callerDetails?.telemetry || {},
+        aiSummary: transferNote 
+          ? `[Handover from ${agentUser?.name || 'Agent'}]: "${transferNote}"`
+          : `Live call transferred from ${agentUser?.name || 'Agent'}`,
+        isTransferred: true,
+        transferredBy: agentUser?.name || "Agent",
+        transferredBySocketId: socket.id,
+        transferNote: transferNote || "",
+        requestedAt: new Date()
+      };
+
+      if (callId) io.to(`call_${callId}`).emit("call:transfer-in-progress", { message: "Transferring your call..." });
+      if (visitorSocketId) io.to(visitorSocketId).emit("call:transfer-in-progress", { message: "Transferring your call..." });
+
+      let delivered = false;
+      for (const [id, s] of io.sockets.sockets) {
+        if (s.data?.user) {
+          const uId = String(s.data.user._id || s.data.user.id || "");
+          if (uId === String(targetAgentId)) {
+            s.emit("call:incoming", transferCallData);
+            delivered = true;
+          }
+        }
+      }
+
+      if (!delivered) {
+        io.to("us_admin").emit("call:incoming", transferCallData);
+        for (const [id, s] of io.sockets.sockets) {
+          if (s.data?.user && s.id !== socket.id) {
+            s.emit("call:incoming", transferCallData);
+          }
+        }
+      }
+
+      socket.emit("call:transfer-initiated", { callId, success: true });
+    });
+
+    socket.on("call:reject", async (payload) => {
+      const { callId, visitorSocketId, sessionId } = payload || {};
+      const callInfo = callId ? activeVoiceCalls.get(callId) : null;
+      if (callInfo && callInfo.status === "ringing") {
+        await handleMissedCall(io, { callId, callInfo, reason: "Agent declined / Line busy" });
+      }
+      const busyMsg = { callId, message: "Agent is currently busy." };
+      if (callId) {
+        io.to(`call_${callId}`).emit("call:busy", busyMsg);
+        activeVoiceCalls.delete(callId);
+      }
+      if (visitorSocketId) io.to(visitorSocketId).emit("call:busy", busyMsg);
+      if (sessionId) io.to(sessionId).emit("call:busy", busyMsg);
+    });
+
+    // ── Agent-to-Visitor Outbound Web Voice Call (Call Back) ──
+    socket.on("call:agent-outbound", async (payload) => {
+      try {
+        const { callId, sessionId, visitorId, visitorName, agentName, agentId, websiteId } = payload || {};
+        console.log(`[Sockets] Agent ${agentName || socket.id} calling visitor for session ${sessionId}, callId: ${callId}`);
+
+        if (callId) socket.join(`call_${callId}`);
+        if (sessionId) socket.join(sessionId);
+
+        const callData = {
+          callId,
+          sessionId,
+          agentSocketId: socket.id,
+          agentId,
+          agentName: agentName || socket.data?.user?.name || "Support Specialist",
+          visitorId,
+          visitorName: visitorName || "Visitor",
+          websiteId,
+          direction: "outbound",
+          status: "ringing",
+          requestedAt: new Date()
+        };
+
+        activeVoiceCalls.set(callId, {
+          ...callData,
+          agentSocket: socket
+        });
+        socket.join(`call_${callId}`);
+
+        const incomingFromAgentPayload = {
+          callId,
+          sessionId,
+          agentName: callData.agentName,
+          agentSocketId: socket.id,
+          requestedAt: new Date()
+        };
+
+        const recipientSockets = new Set();
+        const candidateSessionIds = new Set();
+        if (sessionId) candidateSessionIds.add(sessionId);
+
+        const candidateVisitorIds = new Set();
+        if (visitorId) candidateVisitorIds.add(String(visitorId));
+
+        let targetCrn = payload?.crn || null;
+
+        // 1. Look up ChatSession and Visitor records
+        try {
+          const sDoc = await ChatSession.findOne({
+            $or: [{ sessionId }, ...(isValidObjectId(sessionId) ? [{ _id: sessionId }] : [])]
+          }).populate("visitorId");
+
+          if (sDoc) {
+            if (sDoc.sessionId) candidateSessionIds.add(sDoc.sessionId);
+            if (sDoc._id) candidateSessionIds.add(sDoc._id.toString());
+            if (sDoc.crn) targetCrn = sDoc.crn;
+
+            if (sDoc.visitorId) {
+              if (sDoc.visitorId._id) candidateVisitorIds.add(sDoc.visitorId._id.toString());
+              if (sDoc.visitorId.visitorId) candidateVisitorIds.add(String(sDoc.visitorId.visitorId));
+            }
+          }
+
+          // If we have any visitor identifier, find the Visitor document to get both _id and visitorId string
+          const vQuery = [];
+          for (const vId of candidateVisitorIds) {
+            vQuery.push({ visitorId: vId });
+            if (isValidObjectId(vId)) vQuery.push({ _id: vId });
+          }
+          if (vQuery.length > 0) {
+            const vDoc = await Visitor.findOne({ $or: vQuery });
+            if (vDoc) {
+              if (vDoc._id) candidateVisitorIds.add(vDoc._id.toString());
+              if (vDoc.visitorId) candidateVisitorIds.add(String(vDoc.visitorId));
+              // Also find any active sessions for this visitor or CRN
+              const allVisitorSessions = await ChatSession.find({
+                $or: [
+                  { visitorId: vDoc._id },
+                  ...(vDoc.visitorId ? [{ visitorId: vDoc.visitorId }] : []),
+                  ...(targetCrn ? [{ crn: targetCrn }] : [])
+                ]
+              }).select("sessionId _id crn");
+
+              for (const vs of allVisitorSessions) {
+                if (vs.sessionId) candidateSessionIds.add(vs.sessionId);
+                if (vs._id) candidateSessionIds.add(vs._id.toString());
+                if (vs.crn && !targetCrn) targetCrn = vs.crn;
+              }
+            }
+          }
+        } catch (lookupErr) {
+          console.warn("[Sockets] Error resolving session & visitor candidates:", lookupErr.message);
+        }
+
+        console.log(`[Sockets] Call ${callId} candidates -> Sessions:`, Array.from(candidateSessionIds), "VisitorIds:", Array.from(candidateVisitorIds), "CRN:", targetCrn);
+
+        // 2. Scan all connected sockets
+        for (const [sId, s] of io.sockets.sockets) {
+          if (s.id !== socket.id && s.data?.type === "visitor") {
+            const sSession = s.data?.sessionId;
+            const sVisitor = s.data?.visitorId ? String(s.data.visitorId) : null;
+            const sCrn = s.data?.crn;
+
+            let isMatch = false;
+            if (targetCrn && sCrn && sCrn === targetCrn) isMatch = true;
+            if (!isMatch && sSession && candidateSessionIds.has(sSession)) isMatch = true;
+            if (!isMatch && sVisitor && candidateVisitorIds.has(sVisitor)) isMatch = true;
+            if (!isMatch) {
+              for (const cSess of candidateSessionIds) {
+                if (s.rooms.has(cSess) || s.rooms.has(`session_${cSess}`)) {
+                  isMatch = true;
+                  break;
+                }
+              }
+            }
+            if (isMatch) {
+              recipientSockets.add(s);
+            }
+          }
+        }
+
+        // 3. Also check room members for candidate rooms
+        const candidateRoomNames = [];
+        for (const cSess of candidateSessionIds) {
+          candidateRoomNames.push(cSess);
+          if (!cSess.startsWith("session_")) candidateRoomNames.push(`session_${cSess}`);
+        }
+        for (const cVis of candidateVisitorIds) {
+          candidateRoomNames.push(`visitor_${cVis}`);
+          if (cVis.startsWith("visitor_")) candidateRoomNames.push(cVis);
+        }
+
+        for (const rName of candidateRoomNames) {
+          const room = io.sockets.adapter.rooms.get(rName);
+          if (room) {
+            for (const sId of room) {
+              const s = io.sockets.sockets.get(sId);
+              if (s && s.id !== socket.id && s.data?.type !== "agent") {
+                recipientSockets.add(s);
+              }
+            }
+          }
+        }
+
+        console.log(`[Sockets] Outbound call ${callId} target resolved to ${recipientSockets.size} active visitor sockets.`);
+
+        if (recipientSockets.size === 0) {
+          console.warn(`[Sockets] No active visitor socket found for outbound call ${callId}. Emitting fallback to candidate rooms.`);
+          for (const rName of candidateRoomNames) {
+            io.to(rName).emit("call:incoming-from-agent", incomingFromAgentPayload);
+          }
+        } else {
+          for (const s of recipientSockets) {
+            s.join(`call_${callId}`);
+            s.emit("call:incoming-from-agent", incomingFromAgentPayload);
+          }
+        }
+      } catch (err) {
+        console.error("[Sockets] Error handling call:agent-outbound:", err);
+      }
+    });
+
+    socket.on("call:visitor-accept", async (payload) => {
+      const { callId, sessionId, targetSocketId } = payload || {};
+      console.log(`[Sockets] Visitor accepted call ${callId} from socket ${socket.id}`);
+      const callRecord = callId ? activeVoiceCalls.get(callId) : null;
+      if (callRecord) {
+        callRecord.status = "connected";
+        callRecord.visitorSocketId = socket.id;
+        callRecord.connectedAt = new Date();
+      }
+      if (callId) socket.join(`call_${callId}`);
+
+      const agentSockId = callRecord?.agentSocketId || targetSocketId;
+      const acceptPayload = {
+        callId,
+        sessionId: sessionId || callRecord?.sessionId,
+        visitorSocketId: socket.id,
+        agentSocketId: agentSockId
+      };
+
+      // Emit strictly ONCE to the agent
+      if (agentSockId) {
+        io.to(agentSockId).emit("call:visitor-accepted", acceptPayload);
+      } else if (callId) {
+        socket.to(`call_${callId}`).emit("call:visitor-accepted", acceptPayload);
+      }
+    });
+
+    socket.on("call:visitor-decline", async (payload) => {
+      const { callId, sessionId, targetSocketId, reason } = payload || {};
+      console.log(`[Sockets] Visitor declined call ${callId}:`, reason || "");
+      const callRecord = callId ? activeVoiceCalls.get(callId) : null;
+      if (callRecord && callRecord.status === "ringing") {
+        await handleMissedCall(io, {
+          callId,
+          callInfo: callRecord,
+          reason: reason === "timeout" ? "Visitor unanswered (timeout)" : "Visitor declined call"
+        });
+      }
+      const agentSockId = callRecord?.agentSocketId || targetSocketId;
+      const declinePayload = { callId, sessionId, reason, message: "Visitor declined the call." };
+
+      if (agentSockId) {
+        io.to(agentSockId).emit("call:visitor-declined", declinePayload);
+      } else if (callId) {
+        socket.to(`call_${callId}`).emit("call:visitor-declined", declinePayload);
+      }
+
+      if (callId) {
+        activeVoiceCalls.delete(callId);
+      }
+    });
+
+    socket.on("call:webrtc-signal", (payload) => {
+      const { callId, targetSocketId, signalData } = payload || {};
+      if (!signalData) return;
+      const signalPayload = {
+        senderSocketId: socket.id,
+        callId,
+        signalData
+      };
+      // Send directly to targetSocketId to avoid duplicate delivery
+      if (targetSocketId && targetSocketId !== socket.id) {
+        io.to(targetSocketId).emit("call:webrtc-signal", signalPayload);
+      } else if (callId) {
+        socket.to(`call_${callId}`).emit("call:webrtc-signal", signalPayload);
+      }
+    });
+
+    socket.on("call:cancel", async (payload) => {
+      const { callId, sessionId, targetSocketId } = payload || {};
+      console.log(`[Sockets] Call ${callId} cancelled by caller on socket ${socket.id}`);
+      const callInfo = callId ? activeVoiceCalls.get(callId) : null;
+      if (callInfo && callInfo.status === "ringing") {
+        await handleMissedCall(io, { 
+          callId, 
+          callInfo, 
+          reason: callInfo.direction === "outbound" ? "Outbound call cancelled by agent" : "Caller cancelled while ringing" 
+        });
+      }
+      if (callId) activeVoiceCalls.delete(callId);
+
+      const cancelPayload = { callId, sessionId, cancelled: true };
+      const rooms = new Set();
+      if (callId) rooms.add(`call_${callId}`);
+      if (sessionId) {
+        rooms.add(sessionId);
+        if (!sessionId.startsWith("session_")) rooms.add(`session_${sessionId}`);
+      }
+      if (targetSocketId) rooms.add(targetSocketId);
+
+      // Chaining .to(r) deduplicates all sockets across rooms so each socket receives it strictly ONCE
+      let broadcaster = io;
+      for (const r of rooms) {
+        broadcaster = broadcaster.to(r);
+      }
+      broadcaster.emit("call:cancelled", cancelPayload);
+      broadcaster.emit("call:ended", cancelPayload);
+    });
+
+    socket.on("call:end", async (payload) => {
+      const { callId, targetSocketId, duration, sessionId } = payload || {};
+      console.log(`[Sockets] Call ${callId} ended by socket ${socket.id}`);
+      const callInfo = callId ? activeVoiceCalls.get(callId) : null;
+      if (callInfo) {
+        if (callInfo.status === "ringing") {
+          await handleMissedCall(io, { 
+            callId, 
+            callInfo, 
+            reason: callInfo.direction === "outbound" ? "Outbound call cancelled by agent" : "Call ended before agent answered" 
+          });
+        } else if (callInfo.status === "connected") {
+          await handleCompletedCall(io, { callId, callInfo, duration });
+        }
+      }
+      if (callId) activeVoiceCalls.delete(callId);
+
+      const endPayload = { callId, duration, sessionId };
+      const rooms = new Set();
+      if (callId) rooms.add(`call_${callId}`);
+      if (sessionId) {
+        rooms.add(sessionId);
+        if (!sessionId.startsWith("session_")) rooms.add(`session_${sessionId}`);
+      }
+      if (targetSocketId) rooms.add(targetSocketId);
+
+      // Chaining .to(r) deduplicates all sockets across rooms so each socket receives it strictly ONCE
+      let broadcaster = io;
+      for (const r of rooms) {
+        broadcaster = broadcaster.to(r);
+      }
+      broadcaster.emit("call:ended", endPayload);
+    });
+
+    socket.on("call:feedback", async (payload) => {
+      const { callId, sessionId, websiteId, rating, sentiment, tags, comment, agentName, duration } = payload || {};
+      console.log(`[Sockets] Call ${callId} rated ${rating} stars by visitor. Agent: ${agentName}, feedback: ${comment}`);
+      io.to("us_admin").emit("call:feedback-received", payload);
+    });
+
+    // ── Regular Presence & Room Setup (Non-blocking) ──
     if (socket.data.type === "visitor") {
       const { website, sessionId, visitorId } = socket.data;
       if (website?._id) {
@@ -224,7 +1136,7 @@ export function createSocketServer(httpServer) {
       if (visitorId) {
         socket.join(`visitor_${visitorId}`);
         if (website?._id) {
-          await Visitor.updateOne({ visitorId, websiteId: website._id }, { $set: { isOnline: true, lastVisitTime: new Date() } }).catch(() => {});
+          Visitor.updateOne({ visitorId, websiteId: website._id }, { $set: { isOnline: true, lastVisitTime: new Date() } }).catch(() => {});
         }
       }
       if (sessionId) {
@@ -262,12 +1174,12 @@ export function createSocketServer(httpServer) {
       }
       user.isOnline = true;
       user.lastActiveAt = new Date();
-      await user.save();
+      user.save().catch(() => {});
       processQueue(io);
     }
 
     socket.on("agent:join-session", async ({ sessionId }) => {
-      const NON_SESSION_PREFIXES = ["ws_", "us_", "visitor_", "lead_"];
+      const NON_SESSION_PREFIXES = ["ws_", "us_", "visitor_", "lead_", "call_"];
       const leftRooms = [];
       for (const room of socket.rooms) {
         if (room === socket.id) continue;
@@ -286,12 +1198,24 @@ export function createSocketServer(httpServer) {
       }
     });
 
-    socket.on("agent:take-over-chat", async ({ sessionId }) => {
+    socket.on("agent:take-over-chat", async ({ sessionId, force = false }) => {
       try {
         const { user } = socket.data;
         if (!user) return;
         const session = await ChatSession.findOne({ sessionId });
         if (!session) return;
+
+        // Prevent accidental collision if another agent is already handling this active chat
+        const isAssignedToOther = session.assignedAgent && String(session.assignedAgent) !== String(user._id);
+        const canOverride = ["admin", "manager"].includes(normalizeRole(user.role)) || force;
+
+        if (isAssignedToOther && !canOverride) {
+          socket.emit("chat:takeover-conflict", {
+            sessionId,
+            message: "This chat is already assigned to another active agent."
+          });
+          return;
+        }
 
         session.assignedAgent = user._id;
         session.status = "active";
@@ -312,7 +1236,7 @@ export function createSocketServer(httpServer) {
           entityType: "chat_session",
           entityId: session._id,
           websiteId: session.websiteId,
-          metadata: { sessionId }
+          metadata: { sessionId, previousAgent: isAssignedToOther ? session.assignedAgent : null }
         });
       } catch (err) {
         console.error("Takeover error:", err);
@@ -372,7 +1296,7 @@ export function createSocketServer(httpServer) {
     });
 
     socket.on("disconnecting", async () => {
-      const NON_SESSION_PREFIXES = ["ws_", "us_", "visitor_", "lead_"];
+      const NON_SESSION_PREFIXES = ["ws_", "us_", "visitor_", "lead_", "call_"];
       for (const room of socket.rooms) {
         if (room === socket.id) continue;
         if (NON_SESSION_PREFIXES.some(p => room.startsWith(p))) continue;
@@ -783,143 +1707,41 @@ export function createSocketServer(httpServer) {
       await processChatIntelligence(sessionId);
     });
 
-    // ── Live AI-to-Human Voice Call Handoff & WebRTC Signaling ──
-    socket.on("call:request-human", async (payload) => {
-      const { sessionId, websiteId, visitorName, visitorId, callerPhone, transcript, aiSummary, telemetry } = payload || {};
-      console.log("[Sockets] >>> call:request-human received from socket:", socket.id, "visitor:", visitorName);
-      
-      const callData = {
-        callId: `CALL_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-        sessionId,
-        visitorSocketId: socket.id,
-        visitorId,
-        visitorName: visitorName || "Website Visitor",
-        callerPhone: callerPhone || "Web Voice",
-        websiteId,
-        transcript: transcript || "",
-        aiSummary: aiSummary || "Visitor requested live human agent voice assistance.",
-        telemetry: telemetry || {},
-        requestedAt: new Date()
-      };
-
-      // Broadcast to website agents & global admin room
-      if (websiteId) {
-        io.to(`ws_${websiteId}`).emit("call:incoming", callData);
-      }
-      io.to("us_admin").emit("call:incoming", callData);
-      
-      // Also broadcast directly to all connected agent sockets
-      for (const [id, s] of io.sockets.sockets) {
-        if (s.data?.user) {
-          s.emit("call:incoming", callData);
-        }
-      }
-
-      if (sessionId) {
-        io.to(sessionId).emit("call:queued", { message: "Connecting to an available support agent...", callId: callData.callId });
-      }
-      socket.emit("call:queued", { message: "Connecting to an available support agent...", callId: callData.callId });
-    });
-
-    socket.on("call:accept", async (payload) => {
-      const { callId, sessionId, visitorSocketId, isTransferred, transferredBySocketId } = payload || {};
-      const agentUser = socket.data.user;
-
-      if (visitorSocketId) {
-        io.to(visitorSocketId).emit("call:accepted", {
-          callId,
-          agentSocketId: socket.id,
-          agentName: agentUser?.name || "Support Specialist",
-          agentRole: agentUser?.role || "Senior Specialist"
-        });
-      }
-
-      if (transferredBySocketId) {
-        io.to(transferredBySocketId).emit("call:transferred-success", {
-          callId,
-          newAgentName: agentUser?.name || "Senior Specialist"
-        });
-      }
-
-      socket.broadcast.emit("call:answered", { callId, answeredBy: agentUser?.name });
-    });
-
-    socket.on("call:transfer", async (payload) => {
-      const { callId, sessionId, visitorSocketId, targetAgentId, transferNote, callerDetails } = payload || {};
-      const agentUser = socket.data.user;
-      console.log(`[Sockets] Call ${callId} transferred by ${agentUser?.name} to targetAgent ${targetAgentId}`);
-
-      const transferCallData = {
-        callId: callId || `CALL_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-        sessionId,
-        visitorSocketId,
-        visitorName: callerDetails?.visitorName || "Website Visitor",
-        callerPhone: callerDetails?.callerPhone || "Web Voice",
-        telemetry: callerDetails?.telemetry || {},
-        aiSummary: transferNote 
-          ? `[Handover from ${agentUser?.name || 'Agent'}]: "${transferNote}"`
-          : `Live call transferred from ${agentUser?.name || 'Agent'}`,
-        isTransferred: true,
-        transferredBy: agentUser?.name || "Agent",
-        transferredBySocketId: socket.id,
-        transferNote: transferNote || "",
-        requestedAt: new Date()
-      };
-
-      if (visitorSocketId) {
-        io.to(visitorSocketId).emit("call:transfer-in-progress", {
-          message: "Transferring your call to senior specialist..."
-        });
-      }
-
-      let delivered = false;
-      for (const [id, s] of io.sockets.sockets) {
-        if (s.data?.user) {
-          const uId = String(s.data.user._id || s.data.user.id || "");
-          if (uId === String(targetAgentId)) {
-            s.emit("call:incoming", transferCallData);
-            delivered = true;
-          }
-        }
-      }
-
-      if (!delivered) {
-        io.to("us_admin").emit("call:incoming", transferCallData);
-        for (const [id, s] of io.sockets.sockets) {
-          if (s.data?.user && s.id !== socket.id) {
-            s.emit("call:incoming", transferCallData);
-          }
-        }
-      }
-
-      socket.emit("call:transfer-initiated", { callId, success: true });
-    });
-
-    socket.on("call:reject", (payload) => {
-      const { callId, visitorSocketId } = payload || {};
-      if (visitorSocketId) {
-        io.to(visitorSocketId).emit("call:busy", { callId, message: "Agent is currently busy." });
-      }
-    });
-
-    socket.on("call:webrtc-signal", (payload) => {
-      const { targetSocketId, signalData } = payload || {};
-      if (targetSocketId && signalData) {
-        io.to(targetSocketId).emit("call:webrtc-signal", {
-          senderSocketId: socket.id,
-          signalData
-        });
-      }
-    });
-
-    socket.on("call:end", (payload) => {
-      const { callId, targetSocketId, duration } = payload || {};
-      if (targetSocketId) {
-        io.to(targetSocketId).emit("call:ended", { callId, duration });
-      }
-    });
-
     socket.on("disconnect", async () => {
+      // ── Clean up any active/ringing calls associated with this disconnecting socket ──
+      for (const [callId, callInfo] of activeVoiceCalls.entries()) {
+        const isVisitor = callInfo.visitorSocketId === socket.id || callInfo.visitorSocket?.id === socket.id;
+        const isAgent = callInfo.agentSocketId === socket.id || callInfo.agentSocket?.id === socket.id;
+
+        if (isVisitor || isAgent) {
+          console.log(`[Sockets] Disconnecting socket ${socket.id} (${isVisitor ? 'visitor' : 'agent'}) had call ${callId}. Broadcasting cancel.`);
+          if (callInfo.status === "ringing") {
+            await handleMissedCall(io, { 
+              callId, 
+              callInfo, 
+              reason: isVisitor ? "Visitor disconnected while waiting for agent" : "Agent disconnected during call" 
+            });
+          }
+          activeVoiceCalls.delete(callId);
+          const cancelPayload = { callId, sessionId: callInfo.sessionId, cancelled: true };
+          const rooms = new Set();
+          if (callId) rooms.add(`call_${callId}`);
+          if (callInfo.sessionId) {
+            rooms.add(callInfo.sessionId);
+            if (!callInfo.sessionId.startsWith("session_")) rooms.add(`session_${callInfo.sessionId}`);
+          }
+          const otherSid = isVisitor ? callInfo.agentSocketId : callInfo.visitorSocketId;
+          if (otherSid) rooms.add(otherSid);
+
+          let broadcaster = io;
+          for (const r of rooms) {
+            broadcaster = broadcaster.to(r);
+          }
+          broadcaster.emit("call:cancelled", cancelPayload);
+          broadcaster.emit("call:ended", cancelPayload);
+        }
+      }
+
       if (socket.data.type === "visitor") {
         const { website, sessionId, visitorId } = socket.data;
         if (visitorId) {
@@ -956,11 +1778,18 @@ export function createSocketServer(httpServer) {
         }
       }
       if (socket.data.user) {
-        const u = await User.findById(socket.data.user._id);
-        if (u) {
-          u.isOnline = false;
-          u.lastActiveAt = new Date();
-          await u.save();
+        try {
+          const userSockets = await io.in(`us_${socket.data.user._id}`).fetchSockets();
+          if (userSockets.length === 0) {
+            const u = await User.findById(socket.data.user._id);
+            if (u) {
+              u.isOnline = false;
+              u.lastActiveAt = new Date();
+              await u.save();
+            }
+          }
+        } catch (e) {
+          console.warn("[Sockets] Error checking user sockets on disconnect:", e.message);
         }
       }
     });

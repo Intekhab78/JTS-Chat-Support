@@ -18,8 +18,11 @@ export default function IncomingCallModal({ callData, onAccept, onDecline }) {
           }
         };
 
+        tryResume();
         window.addEventListener("click", tryResume, { once: true });
         window.addEventListener("keydown", tryResume, { once: true });
+        window.addEventListener("mousemove", tryResume, { once: true });
+        window.addEventListener("focus", tryResume, { once: true });
         
         const playTone = () => {
           if (!audioCtxRef.current || audioCtxRef.current.state === "closed") return;
@@ -37,7 +40,7 @@ export default function IncomingCallModal({ callData, onAccept, onDecline }) {
           osc2.type = "sine";
           osc2.frequency.setValueAtTime(480, now); // B4
 
-          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.setValueAtTime(0.28, now);
           gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
 
           osc1.connect(gain);
@@ -87,7 +90,7 @@ export default function IncomingCallModal({ callData, onAccept, onDecline }) {
           </div>
 
           <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
-            {callData.visitorName || "Website Visitor"}
+            {(callData.visitorName && callData.visitorName !== "Website Visitor") ? callData.visitorName : (callData.telemetry?.city ? `Visitor (${callData.telemetry.city})` : "Visitor")}
           </h3>
           <p className="text-xs text-slate-500 font-semibold">{callData.callerPhone || "Web Audio Call"}</p>
         </div>

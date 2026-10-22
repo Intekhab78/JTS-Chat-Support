@@ -1,9 +1,17 @@
 import { io } from "socket.io-client";
 import "./style.css";
 
+const DEFAULT_ICE_SERVERS = [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" },
+  { urls: "stun:stun2.l.google.com:19302" },
+  { urls: "stun:stun3.l.google.com:19302" },
+  { urls: "stun:stun4.l.google.com:19302" }
+];
+
 (function () {
-  const currentScript = document.currentScript || document.querySelector("script[data-website-id]");
-  const apiKey = currentScript ? currentScript.getAttribute("data-website-id") : null;
+  const currentScript = document.currentScript || document.querySelector("script[data-website-id]") || document.querySelector("script[data-api-key]");
+  const apiKey = currentScript ? (currentScript.getAttribute("data-website-id") || currentScript.getAttribute("data-api-key")) : null;
   const apiUrl = currentScript ? currentScript.getAttribute("data-api-url") : null;
 
   if (!apiKey) {
@@ -14,16 +22,29 @@ import "./style.css";
   const sessionKey = `csw_session_${apiKey}`;
   const visitorKey = `csw_visitor_${apiKey}`;
   const panelOpenKey = `csw_panel_open_${apiKey}`;
+  const nameKey = `csw_name_${apiKey}`;
+  const emailKey = `csw_email_${apiKey}`;
 
   const origin = apiUrl || (currentScript ? new URL(currentScript.src).origin : "https://chatapi.jtsmiddleeast.com");
 
   let socket = null;
   let activeSessionId = localStorage.getItem(sessionKey);
   let visitorId = localStorage.getItem(visitorKey);
+  let currentVisitorName = localStorage.getItem(nameKey) || "";
   let latestConfig = null;
   let feedbackSent = false;
   let botPath = [];
   let botSelections = {};
+
+  function resolveVisitorName() {
+    return currentVisitorName ||
+      localStorage.getItem(nameKey) ||
+      sessionStorage.getItem(nameKey) ||
+      (typeof window !== "undefined" && window.__csw_visitor_name) ||
+      (typeof window !== "undefined" && window.__chatWidgetConfig && window.__chatWidgetConfig.visitorName) ||
+      (latestConfig && latestConfig.visitorName) ||
+      "";
+  }
 
   function setLauncherContent(element, icon) {
     element.innerHTML = icon || "💬";
@@ -109,6 +130,59 @@ import "./style.css";
     return true;
   }
 
+  const MIC_ON_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>`;
+
+  const MIC_OFF_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>`;
+
+  const PHONE_OFF_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-6-6 19.8 19.8 0 0 1-3.12-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"></path><line x1="23" y1="1" x2="1" y2="23"></line></svg>`;
+
+  function getAgentAvatarSvg(size = 76) {
+    return `
+      <svg width="${size}" height="${size}" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block; border-radius:50%;">
+        <defs>
+          <linearGradient id="csw-bg-${size}" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#eff6ff"/>
+            <stop offset="100%" stop-color="#dbeafe"/>
+          </linearGradient>
+          <linearGradient id="csw-suit-${size}" x1="20" y1="80" x2="100" y2="120" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#1e293b"/>
+            <stop offset="100%" stop-color="#0f172a"/>
+          </linearGradient>
+          <linearGradient id="csw-tie-${size}" x1="56" y1="82" x2="64" y2="115" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#2563eb"/>
+            <stop offset="100%" stop-color="#1d4ed8"/>
+          </linearGradient>
+          <linearGradient id="csw-skin-${size}" x1="45" y1="35" x2="75" y2="75" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#fde68a"/>
+            <stop offset="100%" stop-color="#fcd34d"/>
+          </linearGradient>
+          <linearGradient id="csw-headset-${size}" x1="30" y1="20" x2="90" y2="85" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#3b82f6"/>
+            <stop offset="100%" stop-color="#1d4ed8"/>
+          </linearGradient>
+        </defs>
+        <circle cx="60" cy="60" r="58" fill="url(#csw-bg-${size})" stroke="#bfdbfe" stroke-width="2"/>
+        <path d="M22 118 C25 90 42 80 60 80 C78 80 95 90 98 118 Z" fill="url(#csw-suit-${size})"/>
+        <polygon points="50,80 60,97 54,80" fill="#ffffff"/>
+        <polygon points="70,80 60,97 66,80" fill="#ffffff"/>
+        <polygon points="57,82 63,82 65,108 60,116 55,108" fill="url(#csw-tie-${size})"/>
+        <rect x="52" y="66" width="16" height="18" rx="4" fill="#fbbf24"/>
+        <ellipse cx="60" cy="52" rx="20" ry="22" fill="url(#csw-skin-${size})"/>
+        <path d="M40 48 C40 30 50 24 60 24 C70 24 80 30 80 48 C76 41 70 36 60 36 C50 36 44 41 40 48 Z" fill="#334155"/>
+        <circle cx="53" cy="51" r="2.5" fill="#0f172a"/>
+        <circle cx="67" cy="51" r="2.5" fill="#0f172a"/>
+        <circle cx="54.2" cy="50" r="0.8" fill="#ffffff"/>
+        <circle cx="68.2" cy="50" r="0.8" fill="#ffffff"/>
+        <path d="M54 60 Q60 66 66 60" stroke="#b45309" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+        <path d="M38 54 C37 30 46 19 60 19 C74 19 83 30 82 54" stroke="url(#csw-headset-${size})" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+        <rect x="34" y="46" width="7" height="15" rx="3.5" fill="#2563eb"/>
+        <rect x="79" y="46" width="7" height="15" rx="3.5" fill="#2563eb"/>
+        <path d="M38 56 Q42 72 54 72" stroke="#1d4ed8" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+        <circle cx="55" cy="72" r="3.2" fill="#10b981"/>
+      </svg>
+    `;
+  }
+
   function createUi() {
     const launcher = document.createElement("div");
     launcher.id = "csw-launcher";
@@ -157,26 +231,26 @@ import "./style.css";
       </div>
 
       <!-- VOICE CALL OVERLAY -->
-      <div id="csw-voice-overlay" style="display:none; position:absolute; inset:0; background:radial-gradient(circle at 50% 20%, #1e1b4b 0%, #0f172a 60%, #080d1a 100%); z-index:9999; padding:20px 16px; color:#fff; flex-direction:column; align-items:center; justify-content:center; text-align:center; box-sizing:border-box; overflow:hidden;">
-        <div style="width:50px; height:50px; border-radius:50%; background:radial-gradient(circle at 30% 30%, #38bdf8, #6366f1, #10b981); display:flex; align-items:center; justify-content:center; font-size:24px; margin:0 auto 12px auto; box-shadow:0 0 24px rgba(56,189,248,0.45); border:2px solid rgba(255,255,255,0.35);">
-          🤖
+      <div id="csw-voice-overlay" style="display:none; position:absolute; inset:0; background:#ffffff; z-index:9999; padding:20px 16px; color:#0f172a; flex-direction:column; align-items:center; justify-content:center; text-align:center; box-sizing:border-box; overflow:hidden;">
+        <div style="width:72px; height:72px; border-radius:50%; margin:0 auto 12px auto; box-shadow:0 10px 25px -4px rgba(99,102,241,0.2), 0 0 0 1px #e2e8f0; display:flex; align-items:center; justify-content:center; background:#f8fafc;">
+          ${getAgentAvatarSvg(72)}
         </div>
-        <div style="font-size:15.5px; font-weight:900; margin-bottom:4px; letter-spacing:-0.02em; color:#ffffff;">
-          24/7 AI Voice Agent
+        <div style="font-size:16px; font-weight:900; margin-bottom:4px; letter-spacing:-0.02em; color:#0f172a;">
+          Live Voice Support
         </div>
-        <div style="font-size:10.5px; color:#94a3b8; margin-bottom:18px; line-height:1.45; max-width:250px; font-weight:500;">
-          Speak directly with our AI Agent for instant support, status, or live assistance.
+        <div style="font-size:11px; color:#64748b; margin-bottom:18px; line-height:1.5; max-width:250px; font-weight:500;">
+          Speak directly with our support specialist for instant real-time assistance.
         </div>
         
-        <button id="csw-start-web-call" type="button" style="width:100%; max-width:240px; background:linear-gradient(135deg, #34d399 0%, #10b981 55%, #059669 100%); border:1px solid rgba(255,255,255,0.35); color:#ffffff; font-weight:800; font-size:11.5px; padding:10px 14px; border-radius:11px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:6px; transition:all 0.2s; box-shadow:0 6px 18px rgba(16,185,129,0.35); margin-bottom:8px;">
-          🎙️ Start Free AI Voice Call
+        <button id="csw-call-agent-btn" type="button" style="width:100%; max-width:240px; background:linear-gradient(135deg, #10b981 0%, #059669 100%); border:none; color:#ffffff; font-weight:800; font-size:12.5px; padding:11px 16px; border-radius:14px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; transition:all 0.2s; box-shadow:0 8px 20px -4px rgba(16,185,129,0.38); margin-bottom:10px;">
+          <span style="font-size:14px;">📞</span> Call Live Agent Now
         </button>
 
-        <a href="tel:+971508492019" style="display:inline-flex; align-items:center; justify-content:center; gap:6px; width:100%; max-width:240px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.18); color:#e2e8f0; font-weight:700; font-size:11px; text-decoration:none; padding:9px 14px; border-radius:11px; transition:all 0.2s;">
-          📞 Direct Phone: +971-50-8492019
-        </a>
+        <button id="csw-start-web-call" type="button" style="width:100%; max-width:240px; background:#f8fafc; border:1px solid #e2e8f0; color:#334155; font-weight:700; font-size:11px; padding:10px 14px; border-radius:14px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:6px; transition:all 0.2s; margin-bottom:6px;">
+          <span>🤖</span> Talk to 24/7 AI Voice Bot
+        </button>
         
-        <button id="csw-close-voice" type="button" style="margin-top:14px; background:transparent; border:none; color:#64748b; font-size:10.5px; font-weight:600; cursor:pointer; text-decoration:underline; transition:color 0.2s;">
+        <button id="csw-close-voice" type="button" style="margin-top:10px; background:transparent; border:none; color:#94a3b8; font-size:11px; font-weight:600; cursor:pointer; text-decoration:none; transition:color 0.2s;">
           Close & Back to Chat
         </button>
       </div>
@@ -213,11 +287,34 @@ import "./style.css";
         <div id="csw-feedback"></div>
         <form id="csw-form">
           <input id="csw-input" autocomplete="off" maxlength="1000" placeholder="Type your message..." />
-          <button id="csw-emoji-btn" type="button" title="Add emoji">😊</button>
-          <button id="csw-send" type="submit">&#10148;</button>
+          <button id="csw-emoji-btn" type="button" title="Add emoji" aria-label="Add emoji">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="9.5" fill="#fef08a" stroke="#ca8a04" stroke-width="1.6"/>
+              <circle cx="8.5" cy="9.5" r="1.3" fill="#854d0e"/>
+              <circle cx="15.5" cy="9.5" r="1.3" fill="#854d0e"/>
+              <path d="M8 14.5c1.2 2 6.8 2 8 0" stroke="#854d0e" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <button id="csw-send" type="submit" title="Send message" aria-label="Send message">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+            </svg>
+          </button>
         </form>
         
-        <div id="csw-emoji-picker">
+        <div id="csw-emoji-picker" style="display:none;" role="dialog" aria-label="Emoji Picker">
+          <div class="csw-emoji-picker-header">
+            <span class="csw-emoji-picker-title">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+                <line x1="9" y1="9" x2="9.01" y2="9"></line>
+                <line x1="15" y1="9" x2="15.01" y2="9"></line>
+              </svg>
+              Quick Reactions
+            </span>
+            <button id="csw-emoji-close" type="button" title="Close" aria-label="Close emoji picker">&times;</button>
+          </div>
           <div class="csw-emoji-grid" id="csw-emoji-grid"></div>
         </div>
       </div>
@@ -282,27 +379,28 @@ import "./style.css";
       voiceOverlay.style.padding = "20px 16px";
       voiceOverlay.style.justifyContent = "center";
       voiceOverlay.style.alignItems = "center";
-      voiceOverlay.style.background = "radial-gradient(circle at 50% 20%, #1e1b4b 0%, #0f172a 60%, #080d1a 100%)";
+      voiceOverlay.style.background = "#ffffff";
+      voiceOverlay.style.color = "#0f172a";
       voiceOverlay.innerHTML = `
-        <div style="width:50px; height:50px; border-radius:50%; background:radial-gradient(circle at 30% 30%, #38bdf8, #6366f1, #10b981); display:flex; align-items:center; justify-content:center; font-size:24px; margin:0 auto 12px auto; box-shadow:0 0 24px rgba(56,189,248,0.45); border:2px solid rgba(255,255,255,0.35);">
-          🤖
+        <div style="width:72px; height:72px; border-radius:50%; margin:0 auto 12px auto; box-shadow:0 10px 25px -4px rgba(99,102,241,0.2), 0 0 0 1px #e2e8f0; display:flex; align-items:center; justify-content:center; background:#f8fafc;">
+          ${getAgentAvatarSvg(72)}
         </div>
-        <div style="font-size:15.5px; font-weight:900; margin-bottom:4px; letter-spacing:-0.02em; color:#ffffff;">
-          24/7 AI Voice Agent
+        <div style="font-size:16px; font-weight:900; margin-bottom:4px; letter-spacing:-0.02em; color:#0f172a;">
+          Live Voice Support
         </div>
-        <div style="font-size:10.5px; color:#94a3b8; margin-bottom:18px; line-height:1.45; max-width:250px; font-weight:500;">
-          Speak directly with our AI Agent for instant support, status, or live assistance.
+        <div style="font-size:11px; color:#64748b; margin-bottom:18px; line-height:1.5; max-width:250px; font-weight:500;">
+          Speak directly with our support specialist for instant real-time assistance.
         </div>
         
-        <button id="csw-start-web-call" type="button" style="width:100%; max-width:240px; background:linear-gradient(135deg, #34d399 0%, #10b981 55%, #059669 100%); border:1px solid rgba(255,255,255,0.35); color:#ffffff; font-weight:800; font-size:11.5px; padding:10px 14px; border-radius:11px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:6px; transition:all 0.2s; box-shadow:0 6px 18px rgba(16,185,129,0.35); margin-bottom:8px;">
-          🎙️ Start Free AI Voice Call
+        <button id="csw-call-agent-btn" type="button" style="width:100%; max-width:240px; background:linear-gradient(135deg, #10b981 0%, #059669 100%); border:none; color:#ffffff; font-weight:800; font-size:12.5px; padding:11px 16px; border-radius:14px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; transition:all 0.2s; box-shadow:0 8px 20px -4px rgba(16,185,129,0.38); margin-bottom:10px;">
+          <span style="font-size:14px;">📞</span> Call Live Agent Now
         </button>
 
-        <a href="tel:+971508492019" style="display:inline-flex; align-items:center; justify-content:center; gap:6px; width:100%; max-width:240px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.18); color:#e2e8f0; font-weight:700; font-size:11px; text-decoration:none; padding:9px 14px; border-radius:11px; transition:all 0.2s;">
-          📞 Direct Phone: +971-50-8492019
-        </a>
+        <button id="csw-start-web-call" type="button" style="width:100%; max-width:240px; background:#f8fafc; border:1px solid #e2e8f0; color:#334155; font-weight:700; font-size:11px; padding:10px 14px; border-radius:14px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:6px; transition:all 0.2s; margin-bottom:6px;">
+          <span>🤖</span> Talk to 24/7 AI Voice Bot
+        </button>
         
-        <button id="csw-close-voice" type="button" style="margin-top:14px; background:transparent; border:none; color:#64748b; font-size:10.5px; font-weight:600; cursor:pointer; text-decoration:underline; transition:color 0.2s;">
+        <button id="csw-close-voice" type="button" style="margin-top:10px; background:transparent; border:none; color:#94a3b8; font-size:11px; font-weight:600; cursor:pointer; text-decoration:none; transition:color 0.2s;">
           Close & Back to Chat
         </button>
       `;
@@ -311,11 +409,18 @@ import "./style.css";
 
     function bindEvents() {
       const btnClose = voiceOverlay.querySelector("#csw-close-voice");
+      const btnCallAgent = voiceOverlay.querySelector("#csw-call-agent-btn");
       const btnStart = voiceOverlay.querySelector("#csw-start-web-call");
 
       if (btnClose) {
         btnClose.onclick = () => {
           voiceOverlay.style.display = "none";
+        };
+      }
+
+      if (btnCallAgent) {
+        btnCallAgent.onclick = () => {
+          startDirectAgentCall();
         };
       }
 
@@ -432,7 +537,7 @@ import "./style.css";
                 socket.emit("call:request-human", {
                   sessionId: activeSessionId || `voice_${Date.now()}`,
                   websiteId: websiteApiKey,
-                  visitorName: (latestConfig && latestConfig.visitorName) || (typeof window !== "undefined" && window.__chatWidgetConfig && window.__chatWidgetConfig.visitorName) || "Mohit Kumar Maurya",
+                  visitorName: resolveVisitorName(),
                   visitorId: visitorId,
                   callerPhone: "Web Voice Call",
                   transcript,
@@ -476,7 +581,7 @@ import "./style.css";
                   widgetLocalStream = stream;
 
                   const pc = new RTCPeerConnection({
-                    iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+                    iceServers: DEFAULT_ICE_SERVERS
                   });
                   widgetPeerConnection = pc;
 
@@ -832,6 +937,823 @@ import "./style.css";
       }
     }
 
+    function activateConnectedCallScreen({ activeCallId, agentName, agentSocketId, micStream, isIncomingAgentCall }) {
+      window.__csw_call_active = true;
+      window.__csw_active_call_id = activeCallId;
+
+      let agentPeerConnection = null;
+      let remoteAudioEl = new Audio();
+      remoteAudioEl.autoplay = true;
+      let callDurationSeconds = 0;
+      let callTimerInterval = null;
+
+      // Render Active Call Screen
+      voiceOverlay.style.padding = "18px 16px";
+      voiceOverlay.style.justifyContent = "space-between";
+      voiceOverlay.style.alignItems = "stretch";
+      voiceOverlay.style.background = "#ffffff";
+      voiceOverlay.style.color = "#0f172a";
+      voiceOverlay.innerHTML = `
+        <!-- Header -->
+        <div style="display:flex; align-items:center; justify-content:space-between; width:100%; margin-bottom:10px;">
+          <div style="display:inline-flex; align-items:center; gap:6px; background:#ecfdf5; border:1px solid #a7f3d0; padding:4px 10px; border-radius:999px; font-size:9.5px; font-weight:800; color:#065f46; text-transform:uppercase; letter-spacing:0.04em;">
+            <span style="width:6px; height:6px; border-radius:50%; background:#10b981; box-shadow:0 0 6px #10b981;"></span>
+            <span>LIVE CALL WITH ${(agentName || 'AGENT').toUpperCase()}</span>
+          </div>
+          <div id="csw-call-timer" style="font-size:12px; font-weight:800; color:#475569; font-family:'SF Mono', Monaco, monospace; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 8px; border-radius:8px;">00:00</div>
+        </div>
+
+        <!-- Center Visual Calling Avatar -->
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:12px 0;">
+          <!-- Avatar Container with Animated Waves -->
+          <div style="position:relative; width:88px; height:88px; display:flex; align-items:center; justify-content:center; margin-bottom:12px;">
+            <div style="position:absolute; inset:-8px; border-radius:50%; border:2px solid rgba(16,185,129,0.35); animation:csw-audio-ripple 1.8s infinite ease-out;"></div>
+            <div style="position:absolute; inset:-18px; border-radius:50%; border:1.5px solid rgba(16,185,129,0.18); animation:csw-audio-ripple 1.8s infinite ease-out 0.4s;"></div>
+            <div style="width:76px; height:76px; border-radius:50%; border:3px solid #ffffff; box-shadow:0 12px 30px -6px rgba(99,102,241,0.25), 0 0 0 1px #e2e8f0; z-index:2; position:relative; overflow:hidden; background:#eff6ff;">
+              ${getAgentAvatarSvg(76)}
+            </div>
+            <span style="position:absolute; bottom:4px; right:4px; width:14px; height:14px; border-radius:50%; background:#10b981; border:2.5px solid #ffffff; z-index:3; box-shadow:0 0 6px rgba(16,185,129,0.6);" title="Agent is Online & Speaking"></span>
+          </div>
+
+          <!-- Agent Details -->
+          <div style="font-size:17px; font-weight:900; color:#0f172a; text-transform:capitalize; margin-bottom:3px; letter-spacing:-0.02em;">
+            ${agentName || 'Support Specialist'}
+          </div>
+          <div style="font-size:11px; color:#64748b; font-weight:600; margin-bottom:14px; display:flex; align-items:center; gap:5px; justify-content:center;">
+            <span>Active Audio</span> • <span style="color:#059669; font-weight:700;">HD Voice Encrypted</span>
+          </div>
+          
+          <!-- Live Audio Wave Equalizer -->
+          <div style="display:flex; align-items:center; justify-content:center; gap:4px; height:22px;">
+            <div style="width:4px; height:10px; background:#10b981; border-radius:3px; animation:csw-eq-bar-smooth 0.8s infinite ease-in-out;"></div>
+            <div style="width:4px; height:18px; background:#059669; border-radius:3px; animation:csw-eq-bar-smooth 0.6s infinite ease-in-out 0.2s;"></div>
+            <div style="width:4px; height:8px; background:#14b8a6; border-radius:3px; animation:csw-eq-bar-smooth 0.9s infinite ease-in-out 0.4s;"></div>
+            <div style="width:4px; height:16px; background:#059669; border-radius:3px; animation:csw-eq-bar-smooth 0.7s infinite ease-in-out 0.1s;"></div>
+            <div style="width:4px; height:12px; background:#10b981; border-radius:3px; animation:csw-eq-bar-smooth 0.85s infinite ease-in-out 0.3s;"></div>
+          </div>
+        </div>
+
+        <!-- Bottom Controls -->
+        <div style="display:flex; align-items:center; gap:10px; width:100%; padding-top:10px; border-top:1px solid #f1f5f9;">
+          <button id="csw-mute-mic-btn" type="button" style="flex:1; padding:11px 14px; border-radius:14px; background:#f1f5f9; border:1px solid #e2e8f0; color:#1e293b; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; transition:all 0.2s;">
+            <span id="csw-mute-icon" style="display:flex; align-items:center;">${MIC_ON_SVG}</span>
+            <span id="csw-mute-label">Mute</span>
+          </button>
+          <button id="csw-end-active-call" type="button" style="flex:1; padding:11px 14px; border-radius:14px; background:linear-gradient(135deg, #ef4444, #dc2626); border:none; color:#ffffff; font-size:12px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 8px 20px -4px rgba(239,68,68,0.4); transition:all 0.2s;">
+            <span style="display:flex; align-items:center;">${PHONE_OFF_SVG}</span>
+            <span>End Call</span>
+          </button>
+        </div>
+      `;
+
+      // Start duration timer
+      const timerEl = voiceOverlay.querySelector("#csw-call-timer");
+      callTimerInterval = setInterval(() => {
+        callDurationSeconds++;
+        const m = Math.floor(callDurationSeconds / 60).toString().padStart(2, '0');
+        const s = (callDurationSeconds % 60).toString().padStart(2, '0');
+        if (timerEl) timerEl.textContent = `${m}:${s}`;
+      }, 1000);
+
+      // Mute toggle
+      let isMuted = false;
+      const muteBtn = voiceOverlay.querySelector("#csw-mute-mic-btn");
+      const muteIcon = voiceOverlay.querySelector("#csw-mute-icon");
+      const muteLabel = voiceOverlay.querySelector("#csw-mute-label");
+      if (muteBtn) {
+        muteBtn.onclick = () => {
+          isMuted = !isMuted;
+          if (micStream) {
+            micStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
+          }
+          if (isMuted) {
+            muteBtn.style.background = "#fee2e2";
+            muteBtn.style.borderColor = "#fca5a5";
+            muteBtn.style.color = "#b91c1c";
+            muteIcon.innerHTML = MIC_OFF_SVG;
+            muteLabel.textContent = "Unmute";
+          } else {
+            muteBtn.style.background = "#f1f5f9";
+            muteBtn.style.borderColor = "#e2e8f0";
+            muteBtn.style.color = "#1e293b";
+            muteIcon.innerHTML = MIC_ON_SVG;
+            muteLabel.textContent = "Mute";
+          }
+        };
+      }
+
+      // Setup WebRTC connection
+      try {
+        const pc = new RTCPeerConnection({
+          iceServers: DEFAULT_ICE_SERVERS
+        });
+        agentPeerConnection = pc;
+
+        if (micStream) {
+          micStream.getTracks().forEach(track => pc.addTrack(track, micStream));
+        }
+
+        pc.onicecandidate = (event) => {
+          if (event.candidate && socket) {
+            socket.emit("call:webrtc-signal", {
+              callId: activeCallId,
+              targetSocketId: agentSocketId,
+              signalData: { candidate: event.candidate }
+            });
+          }
+        };
+
+        pc.ontrack = (event) => {
+          if (event.streams && event.streams[0]) {
+            remoteAudioEl.srcObject = event.streams[0];
+            remoteAudioEl.play().catch(e => console.warn("Remote audio play notice:", e));
+          }
+        };
+
+        let pendingIceCandidates = [];
+        if (socket) {
+          socket.off("call:webrtc-signal");
+          socket.on("call:webrtc-signal", async ({ signalData }) => {
+            if (!agentPeerConnection) return;
+            try {
+              if (signalData.sdp) {
+                if (signalData.sdp.type === "offer") {
+                  if (agentPeerConnection.signalingState !== "stable" && agentPeerConnection.signalingState !== "have-local-offer") {
+                    console.warn("[ChatWidget] Ignoring duplicate/unexpected offer in state:", agentPeerConnection.signalingState);
+                    return;
+                  }
+                  await agentPeerConnection.setRemoteDescription(new RTCSessionDescription(signalData.sdp));
+                  const answer = await agentPeerConnection.createAnswer();
+                  await agentPeerConnection.setLocalDescription(answer);
+                  if (socket) {
+                    socket.emit("call:webrtc-signal", {
+                      callId: activeCallId,
+                      targetSocketId: agentSocketId,
+                      signalData: { sdp: agentPeerConnection.localDescription }
+                    });
+                  }
+                } else if (signalData.sdp.type === "answer") {
+                  if (agentPeerConnection.signalingState === "have-local-offer") {
+                    await agentPeerConnection.setRemoteDescription(new RTCSessionDescription(signalData.sdp));
+                  } else {
+                    console.warn("[ChatWidget] Ignoring duplicate/unexpected answer in state:", agentPeerConnection.signalingState);
+                    return;
+                  }
+                }
+
+                while (pendingIceCandidates.length > 0) {
+                  const c = pendingIceCandidates.shift();
+                  await agentPeerConnection.addIceCandidate(new RTCIceCandidate(c)).catch(e => console.warn("Pending ICE err:", e));
+                }
+              } else if (signalData.candidate) {
+                const iceCand = new RTCIceCandidate(signalData.candidate);
+                if (agentPeerConnection.remoteDescription && agentPeerConnection.remoteDescription.type) {
+                  await agentPeerConnection.addIceCandidate(iceCand).catch(e => console.warn("Add ICE err:", e));
+                } else {
+                  pendingIceCandidates.push(signalData.candidate);
+                }
+              }
+            } catch (err) {
+              console.warn("WebRTC signaling err:", err);
+            }
+          });
+        }
+
+        if (!isIncomingAgentCall) {
+          pc.createOffer().then(offer => {
+            return pc.setLocalDescription(offer);
+          }).then(() => {
+            if (socket) {
+              socket.emit("call:webrtc-signal", {
+                callId: activeCallId,
+                targetSocketId: agentSocketId,
+                signalData: { sdp: pc.localDescription }
+              });
+            }
+          }).catch(webrtcErr => console.error("WebRTC offer err:", webrtcErr));
+        }
+      } catch (webrtcErr) {
+        console.error("WebRTC connection failed:", webrtcErr);
+      }
+
+      // Cleanup on call end
+      const handleEnd = () => {
+        window.__csw_call_active = false;
+        if (window.__csw_stop_incoming_ring) window.__csw_stop_incoming_ring();
+        if (callTimerInterval) clearInterval(callTimerInterval);
+        if (micStream) micStream.getTracks().forEach(t => t.stop());
+        if (agentPeerConnection) {
+          agentPeerConnection.close();
+          agentPeerConnection = null;
+        }
+        if (socket) {
+          socket.emit("call:end", { callId: activeCallId, targetSocketId: agentSocketId, duration: callDurationSeconds, sessionId: activeSessionId });
+        }
+        renderCallRatingUI(agentName, callDurationSeconds, activeCallId);
+      };
+
+      const endCallBtn = voiceOverlay.querySelector("#csw-end-active-call");
+      if (endCallBtn) endCallBtn.onclick = handleEnd;
+
+      if (socket) {
+        socket.off("call:ended");
+        socket.on("call:ended", () => {
+          window.__csw_call_active = false;
+          if (window.__csw_stop_incoming_ring) window.__csw_stop_incoming_ring();
+          if (callTimerInterval) clearInterval(callTimerInterval);
+          if (micStream) micStream.getTracks().forEach(t => t.stop());
+          if (agentPeerConnection) {
+            agentPeerConnection.close();
+            agentPeerConnection = null;
+          }
+          renderCallRatingUI(agentName, callDurationSeconds, activeCallId);
+        });
+
+        socket.off("call:cancelled");
+        socket.on("call:cancelled", () => {
+          window.__csw_call_active = false;
+          if (window.__csw_stop_incoming_ring) window.__csw_stop_incoming_ring();
+          if (callTimerInterval) clearInterval(callTimerInterval);
+          if (micStream) micStream.getTracks().forEach(t => t.stop());
+          if (agentPeerConnection) {
+            agentPeerConnection.close();
+            agentPeerConnection = null;
+          }
+          renderCallRatingUI(agentName, callDurationSeconds, activeCallId);
+        });
+      }
+    }
+
+    async function startDirectAgentCall() {
+      let micStream = null;
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      } catch (err) {
+        console.error("Microphone permission denied:", err);
+        alert("Microphone permission is required to speak with our live agent. Please allow microphone access in your browser.");
+        return;
+      }
+
+      window.__csw_call_active = true;
+
+      // Dual-frequency ringback sound
+      let ringCtx = null;
+      let ringTimer = null;
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          ringCtx = new AudioCtx();
+          const playRing = () => {
+            if (!ringCtx || ringCtx.state === "closed") return;
+            if (ringCtx.state === "suspended") ringCtx.resume().catch(() => {});
+            const now = ringCtx.currentTime;
+            const o1 = ringCtx.createOscillator();
+            const o2 = ringCtx.createOscillator();
+            const g = ringCtx.createGain();
+            o1.type = "sine";
+            o1.frequency.setValueAtTime(440, now);
+            o2.type = "sine";
+            o2.frequency.setValueAtTime(480, now);
+            g.gain.setValueAtTime(0.12, now);
+            g.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+            o1.connect(g);
+            o2.connect(g);
+            g.connect(ringCtx.destination);
+            o1.start(now);
+            o2.start(now);
+            o1.stop(now + 1.2);
+            o2.stop(now + 1.2);
+          };
+          playRing();
+          ringTimer = setInterval(playRing, 2600);
+        }
+      } catch (e) {
+        console.warn("Ringback sound err:", e);
+      }
+
+      const stopRingback = () => {
+        if (ringTimer) { clearInterval(ringTimer); ringTimer = null; }
+        if (ringCtx && ringCtx.state !== "closed") { ringCtx.close().catch(() => {}); ringCtx = null; }
+      };
+
+      // Render Calling / Ringing screen
+      voiceOverlay.style.padding = "20px 16px";
+      voiceOverlay.style.justifyContent = "center";
+      voiceOverlay.style.alignItems = "center";
+      voiceOverlay.style.background = "#ffffff";
+      voiceOverlay.style.color = "#0f172a";
+      voiceOverlay.innerHTML = `
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; height:100%; width:100%; box-sizing:border-box;">
+          <div style="position:relative; width:92px; height:92px; margin:0 auto 16px auto; display:flex; align-items:center; justify-content:center;">
+            <div style="position:absolute; inset:-8px; border-radius:50%; border:2px solid rgba(16,185,129,0.4); animation:csw-audio-ripple 1.8s infinite ease-out;"></div>
+            <div style="position:absolute; inset:-18px; border-radius:50%; border:1.5px solid rgba(16,185,129,0.2); animation:csw-audio-ripple 1.8s infinite ease-out 0.4s;"></div>
+            <div style="width:76px; height:76px; border-radius:50%; box-shadow:0 12px 30px -4px rgba(16,185,129,0.3), 0 0 0 1px #e2e8f0; border:3px solid #ffffff; z-index:2; overflow:hidden; background:#eff6ff;">
+              ${getAgentAvatarSvg(76)}
+            </div>
+          </div>
+
+          <div style="font-size:16.5px; font-weight:900; color:#0f172a; margin-bottom:6px; letter-spacing:-0.02em;">
+            Calling Support Specialist...
+          </div>
+
+          <div style="display:inline-flex; align-items:center; gap:6px; background:#fef3c7; border:1px solid #fde68a; padding:4px 12px; border-radius:999px; font-size:10px; font-weight:800; color:#92400e; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:14px;">
+            <span style="width:6px; height:6px; border-radius:50%; background:#f59e0b; display:inline-block; animation:csw-pulse 1.2s infinite;"></span>
+            <span>Ringing Online Agents</span>
+          </div>
+
+          <p style="font-size:11.5px; color:#64748b; max-width:250px; line-height:1.5; margin:0 0 22px 0;">
+            Please hold on. Connecting your audio to an available support specialist for live assistance.
+          </p>
+
+          <button id="csw-cancel-outgoing-call" type="button" style="width:100%; max-width:180px; padding:10px 16px; border-radius:12px; background:#fee2e2; border:1px solid #fecaca; color:#b91c1c; font-size:11.5px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; transition:all 0.2s;">
+            ✕ Cancel Call
+          </button>
+        </div>
+      `;
+
+      // Connect socket if not present
+      if (!socket) {
+        socket = io(originUrl || origin, {
+          auth: { apiKey: websiteApiKey, visitorId, sessionId: activeSessionId || `voice_${Date.now()}`, type: "visitor" },
+          transports: ["polling", "websocket"],
+          reconnection: true
+        });
+      }
+
+      const activeCallId = `CALL_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+      window.__csw_active_call_id = activeCallId;
+
+      let agentPeerConnection = null;
+      let agentSocketId = null;
+      let remoteAudioEl = new Audio();
+      remoteAudioEl.autoplay = true;
+      let callDurationSeconds = 0;
+      let callTimerInterval = null;
+      let callConnected = false;
+
+      // Cancel button handler
+      const cancelBtn = voiceOverlay.querySelector("#csw-cancel-outgoing-call");
+      if (cancelBtn) {
+        cancelBtn.onclick = () => {
+          window.__csw_call_active = false;
+          stopRingback();
+          clearTimeout(timeoutId);
+          window.removeEventListener("beforeunload", handleBeforeUnload);
+          if (micStream) micStream.getTracks().forEach(t => t.stop());
+          if (socket) {
+            console.log("[ChatWidget] Visitor cancelled outgoing call:", activeCallId);
+            socket.emit("call:cancel", { callId: activeCallId, sessionId: activeSessionId });
+            socket.emit("call:end", { callId: activeCallId, sessionId: activeSessionId });
+          }
+          renderDefaultVoiceUI();
+        };
+      }
+
+      const handleBeforeUnload = () => {
+        if (window.__csw_call_active && socket) {
+          socket.emit("call:cancel", { callId: activeCallId, sessionId: activeSessionId });
+          socket.emit("call:end", { callId: activeCallId, sessionId: activeSessionId });
+        }
+      };
+      window.addEventListener("beforeunload", handleBeforeUnload, { once: true });
+
+      // Timeout if no agent answers in 40s
+      const timeoutId = setTimeout(() => {
+        if (!callConnected) {
+          window.__csw_call_active = false;
+          stopRingback();
+          window.removeEventListener("beforeunload", handleBeforeUnload);
+          if (micStream) micStream.getTracks().forEach(t => t.stop());
+          if (socket) {
+            socket.emit("call:cancel", { callId: activeCallId, sessionId: activeSessionId });
+            socket.emit("call:end", { callId: activeCallId, sessionId: activeSessionId });
+          }
+          voiceOverlay.style.background = "#ffffff";
+          voiceOverlay.style.color = "#0f172a";
+          voiceOverlay.innerHTML = `
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; height:100%; width:100%;">
+              <div style="width:52px; height:52px; border-radius:50%; background:#fef3c7; border:1px solid #fde68a; display:flex; align-items:center; justify-content:center; font-size:24px; margin-bottom:12px;">⏳</div>
+              <div style="font-size:15px; font-weight:900; color:#0f172a; margin-bottom:4px;">All Specialists Currently Busy</div>
+              <p style="font-size:11.5px; color:#64748b; max-width:250px; line-height:1.45; margin:0 0 16px 0;">Our specialists are on other calls. You can continue via chat or speak with our AI Voice Bot.</p>
+              <button id="csw-retry-ai-btn" type="button" style="width:100%; max-width:220px; padding:10px 16px; border-radius:12px; background:linear-gradient(135deg, #6366f1, #4f46e5); color:#fff; font-weight:800; font-size:11.5px; border:none; cursor:pointer; margin-bottom:8px; box-shadow:0 4px 12px rgba(99,102,241,0.3);">🤖 Talk with AI Voice Bot</button>
+              <button id="csw-retry-back-btn" type="button" style="background:transparent; border:none; color:#64748b; font-size:11px; font-weight:600; cursor:pointer; text-decoration:underline;">Back to Chat</button>
+            </div>
+          `;
+          const btnAi = voiceOverlay.querySelector("#csw-retry-ai-btn");
+          const btnBack = voiceOverlay.querySelector("#csw-retry-back-btn");
+          if (btnAi) btnAi.onclick = () => {
+            renderDefaultVoiceUI();
+            const s = voiceOverlay.querySelector("#csw-start-web-call");
+            if (s) s.click();
+          };
+          if (btnBack) btnBack.onclick = () => { renderDefaultVoiceUI(); voiceOverlay.style.display = "none"; };
+        }
+      }, 40000);
+
+      // On Call Busy / Rejected
+      socket.off("call:busy");
+      socket.on("call:busy", () => {
+        window.__csw_call_active = false;
+        clearTimeout(timeoutId);
+        stopRingback();
+        if (micStream) micStream.getTracks().forEach(t => t.stop());
+        voiceOverlay.style.background = "#ffffff";
+        voiceOverlay.style.color = "#0f172a";
+        voiceOverlay.innerHTML = `
+          <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; height:100%; width:100%;">
+            <div style="width:52px; height:52px; border-radius:50%; background:#fef2f2; border:1px solid #fecaca; display:flex; align-items:center; justify-content:center; font-size:24px; margin-bottom:12px; color:#ef4444;">📞</div>
+            <div style="font-size:15px; font-weight:900; color:#0f172a; margin-bottom:4px;">Line Busy</div>
+            <p style="font-size:11.5px; color:#64748b; max-width:240px; margin-bottom:16px; line-height:1.45;">Specialists are currently occupied on active calls.</p>
+            <button id="csw-busy-close-btn" type="button" style="padding:9px 20px; border-radius:12px; background:#f1f5f9; border:1px solid #cbd5e1; color:#0f172a; font-size:11.5px; font-weight:700; cursor:pointer;">Return to Chat</button>
+          </div>
+        `;
+        const b = voiceOverlay.querySelector("#csw-busy-close-btn");
+        if (b) b.onclick = () => { renderDefaultVoiceUI(); voiceOverlay.style.display = "none"; };
+      });
+
+      // CRITICAL: Attach call:accepted listener BEFORE emitting call:request-human
+      socket.off("call:accepted");
+      socket.on("call:accepted", async ({ callId: acceptedCallId, agentName, agentSocketId: targetSocketId }) => {
+        console.log("[ChatWidget] >>> Call successfully accepted by agent:", agentName, targetSocketId);
+        if (callConnected) return; // Prevent duplicate transition
+        clearTimeout(timeoutId);
+        stopRingback();
+        callConnected = true;
+
+        activateConnectedCallScreen({
+          activeCallId: acceptedCallId || activeCallId,
+          agentName,
+          agentSocketId: targetSocketId,
+          micStream,
+          isIncomingAgentCall: false
+        });
+      });
+
+      // Now emit call:request-human after all listeners are primed
+      const emitCall = () => {
+        console.log("[ChatWidget] Emitting call:request-human for callId:", activeCallId, "socketId:", socket.id);
+        socket.emit("call:request-human", {
+          callId: activeCallId,
+          sessionId: activeSessionId || `voice_${Date.now()}`,
+          websiteId: websiteApiKey,
+          visitorName: resolveVisitorName(),
+          visitorId: visitorId,
+          callerPhone: "Web Direct Voice Call",
+          transcript: "Visitor initiated direct voice call to agent from widget.",
+          aiSummary: "Direct voice call initiated by visitor."
+        });
+      };
+
+      if (socket.connected) {
+        emitCall();
+      } else {
+        socket.connect();
+        socket.once("connect", emitCall);
+      }
+    }
+
+    function handleIncomingAgentCall(callPayload) {
+      const { callId, sessionId, agentName, agentSocketId } = callPayload || {};
+      if (!callId || !agentSocketId) return;
+
+      if (window.__csw_stop_incoming_ring) {
+        window.__csw_stop_incoming_ring();
+      }
+
+      window.__csw_call_active = true;
+      window.__csw_active_call_id = callId;
+
+      // Make sure widget panel is open
+      ui.panel.classList.add("open");
+      voiceOverlay.style.display = "flex";
+      voiceOverlay.style.padding = "22px 18px";
+      voiceOverlay.style.justifyContent = "center";
+      voiceOverlay.style.alignItems = "center";
+      voiceOverlay.style.background = "#ffffff";
+      voiceOverlay.style.color = "#0f172a";
+
+      // Dual-frequency ringtone for incoming call
+      let ringCtx = null;
+      let ringTimer = null;
+      let ringTimeout = null;
+
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          ringCtx = new AudioCtx();
+          if (ringCtx.state === "suspended") {
+            ringCtx.resume().catch(() => {});
+          }
+          const resumeRing = () => {
+            if (ringCtx && ringCtx.state === "suspended") ringCtx.resume().catch(() => {});
+          };
+          window.addEventListener("click", resumeRing, { once: true });
+          window.addEventListener("mousemove", resumeRing, { once: true });
+          window.addEventListener("keydown", resumeRing, { once: true });
+
+          const playRing = () => {
+            if (!ringCtx || ringCtx.state === "closed") return;
+            if (ringCtx.state === "suspended") ringCtx.resume().catch(() => {});
+            const now = ringCtx.currentTime;
+            const o1 = ringCtx.createOscillator();
+            const o2 = ringCtx.createOscillator();
+            const g = ringCtx.createGain();
+            o1.type = "sine";
+            o1.frequency.setValueAtTime(440, now);
+            o2.type = "sine";
+            o2.frequency.setValueAtTime(480, now);
+            g.gain.setValueAtTime(0.28, now);
+            g.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+            o1.connect(g);
+            o2.connect(g);
+            g.connect(ringCtx.destination);
+            o1.start(now);
+            o2.start(now);
+            o1.stop(now + 1.2);
+            o2.stop(now + 1.2);
+          };
+          playRing();
+          ringTimer = setInterval(playRing, 2600);
+        }
+      } catch (e) {
+        console.warn("[ChatWidget] Incoming ring sound error:", e);
+      }
+
+      const stopRing = () => {
+        if (ringTimer) { clearInterval(ringTimer); ringTimer = null; }
+        if (ringTimeout) { clearTimeout(ringTimeout); ringTimeout = null; }
+        if (ringCtx && ringCtx.state !== "closed") { ringCtx.close().catch(() => {}); ringCtx = null; }
+      };
+      window.__csw_stop_incoming_ring = stopRing;
+
+      // Auto-dismiss after 35s if no answer
+      ringTimeout = setTimeout(() => {
+        stopRing();
+        window.__csw_call_active = false;
+        if (socket) {
+          socket.emit("call:visitor-decline", { callId, sessionId, targetSocketId: agentSocketId, reason: "timeout" });
+        }
+        renderDefaultVoiceUI();
+        voiceOverlay.style.display = "none";
+      }, 35000);
+
+      // Listen for call cancellation from agent while ringing
+      if (socket) {
+        socket.once("call:cancelled", () => {
+          stopRing();
+          window.__csw_call_active = false;
+          renderDefaultVoiceUI();
+          voiceOverlay.style.display = "none";
+        });
+        socket.once("call:ended", () => {
+          stopRing();
+          window.__csw_call_active = false;
+          renderDefaultVoiceUI();
+          voiceOverlay.style.display = "none";
+        });
+      }
+
+      voiceOverlay.innerHTML = `
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; height:100%; width:100%; box-sizing:border-box;">
+          <div style="position:relative; width:92px; height:92px; margin:0 auto 16px auto; display:flex; align-items:center; justify-content:center;">
+            <div style="position:absolute; inset:-8px; border-radius:50%; border:2px solid rgba(16,185,129,0.5); animation:csw-audio-ripple 1.8s infinite ease-out;"></div>
+            <div style="position:absolute; inset:-18px; border-radius:50%; border:1.5px solid rgba(16,185,129,0.25); animation:csw-audio-ripple 1.8s infinite ease-out 0.4s;"></div>
+            <div style="width:76px; height:76px; border-radius:50%; box-shadow:0 12px 30px -4px rgba(16,185,129,0.3), 0 0 0 1px #e2e8f0; border:3px solid #ffffff; z-index:2; overflow:hidden; background:#eff6ff;">
+              ${getAgentAvatarSvg(76)}
+            </div>
+          </div>
+
+          <div style="font-size:18px; font-weight:900; color:#0f172a; margin-bottom:4px; letter-spacing:-0.02em;">
+            ${agentName || "Support Specialist"}
+          </div>
+
+          <div style="display:inline-flex; align-items:center; gap:6px; background:#ecfdf5; border:1px solid #a7f3d0; padding:4px 12px; border-radius:999px; font-size:10px; font-weight:800; color:#065f46; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:14px;">
+            <span style="width:6px; height:6px; border-radius:50%; background:#10b981; display:inline-block; animation:csw-pulse 1.2s infinite;"></span>
+            <span>Incoming Voice Call</span>
+          </div>
+
+          <p style="font-size:12px; color:#64748b; max-width:260px; line-height:1.5; margin:0 0 24px 0;">
+            Support specialist <strong>${agentName || "Agent"}</strong> is calling you to assist with your request.
+          </p>
+
+          <div style="display:flex; align-items:center; gap:12px; width:100%; max-width:260px;">
+            <button id="csw-incoming-decline-btn" type="button" style="flex:1; padding:11px 16px; border-radius:14px; background:#fee2e2; border:1px solid #fecaca; color:#b91c1c; font-size:12px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; transition:all 0.2s;">
+              ✕ Decline
+            </button>
+            <button id="csw-incoming-accept-btn" type="button" style="flex:1.2; padding:11px 16px; border-radius:14px; background:linear-gradient(135deg, #10b981, #059669); border:none; color:#ffffff; font-size:12px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 8px 20px -4px rgba(16,185,129,0.5); transition:all 0.2s;">
+              <span>📞</span> Accept
+            </button>
+          </div>
+        </div>
+      `;
+
+      // Decline button handler
+      const declineBtn = voiceOverlay.querySelector("#csw-incoming-decline-btn");
+      if (declineBtn) {
+        declineBtn.onclick = () => {
+          stopRing();
+          window.__csw_call_active = false;
+          if (socket) {
+            socket.emit("call:visitor-decline", { callId, sessionId, targetSocketId: agentSocketId });
+          }
+          renderDefaultVoiceUI();
+          voiceOverlay.style.display = "none";
+        };
+      }
+
+      // Accept button handler
+      const acceptBtn = voiceOverlay.querySelector("#csw-incoming-accept-btn");
+      if (acceptBtn) {
+        acceptBtn.onclick = async () => {
+          stopRing();
+
+          let micStream = null;
+          try {
+            micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          } catch (micErr) {
+            console.error("[ChatWidget] Mic permission error:", micErr);
+            alert("Microphone permission is required to accept the call. Please allow microphone access.");
+            if (socket) {
+              socket.emit("call:visitor-decline", { callId, sessionId, targetSocketId: agentSocketId, reason: "mic_permission_denied" });
+            }
+            window.__csw_call_active = false;
+            renderDefaultVoiceUI();
+            voiceOverlay.style.display = "none";
+            return;
+          }
+
+          if (socket) {
+            socket.emit("call:visitor-accept", {
+              callId,
+              sessionId,
+              targetSocketId: agentSocketId
+            });
+          }
+
+          activateConnectedCallScreen({
+            activeCallId: callId,
+            agentName,
+            agentSocketId,
+            micStream,
+            isIncomingAgentCall: true
+          });
+        };
+      }
+    }
+
+    window.__csw_incoming_agent_call = handleIncomingAgentCall;
+
+    function renderCallRatingUI(agentName, durationSecs, callId) {
+      if (!voiceOverlay) return;
+      const m = Math.floor((durationSecs || 0) / 60).toString().padStart(2, '0');
+      const s = ((durationSecs || 0) % 60).toString().padStart(2, '0');
+      const formattedDuration = `${m}:${s}`;
+
+      voiceOverlay.style.padding = "20px 16px";
+      voiceOverlay.style.justifyContent = "center";
+      voiceOverlay.style.alignItems = "center";
+      voiceOverlay.style.background = "#ffffff";
+      voiceOverlay.style.color = "#0f172a";
+      voiceOverlay.innerHTML = `
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; height:100%; width:100%; box-sizing:border-box;">
+          <div style="width:52px; height:52px; border-radius:50%; background:#fef3c7; border:2px solid #fde68a; display:flex; align-items:center; justify-content:center; font-size:26px; margin-bottom:10px; box-shadow:0 8px 20px -4px rgba(245,158,11,0.25);">
+            ⭐
+          </div>
+
+          <div style="font-size:16px; font-weight:900; color:#0f172a; margin-bottom:3px; letter-spacing:-0.02em;">
+            How was your call?
+          </div>
+
+          <div style="font-size:11px; color:#64748b; margin-bottom:10px; font-weight:500;">
+            Rate your experience with ${agentName || "our support specialist"}
+          </div>
+
+          <div style="display:inline-flex; align-items:center; gap:5px; background:#f8fafc; border:1px solid #e2e8f0; padding:4px 12px; border-radius:999px; font-size:10px; font-weight:700; color:#475569; margin-bottom:14px;">
+            ⏱️ Call Duration: ${formattedDuration}
+          </div>
+
+          <!-- 5 Stars -->
+          <div class="csw-call-stars" style="display:flex; gap:8px; align-items:center; justify-content:center; margin-bottom:6px;">
+            <button class="csw-call-star" data-rating="1" type="button" style="background:#f8fafc; border:1px solid #e2e8f0; color:#94a3b8; font-size:22px; width:38px; height:38px; border-radius:10px; cursor:pointer; transition:all 0.2s;">★</button>
+            <button class="csw-call-star" data-rating="2" type="button" style="background:#f8fafc; border:1px solid #e2e8f0; color:#94a3b8; font-size:22px; width:38px; height:38px; border-radius:10px; cursor:pointer; transition:all 0.2s;">★</button>
+            <button class="csw-call-star" data-rating="3" type="button" style="background:#f8fafc; border:1px solid #e2e8f0; color:#94a3b8; font-size:22px; width:38px; height:38px; border-radius:10px; cursor:pointer; transition:all 0.2s;">★</button>
+            <button class="csw-call-star" data-rating="4" type="button" style="background:#f8fafc; border:1px solid #e2e8f0; color:#94a3b8; font-size:22px; width:38px; height:38px; border-radius:10px; cursor:pointer; transition:all 0.2s;">★</button>
+            <button class="csw-call-star" data-rating="5" type="button" style="background:#f8fafc; border:1px solid #e2e8f0; color:#94a3b8; font-size:22px; width:38px; height:38px; border-radius:10px; cursor:pointer; transition:all 0.2s;">★</button>
+          </div>
+
+          <div id="csw-rating-sentiment" style="font-size:11px; font-weight:800; color:#d97706; min-height:16px; margin-bottom:12px;">
+            Tap a star to rate
+          </div>
+
+          <!-- Quick Feedback Tags -->
+          <div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; max-width:270px; margin-bottom:12px;">
+            <span class="csw-feedback-chip" style="font-size:9.5px; padding:4px 10px; border-radius:10px; background:#f8fafc; border:1px solid #e2e8f0; color:#475569; cursor:pointer; font-weight:600;">⚡ Fast Resolution</span>
+            <span class="csw-feedback-chip" style="font-size:9.5px; padding:4px 10px; border-radius:10px; background:#f8fafc; border:1px solid #e2e8f0; color:#475569; cursor:pointer; font-weight:600;">😊 Friendly Agent</span>
+            <span class="csw-feedback-chip" style="font-size:9.5px; padding:4px 10px; border-radius:10px; background:#f8fafc; border:1px solid #e2e8f0; color:#475569; cursor:pointer; font-weight:600;">🎧 Clear Audio</span>
+            <span class="csw-feedback-chip" style="font-size:9.5px; padding:4px 10px; border-radius:10px; background:#f8fafc; border:1px solid #e2e8f0; color:#475569; cursor:pointer; font-weight:600;">💡 Helpful Support</span>
+          </div>
+
+          <!-- Comment Input -->
+          <input id="csw-call-comment" type="text" placeholder="Add a comment (optional)..." style="width:100%; max-width:250px; padding:9px 12px; border-radius:10px; background:#f8fafc; border:1px solid #cbd5e1; color:#0f172a; font-size:11px; outline:none; margin-bottom:12px; box-sizing:border-box;" />
+
+          <button id="csw-submit-rating-btn" type="button" style="width:100%; max-width:250px; padding:10px 14px; border-radius:12px; background:linear-gradient(135deg, #10b981 0%, #059669 100%); border:none; color:#ffffff; font-size:11.5px; font-weight:800; cursor:pointer; transition:all 0.2s; box-shadow:0 4px 14px rgba(16,185,129,0.3); margin-bottom:8px;">
+            Submit Rating
+          </button>
+
+          <button id="csw-skip-rating-btn" type="button" style="background:transparent; border:none; color:#94a3b8; font-size:10.5px; font-weight:600; cursor:pointer; text-decoration:underline;">
+            Skip & Back to Chat
+          </button>
+        </div>
+      `;
+
+      let selectedRating = 5;
+      const sentiments = {
+        1: "😞 Needs improvement",
+        2: "😐 Fair experience",
+        3: "🙂 Good support",
+        4: "😊 Great service!",
+        5: "🤩 Outstanding service!"
+      };
+
+      const stars = voiceOverlay.querySelectorAll(".csw-call-star");
+      const sentimentEl = voiceOverlay.querySelector("#csw-rating-sentiment");
+      const highlightStars = (rating) => {
+        stars.forEach(btn => {
+          const r = parseInt(btn.getAttribute("data-rating"), 10);
+          if (r <= rating) {
+            btn.classList.add("active");
+            btn.style.background = "#fef3c7";
+            btn.style.borderColor = "#f59e0b";
+            btn.style.color = "#d97706";
+          } else {
+            btn.classList.remove("active");
+            btn.style.background = "#f8fafc";
+            btn.style.borderColor = "#e2e8f0";
+            btn.style.color = "#94a3b8";
+          }
+        });
+        if (sentimentEl) sentimentEl.textContent = sentiments[rating] || "";
+      };
+
+      highlightStars(5);
+
+      stars.forEach(btn => {
+        btn.onclick = () => {
+          selectedRating = parseInt(btn.getAttribute("data-rating"), 10);
+          highlightStars(selectedRating);
+        };
+      });
+
+      const chips = voiceOverlay.querySelectorAll(".csw-feedback-chip");
+      const selectedTags = new Set();
+      chips.forEach(chip => {
+        chip.onclick = () => {
+          chip.classList.toggle("active");
+          const tag = chip.textContent.trim();
+          if (selectedTags.has(tag)) selectedTags.delete(tag);
+          else selectedTags.add(tag);
+        };
+      });
+
+      const closeRating = () => {
+        renderDefaultVoiceUI();
+        voiceOverlay.style.display = "none";
+      };
+
+      const skipBtn = voiceOverlay.querySelector("#csw-skip-rating-btn");
+      if (skipBtn) skipBtn.onclick = closeRating;
+
+      const submitBtn = voiceOverlay.querySelector("#csw-submit-rating-btn");
+      const commentInput = voiceOverlay.querySelector("#csw-call-comment");
+      if (submitBtn) {
+        submitBtn.onclick = () => {
+          const comment = commentInput?.value?.trim() || "";
+          if (socket) {
+            socket.emit("call:feedback", {
+              callId,
+              sessionId: activeSessionId,
+              websiteId: websiteApiKey,
+              rating: selectedRating,
+              sentiment: sentiments[selectedRating],
+              tags: Array.from(selectedTags),
+              comment,
+              agentName: agentName || "Support Specialist",
+              duration: durationSecs
+            });
+          }
+
+          voiceOverlay.innerHTML = `
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; height:100%; width:100%;">
+              <div style="font-size:36px; margin-bottom:8px;">🎉</div>
+              <div style="font-size:15px; font-weight:900; color:#fff; margin-bottom:4px;">Thank you!</div>
+              <div style="font-size:11px; color:#94a3b8; max-width:230px;">Your feedback helps us continuously improve our service quality.</div>
+            </div>
+          `;
+          setTimeout(closeRating, 2200);
+        };
+      }
+    }
+
     if (voiceBtn && voiceOverlay) {
       voiceBtn.onclick = () => {
         voiceOverlay.style.display = "flex";
@@ -1002,6 +1924,13 @@ import "./style.css";
       activeSessionId = data.sessionId;
       feedbackSent = !!(data.session && data.session.satisfactionStatus);
 
+      // Save real visitor name if provided or returned
+      const fetchedVisitorName = (preData && preData.name) || (data.visitor && data.visitor.name) || (data.session?.visitorId?.name);
+      if (fetchedVisitorName && fetchedVisitorName.trim()) {
+        currentVisitorName = fetchedVisitorName.trim();
+        try { localStorage.setItem(nameKey, currentVisitorName); } catch {}
+      }
+
       // If existing session is already closed on initial boot without preData, clear sessionKey so a new chat can start
       if (data.session?.status === "closed" && !preData) {
         localStorage.removeItem(sessionKey);
@@ -1038,7 +1967,7 @@ import "./style.css";
       ui.messages.innerHTML = "";
       if (data.messages && data.messages.length > 0) {
         data.messages.forEach(msg => {
-          appendMessage(ui, msg.sender === "visitor" ? "visitor" : "agent", msg.message, msg.attachmentUrl, msg.attachmentType, msg.senderName, msg.isAi, msg._id, msg.deliveredAt, msg.readAt);
+          appendMessage(ui, msg.sender === "visitor" ? "visitor" : (msg.sender === "system" ? "system" : "agent"), msg.message, msg.attachmentUrl, msg.attachmentType, msg.senderName, msg.isAi, msg._id, msg.deliveredAt, msg.readAt);
         });
       }
 
@@ -1106,7 +2035,7 @@ import "./style.css";
       }
 
       // 6. Connect Socket
-      if (socket) socket.disconnect();
+      if (socket && !window.__csw_call_active) socket.disconnect();
       console.log("ChatWidget: Connecting socket for session", activeSessionId);
       socket = io(origin, {
         auth: { apiKey, visitorId, sessionId: activeSessionId, type: "visitor" },
@@ -1156,7 +2085,7 @@ import "./style.css";
             }
           }
 
-          appendMessage(ui, msg.sender === "visitor" ? "visitor" : "agent", msg.message, msg.attachmentUrl, msg.attachmentType, msg.senderName, msg.isAi, msg._id, msg.deliveredAt, msg.readAt);
+          appendMessage(ui, msg.sender === "visitor" ? "visitor" : (msg.sender === "system" ? "system" : "agent"), msg.message, msg.attachmentUrl, msg.attachmentType, msg.senderName, msg.isAi, msg._id, msg.deliveredAt, msg.readAt);
           if (msg.sender !== "visitor") {
             socket.emit("chat:ack:delivered", { messageId: msg._id, sessionId: activeSessionId });
           }
@@ -1193,6 +2122,14 @@ import "./style.css";
       socket.on("agent:typing", handleAgentTyping);
       socket.on("chat:typing", (payload) => {
         if (payload?.sender === "agent") handleAgentTyping(payload);
+      });
+
+      socket.off("call:incoming-from-agent");
+      socket.on("call:incoming-from-agent", (payload) => {
+        console.log("[ChatWidget] Received call:incoming-from-agent:", payload);
+        if (window.__csw_incoming_agent_call) {
+          window.__csw_incoming_agent_call(payload);
+        }
       });
 
       socket.on("chat:closed", () => {
@@ -1275,7 +2212,7 @@ import "./style.css";
       attachBtn.id = "csw-attach-btn";
       attachBtn.type = "button";
       attachBtn.title = "Attach file";
-      attachBtn.innerHTML = "📎";
+      attachBtn.innerHTML = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
       form.insertBefore(attachBtn, input);
       ui.attachBtn = attachBtn;
     }
@@ -1349,6 +2286,34 @@ import "./style.css";
   }
 
   function appendMessage(ui, sender, text, attachmentUrl, attachmentType, senderName, isAi, messageId, deliveredAt, readAt, tempId) {
+    if (sender === "system" || (text && text.startsWith("📞"))) {
+      let displayText = text;
+      let isVoiceReassurance = false;
+
+      // Transform agent-facing missed call alerts into polite visitor reassurance
+      if (typeof text === "string" && (text.includes("Missed voice call") || text.includes("missed voice call") || text.includes("missed call"))) {
+        isVoiceReassurance = true;
+        const timeMatch = text.match(/at\s+([0-9]{1,2}:[0-9]{2}\s*(?:am|pm|AM|PM)?)/i);
+        const timeStr = timeMatch ? ` at ${timeMatch[1]}` : "";
+        displayText = `📞 You called Support${timeStr} • Our team has been alerted and will call you back shortly`;
+      }
+
+      const sysMsg = document.createElement("div");
+      sysMsg.className = "csw-message csw-system";
+      if (messageId) sysMsg.setAttribute("data-msg-id", messageId);
+
+      if (isVoiceReassurance) {
+        sysMsg.style.cssText = "align-self:center; margin:10px auto; background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8; padding:8px 16px; border-radius:999px; font-size:11.5px; font-weight:700; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.04); max-width:92%; line-height:1.45;";
+      } else {
+        sysMsg.style.cssText = "align-self:center; margin:8px auto; background:#fee2e2; border:1px solid #fecaca; color:#991b1b; padding:6px 14px; border-radius:999px; font-size:11px; font-weight:700; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.04); max-width:88%;";
+      }
+
+      sysMsg.innerHTML = `<span>${escapeHtml(displayText)}</span>`;
+      ui.messages.appendChild(sysMsg);
+      ui.messages.scrollTop = ui.messages.scrollHeight;
+      return;
+    }
+
     const msg = document.createElement("div");
     msg.className = `csw-message csw-${sender}`;
     if (messageId) msg.setAttribute("data-msg-id", messageId);
@@ -1593,6 +2558,11 @@ import "./style.css";
     const name = ui.preName.value.trim();
     const email = ui.preEmail.value.trim();
     if (!name || !email) return;
+    currentVisitorName = name;
+    try {
+      localStorage.setItem(nameKey, name);
+      localStorage.setItem(emailKey, email);
+    } catch {}
     boot(ui, { name, email });
   };
 
@@ -1628,23 +2598,90 @@ import "./style.css";
     ui.input.value = "";
   };
 
-  // Emoji picker
-  ui.emojiBtn.onclick = () => {
-    ui.emojiPicker.style.display = ui.emojiPicker.style.display === 'none' ? 'block' : 'none';
+  // Emoji picker with smooth toggle and outside click dismiss
+  const toggleEmojiPicker = (show) => {
+    if (!ui.emojiPicker) return;
+    const isVisible = ui.emojiPicker.style.display === "block";
+    const willShow = show !== undefined ? show : !isVisible;
+    ui.emojiPicker.style.display = willShow ? "block" : "none";
+    if (ui.emojiBtn) {
+      if (willShow) {
+        ui.emojiBtn.classList.add("csw-active");
+      } else {
+        ui.emojiBtn.classList.remove("csw-active");
+      }
+    }
   };
 
-  const commonEmojis = ["😊", "👍", "👋", "❤️", "🔥", "🎉", "🙏", "⭐", "💼", "📦", "💳", "✅"];
+  if (ui.emojiBtn) {
+    ui.emojiBtn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleEmojiPicker();
+    };
+  }
+
+  const emojiCloseBtn = ui.panel.querySelector("#csw-emoji-close");
+  if (emojiCloseBtn) {
+    emojiCloseBtn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleEmojiPicker(false);
+    };
+  }
+
+  document.addEventListener("click", (e) => {
+    if (ui.emojiPicker && ui.emojiPicker.style.display === "block") {
+      if (!ui.emojiPicker.contains(e.target) && !ui.emojiBtn.contains(e.target)) {
+        toggleEmojiPicker(false);
+      }
+    }
+  });
+
+  const commonEmojis = [
+    { char: "😊", name: "Smile" },
+    { char: "👍", name: "Thumbs Up" },
+    { char: "👋", name: "Wave" },
+    { char: "❤️", name: "Heart" },
+    { char: "🔥", name: "Fire" },
+    { char: "🎉", name: "Celebration" },
+    { char: "🙏", name: "Thank You" },
+    { char: "⭐", name: "Star" },
+    { char: "💼", name: "Business" },
+    { char: "📦", name: "Package" },
+    { char: "💳", name: "Payment" },
+    { char: "✅", name: "Verified" },
+    { char: "🤝", name: "Deal" },
+    { char: "💯", name: "100%" },
+    { char: "🚀", name: "Rocket" },
+    { char: "✨", name: "Sparkles" },
+    { char: "😃", name: "Grin" },
+    { char: "🙌", name: "Hooray" },
+    { char: "💬", name: "Chat" },
+    { char: "📞", name: "Call" },
+    { char: "💡", name: "Idea" },
+    { char: "🎯", name: "Target" },
+    { char: "👏", name: "Applause" },
+    { char: "🌟", name: "Glowing Star" }
+  ];
+
   const emojiGrid = ui.panel.querySelector("#csw-emoji-grid");
   if (emojiGrid) {
+    emojiGrid.innerHTML = "";
     commonEmojis.forEach(em => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "csw-emoji-item";
-      btn.textContent = em;
-      btn.onclick = () => {
-        ui.input.value += em;
-        ui.emojiPicker.style.display = "none";
+      btn.textContent = em.char;
+      btn.title = em.name;
+      btn.setAttribute("aria-label", em.name);
+      btn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        ui.input.value += em.char;
+        toggleEmojiPicker(false);
         ui.input.focus();
+        ui.input.dispatchEvent(new Event("input", { bubbles: true }));
       };
       emojiGrid.appendChild(btn);
     });

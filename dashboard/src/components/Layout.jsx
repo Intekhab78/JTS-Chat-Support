@@ -10,12 +10,14 @@ import {
   Building, Radio, DollarSign, Award, Box, FolderTree, GitCommit, Tag, Ruler, Palette,
   Scale, Truck, ArrowDownRight, ArrowUpRight, Sliders, ShoppingCart, LayoutGrid, FilePlus,
   Landmark, BarChart2, BookOpen, Receipt, TrendingUp, BrainCircuit, Target, UserPlus,
-  Briefcase, Grid, Zap, GitMerge, Lock, HelpCircle, UserCheck, FileCheck, Code2, RefreshCw
+  Briefcase, Grid, Zap, GitMerge, Lock, HelpCircle, UserCheck, FileCheck, Code2, RefreshCw,
+  PhoneMissed
 } from "lucide-react";
-import { api, getBackendStatus, resolveActiveBackend } from "../api/client.js";
+import { api, getBackendStatus, resolveActiveBackend, setActiveApiBase, DEFAULT_LOCAL_API_URL } from "../api/client.js";
 import { useSocket } from "../context/SocketContext.jsx";
 import { useWebsite } from "../context/WebsiteContext.jsx";
 import GlobalSearch from "./CrmSystem/GlobalSearch.jsx";
+import VoiceCallHandler from "./VoiceCallHandler.jsx";
 import { hasPermission } from "../utils/permissions.js";
 import { PERMISSIONS } from "../constants/domain.js";
 import { normalizeRole } from "../utils/roles.js";
@@ -423,7 +425,8 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
   const fetchNotifications = useCallback(async () => {
     try {
       const q = notificationFilter !== "all" ? `?type=${notificationFilter}` : "";
-      setNotifications(await api(`/api/notifications${q}`));
+      const res = await api(`/api/notifications${q}`);
+      setNotifications(Array.isArray(res) ? res : []);
     } catch { /* silent */ }
   }, [notificationFilter]);
 
@@ -841,16 +844,21 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
 
             {/* Live Dual-Backend Smart Indicator */}
             <div
-              onClick={() => resolveActiveBackend(true)}
-              title={`Active API: ${backendStatus.apiBase}\nClick to re-check local backend`}
+              onClick={async () => {
+                if (!backendStatus.isLocal) {
+                  setActiveApiBase(DEFAULT_LOCAL_API_URL, "user_manual_switch");
+                }
+                await resolveActiveBackend(true);
+              }}
+              title={`Active API: ${backendStatus.apiBase}\nClick to toggle / re-connect to Local (5000)`}
               className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all select-none ${
                 backendStatus.isLocal
                   ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100"
-                  : "bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-100"
+                  : "bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-100 ring-2 ring-blue-400/50"
               }`}
             >
               <span className={`w-1.5 h-1.5 rounded-full ${backendStatus.isLocal ? "bg-emerald-500 animate-pulse" : "bg-blue-500"}`} />
-              <span>{backendStatus.isLocal ? "API: Local (5000)" : "API: Cloud"}</span>
+              <span>{backendStatus.isLocal ? "API: Local (5000)" : "API: Cloud (Click for Local)"}</span>
             </div>
 
             {/* Global Ecosystem Website Filter Selector */}
@@ -921,7 +929,12 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
             <div className="relative">
               <button
                 id="notifications-btn"
-                onClick={() => setShowNotifications(s => !s)}
+                onClick={() => {
+                  setShowNotifications(s => {
+                    if (!s) fetchNotifications();
+                    return !s;
+                  });
+                }}
                 aria-label="Notifications"
                 aria-expanded={showNotifications}
                 className={`relative p-2.5 rounded-xl transition-all
@@ -969,7 +982,7 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
 
                     {/* Filter pills */}
                     <div className="px-5 py-3 flex flex-wrap gap-1.5 border-b border-slate-50 dark:border-white/5">
-                      {["all", "unattended_client_alert", ...(isComplianceEnabled ? ["vat_filing_due", "corporate_tax_due", "trade_license_expiring"] : []), "crm_follow_up_due"].map(type => (
+                      {["all", "missed_call", "unattended_client_alert", ...(isComplianceEnabled ? ["vat_filing_due", "corporate_tax_due", "trade_license_expiring"] : []), "crm_follow_up_due"].map(type => (
                         <button
                           key={type}
                           onClick={() => setNotificationFilter(type)}
@@ -979,7 +992,7 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
                               : "bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10"
                             }`}
                         >
-                          {type === "all" ? "All" : type.replaceAll("_", " ")}
+                          {type === "all" ? "All" : type === "missed_call" ? "📞 Missed Calls" : type.replaceAll("_", " ")}
                         </button>
                       ))}
                     </div>
@@ -997,8 +1010,8 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
                         >
                           {!n.isRead && <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-500" />}
                           <div className="flex gap-3">
-                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${!n.isRead ? "bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600" : "bg-slate-100 dark:bg-white/10 text-slate-400"}`}>
-                              {n.type === "new_chat" ? <MessageSquare size={13} /> : n.type === "new_ticket" ? <Ticket size={13} /> : n.type === "inventory_low_stock" ? <Package size={13} /> : <AlertCircle size={13} />}
+                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${!n.isRead ? (n.type === "missed_call" ? "bg-rose-100 dark:bg-rose-500/20 text-rose-600" : "bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600") : "bg-slate-100 dark:bg-white/10 text-slate-400"}`}>
+                              {n.type === "missed_call" ? <PhoneMissed size={13} className="text-rose-500" /> : n.type === "new_chat" ? <MessageSquare size={13} /> : n.type === "new_ticket" ? <Ticket size={13} /> : n.type === "inventory_low_stock" ? <Package size={13} /> : <AlertCircle size={13} />}
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className={`text-[11px] font-black truncate ${n.isRead ? "text-slate-500" : "text-slate-900 dark:text-white"}`}>
@@ -1086,6 +1099,9 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
           );
         })()}
       </div>
+
+      {/* Global Voice Calling System for Incoming Agent Calls */}
+      <VoiceCallHandler />
     </div>
   );
 }

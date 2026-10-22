@@ -838,71 +838,134 @@
   animation: csw-pill-in 0.3s ease-out;
 }
 
-/* ── Emoji Picker ─────────────────────────────────────────────── */
+/* ── Emoji Picker & Quick Reactions ─────────────────────────── */
 #csw-emoji-picker {
   display: none;
   position: absolute;
-  bottom: 64px;
-  right: 12px;
-  background: var(--csw-bg);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 16px;
-  padding: 10px;
-  max-width: 210px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
-  z-index: 2000;
-  backdrop-filter: blur(8px);
+  bottom: 66px;
+  right: 14px;
+  width: 272px;
+  max-width: calc(100% - 28px);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 10px 12px 12px 12px;
+  box-shadow: 0 20px 40px -8px rgba(15, 23, 42, 0.16), 0 8px 16px -4px rgba(15, 23, 42, 0.08);
+  z-index: 2500;
+  box-sizing: border-box;
+  overflow: hidden;
+  animation: csw-picker-pop 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes csw-picker-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.csw-emoji-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.csw-emoji-picker-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #475569;
+  letter-spacing: 0.3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: uppercase;
+}
+
+#csw-emoji-close {
+  background: transparent !important;
+  border: none !important;
+  font-size: 18px;
+  line-height: 1;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: all 0.18s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#csw-emoji-close:hover {
+  color: #0f172a;
+  background: #f1f5f9 !important;
 }
 
 .csw-emoji-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: 4px;
-  max-height: 180px;
+  gap: 6px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden !important;
   overflow-y: auto;
-  padding-right: 4px;
+  max-height: 190px;
+  padding: 2px;
 }
 
-/* Custom Scrollbar for Emoji Picker Grid */
+/* Custom Sleek Scrollbar */
 .csw-emoji-grid::-webkit-scrollbar {
   width: 4px;
 }
-
 .csw-emoji-grid::-webkit-scrollbar-track {
   background: transparent;
 }
-
 .csw-emoji-grid::-webkit-scrollbar-thumb {
   background: #cbd5e1;
-  border-radius: 10px;
+  border-radius: 9999px;
 }
-
 .csw-emoji-grid::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
 
 .csw-emoji-item {
+  width: 35px;
+  height: 35px;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: none !important;
-  border: none !important;
+  background: #f8fafc !important;
+  border: 1px solid #f1f5f9 !important;
+  border-radius: 10px;
   font-size: 20px;
-  padding: 6px;
+  line-height: 1;
   cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.2s ease;
+  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
   user-select: none;
+  padding: 0;
+  margin: 0;
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
 }
 
 .csw-emoji-item:hover {
-  background-color: #f1f5f9 !important;
-  transform: scale(1.15);
+  background: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+  transform: scale(1.18);
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.18);
+  z-index: 2;
 }
 
 .csw-emoji-item:active {
-  background-color: #e2e8f0 !important;
-  transform: scale(0.95);
+  background: #d1fae5 !important;
+  transform: scale(0.92);
 }
 
 /* ── Live Voice Calling Screen (Apple & Sci-Fi Aesthetics) ─────── */
@@ -1124,15 +1187,14 @@
   background: transparent !important;
   border: none !important;
   color: #64748b !important;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 15px;
-  border-radius: 8px;
-  transition: all 0.2s;
+  border-radius: 10px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   flex-shrink: 0;
   padding: 0;
 }
@@ -1140,7 +1202,13 @@
 #csw-attach-btn:hover,
 #csw-emoji-btn:hover {
   background: #f1f5f9 !important;
-  color: #0f172a !important;
+  color: #10b981 !important;
+  transform: scale(1.08);
+}
+
+#csw-emoji-btn.csw-active {
+  background: #ecfdf5 !important;
+  color: #059669 !important;
 }
 
 #csw-input {
@@ -1156,9 +1224,9 @@
 }
 
 #csw-input:focus {
-  border-color: var(--csw-primary);
+  border-color: #10b981;
   background: #ffffff;
-  box-shadow: 0 0 0 2.5px rgba(99, 102, 241, 0.1);
+  box-shadow: 0 0 0 2.5px rgba(16, 185, 129, 0.15);
 }
 
 #csw-input::placeholder {
@@ -1169,10 +1237,10 @@
 #csw-send {
   border: none;
   border-radius: 10px;
-  background: var(--csw-primary);
+  background: linear-gradient(135deg, #10b981, #059669);
   color: #ffffff;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1180,12 +1248,12 @@
   font-size: 13px;
   flex-shrink: 0;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 4px 10px -2px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 4px 12px -2px rgba(16, 185, 129, 0.4);
 }
 
 #csw-send:hover {
-  transform: translateY(-1px) scale(1.05);
-  box-shadow: 0 6px 14px -2px rgba(99, 102, 241, 0.4);
+  transform: translateY(-1px) scale(1.06);
+  box-shadow: 0 6px 16px -2px rgba(16, 185, 129, 0.5);
 }
 
 #csw-send:active {
@@ -1363,4 +1431,80 @@
 .csw-voice-action-btn:active {
   filter: brightness(0.96) !important;
   transform: scale(0.97) !important;
+}
+
+/* ── Live Agent Outgoing Calling & Rating Animations ── */
+@keyframes csw-pulse-scale {
+  0% { transform: scale(0.95); opacity: 0.9; }
+  50% { transform: scale(1.15); opacity: 0.45; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+
+@keyframes csw-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+@keyframes csw-calling-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(16, 185, 129, 0.4); }
+  50% { box-shadow: 0 0 32px rgba(16, 185, 129, 0.75); }
+}
+
+/* Animated soundwave ripple rings for calling & active calls */
+@keyframes csw-audio-ripple {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.22);
+    opacity: 0.28;
+  }
+  100% {
+    transform: scale(1.42);
+    opacity: 0;
+  }
+}
+
+@keyframes csw-eq-bar-smooth {
+  0%, 100% {
+    height: 6px;
+  }
+  50% {
+    height: 19px;
+  }
+}
+
+.csw-feedback-chip {
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.csw-feedback-chip:hover {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+  transform: translateY(-1px);
+}
+
+.csw-feedback-chip.active {
+  background: #ecfdf5 !important;
+  border-color: #34d399 !important;
+  color: #065f46 !important;
+  box-shadow: 0 2px 8px -1px rgba(16, 185, 129, 0.25) !important;
+  font-weight: 700 !important;
+}
+
+.csw-call-star {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.csw-call-star:hover,
+.csw-call-star.active {
+  background: #fef3c7 !important;
+  border-color: #f59e0b !important;
+  color: #d97706 !important;
+  transform: scale(1.14) !important;
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.3) !important;
 }

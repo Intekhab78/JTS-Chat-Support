@@ -12,9 +12,6 @@ import TicketManager from "../components/TicketManager.jsx";
 import AgentPerformanceView from "../components/AgentPerformanceView.jsx";
 import CRMManager from "../components/CRMManager.jsx";
 import CustomerManager from "../components/CustomerManager.jsx";
-import IncomingCallModal from "../components/IncomingCallModal.jsx";
-import ActiveCallBar from "../components/ActiveCallBar.jsx";
-import TransferCallModal from "../components/TransferCallModal.jsx";
 import { api } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { NotificationService } from "../utils/notifications.js";
@@ -68,16 +65,6 @@ export default function AgentPage() {
   const [categories, setCategories] = useState([]);
   const [selectedCat, setSelectedCat] = useState("");
   const [selectedSub, setSelectedSub] = useState("");
-
-  // Live WebRTC Voice Call Handoff States
-  const [incomingCall, setIncomingCall] = useState(null);
-  const [activeCall, setActiveCall] = useState(null);
-  const [isCallMuted, setIsCallMuted] = useState(false);
-  const [isCallHeld, setIsCallHeld] = useState(false);
-  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
-  const peerConnectionRef = useRef(null);
-  const localStreamRef = useRef(null);
-  const remoteAudioRef = useRef(typeof Audio !== "undefined" ? new Audio() : null);
 
   const selectedSession = useMemo(() => sessions.find((session) => session.sessionId === selectedSessionId) || null, [sessions, selectedSessionId]);
   const selectedSessionIdRef = useRef(selectedSessionId);
@@ -141,7 +128,7 @@ export default function AgentPage() {
 
     socket.on("connect", () => {
       setToast({ show: false, message: "", type: "info" });
-      setUser(prev => ({ ...prev, isOnline: true }));
+      setUser(prev => (prev?.isOnline ? prev : { ...prev, isOnline: true }));
     });
 
     socket.on("chat:new-message", (payload) => {
@@ -283,50 +270,6 @@ export default function AgentPage() {
     socket.on("visitor:online", (data) => handleVisitorStatus({ ...data, isOnline: true }));
     socket.on("visitor:offline", (data) => handleVisitorStatus({ ...data, isOnline: false }));
 
-    // Voice Call Handoff & WebRTC Signaling
-    socket.on("call:incoming", (callData) => {
-      console.log("[AgentPage] Incoming voice call:", callData);
-      setIncomingCall(callData);
-    });
-
-    socket.on("call:answered", ({ callId }) => {
-      setIncomingCall(prev => (prev?.callId === callId ? null : prev));
-    });
-
-    socket.on("call:webrtc-signal", async ({ senderSocketId, signalData }) => {
-      if (!peerConnectionRef.current) return;
-      try {
-        if (signalData.sdp) {
-          await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(signalData.sdp));
-          if (signalData.sdp.type === "offer") {
-            const answer = await peerConnectionRef.current.createAnswer();
-            await peerConnectionRef.current.setLocalDescription(answer);
-            socket.emit("call:webrtc-signal", {
-              targetSocketId: senderSocketId,
-              signalData: { sdp: peerConnectionRef.current.localDescription }
-            });
-          }
-        } else if (signalData.candidate) {
-          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(signalData.candidate));
-        }
-      } catch (err) {
-        console.error("[AgentPage] WebRTC signal error:", err);
-      }
-    });
-
-    socket.on("call:transferred-success", ({ callId, newAgentName }) => {
-      setToast({
-        show: true,
-        message: `Call successfully transferred to ${newAgentName || 'Senior Specialist'}!`,
-        type: "success"
-      });
-      endActiveCall();
-    });
-
-    socket.on("call:ended", () => {
-      endActiveCall();
-    });
-
     return () => {
       socket.off("connect_error");
       socket.off("connect");
@@ -343,122 +286,8 @@ export default function AgentPage() {
       socket.off("visitor:online");
       socket.off("visitor:offline");
       socket.off("chat:control-requested");
-      socket.off("call:incoming");
-      socket.off("call:answered");
-      socket.off("call:webrtc-signal");
-      socket.off("call:ended");
     };
   }, [user?._id, socket]);
-
-  const handleAcceptCall = async () => {
-    if (!incomingCall || !socket) return;
-    const currentCall = incomingCall;
-    setIncomingCall(null);
-    setActiveCall(currentCall);
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      localStreamRef.current = stream;
-
-      const pc = new RTCPeerConnection({
-        iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-      });
-      peerConnectionRef.current = pc;
-
-      stream.getTracks().forEach(track => pc.addTrack(track, stream));
-
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          socket.emit("call:webrtc-signal", {
-            targetSocketId: currentCall.visitorSocketId,
-            signalData: { candidate: event.candidate }
-          });
-        }
-      };
-
-      pc.ontrack = (event) => {
-        if (event.streams && event.streams[0] && remoteAudioRef.current) {
-          remoteAudioRef.current.srcObject = event.streams[0];
-          remoteAudioRef.current.play().catch(e => console.warn("Remote audio play error:", e));
-        }
-      };
-
-      socket.emit("call:accept", {
-        callId: currentCall.callId,
-        sessionId: currentCall.sessionId,
-        visitorSocketId: currentCall.visitorSocketId,
-        isTransferred: currentCall.isTransferred,
-        transferredBySocketId: currentCall.transferredBySocketId
-      });
-
-    } catch (err) {
-      console.error("[AgentPage] Mic access or WebRTC error:", err);
-      setToast({ show: true, message: "Microphone permission required to accept voice call.", type: "error" });
-      setActiveCall(null);
-    }
-  };
-
-  const handleDeclineCall = () => {
-    if (incomingCall && socket) {
-      socket.emit("call:reject", {
-        callId: incomingCall.callId,
-        visitorSocketId: incomingCall.visitorSocketId
-      });
-    }
-    setIncomingCall(null);
-  };
-
-  const handleTransferCall = (targetAgentId, transferNote) => {
-    if (!activeCall || !socket) return;
-    socket.emit("call:transfer", {
-      callId: activeCall.callId,
-      sessionId: activeCall.sessionId,
-      visitorSocketId: activeCall.visitorSocketId,
-      targetAgentId,
-      transferNote,
-      callerDetails: activeCall
-    });
-
-    setToast({
-      show: true,
-      message: "Call transfer initiated. Ringing senior agent...",
-      type: "info"
-    });
-  };
-
-  const endActiveCall = () => {
-    if (activeCall && socket) {
-      socket.emit("call:end", {
-        callId: activeCall.callId,
-        targetSocketId: activeCall.visitorSocketId
-      });
-    }
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(t => t.stop());
-      localStreamRef.current = null;
-    }
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.close();
-      peerConnectionRef.current = null;
-    }
-    setActiveCall(null);
-    setIsCallMuted(false);
-    setIsCallHeld(false);
-  };
-
-  const toggleMuteCall = () => {
-    if (localStreamRef.current) {
-      const audioTrack = localStreamRef.current.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setIsCallMuted(!audioTrack.enabled);
-      }
-    }
-  };
-
-  const toggleHoldCall = () => {
-    setIsCallHeld(prev => !prev);
-  };
 
   useEffect(() => {
     if (socket && selectedSessionId) {
@@ -757,9 +586,12 @@ export default function AgentPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">Operation Chats</h3>
-                <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <span 
+                  title={`${sessions.length} total database chat sessions across ${activeSessions.length + closedSessions.length + trashSessions.length} unique visitor conversations`}
+                  className="text-xs font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1 cursor-help"
+                >
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  {sessions.length} Total
+                  {activeSessions.length + closedSessions.length + trashSessions.length} Total
                 </span>
               </div>
               <button
@@ -1484,35 +1316,6 @@ export default function AgentPage() {
             </div>
           </div>
         </div>
-      )}
-
-      {incomingCall && (
-        <IncomingCallModal
-          callData={incomingCall}
-          onAccept={handleAcceptCall}
-          onDecline={handleDeclineCall}
-        />
-      )}
-
-      {activeCall && (
-        <ActiveCallBar
-          callData={activeCall}
-          onEndCall={endActiveCall}
-          onToggleMute={toggleMuteCall}
-          onToggleHold={toggleHoldCall}
-          onOpenTransfer={() => setIsTransferModalOpen(true)}
-          isMuted={isCallMuted}
-          isHeld={isCallHeld}
-        />
-      )}
-
-      {activeCall && (
-        <TransferCallModal
-          isOpen={isTransferModalOpen}
-          onClose={() => setIsTransferModalOpen(false)}
-          activeCall={activeCall}
-          onConfirmTransfer={handleTransferCall}
-        />
       )}
     </Layout>
   );

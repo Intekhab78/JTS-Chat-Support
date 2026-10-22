@@ -57,6 +57,7 @@ import reminderRoutes from "./routes/reminderRoutes.js";
 import voiceCallRoutes from "./routes/voiceCallRoutes.js";
 import healthRoutes from "./routes/health.js";
 import { env } from "./config/env.js";
+import { getSocketServer } from "./sockets/index.js";
 
 import errorMiddleware from "./middleware/errorMiddleware.js";
 import AppError from "./utils/AppError.js";
@@ -182,7 +183,15 @@ export function createApp() {
   app.use(express.json({ limit: "50kb" }));
   app.use(cookieParser());
 
-  app.use(express.static(path.join(__dirname, "public")));
+  app.use(express.static(path.join(__dirname, "public"), {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith("chat-widget.js")) {
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
+      }
+    }
+  }));
   app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
   // Self-healing fallback to serve uploads from root to support legacy database entries missing '/uploads' prefix
   app.use(express.static(path.join(__dirname, "../uploads")));
@@ -190,6 +199,26 @@ export function createApp() {
   app.get("/", (_, res) => res.json({ status: "success", message: "JTS Chat Backend is Live", version: "1.0.0" }));
   app.get("/health", (_, res) => res.json({ ok: true, timestamp: new Date() }));
   app.get("/api/health", (_, res) => res.json({ ok: true, timestamp: new Date() }));
+  app.get("/api/sockets-status", (_, res) => {
+    const io = getSocketServer();
+    if (!io) return res.json({ connected: false, sockets: 0 });
+    const socketsList = [];
+    for (const [id, s] of io.sockets.sockets) {
+      socketsList.push({
+        id,
+        type: s.data?.type || "unknown",
+        userName: s.data?.user?.name || null,
+        userRole: s.data?.user?.role || null,
+        rooms: Array.from(s.rooms)
+      });
+    }
+    res.json({
+      totalConnected: socketsList.length,
+      agentsOnline: socketsList.filter(s => s.type === "agent" || s.type === "owner").length,
+      visitorsOnline: socketsList.filter(s => s.type === "visitor").length,
+      sockets: socketsList
+    });
+  });
   app.use("/api/health-check", healthRoutes);
 
   app.use(widgetRoutes);

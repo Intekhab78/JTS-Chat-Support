@@ -65,7 +65,7 @@ export default function TransferCallModal({ isOpen, onClose, activeCall, onConfi
                 Transfer Live Call to Senior / Agent
               </h3>
               <p className="text-xs text-slate-500">
-                Visitor: <span className="font-bold text-slate-800 dark:text-slate-200">{activeCall.visitorName || "Website Visitor"}</span>
+                Visitor: <span className="font-bold text-slate-800 dark:text-slate-200">{(activeCall.visitorName && activeCall.visitorName !== "Website Visitor") ? activeCall.visitorName : (activeCall.telemetry?.city ? `Visitor (${activeCall.telemetry.city})` : "Visitor")}</span>
               </p>
             </div>
           </div>

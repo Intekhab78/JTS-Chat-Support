@@ -16,7 +16,7 @@ import { sendTicketAlert } from "./notificationService.js";
 export async function processAiVoiceCall({ websiteId, callerPhone, transcriptText }) {
   let resolvedWebsite = null;
   if (websiteId && websiteId !== "default_key") {
-    if (String(websiteId).length === 24) {
+    if (/^[0-9a-fA-F]{24}$/.test(String(websiteId))) {
       resolvedWebsite = await Website.findById(websiteId);
     }
     if (!resolvedWebsite) {

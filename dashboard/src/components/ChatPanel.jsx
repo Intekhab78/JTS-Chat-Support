@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { api, apiUrl } from "../api/client.js";
 import { 
-  Paperclip, FileText, Check, CheckCheck, Send, Ticket, PlusCircle, UserPlus, UserCheck,
-  Sparkles, Bot, Zap, ShoppingCart, Calendar, DollarSign, Clock, ExternalLink, 
-  MessageSquare, Plus, Phone, Mail, FileSpreadsheet, X, ArrowRight, Trash2, RotateCcw, XCircle 
+  Paperclip, FileText, Check, CheckCheck, Send, Ticket, PlusCircle, UserPlus, UserCheck, UserMinus, ShieldAlert, Globe,
+  Sparkles, Bot, Zap, ShoppingCart, Calendar, DollarSign, Clock, ExternalLink, ArrowRightLeft,
+  MessageSquare, Plus, Phone, PhoneMissed, Mail, FileSpreadsheet, X, ArrowRight, Trash2, RotateCcw, XCircle 
 } from "lucide-react";
 import { cleanString } from "../utils/stringUtils.js";
 import { useToast } from "../context/ToastContext.jsx";
@@ -513,23 +513,54 @@ export default function ChatPanel({
           </div>
 
           {/* Primary Action Controls */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
+            {/* Call Visitor (Web Direct Voice) */}
+            <button
+              type="button"
+              onClick={() => {
+                if (!isVisitorOnline) {
+                  toast.info(`${visitorName || 'Visitor'} is currently offline.`);
+                  return;
+                }
+                window.dispatchEvent(new CustomEvent("agent:start-call", {
+                  detail: {
+                    sessionId: session.sessionId,
+                    visitorId: session.visitorId?._id || session.visitorId?.visitorId || session.visitorId,
+                    visitorName: session.visitorId?.name || session.customerId?.name || visitorName || "Visitor",
+                    crn: session.crn,
+                    websiteId: session.websiteId?._id || session.websiteId,
+                    visitor: session.visitorId
+                  }
+                }));
+              }}
+              title={isVisitorOnline ? `Call ${visitorName || 'Visitor'} (Web Direct Voice)` : `${visitorName || 'Visitor'} is offline`}
+              className={`p-1.5 rounded-lg border transition-all flex items-center justify-center shadow-xs active:scale-95 ${
+                isVisitorOnline
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-sm cursor-pointer hover:scale-105"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-60"
+              }`}
+            >
+              <Phone size={15} />
+            </button>
+
             {/* Take Over Action */}
             {isAssignedToMe ? (
               <button
                 type="button"
                 onClick={onRelease}
-                className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95"
+                title="Release Chat"
+                className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20 rounded-lg transition-all shadow-xs active:scale-95 flex items-center justify-center"
               >
-                Release
+                <UserMinus size={15} />
               </button>
             ) : (
               <button
                 type="button"
                 onClick={onTakeOver}
-                className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95 flex items-center gap-1"
+                title="Take Over Chat"
+                className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-xs active:scale-95 flex items-center justify-center hover:shadow-md"
               >
-                <span>Take Over</span>
+                <UserCheck size={15} />
               </button>
             )}
 
@@ -538,9 +569,10 @@ export default function ChatPanel({
               <button
                 type="button"
                 onClick={onRequestControl || onTakeOver}
-                className="px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95 hover:border-indigo-300"
+                title="Request Control from Assigned Agent"
+                className="p-1.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg transition-all shadow-xs active:scale-95 hover:border-indigo-300 flex items-center justify-center"
               >
-                Request Control
+                <ShieldAlert size={15} />
               </button>
             )}
 
@@ -553,22 +585,20 @@ export default function ChatPanel({
                       <button
                         type="button"
                         onClick={onRestore}
-                        className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95 flex items-center gap-1"
                         title="Restore chat from Trash"
+                        className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg transition-all shadow-xs active:scale-95 flex items-center justify-center"
                       >
-                        <RotateCcw size={11} />
-                        <span>Restore</span>
+                        <RotateCcw size={15} />
                       </button>
                     )}
                     {onDeletePermanent && (
                       <button
                         type="button"
                         onClick={onDeletePermanent}
-                        className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95 flex items-center gap-1"
                         title="Delete permanently"
+                        className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg transition-all shadow-xs active:scale-95 flex items-center justify-center"
                       >
-                        <Trash2 size={11} />
-                        <span>Delete Forever</span>
+                        <Trash2 size={15} />
                       </button>
                     )}
                   </>
@@ -578,22 +608,20 @@ export default function ChatPanel({
                       <button
                         type="button"
                         onClick={onClose}
-                        className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95 flex items-center gap-1"
                         title="Close active chat conversation"
+                        className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 rounded-lg transition-all shadow-xs active:scale-95 flex items-center justify-center"
                       >
-                        <XCircle size={11} />
-                        <span>Close Chat</span>
+                        <XCircle size={15} />
                       </button>
                     )}
                     {onMoveToTrash && (
                       <button
                         type="button"
                         onClick={onMoveToTrash}
-                        className="px-2.5 py-1 bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-200 hover:border-rose-200 rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95 flex items-center gap-1"
                         title="Move conversation to Trash"
+                        className="p-1.5 bg-slate-50 hover:bg-rose-50 dark:bg-slate-800 dark:hover:bg-rose-500/10 text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 border border-slate-200 hover:border-rose-200 dark:border-slate-700 rounded-lg transition-all shadow-xs active:scale-95 flex items-center justify-center"
                       >
-                        <Trash2 size={11} />
-                        <span>Trash</span>
+                        <Trash2 size={15} />
                       </button>
                     )}
                   </>
@@ -604,15 +632,14 @@ export default function ChatPanel({
             {/* Intel Drawer Button */}
             <button
               onClick={() => setShowSidebar(!showSidebar)}
-              className={`px-2.5 py-1 rounded-lg border text-xs font-bold transition-all flex items-center gap-1 shadow-xs active:scale-95 ${
-                showSidebar
-                  ? "bg-indigo-600 text-white border-indigo-600"
-                  : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-300"
-              }`}
               title="Toggle Customer Intelligence Sidebar"
+              className={`p-1.5 rounded-lg border transition-all flex items-center justify-center shadow-xs active:scale-95 ${
+                showSidebar
+                  ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                  : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-300 dark:border-indigo-500/20"
+              }`}
             >
-              <Sparkles size={12} />
-              <span>Intel</span>
+              <Sparkles size={15} />
             </button>
           </div>
         </div>
@@ -637,11 +664,10 @@ export default function ChatPanel({
               <button
                 type="button"
                 onClick={() => setShowTransferModal(true)}
-                className="text-[10px] font-bold text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-300 bg-slate-50 hover:bg-indigo-50 dark:bg-white/5 dark:hover:bg-indigo-500/10 px-1.5 py-0.5 rounded-md border border-slate-200 dark:border-white/10 flex items-center gap-1 transition-all shrink-0"
+                className="p-1 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-300 bg-slate-50 hover:bg-indigo-50 dark:bg-white/5 dark:hover:bg-indigo-500/10 rounded-md border border-slate-200 dark:border-white/10 flex items-center justify-center transition-all shrink-0 active:scale-95"
                 title="Transfer chat to another agent or department"
               >
-                <span>🔄</span>
-                <span>Transfer</span>
+                <ArrowRightLeft size={11} />
               </button>
             )}
 
@@ -665,20 +691,22 @@ export default function ChatPanel({
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             {/* Auto-Translate Toggle */}
             <button
               type="button"
               onClick={() => setAutoTranslate(prev => !prev)}
-              className={`px-2 py-0.5 rounded-md border text-[10.5px] font-bold transition-all flex items-center gap-1 active:scale-95 ${
+              className={`p-1.5 rounded-md border transition-all flex items-center justify-center active:scale-95 relative ${
                 autoTranslate 
                   ? "bg-teal-600 text-white border-teal-600 shadow-2xs" 
-                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                  : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
               }`}
-              title="Toggle Real-time Multilingual Auto-Translation"
+              title={autoTranslate ? "Auto-Translate: ON (Click to turn OFF)" : "Auto-Translate: OFF (Click to turn ON)"}
             >
-              <span>🌐</span>
-              <span>{autoTranslate ? "Auto-Translate ON" : "Translate OFF"}</span>
+              <Globe size={13} />
+              {autoTranslate && (
+                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-teal-400 ring-2 ring-white dark:ring-slate-900 animate-pulse" />
+              )}
             </button>
 
             {/* AI Auto Mode */}
@@ -691,26 +719,27 @@ export default function ChatPanel({
                   setZeroAgentMode(false);
                 }
               }}
-              className={`px-2 py-0.5 rounded-md border text-[10.5px] font-bold transition-all flex items-center gap-1 active:scale-95 ${
+              className={`p-1.5 rounded-md border transition-all flex items-center justify-center active:scale-95 relative ${
                 zeroAgentMode
                   ? "bg-purple-600 text-white border-purple-600 shadow-2xs"
-                  : "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
+                  : "bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/40 hover:bg-purple-100"
               }`}
-              title="Toggle Zero-Agent AI Auto-Resolution Mode"
+              title={zeroAgentMode ? "Zero-Agent AI Auto Mode: ON (Click to turn OFF)" : "Zero-Agent AI Auto Mode: OFF (Click to turn ON)"}
             >
-              <Bot size={11} className={isSynthesizingAiReply ? "animate-spin" : ""} />
-              <span>{zeroAgentMode ? "AI Auto ON" : "AI Auto Mode"}</span>
+              <Bot size={13} className={isSynthesizingAiReply ? "animate-spin" : ""} />
+              {zeroAgentMode && (
+                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-purple-400 ring-2 ring-white dark:ring-slate-900 animate-pulse" />
+              )}
             </button>
 
             {/* Ticket */}
             {onConvertToTicket && (
               <button
                 onClick={() => onConvertToTicket(session)}
-                className="px-2 py-0.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-md text-[10.5px] font-bold flex items-center gap-1 transition-all active:scale-95"
-                title="Convert to Ticket"
+                className="p-1.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-indigo-600 rounded-md flex items-center justify-center transition-all active:scale-95"
+                title="Convert chat conversation to Support Ticket"
               >
-                <Ticket size={11} />
-                <span>Ticket</span>
+                <Ticket size={13} />
               </button>
             )}
 
@@ -718,11 +747,10 @@ export default function ChatPanel({
             {onConvertToLead && !session.customerId && (
               <button
                 onClick={() => onConvertToLead(session)}
-                className="px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-md text-[10.5px] font-bold flex items-center gap-1 transition-all active:scale-95"
+                className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 rounded-md flex items-center justify-center transition-all active:scale-95"
                 title="Convert this visitor chat into a CRM Lead"
               >
-                <UserCheck size={11} />
-                <span>Lead</span>
+                <UserPlus size={13} />
               </button>
             )}
           </div>
@@ -752,6 +780,43 @@ export default function ChatPanel({
             )}
 
             {messages.map((msg, i) => {
+              const isSystem = msg.sender === "system" || msg.channel === "voice" || (msg.message && msg.message.startsWith("📞"));
+              if (isSystem) {
+                return (
+                  <div key={msg._id || i} className="flex justify-center my-2.5">
+                    <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/40 text-rose-700 dark:text-rose-300 text-xs font-semibold shadow-xs">
+                      <PhoneMissed size={13} className="text-rose-600 dark:text-rose-400 shrink-0" />
+                      <span>{typeof msg.message === "string" ? msg.message.replace(/^📞\s*/, "") : msg.message}</span>
+                      <span className="text-[10px] text-rose-400 dark:text-rose-400 font-normal ml-1">
+                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      {isVisitorOnline && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            window.dispatchEvent(new CustomEvent("agent:start-call", {
+                              detail: {
+                                sessionId: session.sessionId,
+                                visitorId: session.visitorId?._id || session.visitorId?.visitorId || session.visitorId,
+                                visitorName: session.visitorId?.name || session.customerId?.name || visitorName || "Visitor",
+                                crn: session.crn,
+                                websiteId: session.websiteId?._id || session.websiteId,
+                                visitor: session.visitorId
+                              }
+                            }));
+                          }}
+                          className="ml-1.5 px-2 py-0.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-[9.5px] font-bold flex items-center gap-1 transition-all active:scale-95 shadow-xs cursor-pointer"
+                          title="Call back visitor now via web voice"
+                        >
+                          <Phone size={9} />
+                          <span>Call Back</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+
               const isMe = msg.sender === "agent";
               return (
                 <div key={msg._id || i} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>

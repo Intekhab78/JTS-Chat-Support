@@ -13,11 +13,19 @@ export const DEFAULT_REMOTE_API_URL = "https://chatapi.jtsmiddleeast.com";
 export const LOCAL_API_URL = normalizeApiUrl(import.meta.env.VITE_LOCAL_API_URL, DEFAULT_LOCAL_API_URL);
 export const REMOTE_API_URL = normalizeApiUrl(import.meta.env.VITE_REMOTE_API_URL, DEFAULT_REMOTE_API_URL);
 
-// Current active base starts as null until preflight, with fallback to remote
-export let API_BASE = REMOTE_API_URL;
+export const isLocalHostTab =
+  typeof window !== "undefined" &&
+  Boolean(
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1" ||
+    window.location.hostname.endsWith(".local")
+  );
+
+// In localhost browser, default API_BASE to LOCAL_API_URL so local agent matches local port 5000
+export let API_BASE = isLocalHostTab ? LOCAL_API_URL : REMOTE_API_URL;
 
 // State management for smart health check and failover
-let activeBaseResolved = null;
+let activeBaseResolved = isLocalHostTab ? LOCAL_API_URL : null;
 let cachedLocalHealth = null; // boolean | null
 let lastHealthCheckTime = 0;
 const HEALTH_CACHE_TTL = 15000; // 15 seconds
@@ -38,17 +46,27 @@ export async function canReachLocalApi(url = LOCAL_API_URL) {
     return false;
   }
 
+  // Generous timeout for local development (3500ms instead of 800ms)
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), 800);
+  const timeoutId = window.setTimeout(() => controller.abort(), 3500);
 
   try {
-    const res = await fetch(`${url}/health`, {
+    let res = await fetch(`${url}/health`, {
       method: "GET",
       cache: "no-store",
       mode: "cors",
       signal: controller.signal
-    });
-    return res.ok;
+    }).catch(() => null);
+
+    if (!res || !res.ok) {
+      res = await fetch(`${url}/api/health`, {
+        method: "GET",
+        cache: "no-store",
+        mode: "cors",
+        signal: controller.signal
+      }).catch(() => null);
+    }
+    return Boolean(res && res.ok);
   } catch {
     return false;
   } finally {
@@ -96,6 +114,14 @@ export function setActiveApiBase(newBase, reason = "auto_detect") {
  * If no, seamlessly switches to remote cloud backend.
  */
 export async function resolveActiveBackend(force = false) {
+  // If running in local browser, keep dashboard firmly locked to LOCAL_API_URL
+  if (isLocalHostTab) {
+    if (API_BASE !== LOCAL_API_URL) {
+      setActiveApiBase(LOCAL_API_URL, "localhost_dev_pin");
+    }
+    return LOCAL_API_URL;
+  }
+
   const now = Date.now();
 
   // If cache is still valid and not forcing a recheck, return current base
@@ -192,7 +218,8 @@ export async function api(path, options = {}) {
   } catch (fetchError) {
     // If request to local backend failed with Network Error (backend stopped / offline)
     const isLocal = apiBase.includes("localhost") || apiBase.includes("127.0.0.1");
-    if (isLocal && REMOTE_API_URL && apiBase !== REMOTE_API_URL) {
+    const isLocalHostTab = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+    if (isLocal && !isLocalHostTab && REMOTE_API_URL && apiBase !== REMOTE_API_URL) {
       console.warn(`[API Client] Local backend failed. Seamlessly failing over to cloud backend (${REMOTE_API_URL})...`);
       cachedLocalHealth = false;
       lastHealthCheckTime = Date.now();
