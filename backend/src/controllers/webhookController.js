@@ -394,6 +394,46 @@ export const handleWebhook = asyncHandler(async (req, res) => {
   res.json({ received: true });
 });
 
+export const handleJtsMeetWebhook = asyncHandler(async (req, res) => {
+  const payload = req.body || {};
+  const event = req.headers["x-jts-event"] || payload.event || "meeting.started";
+  const signature = req.headers["x-jts-signature"];
+  const timestamp = req.headers["x-jts-timestamp"];
+
+  logger.log(`[JTS-Meet Inbound Webhook] Received ${event}:`, {
+    event,
+    meetingId: payload.data?.meetingId || payload.meeting?.id || "room-test",
+    title: payload.data?.title || payload.meeting?.title || "Conference"
+  });
+
+  const meetingId = payload.data?.meetingId || payload.meeting?.id || "room-test";
+  const title = payload.data?.title || payload.meeting?.title || "JTS Meet Session";
+  const hostName = payload.data?.hostName || payload.meeting?.host?.name || "Organizer";
+
+  // Real-time broadcast to connected agents via WebSocket
+  try {
+    const io = getSocketServer();
+    if (io) {
+      io.emit("jts_meet_event", {
+        event,
+        meetingId,
+        title,
+        hostName,
+        receivedAt: new Date().toISOString()
+      });
+    }
+  } catch (_) {}
+
+  // Return standard 200 OK with handshake confirmation
+  return res.status(200).json({
+    success: true,
+    status: "ok",
+    message: `JTS Meet event [${event}] processed successfully by JTS Support`,
+    meetingId,
+    timestamp: new Date().toISOString()
+  });
+});
+
 export const listWebhookDeliveries = asyncHandler(async (req, res) => {
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
   const filter = req.user.role === "admin" ? {} : { websiteId: { $in: ownedWebsiteIds } };

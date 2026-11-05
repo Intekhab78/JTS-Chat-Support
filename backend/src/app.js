@@ -233,6 +233,7 @@ export function createApp() {
   app.use("/api/crm/reminders", reminderRoutes);
   app.use("/api/audit-logs", auditRoutes);
   app.use("/api/webhooks", webhookRoutes);
+  app.use("/webhooks", webhookRoutes);
   app.use("/api/billing", billingRoutes);
   app.use("/api/subscription-plans", subscriptionPlanRoutes);
   app.use("/api/tracking", trackingRoutes);
