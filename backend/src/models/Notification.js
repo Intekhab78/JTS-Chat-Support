@@ -15,11 +15,13 @@ const notificationSchema = new mongoose.Schema({
   },
   title: {
     type: String,
-    required: true
+    default: "System Notification",
+    trim: true
   },
   message: {
     type: String,
-    required: true
+    default: "Notification update",
+    trim: true
   },
   link: {
     type: String
@@ -56,6 +58,16 @@ const notificationSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   }
+});
+
+notificationSchema.pre("validate", function (next) {
+  if (!this.message || !this.message.trim()) {
+    this.message = this.title || "Notification update";
+  }
+  if (!this.title || !this.title.trim()) {
+    this.title = "System Notification";
+  }
+  next();
 });
 
 export const Notification = mongoose.model("Notification", notificationSchema);

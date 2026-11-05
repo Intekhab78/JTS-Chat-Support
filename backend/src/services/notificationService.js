@@ -18,11 +18,12 @@ export async function createNotification({ userId, recipient, title, message, co
 
     const validTypes = Array.isArray(NOTIFICATION_TYPES) ? NOTIFICATION_TYPES : [];
     const validCategoryType = validTypes.includes(type) ? type : "system_alert";
-    const finalMessage = message || content || title || "Notification";
+    const finalMessage = String(message || content || title || "Notification update").trim() || "Notification update";
+    const finalTitle = String(title || "System Alert").trim() || "System Alert";
 
     const notif = await Notification.create({
       recipient: targetRecipient,
-      title: title || "System Alert",
+      title: finalTitle,
       message: finalMessage,
       type: validCategoryType,
       link: link || "",

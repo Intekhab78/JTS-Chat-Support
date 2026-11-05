@@ -53,6 +53,7 @@ export const checkAndDispatchReminders = async () => {
           websiteId: reminder.websiteId,
           type: "alert",
           title: `Reminder: ${reminder.title}`,
+          message: `You have an upcoming ${reminder.type} event.`,
           content: `You have an upcoming ${reminder.type} event.`
         }).catch(() => {});
       }
@@ -103,6 +104,7 @@ export const checkFollowUpTaskReminders = async () => {
           websiteId: task.websiteId,
           type: "alert",
           title: `Task Reminder: ${task.title}`,
+          message: `Your task for ${customerName} is due soon.`,
           content: `Your task for ${customerName} is due soon.`
         }).catch(() => {});
       }
@@ -162,6 +164,7 @@ export const checkInvoiceOverdueReminders = async () => {
           websiteId: invoice.websiteId,
           type: "alert",
           title: `Invoice Overdue: ${invoice.invoiceId}`,
+          message: `${customerName} has not paid Invoice ${invoice.invoiceId}. ${daysOverdue} day(s) overdue.`,
           content: `${customerName} has not paid Invoice ${invoice.invoiceId}. ${daysOverdue} day(s) overdue.`
         }).catch(() => {});
       }
@@ -218,6 +221,7 @@ export const checkQuotationExpiryReminders = async () => {
           websiteId: quote.websiteId,
           type: "alert",
           title: `Quotation Expiring: ${quote.quotationId}`,
+          message: `Quotation for ${customerName} expires in ${daysLeft} day(s).`,
           content: `Quotation for ${customerName} expires in ${daysLeft} day(s).`
         }).catch(() => {});
       }
@@ -277,6 +281,7 @@ export const checkPODeliveryReminders = async () => {
           websiteId: po.websiteId,
           type: "alert",
           title: `PO Delivery Tomorrow: ${po.poNumber}`,
+          message: `Purchase Order ${po.poNumber} from ${supplierName} is expected tomorrow.`,
           content: `Purchase Order ${po.poNumber} from ${supplierName} is expected tomorrow.`
         }).catch(() => {});
       }
@@ -336,6 +341,7 @@ export const checkStaleDealReminders = async () => {
         websiteId: customer.websiteId,
         type: "alert",
         title: `Stale Deal: ${companyName || customerName}`,
+        message: `No activity for ${lastActivityDaysAgo} days. Follow up now!`,
         content: `No activity for ${lastActivityDaysAgo} days. Follow up now!`
       }).catch(() => {});
 
