@@ -14,6 +14,7 @@ import CRMManager from "../components/CRMManager.jsx";
 import CustomerManager from "../components/CustomerManager.jsx";
 import { api } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
+import { useWebsite } from "../context/WebsiteContext.jsx";
 import { NotificationService } from "../utils/notifications.js";
 import { useSocket } from "../context/SocketContext.jsx";
 import { getPaginationMeta } from "../utils/pagination.js";
@@ -33,6 +34,7 @@ function dedupeMessages(messages) {
 
 export default function AgentPage() {
   const { user, setUser } = useAuth();
+  const { selectedWebsiteId } = useWebsite();
   const isBasicUser = user?.role === "user";
   const canDeleteChats = !!user;
   const canUseTickets = hasModule(user, "tickets");
@@ -76,7 +78,7 @@ export default function AgentPage() {
   async function loadSessions() {
     try {
       const data = await api("/api/chat/agent/sessions");
-      setSessions(data);
+      setSessions(Array.isArray(data) ? data : (data?.sessions || []));
     } catch (err) {
       setToast({ show: true, message: err.message, type: "error" });
     } finally {
@@ -107,15 +109,15 @@ export default function AgentPage() {
       setCustomerHistory(null);
       return;
     }
-    api(`/api/chat/sessions/${selectedSessionId}/messages`).then(setMessages).catch((err) => setToast({ show: true, message: err.message, type: "error" }));
-    api(`/api/chat/sessions/${selectedSessionId}/activity`).then(setSessionActivity).catch(() => setSessionActivity([]));
+    api(`/api/chat/sessions/${selectedSessionId}/messages`).then((d) => setMessages(Array.isArray(d) ? d : [])).catch((err) => setToast({ show: true, message: err.message, type: "error" }));
+    api(`/api/chat/sessions/${selectedSessionId}/activity`).then((d) => setSessionActivity(Array.isArray(d) ? d : [])).catch(() => setSessionActivity([]));
     if (selectedSession && selectedSession.crn) {
       loadCustomerHistory(selectedSession.crn);
     } else {
       setCustomerHistory(null);
     }
     if (ticketModal && selectedSession?.websiteId?._id) {
-      api(`/api/categories?websiteId=${selectedSession.websiteId._id}`).then(setCategories).catch(err => console.warn("Categories failed", err));
+      api(`/api/categories?websiteId=${selectedSession.websiteId._id}`).then((d) => setCategories(Array.isArray(d) ? d : (d?.categories || []))).catch(err => console.warn("Categories failed", err));
     }
   }, [selectedSessionId, selectedSession?.crn, ticketModal, selectedSession?.websiteId?._id]);
 
@@ -236,6 +238,10 @@ export default function AgentPage() {
       loadSessions();
     });
 
+    socket.on("chat:closed", () => {
+      loadSessions();
+    });
+
     socket.on("chat:intelligence-updated", ({ sessionId, sentimentScore, sentimentLabel, aiSummary }) => {
       setSessions(prev => prev.map(s => {
         if (s.sessionId === sessionId) {
@@ -280,6 +286,7 @@ export default function AgentPage() {
       socket.off("chat:read");
       socket.off("chat:assigned");
       socket.off("chat:session-updated");
+      socket.off("chat:closed");
       socket.off("chat:intelligence-updated");
       socket.off("presence:viewers");
       socket.off("visitor:status", handleVisitorStatus);
@@ -485,15 +492,23 @@ export default function AgentPage() {
 
   menuItems.push({ label: "Settings", href: "/agent?tab=settings" });
 
+  const websiteScopedSessions = useMemo(() => {
+    if (!selectedWebsiteId) return sessions;
+    return sessions.filter(s => {
+      const sWebId = s.websiteId?._id || s.websiteId;
+      return String(sWebId) === String(selectedWebsiteId);
+    });
+  }, [sessions, selectedWebsiteId]);
+
   const searchedSessions = sessionSearch
-    ? sessions.filter(s =>
+    ? websiteScopedSessions.filter(s =>
       s.websiteId?.websiteName?.toLowerCase().includes(sessionSearch.toLowerCase()) ||
       s.visitorId?.name?.toLowerCase().includes(sessionSearch.toLowerCase()) ||
       s.visitorId?.visitorId?.toLowerCase().includes(sessionSearch.toLowerCase()) ||
       s.crn?.toLowerCase().includes(sessionSearch.toLowerCase()) ||
       s.lastMessagePreview?.toLowerCase().includes(sessionSearch.toLowerCase())
     )
-    : sessions;
+    : websiteScopedSessions;
 
   const LEGACY_TRASH_AGE_MS = 7 * 86400000;
   const isLegacyTrashSession = (session) =>
@@ -704,8 +719,13 @@ export default function AgentPage() {
                   </div>
 
                   {session.lastMessagePreview && (
-                    <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-1 mt-1 font-medium">
-                      {session.lastMessagePreview}
+                    <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-1 mt-1 font-medium flex items-center gap-1">
+                      {session.lastMessagePreview.includes("[Ticket #") ? (
+                        <Ticket size={11} className="text-indigo-500 shrink-0 inline" />
+                      ) : null}
+                      <span className="truncate">
+                        {session.lastMessagePreview.replace(/^[🎫📞]\s*/, "")}
+                      </span>
                     </p>
                   )}
 
@@ -928,15 +948,15 @@ export default function AgentPage() {
     </section>
   ) : tab === "tickets" ? (
     <section className="animate-in fade-in duration-500">
-      <TicketManager websiteId="" />
+      <TicketManager websiteId={selectedWebsiteId} />
     </section>
   ) : tab === "crm" ? (
     <section className="animate-in fade-in duration-500">
-      <CRMManager websiteId="" />
+      <CRMManager websiteId={selectedWebsiteId} />
     </section>
   ) : tab === "customer-master" ? (
     <section className="animate-in slide-in-from-bottom-4 duration-700">
-      <CustomerManager websiteId="" />
+      <CustomerManager websiteId={selectedWebsiteId} />
     </section>
   ) : (
     <AgentPerformanceView />

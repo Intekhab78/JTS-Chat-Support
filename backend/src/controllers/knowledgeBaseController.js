@@ -114,10 +114,12 @@ export const listArticles = asyncHandler(async (req, res) => {
 
   const searchTerm = String(q || search || "").trim();
   if (searchTerm) {
+    const escapedTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const safeRegex = new RegExp(escapedTerm, "i");
     query.$or = [
-      { title: new RegExp(searchTerm, "i") },
-      { content: new RegExp(searchTerm, "i") },
-      { tags: new RegExp(searchTerm, "i") }
+      { title: safeRegex },
+      { content: safeRegex },
+      { tags: safeRegex }
     ];
   }
 
@@ -259,9 +261,11 @@ export const listKnowledgeBaseCategories = asyncHandler(async (req, res) => {
 
   const searchTerm = String(q || "").trim();
   if (searchTerm) {
+    const escapedTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const safeRegex = new RegExp(escapedTerm, "i");
     query.$or = [
-      { name: new RegExp(searchTerm, "i") },
-      { department: new RegExp(searchTerm, "i") }
+      { name: safeRegex },
+      { department: safeRegex }
     ];
   }
 

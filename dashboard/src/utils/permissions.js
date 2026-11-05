@@ -111,12 +111,54 @@ const MATRIX = {
     PERMISSIONS.ACTIVITY_VIEW,
     PERMISSIONS.NOTIFICATION_VIEW,
     PERMISSIONS.REPORTS_VIEW
+  ]),
+
+  [ROLES.MANAGEMENT]: new Set([
+    PERMISSIONS.CRM_VIEW,
+    PERMISSIONS.CRM_CREATE,
+    PERMISSIONS.CRM_UPDATE,
+    PERMISSIONS.CRM_ARCHIVE,
+    PERMISSIONS.CRM_DELETE,
+    PERMISSIONS.CRM_ASSIGN_OWNER,
+    PERMISSIONS.CRM_MERGE,
+    PERMISSIONS.CRM_SEND_EMAIL,
+    PERMISSIONS.CRM_MANAGE_TASKS,
+    PERMISSIONS.CRM_AUTO_ASSIGN,
+    PERMISSIONS.TICKET_VIEW,
+    PERMISSIONS.TICKET_UPDATE,
+    PERMISSIONS.TICKET_ASSIGN,
+    PERMISSIONS.CHAT_VIEW,
+    PERMISSIONS.CHAT_TRANSFER,
+    PERMISSIONS.CHAT_NOTE,
+    PERMISSIONS.ACTIVITY_VIEW,
+    PERMISSIONS.NOTIFICATION_VIEW,
+    PERMISSIONS.AUDIT_VIEW,
+    PERMISSIONS.REPORTS_VIEW,
+    PERMISSIONS.TEAM_VIEW
+  ]),
+
+  [ROLES.PURCHASE]: new Set([
+    PERMISSIONS.NOTIFICATION_VIEW,
+    PERMISSIONS.ACTIVITY_VIEW,
+    PERMISSIONS.REPORTS_VIEW
+  ]),
+
+  [ROLES.SUPPLIER]: new Set([
+    PERMISSIONS.NOTIFICATION_VIEW,
+    PERMISSIONS.ACTIVITY_VIEW
+  ]),
+
+  [ROLES.CUSTOMER]: new Set([
+    PERMISSIONS.TICKET_VIEW,
+    PERMISSIONS.CHAT_VIEW,
+    PERMISSIONS.NOTIFICATION_VIEW
   ])
 };
 
 export function hasPermission(user, permission) {
   if (!user?.role || !permission) return false;
-  if (user.role === "admin" || user.role === "client" || user.role === "CLIENT") return true;
+  const normalizedRole = String(user.role).trim().toLowerCase();
+  if (normalizedRole === "admin" || normalizedRole === "client") return true;
 
   // 1. Dynamic DB permissions override from Role Master if non-empty
   if (Array.isArray(user.permissions) && user.permissions.length > 0) {
@@ -124,5 +166,6 @@ export function hasPermission(user, permission) {
   }
 
   // 2. Fallback to static matrix for built-in roles
-  return MATRIX[user.role]?.has(permission) || false;
+  const mappedRole = normalizedRole === "account" ? ROLES.ACCOUNTS : normalizedRole === "user" ? ROLES.AGENT : normalizedRole;
+  return MATRIX[mappedRole]?.has(permission) || false;
 }

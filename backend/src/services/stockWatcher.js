@@ -10,9 +10,11 @@ export async function runStockCheck() {
   try {
     console.log("[StockWatcher] Starting inventory health check...");
     
-    // Find all active items where quantity is at or below reorder level
+    // Find all active, non-deleted items with positive reorderLevel where quantity is at or below reorder level
     const lowStockItems = await InventoryItem.find({
       isActive: true,
+      isDeleted: { $ne: true },
+      reorderLevel: { $gt: 0 },
       $expr: { $lte: ["$quantity", "$reorderLevel"] }
     });
 

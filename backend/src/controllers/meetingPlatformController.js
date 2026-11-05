@@ -6,12 +6,12 @@ import crypto from "crypto";
 
 // Default seed platforms for new websites
 const DEFAULT_PLATFORMS = [
-  { name: "JTS Meet", key: "jts_meet", icon: "🎯", color: "#6366f1", urlTemplate: "https://meet.jtsmiddleeast.com/#/{roomId}", description: "JTS built-in video meeting", isDefault: true, sortOrder: 0 },
-  { name: "Zoom", key: "zoom", icon: "📹", color: "#2D8CFF", urlTemplate: "https://zoom.us/j/{roomId}", description: "Zoom video conferencing", isDefault: false, sortOrder: 1 },
-  { name: "Google Meet", key: "google_meet", icon: "🟢", color: "#34A853", urlTemplate: "https://meet.google.com/{roomId}", description: "Google Meet video calls", isDefault: false, sortOrder: 2 },
-  { name: "Microsoft Teams", key: "ms_teams", icon: "🟣", color: "#6264A7", urlTemplate: "", description: "Microsoft Teams meetings", isDefault: false, sortOrder: 3 },
-  { name: "Phone Call", key: "phone", icon: "📞", color: "#10B981", urlTemplate: "", description: "Regular phone call", isDefault: false, sortOrder: 4 },
-  { name: "In Person", key: "in_person", icon: "🤝", color: "#F59E0B", urlTemplate: "", description: "Face to face meeting", isDefault: false, sortOrder: 5 },
+  { name: "JTS Meet", key: "jts_meet", icon: "Video", color: "#6366f1", urlTemplate: "https://meet.jtsmiddleeast.com/meet/{roomId}", description: "JTS built-in video meeting", isDefault: true, sortOrder: 0 },
+  { name: "Zoom", key: "zoom", icon: "Camera", color: "#2D8CFF", urlTemplate: "https://zoom.us/j/{roomId}", description: "Zoom video conferencing", isDefault: false, sortOrder: 1 },
+  { name: "Google Meet", key: "google_meet", icon: "Globe", color: "#34A853", urlTemplate: "https://meet.google.com/{roomId}", description: "Google Meet video calls", isDefault: false, sortOrder: 2 },
+  { name: "Microsoft Teams", key: "ms_teams", icon: "Users", color: "#6264A7", urlTemplate: "", description: "Microsoft Teams meetings", isDefault: false, sortOrder: 3 },
+  { name: "Phone Call", key: "phone", icon: "Phone", color: "#10B981", urlTemplate: "", description: "Regular phone call", isDefault: false, sortOrder: 4 },
+  { name: "In Person", key: "in_person", icon: "Handshake", color: "#F59E0B", urlTemplate: "", description: "Face to face meeting", isDefault: false, sortOrder: 5 },
 ];
 
 // Generate a unique room ID for platforms with urlTemplate
@@ -86,7 +86,7 @@ export const createPlatform = asyncHandler(async (req, res) => {
   }
 
   const platform = await MeetingPlatform.create({
-    websiteId, name, key, icon: icon || "🎥", color: color || "#6366f1",
+    websiteId, name, key, icon: icon || "Video", color: color || "#6366f1",
     urlTemplate: urlTemplate || "", description: description || "",
     isDefault: !!isDefault, sortOrder: sortOrder || 99,
     createdBy: req.user._id

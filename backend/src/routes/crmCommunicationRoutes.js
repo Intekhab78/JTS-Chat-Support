@@ -77,7 +77,10 @@ router.post("/send-whatsapp", async (req, res) => {
 router.post("/send-telegram", async (req, res) => {
   try {
     const { chatId, text, customerId } = req.body;
-    const targetChatId = chatId || "5055032301";
+    const targetChatId = chatId || process.env.TELEGRAM_DEFAULT_CHAT_ID || "";
+    if (!targetChatId) {
+      return res.status(400).json({ success: false, error: "Recipient Telegram chatId is required." });
+    }
     const msgText = text || "Hello from JTS Chat Support Telegram Bot!";
 
     const provider = TelegramProviderManager.getProvider();

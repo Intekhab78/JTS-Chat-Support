@@ -128,7 +128,8 @@ export const login = asyncHandler(async (req, res, next) => {
   }
 
   const { email, password, twoFactorCode } = result.data;
-  const user = await User.findOne({ email });
+  const normalizedEmail = email.trim().toLowerCase();
+  const user = await User.findOne({ email: normalizedEmail });
 
   if (!user || !(await bcrypt.compare(password, user.password))) {
     return next(new AppError("Invalid credentials", 401));

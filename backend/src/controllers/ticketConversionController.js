@@ -27,7 +27,9 @@ import { getOrCreateCustomer } from "../services/customerService.js";
 export const createTicketFromChat = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.TICKET_UPDATE);
   const { sessionId, subject, priority, crmStage } = req.body;
-  const session = await ChatSession.findById(sessionId).populate("visitorId").populate("websiteId");
+  const session = /^[0-9a-fA-F]{24}$/.test(String(sessionId))
+    ? await ChatSession.findById(sessionId).populate("visitorId").populate("websiteId")
+    : await ChatSession.findOne({ sessionId }).populate("visitorId").populate("websiteId");
   if (!session) throw new AppError("Session not found", 404);
   if (!(await ensureSessionTicketAccess(session, req.user))) throw new AppError("Access denied", 403);
 
@@ -132,8 +134,9 @@ export const submitVisitorTicket = asyncHandler(async (req, res) => {
 });
 
 export const getVisitorHistory = asyncHandler(async (req, res) => {
-  const session = await ChatSession.findOne({ sessionId: req.params.sessionId }).populate("visitorId");
+  const session = await ChatSession.findOne({ sessionId: req.params.sessionId }).populate("visitorId").populate("websiteId");
   if (!session) throw new AppError("Session not found", 404);
+  if (!(await ensureSessionTicketAccess(session, req.user))) throw new AppError("Access denied", 403);
   const visitorId = session.visitorId?._id;
   if (!visitorId) return res.json({ tickets: [], pastSessions: 0 });
 

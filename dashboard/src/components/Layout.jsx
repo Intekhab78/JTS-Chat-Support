@@ -66,6 +66,10 @@ const iconMap = {
   "Mobile Center": Smartphone,
   "Integration Hub": Network,
   "Workflow Builder": GitBranch,
+  "Flow Builder": GitBranch,
+  "AI Voice Logs": Radio,
+  "AI Knowledge Base": BookOpen,
+  "Service Routing": Sliders,
   "App Marketplace": ShoppingBag,
   "Low-Code Studio": Boxes,
   "Custom Modules": Database,
@@ -229,6 +233,31 @@ function SidebarNavItem({ item, collapsed, onNavigate, currentPath, expandedMenu
 }
 
 /* ── sidebar content (shared between desktop + mobile drawer) ── */
+function MobileSidebarNav({ links, onNavigate }) {
+  const location = useLocation();
+  const currentPath = `${location.pathname}${location.search}`;
+  const [expandedMenus, setExpandedMenus] = useState(() => {
+    const initial = {};
+    for (const item of links) {
+      if (Array.isArray(item.children) && item.children.some((child) => child.href === currentPath)) {
+        initial[item.label] = true;
+      }
+    }
+    return initial;
+  });
+  return links.map((item) => (
+    <SidebarNavItem
+      key={item.label}
+      item={item}
+      collapsed={false}
+      onNavigate={onNavigate}
+      currentPath={currentPath}
+      expandedMenus={expandedMenus}
+      setExpandedMenus={setExpandedMenus}
+    />
+  ));
+}
+
 function SidebarContent({ links, collapsed, onNavigate, user, isDarkMode, setIsDarkMode, logout }) {
   const role = user?.role;
   const location = useLocation();
@@ -623,21 +652,26 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
   const clientMenuItems = [
     { label: "Dashboard", href: "/client" },
     { label: "Websites", href: "/client?tab=websites" },
+    { label: "Integration Hub", href: "/client?tab=enterprise-integrations" },
     { label: "Billing", href: "/client?tab=billing" },
-    { label: "Agents", href: "/client?tab=agents" },
     { label: "Chats", href: "/client?tab=chats" },
     { label: "Tickets", href: "/client?tab=tickets" },
+    { label: "Agents", href: "/client?tab=agents" },
     { label: "Customer Master", href: "/client?tab=inventory-customer" },
     { label: "CRM", href: "/client?tab=crm" },
-    // { label: "VAT Compliance", href: "/client?tab=vat-compliance" },
-    // { label: "Corporate Tax", href: "/client?tab=corporate-tax" },
-    // { label: "Trade License", href: "/client?tab=trade-license" },
-    // { label: "Compliance Reports", href: "/client?tab=compliance-reports" },
-    { label: "Departments", href: "/client?tab=departments" },
-    { label: "Categories", href: "/client?tab=categories" },
-    { label: "Shortcuts", href: "/client?tab=shortcuts" },
+    { label: "Flow Builder", href: "/client?tab=flow-builder" },
+    { label: "Help Center", href: "/client?tab=help-center" },
+    { label: "AI Voice Logs", href: "/client?tab=voice-logs" },
+    {
+      label: "Service Routing",
+      children: [
+        { label: "Departments", href: "/client?tab=departments" },
+        { label: "Categories", href: "/client?tab=categories" },
+        { label: "Shortcuts", href: "/client?tab=shortcuts" },
+        { label: "Historical Archive", href: "/client?tab=history" }
+      ]
+    },
     { label: "Reports", href: "/client?tab=reports" },
-    { label: "History", href: "/client?tab=history" },
     { label: "Security", href: "/client?tab=security" },
     { label: "Role Master", href: "/client?tab=roles" }
   ];
@@ -734,7 +768,7 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
           </button>
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto">
-          <nav aria-label="Mobile sidebar navigation" className="px-3 py-3 space-y-0.5">
+          <nav aria-label="Mobile sidebar navigation" className="px-3 py-3 space-y-0.5"><MobileSidebarNav links={links} onNavigate={() => setMobileOpen(false)} />{false && (<div>
             {links.map(item => (
               <SideNavLink
                 key={item.label}
@@ -743,7 +777,7 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
                 onNavigate={() => setMobileOpen(false)}
               />
             ))}
-          </nav>
+          </div>)}</nav>
         </div>
         {/* user panel in mobile */}
         <div className="mx-3 mb-4 shrink-0 rounded-2xl border border-white/5 bg-white/5 p-4">
@@ -842,24 +876,6 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
           {/* Right: global website selector + notification bell + avatar */}
           <div className="flex items-center gap-2.5 shrink-0">
 
-            {/* Live Dual-Backend Smart Indicator */}
-            <div
-              onClick={async () => {
-                if (!backendStatus.isLocal) {
-                  setActiveApiBase(DEFAULT_LOCAL_API_URL, "user_manual_switch");
-                }
-                await resolveActiveBackend(true);
-              }}
-              title={`Active API: ${backendStatus.apiBase}\nClick to toggle / re-connect to Local (5000)`}
-              className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all select-none ${
-                backendStatus.isLocal
-                  ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100"
-                  : "bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-100 ring-2 ring-blue-400/50"
-              }`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${backendStatus.isLocal ? "bg-emerald-500 animate-pulse" : "bg-blue-500"}`} />
-              <span>{backendStatus.isLocal ? "API: Local (5000)" : "API: Cloud (Click for Local)"}</span>
-            </div>
 
             {/* Global Ecosystem Website Filter Selector */}
             {websites && websites.length > 0 && (
@@ -911,9 +927,8 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
                             setAccentTheme(t.id);
                             setShowAccentPicker(false);
                           }}
-                          className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
-                            accentTheme === t.id ? "border-slate-900 dark:border-white bg-slate-50 dark:bg-slate-800" : "border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                          }`}
+                          className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${accentTheme === t.id ? "border-slate-900 dark:border-white bg-slate-50 dark:bg-slate-800" : "border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                            }`}
                         >
                           <span className={`w-2.5 h-2.5 rounded-full ${t.bg}`} />
                           <span className="text-slate-700 dark:text-slate-200">{t.label}</span>

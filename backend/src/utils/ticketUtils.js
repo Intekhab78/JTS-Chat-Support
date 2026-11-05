@@ -129,16 +129,16 @@ export async function findScopedTicketById(ticketId, user) {
 
   if (role === "admin" || role === "client" || role === "manager") {
     return Ticket.findOne(idQuery)
-      .populate("visitorId", "name email")
-      .populate("customerId", "name email crn")
+      .populate("visitorId", "name email phone")
+      .populate("customerId", "name email phone crn companyName")
       .populate("assignedAgent", "name email")
       .populate("websiteId", "websiteName domain");
   }
 
   const scope = await buildTicketScopeFilter(user);
   return Ticket.findOne({ ...idQuery, ...scope })
-    .populate("visitorId", "name email")
-    .populate("customerId", "name email crn")
+    .populate("visitorId", "name email phone")
+    .populate("customerId", "name email phone crn companyName")
     .populate("assignedAgent", "name email")
     .populate("websiteId", "websiteName domain");
 }

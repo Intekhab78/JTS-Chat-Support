@@ -30,15 +30,21 @@ export const getTickets = asyncHandler(async (req, res) => {
   const { websiteId, status, priority, crmStage, crn, channel, range = "all" } = req.query;
   const filter = await buildTicketScopeFilter(req.user);
 
-  if (websiteId) filter.websiteId = websiteId;
+  if (websiteId) {
+    const ownedWebsiteIds = await (await import("../utils/roleUtils.js")).getOwnedWebsiteIds(req.user);
+    if (normalizeRole(req.user.role) !== "admin" && !ownedWebsiteIds.some(id => String(id) === String(websiteId))) {
+      throw new AppError("Access denied to requested website", 403);
+    }
+    filter.websiteId = websiteId;
+  }
   if (status && status !== "all") filter.status = status;
   if (priority && priority !== "all") filter.priority = priority;
   if (channel && channel !== "all") filter.channel = channel;
   if (crn) filter.crn = crn;
 
   const tickets = await Ticket.find(filter)
-    .populate("visitorId", "name email")
-    .populate("customerId", "name email crn")
+    .populate("visitorId", "name email phone")
+    .populate("customerId", "name email phone crn companyName")
     .populate("assignedAgent", "name email")
     .populate("websiteId", "websiteName domain")
     .sort({ createdAt: -1 });
@@ -80,9 +86,17 @@ export const getTicketById = asyncHandler(async (req, res) => {
     const session = await ChatSession.findOne({ visitorId: ticket.visitorId, websiteId: ticket.websiteId })
       .sort({ createdAt: -1 });
     if (session) {
-      messages = await Message.find({ sessionId: session._id })
+      const rawMessages = await Message.find({ sessionId: session._id })
         .sort({ createdAt: 1 })
-        .select("role content createdAt senderName fileUrl fileType");
+        .select("sender message attachmentUrl attachmentType createdAt isAi status")
+        .lean();
+      messages = rawMessages.map((m) => ({
+        ...m,
+        role: m.sender,
+        content: m.message,
+        fileUrl: m.attachmentUrl || "",
+        fileType: m.attachmentType || ""
+      }));
       doc.sessionId = session.sessionId;
     }
   }
@@ -95,9 +109,43 @@ export const updateTicket = asyncHandler(async (req, res) => {
   const ticket = await findScopedTicketById(req.params.id, req.user);
   if (!ticket) throw new AppError("Ticket not found", 404);
 
-  const { status, priority, category, note, assignedAgent, crmStage } = req.body;
+  const { status, priority, category, note, assignedAgent, crmStage, requesterName, requesterEmail, requesterPhone } = req.body;
   const prevStatus = ticket.status;
   const prevAssignedAgent = ticket.assignedAgent;
+
+  if (requesterName !== undefined || requesterEmail !== undefined || requesterPhone !== undefined) {
+    if (ticket.customerId) {
+      const customer = await Customer.findById(ticket.customerId);
+      if (customer) {
+        if (requesterName && requesterName.trim()) customer.name = requesterName.trim();
+        if (requesterEmail !== undefined) customer.email = requesterEmail.trim();
+        if (requesterPhone !== undefined) customer.phone = requesterPhone.trim();
+        await customer.save();
+      }
+    } else if (ticket.visitorId) {
+      const Visitor = mongoose.model("Visitor");
+      const visitor = await Visitor.findById(ticket.visitorId);
+      if (visitor) {
+        if (requesterName && requesterName.trim()) visitor.name = requesterName.trim();
+        if (requesterEmail !== undefined) visitor.email = requesterEmail.trim();
+        if (requesterPhone !== undefined) visitor.phone = requesterPhone.trim();
+        await visitor.save();
+      }
+    } else if (requesterName?.trim() || requesterEmail?.trim() || requesterPhone?.trim()) {
+      const customer = await getOrCreateCustomer({
+        name: requesterName?.trim() || "Customer",
+        email: requesterEmail?.trim() || undefined,
+        phone: requesterPhone?.trim() || undefined,
+        websiteId: ticket.websiteId,
+        leadSource: ticket.channel === "phone" ? "Phone Call" : "Support Ticket",
+        ownerId: ticket.assignedAgent || req.user._id
+      });
+      if (customer) {
+        ticket.customerId = customer._id;
+        ticket.crn = customer.crn;
+      }
+    }
+  }
 
   if (status) ticket.status = status;
   if (priority) {
@@ -203,6 +251,21 @@ export const updateTicket = asyncHandler(async (req, res) => {
   });
 
   try {
+    const socketServer = getSocketServer();
+    if (socketServer && ticket.ticketId) {
+      socketServer.to(`ticket:${ticket.ticketId}`).emit("ticket:updated", {
+        ticketId: ticket.ticketId,
+        status: ticket.status,
+        priority: ticket.priority,
+        updatedAt: ticket.updatedAt,
+        newNote: note && req.body.noteIsPublic !== false ? {
+          content: note,
+          authorName: req.user.name || "Support Specialist",
+          createdAt: new Date()
+        } : null
+      });
+    }
+
     if (status === "resolved" && prevStatus !== "resolved") {
       getSocketServer().emit("ticket:resolved", {
         message: `Ticket #${ticket._id.toString().slice(-6)} was resolved`,
@@ -213,6 +276,13 @@ export const updateTicket = asyncHandler(async (req, res) => {
   } catch (err) {
     console.error("Socket emit failed", err);
   }
+
+  await ticket.populate([
+    { path: "visitorId", select: "name email phone" },
+    { path: "customerId", select: "name email phone crn companyName" },
+    { path: "assignedAgent", select: "name email" },
+    { path: "websiteId", select: "websiteName domain" }
+  ]);
 
   res.json(ticket);
 });
@@ -262,5 +332,23 @@ export const getTicketActivity = asyncHandler(async (req, res) => {
   const ticket = await findScopedTicketById(req.params.id, req.user);
   if (!ticket) throw new AppError("Ticket not found", 404);
   const activity = await listActivityForEntity({ entityType: "ticket", entityId: req.params.id, limit: 100 });
-  res.json(activity);
+  const rawActivities = (activity || []).map(a => a.toObject ? a.toObject() : a);
+
+  // Format and merge all ticket notes (customer replies & staff notes) into the activity stream
+  const noteActivities = (ticket.notes || []).map((n, idx) => ({
+    _id: n._id || `note-${idx}`,
+    type: "note_added",
+    summary: n.content,
+    actorName: n.authorName || (n.addedBy?.name || (n.isPublic ? "Customer" : "Staff Note")),
+    actorRole: n.isPublic ? "Customer" : "Internal",
+    createdAt: n.createdAt,
+    metadata: {
+      content: n.content,
+      isPublic: n.isPublic,
+      authorName: n.authorName || "Customer"
+    }
+  }));
+
+  const merged = [...rawActivities, ...noteActivities].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  res.json(merged);
 });

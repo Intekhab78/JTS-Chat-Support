@@ -3,17 +3,18 @@ import mongoose from 'mongoose';
 
 dotenv.config();
 
-const sourceUri = process.env.SOURCE_MONGO_URI || 'mongodb+srv://chatAI:bawsfL1sbUHjKTVt@cluster0.ehduwnn.mongodb.net/chat-support?retryWrites=true&w=majority';
+const sourceUri = process.env.SOURCE_MONGO_URI || '';
 const targetUri = process.env.TARGET_MONGO_URI || 'mongodb://127.0.0.1:27017/chat-support';
 
 async function migrate() {
   if (!sourceUri || !targetUri) {
-    throw new Error('Both SOURCE_MONGO_URI and TARGET_MONGO_URI must be configured.');
+    throw new Error('Both SOURCE_MONGO_URI and TARGET_MONGO_URI must be configured in environment variables.');
   }
 
   console.log('Starting migration...');
+  const maskedSource = sourceUri.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@');
   const maskedTarget = targetUri.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@');
-  console.log(`Source DB URI: ${sourceUri}`);
+  console.log(`Source DB URI: ${maskedSource}`);
   console.log(`Target DB URI: ${maskedTarget}`);
 
   console.log('Connecting to Source Database...');

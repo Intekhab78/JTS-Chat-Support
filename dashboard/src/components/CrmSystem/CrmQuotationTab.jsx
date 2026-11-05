@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Plus, FileText, CheckCircle, Shield, X, Save, Trash2, Pencil, Send, AlertCircle, ShoppingCart, Download } from "lucide-react";
-import { api, API_BASE } from "../../api/client.js";
+import { api, apiUrl } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { QuickCreateItemModal, ItemAutocomplete } from "../ItemAutocomplete.jsx";
 
@@ -705,7 +705,7 @@ export default function CRMQuotationTab({ customer, websiteId, onPostWin, onConv
                       onClick={async () => {
                         try {
                           const result = await api(`/api/crm/quotations/${quote._id}/pdf`, { method: "POST" });
-                          const cleanUrl = `${API_BASE}${result.pdfUrl}`;
+                          const cleanUrl = apiUrl(result.pdfUrl);
                           window.open(cleanUrl, "_blank");
                         } catch (err) {
                           alert(err.message || "Failed to generate PDF");

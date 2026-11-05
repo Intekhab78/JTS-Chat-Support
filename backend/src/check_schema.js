@@ -20,4 +20,8 @@ async function run() {
   await mongoose.disconnect();
 }
 
-run().catch(console.error);
+import { fileURLToPath } from "url";
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  run().catch(console.error);
+}

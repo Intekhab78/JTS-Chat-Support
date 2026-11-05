@@ -181,8 +181,20 @@ export function getBackendStatus() {
  * Generate full API URL for a path
  */
 export async function apiUrl(path = "") {
+  if (/^https?:\/\//i.test(path)) return path;
   const base = await getApiBase();
-  return `${base}${path}`;
+  return `${base}${path.startsWith("/") ? "" : "/"}${path}`;
+}
+
+function prepareRequestBody(body) {
+  if (body === undefined || body === null) return body;
+  if (typeof body === "string") return body;
+  if (typeof FormData !== "undefined" && body instanceof FormData) return body;
+  if (typeof Blob !== "undefined" && body instanceof Blob) return body;
+  if (typeof URLSearchParams !== "undefined" && body instanceof URLSearchParams) return body;
+  if (typeof ArrayBuffer !== "undefined" && (body instanceof ArrayBuffer || ArrayBuffer.isView(body))) return body;
+  if (typeof body === "object") return JSON.stringify(body);
+  return body;
 }
 
 /**
@@ -198,28 +210,37 @@ export async function api(path, options = {}) {
       : `/api${path.startsWith("/") ? "" : "/"}${path}`;
 
   const token = typeof localStorage !== "undefined" ? localStorage.getItem("dashboard_token") : null;
-  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
+  const preparedBody = prepareRequestBody(options.body);
+  const requestOptions = {
+    ...options,
+    ...(options.body !== undefined ? { body: preparedBody } : {})
+  };
+  const isFormData = typeof FormData !== "undefined" && preparedBody instanceof FormData;
   const headers = {
     ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...(options.headers || {})
   };
+  if (isFormData && headers["Content-Type"]) {
+    delete headers["Content-Type"];
+  }
 
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
 
   let response;
+  const targetUrl = /^https?:\/\//i.test(normalizedPath) ? normalizedPath : `${apiBase}${normalizedPath}`;
 
   try {
-    response = await fetch(`${apiBase}${normalizedPath}`, {
-      ...options,
+    response = await fetch(targetUrl, {
+      ...requestOptions,
       headers
     });
   } catch (fetchError) {
     // If request to local backend failed with Network Error (backend stopped / offline)
     const isLocal = apiBase.includes("localhost") || apiBase.includes("127.0.0.1");
     const isLocalHostTab = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-    if (isLocal && !isLocalHostTab && REMOTE_API_URL && apiBase !== REMOTE_API_URL) {
+    if (isLocal && !isLocalHostTab && REMOTE_API_URL && apiBase !== REMOTE_API_URL && !/^https?:\/\//i.test(normalizedPath)) {
       console.warn(`[API Client] Local backend failed. Seamlessly failing over to cloud backend (${REMOTE_API_URL})...`);
       cachedLocalHealth = false;
       lastHealthCheckTime = Date.now();
@@ -229,7 +250,7 @@ export async function api(path, options = {}) {
       try {
         // Immediate seamless retry on remote cloud backend
         response = await fetch(`${REMOTE_API_URL}${normalizedPath}`, {
-          ...options,
+          ...requestOptions,
           headers
         });
       } catch (retryError) {
@@ -248,7 +269,7 @@ export async function api(path, options = {}) {
   });
 
   if (response.status === 401) {
-    const isAuthPath = path.includes("/api/auth/login") || path.includes("/api/auth/register");
+    const isAuthPath = normalizedPath.includes("/api/auth/login") || normalizedPath.includes("/api/auth/register");
     const isAlreadyOnLogin = typeof window !== "undefined" && window.location.pathname === "/login";
 
     if (!isAuthPath && !isAlreadyOnLogin) {
@@ -271,9 +292,57 @@ export async function api(path, options = {}) {
 
 // Familiar helper methods for consistency
 api.get = (path, options = {}) => api(path, { ...options, method: "GET" });
-api.post = (path, body, options = {}) => api(path, { ...options, method: "POST", body: JSON.stringify(body) });
-api.patch = (path, body, options = {}) => api(path, { ...options, method: "PATCH", body: JSON.stringify(body) });
+api.post = (path, body, options = {}) => api(path, { ...options, method: "POST", body: prepareRequestBody(body) });
+api.put = (path, body, options = {}) => api(path, { ...options, method: "PUT", body: prepareRequestBody(body) });
+api.patch = (path, body, options = {}) => api(path, { ...options, method: "PATCH", body: prepareRequestBody(body) });
 api.delete = (path, options = {}) => api(path, { ...options, method: "DELETE" });
+
+/**
+ * Authenticated file/PDF/CSV download helper
+ */
+export async function apiDownload(path, fallbackFilename = "download") {
+  let apiBase = await getApiBase();
+  const normalizedPath =
+    path.startsWith("/api") || path.startsWith("http") || path.startsWith("/uploads")
+      ? path
+      : `/api${path.startsWith("/") ? "" : "/"}${path}`;
+
+  const token = typeof localStorage !== "undefined" ? localStorage.getItem("dashboard_token") : null;
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const targetUrl = /^https?:\/\//i.test(normalizedPath) ? normalizedPath : `${apiBase}${normalizedPath}`;
+
+  let response;
+  try {
+    response = await fetch(targetUrl, { method: "GET", headers });
+  } catch (err) {
+    const isLocal = apiBase.includes("localhost") || apiBase.includes("127.0.0.1");
+    if (isLocal && !isLocalHostTab && REMOTE_API_URL && !/^https?:\/\//i.test(normalizedPath)) {
+      response = await fetch(`${REMOTE_API_URL}${normalizedPath}`, { method: "GET", headers });
+    } else {
+      throw err;
+    }
+  }
+
+  if (!response.ok) {
+    const errBody = await response.json().catch(() => ({}));
+    throw new Error(errBody.message || errBody.error || `Download failed (${response.status})`);
+  }
+
+  const disposition = response.headers.get("Content-Disposition") || "";
+  const match = disposition.match(/filename="?([^";]+)"?/i);
+  const filename = match?.[1] || fallbackFilename;
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => window.URL.revokeObjectURL(url), 5000);
+  return true;
+}
 
 // Background recovery: re-check if local backend comes back online
 if (typeof window !== "undefined") {

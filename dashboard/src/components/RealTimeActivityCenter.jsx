@@ -41,16 +41,13 @@ export default function RealTimeActivityCenter() {
     socket.on("disconnect", onDisconnect);
 
     // Register all event listeners
-    Object.keys(EVENT_CONFIG).forEach(eventType => {
-      socket.on(eventType, (payload) => handleEvent(eventType, payload));
-    });
+    const handlers = {};
+    Object.keys(EVENT_CONFIG).forEach(eventType => { handlers[eventType] = (payload) => handleEvent(eventType, payload); socket.on(eventType, handlers[eventType]); });
 
     return () => {
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
-      Object.keys(EVENT_CONFIG).forEach(eventType => {
-        socket.off(eventType);
-      });
+      Object.keys(EVENT_CONFIG).forEach(eventType => { socket.off(eventType, handlers[eventType]); });
     };
   }, [socket]);
 
@@ -126,7 +123,7 @@ export default function RealTimeActivityCenter() {
                       {event.payload?.user && (
                         <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-50">
                           <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-black text-slate-500">
-                            {event.payload.user.charAt(0).toUpperCase()}
+                            {String(event.payload.user || "?").charAt(0).toUpperCase()}
                           </div>
                           <span className="text-xs font-bold text-slate-500">{event.payload.user}</span>
                         </div>

@@ -1,15 +1,16 @@
 import { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { 
   Search, Filter, Calendar, Download, ChevronRight, User, Globe, MessageSquare, 
   X, Clock, Star, ShieldCheck, Bot, Sparkles, FileText, CheckCircle2, Ticket, RefreshCw, Eye
 } from "lucide-react";
-import { api, apiUrl } from "../api/client.js";
+import { api, apiDownload } from "../api/client.js";
 import ChatPanel from "./ChatPanel.jsx";
 import PaginationControls from "./PaginationControls.jsx";
 import { getPaginationMeta } from "../utils/pagination.js";
 import { useToast } from "../context/ToastContext.jsx";
 
-export default function ConversationHistory() {
+export default function ConversationHistory({ websiteId } = {}) {
   const toast = useToast();
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -18,7 +19,7 @@ export default function ConversationHistory() {
   const [searchTerm, setSearchTerm] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [filterWebsite, setFilterWebsite] = useState("");
+  const [filterWebsite, setFilterWebsite] = useState(websiteId || "");
   const [filterAgent, setFilterAgent] = useState("");
   const [statusFilter, setStatusFilter] = useState("all"); // all, closed, ticket, high_rating
 
@@ -30,6 +31,29 @@ export default function ConversationHistory() {
   const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [page, setPage] = useState(1);
+
+  // Sync prop websiteId if changed
+  useEffect(() => {
+    if (websiteId) {
+      setFilterWebsite(websiteId);
+    }
+  }, [websiteId]);
+
+  // Modal scroll lock & Escape key
+  useEffect(() => {
+    if (selectedSession) {
+      const orig = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      const handleKeyDown = (e) => {
+        if (e.key === "Escape") setSelectedSession(null);
+      };
+      window.addEventListener("keydown", handleKeyDown);
+      return () => {
+        document.body.style.overflow = orig;
+        window.removeEventListener("keydown", handleKeyDown);
+      };
+    }
+  }, [selectedSession]);
 
   const fetchHistory = async () => {
     setLoading(true);
@@ -86,7 +110,7 @@ export default function ConversationHistory() {
     if (startDate) params.append("startDate", startDate);
     if (endDate) params.append("endDate", endDate);
 
-    window.open(await apiUrl(`/api/analytics/export/csv?${params.toString()}`), "_blank");
+    try { await apiDownload(`/api/analytics/export/csv?${params.toString()}`, `Conversation_History_${new Date().toISOString().slice(0, 10)}.csv`); } catch (err) { toast.error("Failed to export CSV: " + err.message); }
   };
 
   const viewSession = async (session) => {
@@ -431,48 +455,67 @@ export default function ConversationHistory() {
         );
       })()}
 
-      {/* ── Slide-Out / Floating Transcript Modal ── */}
-      {selectedSession && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-5">
-          <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in" onClick={() => setSelectedSession(null)} />
-          <div className="relative w-full max-w-5xl h-[88vh] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300 border border-slate-200/80 dark:border-white/10">
+      {/* ── Slide-Out / Floating Transcript Modal rendered via createPortal ── */}
+      {selectedSession && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5">
+          <div 
+            className="fixed inset-0 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200" 
+            onClick={() => setSelectedSession(null)} 
+          />
+          <div className="relative w-full max-w-5xl h-[88vh] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200/80 dark:border-white/10 z-10">
             
             {/* Modal Header */}
-            <div className="px-5 py-3.5 border-b border-slate-100 dark:border-white/5 flex items-center justify-between bg-slate-50/70 dark:bg-slate-800/50 backdrop-blur-md">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-xs">
+            <div className="px-5 py-3.5 border-b border-slate-100 dark:border-white/5 flex items-center justify-between bg-slate-50/80 dark:bg-slate-800/80 backdrop-blur-md shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-xs shrink-0">
                   <MessageSquare size={16} />
                 </div>
-                <div>
-                  <h4 className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-2">
-                    Conversation Transcript & Audit Log
-                    <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[9px] font-black uppercase">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white truncate">
+                      Conversation Transcript & Audit Log
+                    </h4>
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider shrink-0 ${
+                      selectedSession.status === "closed"
+                        ? "bg-slate-100 text-slate-600 border border-slate-200"
+                        : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                    }`}>
                       {selectedSession.status === "closed" ? "Resolved" : "Active"}
                     </span>
-                  </h4>
-                  <p className="text-[10px] text-slate-400 font-bold mt-0.5">
-                    {selectedSession.visitorId?.name || "Visitor"} • {new Date(selectedSession.createdAt).toLocaleString()} • {selectedSession.websiteId?.websiteName || "UAE Invoicing"}
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-bold truncate mt-0.5">
+                    {selectedSession.visitorId?.name || "Visitor"} &bull; {new Date(selectedSession.createdAt).toLocaleString()} &bull; {selectedSession.websiteId?.websiteName || "UAE Invoicing"}
                   </p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setSelectedSession(null)}
-                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-all"
+                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-all cursor-pointer shrink-0"
+                title="Close (Esc)"
               >
                 <X size={18} />
               </button>
             </div>
 
             {/* Modal Content */}
-            <div className="flex-1 overflow-hidden bg-slate-50/30 dark:bg-slate-950">
-              <ChatPanel
-                session={selectedSession}
-                messages={messages}
-                readonly={true}
-              />
+            <div className="flex-1 min-h-0 overflow-hidden bg-slate-50/30 dark:bg-slate-950 flex flex-col">
+              {loadingMessages ? (
+                <div className="flex-1 flex flex-col items-center justify-center p-8 gap-3">
+                  <div className="w-8 h-8 border-3 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+                  <span className="text-xs font-bold text-slate-400">Loading conversation transcript...</span>
+                </div>
+              ) : (
+                <ChatPanel
+                  session={selectedSession}
+                  messages={messages}
+                  readonly={true}
+                />
+              )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

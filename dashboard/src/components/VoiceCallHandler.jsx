@@ -37,6 +37,7 @@ export default function VoiceCallHandler() {
   activeCallRef.current = activeCall;
   const toastRef = useRef(toast);
   toastRef.current = toast;
+  const connectedAtRef = useRef(null);
 
   const showCallEndToast = (callId, message = "Call ended / cancelled.") => {
     if (callId && lastEndedCallToastRef.current === callId) return;
@@ -110,6 +111,20 @@ export default function VoiceCallHandler() {
     if (!socket || !user) return;
 
     const handleIncoming = (callData) => {
+      if (!callData) return;
+      // Multi-tenant website scope guard (unless platform admin or direct transfer)
+      if (user?.role !== "admin" && !callData.isTransferred && callData.websiteId) {
+        const userWebsites = Array.isArray(user?.websiteIds)
+          ? user.websiteIds.map((w) => String(w?._id || w))
+          : [];
+        if (userWebsites.length > 0 && !userWebsites.includes(String(callData.websiteId))) {
+          return;
+        }
+      }
+      // Do not overwrite an active connected call on this agent
+      if (activeCallRef.current && activeCallRef.current.status === "connected" && activeCallRef.current.callId !== callData.callId) {
+        return;
+      }
       console.log("[VoiceCallHandler] Incoming voice call:", callData);
       setIncomingCall((prev) => (prev?.callId === callData?.callId ? prev : callData));
     };
@@ -162,24 +177,28 @@ export default function VoiceCallHandler() {
 
     const handleTransferredSuccess = ({ callId, newAgentName }) => {
       toastRef.current?.success?.(`Call successfully transferred to ${newAgentName || "Senior Specialist"}!`);
-      endActiveCall();
+      endActiveCall(false);
     };
 
     const handleCallEnded = (payload = {}) => {
       const callId = payload?.callId;
       console.log("[VoiceCallHandler] call:ended received:", callId);
-      stopRingbackTone();
       setIncomingCall((prev) => (!callId || prev?.callId === callId ? null : prev));
-      endActiveCall(false);
+      if (!callId || activeCallRef.current?.callId === callId) {
+        stopRingbackTone();
+        endActiveCall(false);
+      }
     };
 
     const handleCallCancelled = (payload = {}) => {
       const callId = payload?.callId;
       console.log("[VoiceCallHandler] call:cancelled received:", callId);
-      stopRingbackTone();
       setIncomingCall((prev) => (!callId || prev?.callId === callId ? null : prev));
-      showCallEndToast(callId, "Call ended / cancelled.");
-      endActiveCall(false);
+      if (!callId || activeCallRef.current?.callId === callId) {
+        stopRingbackTone();
+        showCallEndToast(callId, "Call ended / cancelled.");
+        endActiveCall(false);
+      }
     };
 
     const handleVisitorAccepted = async (payload) => {
@@ -187,8 +206,9 @@ export default function VoiceCallHandler() {
       console.log("[VoiceCallHandler] Visitor accepted outbound call:", payload);
       stopRingbackTone();
       targetSocketIdRef.current = visitorSocketId;
+      connectedAtRef.current = Date.now();
 
-      setActiveCall((prev) => (prev ? { ...prev, status: "connected", visitorSocketId } : prev));
+      setActiveCall((prev) => (prev ? { ...prev, status: "connected", visitorSocketId, connectedAt: Date.now() } : prev));
       toastRef.current?.success?.("Visitor answered! Call connected.");
 
       const pc = peerConnectionRef.current;
@@ -321,7 +341,9 @@ export default function VoiceCallHandler() {
     if (!incomingCall || !socket) return;
     const currentCall = incomingCall;
     setIncomingCall(null);
-    setActiveCall(currentCall);
+    targetSocketIdRef.current = currentCall.visitorSocketId;
+    connectedAtRef.current = Date.now();
+    setActiveCall({ ...currentCall, status: "connected", connectedAt: Date.now() });
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -397,6 +419,11 @@ export default function VoiceCallHandler() {
   const endActiveCall = (shouldEmit = true) => {
     stopRingbackTone();
     const currentCall = activeCallRef.current || activeCall;
+    const duration = connectedAtRef.current
+      ? Math.max(1, Math.round((Date.now() - connectedAtRef.current) / 1000))
+      : 0;
+    connectedAtRef.current = null;
+
     if (shouldEmit && currentCall && socket) {
       const targetSocketId = currentCall.visitorSocketId || targetSocketIdRef.current;
       if (currentCall.status === "ringing") {
@@ -409,7 +436,8 @@ export default function VoiceCallHandler() {
         socket.emit("call:end", {
           callId: currentCall.callId,
           targetSocketId,
-          sessionId: currentCall.sessionId
+          sessionId: currentCall.sessionId,
+          duration
         });
       }
     }
@@ -440,13 +468,16 @@ export default function VoiceCallHandler() {
   };
 
   const toggleHoldCall = () => {
-    if (localStreamRef.current) {
-      const audioTrack = localStreamRef.current.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = isCallHeld;
+    setIsCallHeld((prev) => {
+      const nextHeld = !prev;
+      if (localStreamRef.current) {
+        const audioTrack = localStreamRef.current.getAudioTracks()[0];
+        if (audioTrack) {
+          audioTrack.enabled = nextHeld ? false : !isCallMuted;
+        }
       }
-    }
-    setIsCallHeld((prev) => !prev);
+      return nextHeld;
+    });
   };
 
   return (

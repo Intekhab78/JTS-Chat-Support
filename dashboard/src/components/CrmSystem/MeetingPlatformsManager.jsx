@@ -2,8 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Video, Plus, ToggleLeft, ToggleRight, Trash2, Edit2, Check, X, Link2, Star, Loader2 } from "lucide-react";
 import { api } from "../../api/client.js";
 import { useToast } from "../../context/ToastContext.jsx";
-
-const EMOJI_OPTIONS = ["🎯","📹","🟢","🟣","📞","🤝","💻","🎥","📡","🔵","🔴","🟡"];
+import { PLATFORM_ICON_OPTIONS, renderPlatformIcon } from "./platformIconHelper.jsx";
 
 export default function MeetingPlatformsManager({ websiteId }) {
   const toast = useToast();
@@ -13,7 +12,7 @@ export default function MeetingPlatformsManager({ websiteId }) {
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  const emptyForm = { name: "", icon: "🎥", color: "#6366f1", urlTemplate: "", description: "", isDefault: false };
+  const emptyForm = { name: "", icon: "Video", color: "#6366f1", urlTemplate: "", description: "", isDefault: false };
   const [form, setForm] = useState(emptyForm);
 
   const fetchPlatforms = async () => {
@@ -128,20 +127,26 @@ export default function MeetingPlatformsManager({ websiteId }) {
             {editingId ? "✏️ Edit Platform" : "➕ New Platform"}
           </h4>
 
-          {/* Emoji picker + Name */}
+          {/* Icon picker + Name */}
           <div className="grid grid-cols-4 gap-3">
             <div>
-              <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5">Icon</label>
-              <div className="flex flex-wrap gap-1 bg-white border rounded-xl p-2">
-                {EMOJI_OPTIONS.map(em => (
-                  <button key={em} type="button"
-                    onClick={() => setForm({ ...form, icon: em })}
-                    className={`w-7 h-7 rounded-lg text-base flex items-center justify-center transition-all ${form.icon === em ? "bg-indigo-100 ring-2 ring-indigo-400" : "hover:bg-slate-100"}`}
-                  >{em}</button>
+              <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5">Platform Icon</label>
+              <div className="flex flex-wrap gap-1 bg-white border border-slate-200 rounded-xl p-2 max-h-24 overflow-y-auto custom-scrollbar">
+                {PLATFORM_ICON_OPTIONS.map(({ id, label, Icon }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setForm({ ...form, icon: id })}
+                    title={label}
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
+                      form.icon === id
+                        ? "bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-300"
+                        : "hover:bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    <Icon size={14} />
+                  </button>
                 ))}
-                <input value={form.icon} onChange={e => setForm({...form, icon: e.target.value})}
-                  className="w-7 h-7 text-center bg-slate-50 border rounded-lg text-sm outline-none" maxLength={2}
-                  placeholder="✏️" title="Custom emoji" />
               </div>
             </div>
             <div className="col-span-3">
@@ -203,7 +208,7 @@ export default function MeetingPlatformsManager({ websiteId }) {
           {form.name && (
             <div className="flex items-center gap-3 bg-white border rounded-2xl px-4 py-3">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg" style={{ background: form.color + "22" }}>
-                {form.icon}
+                {renderPlatformIcon(form.icon, form.color, 18)}
               </div>
               <div>
                 <p className="text-xs font-black text-slate-800">{form.name}</p>
@@ -246,7 +251,7 @@ export default function MeetingPlatformsManager({ websiteId }) {
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-sm"
                     style={{ background: `linear-gradient(135deg, ${p.color}22 0%, ${p.color}11 100%)`, border: `1px solid ${p.color}33` }}>
-                    {p.icon}
+                    {renderPlatformIcon(p.icon, p.color, 22)}
                   </div>
                   <div>
                     <p className="text-sm font-black text-slate-800">{p.name}</p>

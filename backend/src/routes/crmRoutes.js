@@ -2,6 +2,8 @@ import { Router } from "express";
 import * as customerController from "../controllers/crmCustomerController.js";
 import * as quotationController from "../controllers/crmQuotationController.js";
 import * as timelineController from "../controllers/crmTimelineController.js";
+import * as commWebhookController from "../controllers/crmCommunicationWebhookController.js";
+import * as omnichannelController from "../controllers/crmOmnichannelController.js";
 import communicationRoutes from "./crmCommunicationRoutes.js";
 import customerPortalRoutes from "./crmCustomerPortalRoutes.js";
 import * as searchController from "../controllers/crmSearchController.js";
@@ -60,7 +62,18 @@ import complianceRoutes from "./crmComplianceRoutes.js";
 
 const router = Router();
 
-// All CRM routes require auth + at minimum sales/manager/agent/accounts/tax_consultant/management access
+// Public Inbound Omnichannel Webhooks & Email Open Tracking Pixel (No JWT required)
+router.post("/communication/webhooks/twilio", commWebhookController.handleTwilioWebhook);
+router.get("/communication/webhooks/meta", commWebhookController.verifyMetaWebhook);
+router.post("/communication/webhooks/meta", commWebhookController.handleMetaWebhook);
+router.get("/omnichannel/track-open/:id", omnichannelController.trackOpen);
+
+// Customer Self-Service Portal & Customer PDF Generation (Authenticated Customer or Admin)
+router.use("/customer-portal", customerPortalRoutes);
+router.post("/invoices/:id/pdf", requireAuth, requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant", "customer"), attachOwnedWebsiteIds, invoiceController.generateInvoicePdf);
+router.post("/quotations/:id/pdf", requireAuth, requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant", "customer"), attachOwnedWebsiteIds, quotationController.generateQuotationPdf);
+
+// All Staff CRM routes require auth + staff role + CRM plan access
 router.use(requireAuth, requireRole("admin", "client", "manager", "agent", "sales", "purchase", "accounts", "tax_consultant", "management"));
 router.use(attachOwnedWebsiteIds);
 router.use(attachTenantSubscription);
@@ -142,7 +155,13 @@ router.delete("/quotations/:id", requireRole("admin", "client", "manager", "sale
 router.post("/quotations/:id/send", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), quotationController.sendQuotation);
 router.post("/quotations/:id/pay", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), quotationController.createQuotationPayment);
 router.post("/quotations/:id/approve", requireRole("admin", "client", "manager", "tax_consultant"), quotationController.approveQuotation);
+router.patch("/quotations/:id/approve", requireRole("admin", "client", "manager", "tax_consultant"), quotationController.approveQuotation);
+router.patch("/quotations/approve/:id", requireRole("admin", "client", "manager", "tax_consultant"), quotationController.approveQuotation);
+router.post("/quotations/approve/:id", requireRole("admin", "client", "manager", "tax_consultant"), quotationController.approveQuotation);
 router.post("/quotations/:id/deny", requireRole("admin", "client", "manager", "tax_consultant"), quotationController.denyQuotation);
+router.patch("/quotations/:id/deny", requireRole("admin", "client", "manager", "tax_consultant"), quotationController.denyQuotation);
+router.patch("/quotations/deny/:id", requireRole("admin", "client", "manager", "tax_consultant"), quotationController.denyQuotation);
+router.post("/quotations/deny/:id", requireRole("admin", "client", "manager", "tax_consultant"), quotationController.denyQuotation);
 router.post("/quotations/:id/pdf", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant", "customer"), quotationController.generateQuotationPdf);
 
 // Interactions & Activity

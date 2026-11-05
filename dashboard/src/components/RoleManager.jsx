@@ -219,7 +219,7 @@ export default function RoleManager() {
   const loadRoles = async () => {
     try {
       const response = await api("/api/roles");
-      setRoles(response.data || []);
+      setRoles(Array.isArray(response) ? response : (response?.roles || response?.data || []));
     } catch (err) { 
       console.error(err); 
     } finally { 
@@ -595,7 +595,7 @@ export default function RoleManager() {
                   {PERMISSION_GROUPS.map(group => {
                     const GroupIcon = group.icon;
                     const isActive = activeGroup === group.id;
-                    const groupSelectedCount = formData.permissions.filter(p => p.startsWith(group.id.split('.')[0])).length;
+                    const groupSelectedCount = group.permissions.filter(perm => formData.permissions.includes(perm.id)).length;
 
                     return (
                       <button

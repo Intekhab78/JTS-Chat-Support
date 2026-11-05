@@ -88,13 +88,59 @@ export async function executeWorkflowBackground(workflow, payload = {}) {
         
         else if (actionType === "webhook") {
           if (webhookUrl) {
+            let parsedUrl;
+            try {
+              parsedUrl = new URL(webhookUrl);
+            } catch {
+              throw new Error(`Invalid webhook URL: ${webhookUrl}`);
+            }
+            const host = parsedUrl.hostname.toLowerCase();
+            const isPrivateHost =
+              !["http:", "https:"].includes(parsedUrl.protocol) ||
+              host === "localhost" ||
+              host === "::1" ||
+              host === "[::1]" ||
+              /^127\./.test(host) ||
+              /^0\./.test(host) ||
+              /^10\./.test(host) ||
+              /^169\.254\./.test(host) ||
+              /^192\.168\./.test(host) ||
+              /^172\.(1[6-9]|2\d|3[0-1])\./.test(host);
+
+            if (isPrivateHost) {
+              throw new Error(`Blocked restricted webhook target: ${host}`);
+            }
+
             console.log(`[Workflow Executor] Calling webhook URL: ${webhookUrl}`);
-            // Simulated fetch payload
-            execution.logs.push({
-              nodeId: currentNode.id,
-              message: `Executed webhook call to ${webhookUrl}`,
-              status: "success"
-            });
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 8000);
+            try {
+              const resp = await fetch(parsedUrl.toString(), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  workflowId: workflow._id,
+                  workflowName: workflow.name,
+                  nodeId: currentNode.id,
+                  payload,
+                  timestamp: new Date().toISOString()
+                }),
+                signal: controller.signal
+              });
+              execution.logs.push({
+                nodeId: currentNode.id,
+                message: `Executed webhook call to ${webhookUrl} (HTTP ${resp.status})`,
+                status: resp.ok ? "success" : "warning"
+              });
+            } catch (hookErr) {
+              execution.logs.push({
+                nodeId: currentNode.id,
+                message: `Webhook call to ${webhookUrl} failed: ${hookErr.message}`,
+                status: "warning"
+              });
+            } finally {
+              clearTimeout(timeout);
+            }
           }
         }
 

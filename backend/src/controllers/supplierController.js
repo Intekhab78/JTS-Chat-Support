@@ -181,11 +181,14 @@ export const uploadInvoice = asyncHandler(async (req, res, next) => {
 });
 
 export const downloadPurchaseOrderPDF = asyncHandler(async (req, res, next) => {
+  if (!req.user.supplierId) {
+    return next(new AppError("User is not associated with any supplier record.", 403));
+  }
   const order = await PurchaseOrder.findById(req.params.id);
   if (!order) return next(new AppError("Order not found", 404));
 
   // Verify this order belongs to the supplier
-  if (order.supplierId.toString() !== req.user.supplierId.toString()) {
+  if (String(order.supplierId) !== String(req.user.supplierId)) {
     return next(new AppError("Access denied", 403));
   }
 
@@ -225,7 +228,7 @@ export const getSupplierLedger = asyncHandler(async (req, res, next) => {
   }
 
   const orders = await PurchaseOrder.find({ supplierId: req.user.supplierId })
-    .select("poNumber total status reconciliation createdAt deliveryDate")
+    .select("poNumber total status reconciliation createdAt expectedDeliveryDate receivedAt")
     .sort("-createdAt");
 
   // Calculate monthly stats for charts

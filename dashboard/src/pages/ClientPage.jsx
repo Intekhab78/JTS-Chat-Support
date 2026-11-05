@@ -5,7 +5,7 @@ import {
   BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area, Cell, LineChart, Line
 } from 'recharts';
 import {
-  Users, Globe, Headphones, MessageSquare, LayoutDashboard, Search, Bell, Menu, X, Trash2, Send, Paperclip, AlertTriangle, Lock
+  Users, Globe, Headphones, MessageSquare, LayoutDashboard, Search, Bell, Menu, X, Trash2, Send, Paperclip, AlertTriangle, Lock, Shield
 } from "lucide-react";
 import Layout from "../components/Layout.jsx";
 import ChatPanel from "../components/ChatPanel.jsx";
@@ -335,8 +335,8 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
               return cat.name.toLowerCase().includes(q) || cat.subs.some(s => s.toLowerCase().includes(q));
             })
             .map((cat, idx) => (
-              <div 
-                key={idx} 
+              <div
+                key={idx}
                 onClick={() => setSelectedCategoryModal(cat)}
                 className="p-6 rounded-3xl bg-slate-50/80 border border-slate-200/80 space-y-4 hover:border-indigo-400 hover:bg-white transition-all group hover:shadow-lg cursor-pointer active:scale-[0.98]"
               >
@@ -394,8 +394,8 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
                   </h3>
                 </div>
               </div>
-              <button 
-                onClick={() => setSelectedCategoryModal(null)} 
+              <button
+                onClick={() => setSelectedCategoryModal(null)}
                 className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all"
               >
                 <X size={18} />
@@ -449,8 +449,8 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
             </div>
 
             <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
-              <a 
-                href="/client?tab=inventory-master" 
+              <a
+                href="/client?tab=inventory-master"
                 className="px-6 py-3.5 rounded-2xl bg-indigo-600 text-white text-xs font-black uppercase tracking-wider hover:bg-indigo-700 transition-all shadow-lg flex items-center gap-2"
               >
                 View Mapped Items in Inventory ➔
@@ -564,9 +564,10 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
 
 export default function ClientPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const { websites, selectedWebsiteId, setSelectedWebsiteId, selectedWebsite } = useWebsite() || {};
   const userRole = String(user?.role || "").trim().toLowerCase();
-  const isAdminUser = !userRole || userRole.includes("admin") || userRole === "superadmin" || userRole === "global_admin";
+  const isAdminUser = Boolean(userRole && (userRole.includes("admin") || userRole === "superadmin" || userRole === "global_admin"));
   const canUseTickets = isAdminUser || hasModule(user, "tickets");
   const canUseCRM = isAdminUser || hasModule(user, "crm");
   const canUseReports = isAdminUser || hasModule(user, "reports");
@@ -747,6 +748,7 @@ export default function ClientPage() {
     : [
       { label: "Dashboard", href: "/client" },
       { label: "Websites", href: "/client?tab=websites" },
+      { label: "Integration Hub", href: "/client?tab=enterprise-integrations" },
       { label: "Billing", href: "/client?tab=billing" },
     ];
 
@@ -760,9 +762,29 @@ export default function ClientPage() {
     menuItems.push({ label: "CRM", href: "/tax-consultant?tab=crm" });
     menuItems.push({ label: "Customer Master", href: "/tax-consultant?tab=inventory-customer" });
   } else if (user?.role === "client") {
-    menuItems.push({ label: "Agents", href: "/client?tab=agents" });
+    // 1. Live Helpdesk & Communication
     if (hasModule(user, "chat")) menuItems.push({ label: "Chats", href: "/client?tab=chats" });
     if (hasModule(user, "tickets")) menuItems.push({ label: "Tickets", href: "/client?tab=tickets" });
+    menuItems.push({ label: "Agents", href: "/client?tab=agents" });
+
+    // 2. Sales & CRM
+    if (hasModule(user, "crm") || hasModule(user, "customer-master")) {
+      menuItems.push({ label: "Customer Master", href: "/client?tab=inventory-customer" });
+    }
+    if (hasModule(user, "crm")) menuItems.push({ label: "CRM", href: "/client?tab=crm" });
+
+    // 3. AI & Automation
+    if (hasModule(user, "flow-builder") || hasModule(user, "automation")) {
+      menuItems.push({ label: "Flow Builder", href: "/client?tab=flow-builder" });
+    }
+    // AI Knowledge Base / Help Center (Chatbot training on company docs, FAQs & URLs)
+    menuItems.push({ label: "Help Center", href: "/client?tab=help-center" });
+
+    if (hasModule(user, "voice-logs") || hasModule(user, "automation")) {
+      menuItems.push({ label: "AI Voice Logs", href: "/client?tab=voice-logs" });
+    }
+
+    // 4. Operations & Inventory (Collapsible Dropdown)
     if (hasModule(user, "inventory") || hasModule(user, "operations")) {
       menuItems.push({
         label: "Inventory",
@@ -781,34 +803,35 @@ export default function ClientPage() {
         ]
       });
     }
-    if (hasModule(user, "crm") || hasModule(user, "customer-master")) {
-      menuItems.push({ label: "Customer Master", href: "/client?tab=inventory-customer" });
+
+    // 5. Service Configuration (Collapsible Dropdown)
+    if (hasModule(user, "tickets") || hasModule(user, "service")) {
+      menuItems.push({
+        label: "Service Routing",
+        children: [
+          { label: "Departments", href: "/client?tab=departments" },
+          { label: "Categories", href: "/client?tab=categories" },
+          { label: "Shortcuts", href: "/client?tab=shortcuts" },
+          { label: "Historical Archive", href: "/client?tab=history" }
+        ]
+      });
     }
-    if (hasModule(user, "crm")) menuItems.push({ label: "CRM", href: "/client?tab=crm" });
-    if (hasModule(user, "flow-builder") || hasModule(user, "automation")) {
-      menuItems.push({ label: "Flow Builder", href: "/client?tab=flow-builder" });
-    }
-    if (hasModule(user, "voice-logs") || hasModule(user, "automation")) {
-      menuItems.push({ label: "AI Voice Logs", href: "/client?tab=voice-logs" });
-    }
-    if (hasModule(user, "lowcode-studio") || hasModule(user, "automation")) {
+
+    // 6. Enterprise Extensions (if enabled)
+    if (hasModule(user, "lowcode-studio")) {
       menuItems.push({ label: "Low-Code Studio", href: "/client?tab=lowcode-studio" });
     }
-    if (hasModule(user, "ai-automation") || hasModule(user, "automation")) {
+    if (hasModule(user, "ai-automation")) {
       menuItems.push({ label: "AI & OCR Hub", href: "/client?tab=ai-automation" });
     }
-    if (hasModule(user, "multi-organization") || hasModule(user, "enterprise")) {
+    if (hasModule(user, "multi-organization")) {
       menuItems.push({ label: "Multi-Org Center", href: "/client?tab=multi-organization" });
     }
-    if (hasModule(user, "enterprise-bi") || hasModule(user, "enterprise")) {
+    if (hasModule(user, "enterprise-bi")) {
       menuItems.push({ label: "Enterprise BI", href: "/client?tab=enterprise-bi" });
     }
-    if (hasModule(user, "tickets") || hasModule(user, "service")) {
-      menuItems.push({ label: "Departments", href: "/client?tab=departments" });
-      menuItems.push({ label: "Categories", href: "/client?tab=categories" });
-      menuItems.push({ label: "Shortcuts", href: "/client?tab=shortcuts" });
-      menuItems.push({ label: "History", href: "/client?tab=history" });
-    }
+
+    // 7. Analytics, Security & Administration
     if (hasModule(user, "reports")) menuItems.push({ label: "Reports", href: "/client?tab=reports" });
     if (hasModule(user, "security")) {
       menuItems.push({ label: "Security", href: "/client?tab=security" });
@@ -1108,9 +1131,33 @@ export default function ClientPage() {
   }
 
   if (tab === "developer-portal") {
-    title = "Developer Portal & Engineering Hub";
-    subtitle = "API Reference, Mongoose Schemas Explorer, Code Standards & Engineering Telemetry";
-    content = <DeveloperPortalCenter />;
+    if (!isAdminUser) {
+      title = "Access Restricted";
+      subtitle = "Developer Portal & Engineering Hub is restricted to Superadmin platform engineering";
+      content = (
+        <div className="bg-white dark:bg-slate-900 p-12 rounded-[32px] border border-slate-200/80 dark:border-white/10 shadow-sm text-center max-w-lg mx-auto my-12 space-y-4">
+          <div className="w-16 h-16 bg-amber-50 dark:bg-amber-500/10 text-amber-500 rounded-3xl flex items-center justify-center mx-auto">
+            <Lock size={32} />
+          </div>
+          <h3 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight">Superadmin Access Only</h3>
+          <p className="text-xs font-bold text-slate-400 leading-relaxed">
+            The Developer Portal & Engineering Hub contains platform-wide database schemas, architecture standards, and server telemetry reserved exclusively for platform administrators.
+          </p>
+          <div className="pt-2">
+            <a
+              href="/client?tab=enterprise-integrations"
+              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider inline-flex items-center gap-2 transition-all shadow-md"
+            >
+              Go to Integration Hub
+            </a>
+          </div>
+        </div>
+      );
+    } else {
+      title = "Developer Portal & Engineering Hub";
+      subtitle = "API Reference, Mongoose Schemas Explorer, Code Standards & Engineering Telemetry";
+      content = <DeveloperPortalCenter />;
+    }
   }
 
   if (tab === "product-management") {
@@ -1137,7 +1184,7 @@ export default function ClientPage() {
     content = <MobileReadinessCenter />;
   }
 
-  if (tab === "enterprise-integrations") {
+  if (tab === "enterprise-integrations" || tab === "enterprise-integration") {
     title = "Enterprise Integration Hub & Connector Catalog";
     subtitle = "Third-Party SaaS Connectors, OAuth 2.0 Management, Inbound/Outbound Webhooks & ERP Architecture";
     content = <EnterpriseIntegrationCenter />;
@@ -1249,7 +1296,7 @@ export default function ClientPage() {
   }
 
   // Handle other tabs generically for now
-  if (!["overview", "tax-consultant-dashboard", "chats", "websites", "agents", "clients", "reports", "tickets", "shortcuts", "history", "categories", "departments", "crm", "security", "billing", "subscriptions", "roles", "inventory-customer", "flow-analytics", "flow-builder", "flows", "voice-logs", "voice-calls", "help-center", "inventory", "inventory-master", "inventory-stock-in", "inventory-stock-out", "inventory-adjustment", "inventory-history", "inventory-category", "inventory-subcategory", "inventory-brand", "inventory-size", "inventory-color", "inventory-unit", "inventory-supplier", "inventory-vat", "inventory-tax", "vat-compliance", "corporate-tax", "trade-license", "compliance-reports", "risk-register", "financial-analytics", "sla-center", "observability", "load-testing", "release-management", "developer-portal", "product-management", "ai-automation", "compliance-governance", "mobile-readiness", "enterprise-integrations", "workflow-builder", "app-marketplace", "lowcode-studio", "custom-crm-modules", "enterprise-bi", "multi-organization", "mission-control"].includes(tab)) {
+  if (!["overview", "tax-consultant-dashboard", "chats", "websites", "agents", "clients", "reports", "tickets", "shortcuts", "history", "categories", "departments", "crm", "security", "billing", "subscriptions", "roles", "inventory-customer", "flow-analytics", "flow-builder", "flows", "voice-logs", "voice-calls", "help-center", "inventory", "inventory-master", "inventory-stock-in", "inventory-stock-out", "inventory-adjustment", "inventory-history", "inventory-category", "inventory-subcategory", "inventory-brand", "inventory-size", "inventory-color", "inventory-unit", "inventory-supplier", "inventory-vat", "inventory-tax", "vat-compliance", "corporate-tax", "trade-license", "compliance-reports", "risk-register", "financial-analytics", "sla-center", "observability", "load-testing", "release-management", "developer-portal", "product-management", "ai-automation", "compliance-governance", "mobile-readiness", "enterprise-integrations", "enterprise-integration", "workflow-builder", "app-marketplace", "lowcode-studio", "custom-crm-modules", "enterprise-bi", "multi-organization", "mission-control"].includes(tab)) {
     content = (
       <div className="bg-white p-24 rounded-[40px] border border-slate-200/60 shadow-sm text-center">
         <div className="max-w-xs mx-auto space-y-4">

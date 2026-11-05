@@ -418,15 +418,20 @@ export const checkSubscriptionRenewalReminders = async () => {
 
       await sendEmail({ to: customer.email, subject, html }).catch(() => {});
 
-      // Notify the workspace owner
-      const owner = customer.ownerId || sub.websiteId; // fallback
+      // Notify the workspace owner (never pass Website ID as User recipient)
+      let owner = customer.ownerId || null;
+      if (!owner && sub.websiteId) {
+        const { Website } = await import("../models/Website.js");
+        const ws = await Website.findById(sub.websiteId).select("managerId").lean();
+        owner = ws?.managerId || null;
+      }
       if (owner) {
         await createNotification({
           userId: owner,
           websiteId: sub.websiteId,
           type: "alert",
           title: `Subscription ${sub.autoRenewal ? "Renewing" : "Expiring"}: ${customer.name}`,
-          content: `${customer.name}'s subscription for ${planName} is due in 3 days.`
+          message: `${customer.name}'s subscription for ${planName} is due in 3 days.`
         }).catch(() => {});
       }
     }

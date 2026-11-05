@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { UserPlus, Shield, CheckCircle, X, ArrowRight, MessageSquare, AlertCircle, Sparkles, PhoneForwarded } from "lucide-react";
 import { api } from "../api/client.js";
+import { useWebsite } from "../context/WebsiteContext.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 
 export default function TransferCallModal({ isOpen, onClose, activeCall, onConfirmTransfer }) {
   const [agents, setAgents] = useState([]);
@@ -9,30 +11,68 @@ export default function TransferCallModal({ isOpen, onClose, activeCall, onConfi
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  const { selectedWebsiteId, websites } = useWebsite();
+  const { user } = useAuth();
+
+  const targetWebsiteId = (() => {
+    if (activeCall?.websiteId) {
+      const match = websites?.find(
+        (w) => String(w._id) === String(activeCall.websiteId) || String(w.apiKey) === String(activeCall.websiteId)
+      );
+      return match?._id ? String(match._id) : String(activeCall.websiteId);
+    }
+    if (activeCall?.website?._id) return String(activeCall.website._id);
+    return selectedWebsiteId ? String(selectedWebsiteId) : "";
+  })();
+
+  const activeWebsiteName = (() => {
+    if (targetWebsiteId) {
+      const match = websites?.find(
+        (w) => String(w._id) === String(targetWebsiteId) || String(w.apiKey) === String(targetWebsiteId)
+      );
+      if (match?.websiteName || match?.domain) return match.websiteName || match.domain;
+    }
+    return activeCall?.websiteName || "";
+  })();
+
   useEffect(() => {
     if (isOpen) {
       fetchTeamAgents();
     }
-  }, [isOpen]);
+  }, [isOpen, targetWebsiteId]);
 
   const fetchTeamAgents = async () => {
     setLoading(true);
     try {
-      const res = await api.get("/users/agents");
-      const list = res.data?.agents || res.data || [];
-      setAgents(Array.isArray(list) ? list : []);
-      if (list.length > 0 && !selectedAgentId) {
+      const query = targetWebsiteId ? `?websiteId=${encodeURIComponent(targetWebsiteId)}` : "";
+      const res = await api.get(`/api/users/agents${query}`);
+      let list = Array.isArray(res) ? res : (res?.agents || res?.users || res?.data?.agents || res?.data || []);
+
+      // Filter out currently logged-in agent (cannot transfer call to self)
+      const currentUserId = String(user?._id || user?.id || "");
+      list = list.filter((ag) => String(ag._id || ag.id) !== currentUserId);
+
+      // Strict client-side website scoping guarantee
+      if (targetWebsiteId) {
+        list = list.filter((ag) => {
+          if (!Array.isArray(ag.websiteIds) || ag.websiteIds.length === 0) return false;
+          return ag.websiteIds.some((w) => {
+            const wid = typeof w === "object" ? (w._id || w.id) : w;
+            return String(wid) === String(targetWebsiteId);
+          });
+        });
+      }
+
+      setAgents(list);
+      if (list.length > 0) {
         setSelectedAgentId(list[0]._id || list[0].id || "");
+      } else {
+        setSelectedAgentId("");
       }
     } catch (err) {
       console.error("Failed to load agents for transfer:", err);
-      // Fallback mock team members if offline/error
-      setAgents([
-        { _id: "senior_admin", name: "Senior Lead Specialist", role: "admin", department: "Escalations", status: "online" },
-        { _id: "billing_expert", name: "Billing & Finance Lead", role: "manager", department: "Billing", status: "online" },
-        { _id: "tech_architect", name: "Technical Solutions Lead", role: "admin", department: "Engineering", status: "online" }
-      ]);
-      setSelectedAgentId("senior_admin");
+      setAgents([]);
+      setSelectedAgentId("");
     } finally {
       setLoading(false);
     }
@@ -64,8 +104,13 @@ export default function TransferCallModal({ isOpen, onClose, activeCall, onConfi
               <h3 className="text-base font-black text-slate-900 dark:text-white tracking-tight">
                 Transfer Live Call to Senior / Agent
               </h3>
-              <p className="text-xs text-slate-500">
-                Visitor: <span className="font-bold text-slate-800 dark:text-slate-200">{(activeCall.visitorName && activeCall.visitorName !== "Website Visitor") ? activeCall.visitorName : (activeCall.telemetry?.city ? `Visitor (${activeCall.telemetry.city})` : "Visitor")}</span>
+              <p className="text-xs text-slate-500 flex items-center gap-2 flex-wrap mt-0.5">
+                <span>Visitor: <strong className="text-slate-800 dark:text-slate-200">{(activeCall.visitorName && activeCall.visitorName !== "Website Visitor") ? activeCall.visitorName : (activeCall.telemetry?.city ? `Visitor (${activeCall.telemetry.city})` : "Visitor")}</strong></span>
+                {activeWebsiteName && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/50">
+                    🌐 {activeWebsiteName}
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -91,6 +136,15 @@ export default function TransferCallModal({ isOpen, onClose, activeCall, onConfi
             {loading ? (
               <div className="py-8 text-center text-xs text-slate-400 font-medium animate-pulse">
                 Loading available team members...
+              </div>
+            ) : agents.length === 0 ? (
+              <div className="py-8 text-center px-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-white/5 space-y-1">
+                <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  No other team members assigned to {activeWebsiteName || "this website"}
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  Only agents explicitly assigned to this website can receive this transferred call.
+                </p>
               </div>
             ) : (
               <div className="space-y-2">

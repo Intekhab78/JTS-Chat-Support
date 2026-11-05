@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   TrendingUp, LayoutGrid, List, UserCheck, Clock, AlertCircle,
   Shield, UserPlus, Zap, CheckCircle2, Search, Plus, Download,
@@ -212,7 +213,14 @@ export default function CrmContainer({
   const [statusFilter, setStatusFilter] = useState("");
   const [leadView, setLeadView] = useState((isSales || user?.role === "tax_consultant") ? "my_leads" : "all");
   const [recordCategoryTab, setRecordCategoryTab] = useState("all");
-  const [workspaceTab, setWorkspaceTab] = useState(user?.role === "tax_consultant" ? "vat" : "dashboard");
+  const [searchParams] = useSearchParams();
+  const urlWorkspaceTab = searchParams.get("workspaceTab");
+  const [workspaceTab, setWorkspaceTab] = useState(
+    urlWorkspaceTab || (user?.role === "tax_consultant" ? "vat-dashboard" : "dashboard")
+  );
+  useEffect(() => {
+    if (urlWorkspaceTab) setWorkspaceTab(urlWorkspaceTab);
+  }, [urlWorkspaceTab]);
 
   // Dynamic module filtering per website/client configuration
   const filteredCrmGroups = useMemo(() => {

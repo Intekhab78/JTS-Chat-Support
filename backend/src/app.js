@@ -59,6 +59,7 @@ import healthRoutes from "./routes/health.js";
 import { env } from "./config/env.js";
 import { getSocketServer } from "./sockets/index.js";
 
+import { requireAuth, requireRole } from "./middleware/auth.js";
 import errorMiddleware from "./middleware/errorMiddleware.js";
 import AppError from "./utils/AppError.js";
 
@@ -80,19 +81,11 @@ export function createApp() {
   ];
 
   function isLocalRequest(req) {
-    const forwardedFor = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
-    const candidateIp = forwardedFor || req.ip || req.socket?.remoteAddress || "";
-    const origin = String(req.headers.origin || "");
-    const host = String(req.headers.host || "");
-
+    const candidateIp = req.ip || req.socket?.remoteAddress || "";
     return (
       candidateIp === "::1" ||
       candidateIp === "127.0.0.1" ||
-      candidateIp === "::ffff:127.0.0.1" ||
-      origin.includes("localhost") ||
-      origin.includes("127.0.0.1") ||
-      host.includes("localhost") ||
-      host.includes("127.0.0.1")
+      candidateIp === "::ffff:127.0.0.1"
     );
   }
 
@@ -170,18 +163,19 @@ export function createApp() {
     }
   });
 
+  // STRIPE & RAZORPAY WEBHOOKS NEED RAW BODY BEFORE GLOBAL EXPRESS.JSON
+  app.use("/api/stripe-webhooks", stripeWebhookRoutes);
+  app.use("/api/razorpay-webhooks", razorpayWebhookRoutes);
+
+  app.use(express.json({ limit: "10mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+  app.use(cookieParser());
+
+  app.use("/api/whatsapp-webhooks", whatsappWebhookRoutes);
   app.use("/api/auth/login", authLimiter);
   app.use("/api/auth/forgot-password", authLimiter);
   app.use("/api/auth/reset-password", authLimiter);
   app.use("/api", generalLimiter);
-
-  // STRIPE WEBHOOK NEEDS TO BE REGISTERED BEFORE EXPRESS.JSON
-  app.use("/api/stripe-webhooks", stripeWebhookRoutes);
-  app.use("/api/razorpay-webhooks", razorpayWebhookRoutes);
-  app.use("/api/whatsapp-webhooks", whatsappWebhookRoutes);
-
-  app.use(express.json({ limit: "50kb" }));
-  app.use(cookieParser());
 
   app.use(express.static(path.join(__dirname, "public"), {
     setHeaders: (res, filePath) => {
@@ -199,7 +193,7 @@ export function createApp() {
   app.get("/", (_, res) => res.json({ status: "success", message: "JTS Chat Backend is Live", version: "1.0.0" }));
   app.get("/health", (_, res) => res.json({ ok: true, timestamp: new Date() }));
   app.get("/api/health", (_, res) => res.json({ ok: true, timestamp: new Date() }));
-  app.get("/api/sockets-status", (_, res) => {
+  app.get("/api/sockets-status", requireAuth, requireRole("admin", "client", "manager"), (_, res) => {
     const io = getSocketServer();
     if (!io) return res.json({ connected: false, sockets: 0 });
     const socketsList = [];
@@ -239,7 +233,6 @@ export function createApp() {
   app.use("/api/crm/reminders", reminderRoutes);
   app.use("/api/audit-logs", auditRoutes);
   app.use("/api/webhooks", webhookRoutes);
-  app.use("/api/flows", flowRoutes);
   app.use("/api/billing", billingRoutes);
   app.use("/api/subscription-plans", subscriptionPlanRoutes);
   app.use("/api/tracking", trackingRoutes);

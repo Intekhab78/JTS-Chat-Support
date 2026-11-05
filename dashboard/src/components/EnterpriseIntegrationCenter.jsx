@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Share2, Key, Globe, Layers, RefreshCw, X, Plus, Save, CheckCircle2, AlertTriangle,
   Zap, Link2, ShieldCheck, Database, HardDrive, MessageSquare, ArrowUpRight
@@ -37,6 +38,24 @@ export default function EnterpriseIntegrationCenter() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (selectedConnector) {
+      setApiKeyInput(selectedConnector.settings?.apiKeyMasked ? "" : "");
+      setWebhookUrlInput(selectedConnector.settings?.webhookUrl || "");
+
+      const orig = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      const handleKeyDown = (e) => {
+        if (e.key === "Escape") setSelectedConnector(null);
+      };
+      window.addEventListener("keydown", handleKeyDown);
+      return () => {
+        document.body.style.overflow = orig;
+        window.removeEventListener("keydown", handleKeyDown);
+      };
+    }
+  }, [selectedConnector]);
 
   const handleConnect = async (e) => {
     e.preventDefault();
@@ -151,9 +170,8 @@ export default function EnterpriseIntegrationCenter() {
           <button
             key={cat.key}
             onClick={() => setActiveCategory(cat.key)}
-            className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all whitespace-nowrap ${
-              activeCategory === cat.key ? "bg-indigo-600 text-white shadow-md" : "text-slate-500 hover:text-slate-900"
-            }`}
+            className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all whitespace-nowrap ${activeCategory === cat.key ? "bg-indigo-600 text-white shadow-md" : "text-slate-500 hover:text-slate-900"
+              }`}
           >
             {cat.label}
           </button>
@@ -166,9 +184,8 @@ export default function EnterpriseIntegrationCenter() {
           <div key={c._id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4 hover:shadow-md transition-shadow flex flex-col justify-between">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase ${
-                  c.status === "connected" ? "bg-emerald-50 text-emerald-600 border border-emerald-200" : "bg-slate-100 text-slate-500 border border-slate-200"
-                }`}>
+                <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase ${c.status === "connected" ? "bg-emerald-50 text-emerald-600 border border-emerald-200" : "bg-slate-100 text-slate-500 border border-slate-200"
+                  }`}>
                   {c.status}
                 </span>
                 <span className="text-[9px] font-mono text-indigo-600 uppercase font-black">{c.authType}</span>
@@ -205,21 +222,57 @@ export default function EnterpriseIntegrationCenter() {
       </div>
 
       {/* Modal */}
-      {selectedConnector && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setSelectedConnector(null)} />
-          <div className="relative w-full max-w-xl bg-white rounded-3xl p-8 border border-slate-200 shadow-2xl space-y-6 animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b pb-4 border-slate-100">
+      {selectedConnector && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200" onClick={() => setSelectedConnector(null)} />
+          <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200/80 dark:border-white/10 shadow-2xl space-y-6 z-10 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b pb-4 border-slate-100 dark:border-white/5">
               <div>
-                <span className="text-[9px] font-black uppercase text-indigo-600">Connector Credentials Configuration</span>
-                <h3 className="text-base font-black text-slate-900">{selectedConnector.connectorName}</h3>
+                <span className="text-[9px] font-black uppercase text-indigo-600 dark:text-indigo-400">Connector Credentials Configuration</span>
+                <h3 className="text-base font-black text-slate-900 dark:text-white">{selectedConnector.connectorName}</h3>
               </div>
-              <button onClick={() => setSelectedConnector(null)} className="p-2 text-slate-400 hover:text-slate-900">
+              <button onClick={() => setSelectedConnector(null)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">
                 <X size={18} />
               </button>
             </div>
 
             <form onSubmit={handleConnect} className="space-y-4 text-xs font-bold">
+              {selectedConnector.connectorKey === "jts_meet" && (
+                <div className="p-4 bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <span className="text-[10px] font-black uppercase text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+                      <Zap size={13} className="text-indigo-500 fill-indigo-500" />
+                      JTS Ecosystem Zero-Friction Helper
+                    </span>
+                    <a
+                      href="https://meet.jtsmiddleeast.com/#admin"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                    >
+                      Open JTS Meet Admin Console <ArrowUpRight size={11} />
+                    </a>
+                  </div>
+                  <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                    New clients can auto-fill verified JTS Meet endpoints with one click or copy the custom secret token from their JTS Meet Admin Console.
+                  </p>
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+                        const defaultUrl = isLocal ? "http://localhost:4000/api/integrations/webhook" : "https://meet.jtsmiddleeast.com/api/integrations/webhook";
+                        setWebhookUrlInput(defaultUrl);
+                        if (!apiKeyInput) setApiKeyInput("jts_live_key_" + Math.random().toString(36).substring(2, 10));
+                      }}
+                      className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-indigo-700 transition-all flex items-center gap-1.5 shadow-sm"
+                    >
+                      <Zap size={11} /> 1-Click Auto Fill Defaults
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">API Key / Secret Token</label>
                 <input
@@ -227,7 +280,7 @@ export default function EnterpriseIntegrationCenter() {
                   value={apiKeyInput}
                   onChange={(e) => setApiKeyInput(e.target.value)}
                   placeholder="Enter secret token or API key..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-indigo-500 font-mono"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-white/10 rounded-xl px-4 py-3 outline-none focus:border-indigo-500 font-mono text-slate-800 dark:text-white"
                 />
               </div>
 
@@ -238,21 +291,22 @@ export default function EnterpriseIntegrationCenter() {
                   value={webhookUrlInput}
                   onChange={(e) => setWebhookUrlInput(e.target.value)}
                   placeholder="https://api.enterprise.com/webhooks/v1"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-indigo-500 font-mono"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-white/10 rounded-xl px-4 py-3 outline-none focus:border-indigo-500 font-mono text-slate-800 dark:text-white"
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                <button type="button" onClick={() => setSelectedConnector(null)} className="px-5 py-3 text-slate-500 font-black uppercase text-[10px]">
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-white/5">
+                <button type="button" onClick={() => setSelectedConnector(null)} className="px-5 py-3 text-slate-500 hover:text-slate-700 font-black uppercase text-[10px] rounded-xl transition-all">
                   Cancel
                 </button>
-                <button type="submit" className="px-6 py-3 bg-indigo-600 text-white font-black uppercase text-[10px] rounded-xl shadow-lg hover:bg-indigo-700">
+                <button type="submit" className="px-6 py-3 bg-indigo-600 text-white font-black uppercase text-[10px] rounded-xl shadow-lg hover:bg-indigo-700 transition-all">
                   Save & Connect
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

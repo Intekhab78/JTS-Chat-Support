@@ -23,6 +23,8 @@ export const createQuotation = asyncHandler(async (req, res) => {
   } = req.body;
 
   if (!customerId || !websiteId || !items.length) throw new AppError("Missing required fields.", 400);
+  const ownedWebsiteIds = req.ownedWebsiteIds || await (await import("../utils/roleUtils.js")).getOwnedWebsiteIds(req.user);
+  assertWebsiteAccess(req.user, ownedWebsiteIds, websiteId);
 
   const { Website } = await import("../models/Website.js");
   const website = await Website.findById(websiteId);
@@ -30,6 +32,9 @@ export const createQuotation = asyncHandler(async (req, res) => {
 
   const customer = await Customer.findById(customerId);
   if (!customer) throw new AppError("Customer not found.", 404);
+  if (String(customer.websiteId) !== String(websiteId)) {
+    throw new AppError("Customer does not belong to the selected website.", 400);
+  }
 
   // Compute itemized totals using Tax & Pricing Engine
   const totals = calculateTotals({
@@ -209,7 +214,33 @@ export const getQuotationsReports = asyncHandler(async (req, res) => {
   if (!websiteId) throw new AppError("Website ID is required.", 400);
   assertWebsiteAccess(req.user, req.ownedWebsiteIds, websiteId);
 
-  res.json({ success: true, message: "Quotation reports loaded" });
+  const quotes = await Quotation.find({ websiteId }).lean();
+  const byStatus = {};
+  let totalValue = 0;
+  let acceptedValue = 0;
+  let acceptedCount = 0;
+
+  for (const q of quotes) {
+    const st = q.status || "draft";
+    if (!byStatus[st]) byStatus[st] = { count: 0, total: 0 };
+    byStatus[st].count += 1;
+    byStatus[st].total += Number(q.total || 0);
+    totalValue += Number(q.total || 0);
+    if (st === "accepted" || st === "converted") {
+      acceptedCount += 1;
+      acceptedValue += Number(q.total || 0);
+    }
+  }
+
+  res.json({
+    success: true,
+    totalQuotations: quotes.length,
+    totalValue,
+    acceptedCount,
+    acceptedValue,
+    conversionRate: quotes.length > 0 ? Number(((acceptedCount / quotes.length) * 100).toFixed(1)) : 0,
+    byStatus
+  });
 });
 
 export const createQuotationPayment = asyncHandler(async (req, res) => {
@@ -323,6 +354,9 @@ export const deleteQuotation = asyncHandler(async (req, res) => {
 });
 
 export const approveQuotation = asyncHandler(async (req, res) => {
+  if (!["admin", "client", "manager", "management", "accounts"].includes(req.user.role)) {
+    throw new AppError("Only managers or administrators can approve quotations.", 403);
+  }
   const quotation = await Quotation.findById(req.params.id);
   if (!quotation) throw new AppError("Quotation not found.", 404);
   assertWebsiteAccess(req.user, req.ownedWebsiteIds, quotation.websiteId);
@@ -366,6 +400,9 @@ export const approveQuotation = asyncHandler(async (req, res) => {
 });
 
 export const denyQuotation = asyncHandler(async (req, res) => {
+  if (!["admin", "client", "manager", "management", "accounts"].includes(req.user.role)) {
+    throw new AppError("Only managers or administrators can reject quotations.", 403);
+  }
   const quotation = await Quotation.findById(req.params.id);
   if (!quotation) throw new AppError("Quotation not found.", 404);
   assertWebsiteAccess(req.user, req.ownedWebsiteIds, quotation.websiteId);

@@ -2,6 +2,8 @@ import { Ticket } from "../models/Ticket.js";
 import { Customer } from "../models/Customer.js";
 import { Invoice } from "../models/Invoice.js";
 import { logCrmActivity } from "./activityLoggerService.js";
+import { generateCRN } from "./customerService.js";
+import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 
 /**
  * AI Tool Function Calling framework
@@ -51,6 +53,7 @@ export const AiAgentTools = {
     }
 
     const customer = await Customer.create({
+      crn: await generateCRN(),
       websiteId,
       name: payload.name || "AI Contact Lead",
       email: payload.email || "",
@@ -111,8 +114,11 @@ export async function executeAgentToolCall(websiteId, toolName, payload = {}, ac
   }
 
   // Secure validation checks: ensure actor has permissions for CRM/Helpdesk scope
-  if (actor && actor.websiteIds && !actor.websiteIds.map(id => id.toString()).includes(websiteId.toString())) {
-    throw new Error("Sovereignty Breach: User does not belong to requested tenant websiteId.");
+  if (actor && actor.role !== "admin") {
+    const ownedWebsiteIds = await getOwnedWebsiteIds(actor);
+    if (!ownedWebsiteIds.map(id => id.toString()).includes(String(websiteId))) {
+      throw new Error("Sovereignty Breach: User does not belong to requested tenant websiteId.");
+    }
   }
 
   return await toolFn(websiteId, payload, actor);

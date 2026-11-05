@@ -164,15 +164,17 @@ export const listCustomers = asyncHandler(async (req, res) => {
   }
 
   if (search) {
+    const escapedSearch = String(search).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const rx = new RegExp(escapedSearch, "i");
     query.$or = [
-      { name: new RegExp(search, "i") },
-      { email: new RegExp(search, "i") },
-      { crn: new RegExp(search, "i") },
-      { phone: new RegExp(search, "i") },
-      { companyName: new RegExp(search, "i") },
-      { trn: new RegExp(search, "i") },
-      { tradeLicenseNumber: new RegExp(search, "i") },
-      { serviceType: new RegExp(search, "i") }
+      { name: rx },
+      { email: rx },
+      { crn: rx },
+      { phone: rx },
+      { companyName: rx },
+      { trn: rx },
+      { tradeLicenseNumber: rx },
+      { serviceType: rx }
     ];
   }
 
@@ -608,13 +610,16 @@ export const createCustomer = asyncHandler(async (req, res) => {
   }
 
   try {
-    getSocketServer().emit("lead:created", {
-      message: `New CRM record created for ${customer.companyName || customer.name}`,
-      user: customer.name,
-      customerId: customer._id,
-      websiteId: resolvedWebsiteId,
-      recordType: customer.recordType
-    });
+    const io = getSocketServer();
+    if (io) {
+      io.to(`ws_${resolvedWebsiteId}`).to("us_admin").emit("lead:created", {
+        message: `New CRM record created for ${customer.companyName || customer.name}`,
+        user: customer.name,
+        customerId: customer._id,
+        websiteId: resolvedWebsiteId,
+        recordType: customer.recordType
+      });
+    }
     broadcastDataChange({ entity: "customer", action: "created", websiteId: resolvedWebsiteId, data: { id: customer._id } });
     broadcastDataChange({ entity: "crm", action: "created", websiteId: resolvedWebsiteId, data: { id: customer._id } });
   } catch (err) {
@@ -810,9 +815,14 @@ export const archiveCustomer = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_ARCHIVE);
   const customer = await Customer.findById(req.params.id);
   if (!customer) throw new AppError("Customer not found", 404);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!ownedWebsiteIds.map(String).includes(String(customer.websiteId))) {
+    throw new AppError("Unauthorized access", 403);
+  }
 
   customer.archivedAt = new Date();
   customer.archivedBy = req.user._id;
+  customer.isArchived = true;
   customer.status = "inactive";
   await customer.save();
   res.json(customer);
@@ -821,10 +831,12 @@ export const archiveCustomer = asyncHandler(async (req, res) => {
 export const searchCustomers = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_VIEW);
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
-  const { q } = req.query;
+  const { q = "" } = req.query;
+  const escaped = String(q).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const rx = new RegExp(escaped, "i");
   const results = await Customer.find({
     websiteId: { $in: ownedWebsiteIds },
-    $or: [{ name: new RegExp(q, "i") }, { email: new RegExp(q, "i") }, { crn: new RegExp(q, "i") }]
+    $or: [{ name: rx }, { email: rx }, { crn: rx }]
   }).limit(10);
   res.json(results);
 });
@@ -832,15 +844,20 @@ export const searchCustomers = asyncHandler(async (req, res) => {
 export const mergeCustomers = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_MERGE);
   const { primaryCustomerId, secondaryCustomerId } = req.body;
+  const ownedWebsiteIds = (await getOwnedWebsiteIds(req.user)).map(String);
   const [primary, secondary] = await Promise.all([
     Customer.findById(primaryCustomerId),
     Customer.findById(secondaryCustomerId)
   ]);
   if (!primary || !secondary) throw new AppError("Both records must exist", 404);
+  if (!ownedWebsiteIds.includes(String(primary.websiteId)) || !ownedWebsiteIds.includes(String(secondary.websiteId))) {
+    throw new AppError("Unauthorized access", 403);
+  }
 
   primary.internalNotes = [...(primary.internalNotes || []), ...(secondary.internalNotes || [])];
   await primary.save();
   secondary.archivedAt = new Date();
+  secondary.isArchived = true;
   secondary.status = "inactive";
   await secondary.save();
   res.json(primary);
@@ -956,6 +973,10 @@ export const bulkDeleteCustomers = asyncHandler(async (req, res) => {
 export const getPortalAccessStatus = asyncHandler(async (req, res) => {
   const customer = await Customer.findById(req.params.id);
   if (!customer) throw new AppError("Customer not found", 404);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!ownedWebsiteIds.map(String).includes(String(customer.websiteId))) {
+    throw new AppError("Unauthorized access", 403);
+  }
 
   const portalUser = await User.findOne({ customerId: customer._id, role: "customer" });
   res.json({
@@ -968,6 +989,13 @@ export const getPortalAccessStatus = asyncHandler(async (req, res) => {
 export const grantPortalAccess = asyncHandler(async (req, res) => {
   const customer = await Customer.findById(req.params.id);
   if (!customer) throw new AppError("Customer not found", 404);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!ownedWebsiteIds.map(String).includes(String(customer.websiteId))) {
+    throw new AppError("Unauthorized access", 403);
+  }
+  if (!customer.email) {
+    throw new AppError("Customer must have a valid email address before granting portal access.", 400);
+  }
 
   let portalUser = await User.findOne({ customerId: customer._id, role: "customer" });
   if (portalUser) {
@@ -976,25 +1004,27 @@ export const grantPortalAccess = asyncHandler(async (req, res) => {
 
   let tempPassword = "";
 
-  // Check if a user with that email already exists
-  const existingUser = await User.findOne({ email: customer.email });
+  // Check if a user with that email already exists — NEVER downgrade staff/admin accounts!
+  const existingUser = await User.findOne({ email: customer.email.toLowerCase().trim() });
   if (existingUser) {
-    existingUser.role = "customer";
+    if (existingUser.role !== "customer") {
+      throw new AppError("This email already belongs to a staff or administrator account and cannot be converted into a customer portal account.", 409);
+    }
     existingUser.customerId = customer._id;
-    if (!existingUser.websiteIds.includes(customer.websiteId)) {
+    if (!existingUser.websiteIds.some(id => String(id) === String(customer.websiteId))) {
       existingUser.websiteIds.push(customer.websiteId);
     }
     await existingUser.save();
     portalUser = existingUser;
   } else {
-    tempPassword = `JTS@${Math.floor(1000 + Math.random() * 9000)}`;
+    const crypto = (await import("crypto")).default;
+    tempPassword = `JTS@${crypto.randomInt(100000, 999999)}`;
     const bcrypt = (await import("bcryptjs")).default;
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(tempPassword, salt);
+    const hashedPassword = await bcrypt.hash(tempPassword, 12);
 
     portalUser = await User.create({
       name: customer.name,
-      email: customer.email,
+      email: customer.email.toLowerCase().trim(),
       password: hashedPassword,
       role: "customer",
       customerId: customer._id,
@@ -1006,18 +1036,20 @@ export const grantPortalAccess = asyncHandler(async (req, res) => {
       customerId: customer._id,
       type: "note",
       title: "Client Portal Access Granted",
-      description: `Portal access has been granted for email ${customer.email}. Temporary Password: ${tempPassword}`
+      description: `Portal access has been granted for email ${customer.email}. Credentials dispatched via email.`
     });
   }
 
   // Send dispatch invite email to the customer
   try {
     const { sendEmail } = await import("../services/emailService.js");
+    const { env } = await import("../config/env.js");
+    const portalLoginUrl = `${env.clientUrl || "http://localhost:5173"}/login`;
     const emailBody = `
       <h3>Welcome to JTS Client Portal</h3>
       <p>Dear ${customer.name},</p>
       <p>Your client portal account has been successfully provisioned. You can now login to manage your quotes, invoices, orders, and support tickets.</p>
-      <p><strong>Portal URL:</strong> <a href="http://localhost:5173/login">http://localhost:5173/login</a></p>
+      <p><strong>Portal URL:</strong> <a href="${portalLoginUrl}">${portalLoginUrl}</a></p>
       <p><strong>Login ID (Email):</strong> ${customer.email}</p>
       ${tempPassword ? `<p><strong>Temporary Password:</strong> ${tempPassword}</p>` : `<p>Please use your existing account password to login.</p>`}
       <br />
@@ -1036,7 +1068,7 @@ export const grantPortalAccess = asyncHandler(async (req, res) => {
     success: true,
     message: tempPassword
       ? `Portal access granted successfully. Temporary Password is: ${tempPassword}. An invitation email has been sent to the customer.`
-      : "Portal access granted successfully. (Existing account linked). An invitation email has been sent.",
+      : "Portal access granted successfully. (Existing customer account linked). An invitation email has been sent.",
     email: portalUser.email
   });
 });
@@ -1044,6 +1076,10 @@ export const grantPortalAccess = asyncHandler(async (req, res) => {
 export const revokePortalAccess = asyncHandler(async (req, res) => {
   const customer = await Customer.findById(req.params.id);
   if (!customer) throw new AppError("Customer not found", 404);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!ownedWebsiteIds.map(String).includes(String(customer.websiteId))) {
+    throw new AppError("Unauthorized access", 403);
+  }
 
   await User.deleteMany({ customerId: customer._id, role: "customer" });
 
@@ -1059,10 +1095,16 @@ export const revokePortalAccess = asyncHandler(async (req, res) => {
 });
 
 export const getEmployees = asyncHandler(async (req, res) => {
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
   const { websiteId } = req.query;
-  const filter = { role: { $nin: ["admin", "client"] } };
+  const filter = { role: { $nin: ["admin", "client", "customer", "supplier"] } };
   if (websiteId) {
+    if (req.user.role !== "admin" && !ownedWebsiteIds.map(String).includes(String(websiteId))) {
+      throw new AppError("Unauthorized access", 403);
+    }
     filter.websiteIds = websiteId;
+  } else if (req.user.role !== "admin") {
+    filter.websiteIds = { $in: ownedWebsiteIds };
   }
   const employees = await User.find(filter).select("-password").sort({ name: 1 });
   res.json({ employees });
@@ -1095,6 +1137,10 @@ export const importCustomers = asyncHandler(async (req, res) => {
 
   if (!websiteId) {
     throw new AppError("websiteId is required for CSV imports", 400);
+  }
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (req.user.role !== "admin" && !ownedWebsiteIds.map(String).includes(String(websiteId))) {
+    throw new AppError("Unauthorized access to target website", 403);
   }
 
   if (!req.file || !req.file.buffer) {
@@ -1224,6 +1270,10 @@ export const importCustomers = asyncHandler(async (req, res) => {
 export const addCustomerService = asyncHandler(async (req, res) => {
   const customer = await Customer.findById(req.params.id);
   if (!customer) throw new AppError("Customer not found", 404);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!ownedWebsiteIds.map(String).includes(String(customer.websiteId))) {
+    throw new AppError("Unauthorized access", 403);
+  }
 
   const {
     serviceName,
@@ -1271,6 +1321,10 @@ export const addCustomerService = asyncHandler(async (req, res) => {
 export const updateCustomerService = asyncHandler(async (req, res) => {
   const customer = await Customer.findById(req.params.id);
   if (!customer) throw new AppError("Customer not found", 404);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!ownedWebsiteIds.map(String).includes(String(customer.websiteId))) {
+    throw new AppError("Unauthorized access", 403);
+  }
 
   const service = customer.services.id(req.params.serviceId);
   if (!service) throw new AppError("Service entry not found", 404);
@@ -1319,6 +1373,10 @@ export const updateCustomerService = asyncHandler(async (req, res) => {
 export const deleteCustomerService = asyncHandler(async (req, res) => {
   const customer = await Customer.findById(req.params.id);
   if (!customer) throw new AppError("Customer not found", 404);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!ownedWebsiteIds.map(String).includes(String(customer.websiteId))) {
+    throw new AppError("Unauthorized access", 403);
+  }
 
   customer.services.pull(req.params.serviceId);
   await customer.save();

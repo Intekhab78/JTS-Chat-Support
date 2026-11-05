@@ -1,11 +1,25 @@
 import mongoose from "mongoose";
 import { Customer } from "../models/Customer.js";
-import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
+import { User } from "../models/User.js";
+import { getOwnedWebsiteIds, normalizeRole } from "../utils/roleUtils.js";
+import { assertWebsiteAccess } from "../utils/websiteScope.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
 import { checkUnattendedClientsAndEscalate } from "../services/complianceInactivityService.js";
 import { generateCRN } from "../services/customerService.js";
+
+function resolveScopedComplianceWebsiteIds(user, ownedWebsiteIds, websiteId) {
+  if (websiteId) {
+    assertWebsiteAccess(user, ownedWebsiteIds, websiteId);
+    return [websiteId];
+  }
+  return ownedWebsiteIds;
+}
+
+function escapeComplianceRegex(str = "") {
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 /**
  * 1. VAT Filing Dashboard Aggregation API
@@ -16,7 +30,7 @@ export const getVatComplianceStats = asyncHandler(async (req, res) => {
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
   const { websiteId, month, consultantId, status, search } = req.query;
 
-  const rawWebsiteIds = websiteId ? [websiteId] : ownedWebsiteIds;
+  const rawWebsiteIds = resolveScopedComplianceWebsiteIds(req.user, ownedWebsiteIds, websiteId);
   const websiteFilterList = [];
   rawWebsiteIds.forEach(id => {
     if (!id) return;
@@ -61,18 +75,10 @@ export const getVatComplianceStats = asyncHandler(async (req, res) => {
     query.ownerId = req.user._id;
   }
 
-  let allVatClients = await Customer.find(query)
+  const allVatClients = await Customer.find(query)
     .populate("ownerId", "name email role")
     .sort({ vatFilingDueDate: 1, name: 1 })
     .lean();
-
-  if (allVatClients.length === 0 && query.ownerId) {
-    delete query.ownerId;
-    allVatClients = await Customer.find(query)
-      .populate("ownerId", "name email role")
-      .sort({ vatFilingDueDate: 1, name: 1 })
-      .lean();
-  }
 
   const now = new Date();
   const next7Days = new Date();
@@ -152,7 +158,7 @@ export const getCorporateTaxStats = asyncHandler(async (req, res) => {
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
   const { websiteId, consultantId, status, financialYear, search } = req.query;
 
-  const rawWebsiteIds = websiteId ? [websiteId] : ownedWebsiteIds;
+  const rawWebsiteIds = resolveScopedComplianceWebsiteIds(req.user, ownedWebsiteIds, websiteId);
   const websiteFilterList = [];
   rawWebsiteIds.forEach(id => {
     if (!id) return;
@@ -196,18 +202,10 @@ export const getCorporateTaxStats = asyncHandler(async (req, res) => {
     query.ownerId = req.user._id;
   }
 
-  let ctClients = await Customer.find(query)
+  const ctClients = await Customer.find(query)
     .populate("ownerId", "name email role")
     .sort({ corporateTaxDueDate: 1, name: 1 })
     .lean();
-
-  if (ctClients.length === 0 && query.ownerId) {
-    delete query.ownerId;
-    ctClients = await Customer.find(query)
-      .populate("ownerId", "name email role")
-      .sort({ corporateTaxDueDate: 1, name: 1 })
-      .lean();
-  }
 
   const now = new Date();
   const next7Days = new Date();
@@ -279,7 +277,7 @@ export const getTradeLicenseStats = asyncHandler(async (req, res) => {
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
   const { websiteId, consultantId, highlight, status, search } = req.query;
 
-  const rawWebsiteIds = websiteId ? [websiteId] : ownedWebsiteIds;
+  const rawWebsiteIds = resolveScopedComplianceWebsiteIds(req.user, ownedWebsiteIds, websiteId);
   const websiteFilterList = [];
   rawWebsiteIds.forEach(id => {
     if (!id) return;
@@ -324,18 +322,10 @@ export const getTradeLicenseStats = asyncHandler(async (req, res) => {
     query.ownerId = req.user._id;
   }
 
-  let rawClients = await Customer.find(query)
+  const rawClients = await Customer.find(query)
     .populate("ownerId", "name email role")
     .sort({ tradeLicenseExpiryDate: 1, name: 1 })
     .lean();
-
-  if (rawClients.length === 0 && query.ownerId) {
-    delete query.ownerId;
-    rawClients = await Customer.find(query)
-      .populate("ownerId", "name email role")
-      .sort({ tradeLicenseExpiryDate: 1, name: 1 })
-      .lean();
-  }
 
   const now = new Date();
 
@@ -425,8 +415,9 @@ export const getInactivityLogs = asyncHandler(async (req, res) => {
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
   const { websiteId } = req.query;
 
+  const scopedWebsiteIds = resolveScopedComplianceWebsiteIds(req.user, ownedWebsiteIds, websiteId);
   const query = {
-    websiteId: websiteId ? websiteId : { $in: ownedWebsiteIds },
+    websiteId: { $in: scopedWebsiteIds },
     lastEscalationLevel: { $gt: 0 }
   };
 
@@ -934,7 +925,11 @@ export const createVatComplianceRecord = asyncHandler(async (req, res) => {
   }
 
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (websiteId) assertWebsiteAccess(req.user, ownedWebsiteIds, websiteId);
   const targetWebsiteId = websiteId || ownedWebsiteIds[0];
+  if (!targetWebsiteId) {
+    throw new AppError("No accessible website found for this compliance record", 400);
+  }
 
   const crn = await generateCRN();
   const customer = await Customer.create({
@@ -978,6 +973,7 @@ export const updateVatComplianceRecord = asyncHandler(async (req, res) => {
   if (!customer) {
     throw new AppError("VAT Compliance record not found", 404);
   }
+  assertWebsiteAccess(req.user, await getOwnedWebsiteIds(req.user), customer.websiteId);
 
   if (name !== undefined) customer.name = name;
   if (companyName !== undefined) customer.companyName = companyName;
@@ -1005,6 +1001,7 @@ export const deleteVatComplianceRecord = asyncHandler(async (req, res) => {
   if (!customer) {
     throw new AppError("VAT Compliance record not found", 404);
   }
+  assertWebsiteAccess(req.user, await getOwnedWebsiteIds(req.user), customer.websiteId);
 
   customer.archivedAt = new Date();
   await customer.save();
@@ -1037,7 +1034,11 @@ export const createCorporateTaxRecord = asyncHandler(async (req, res) => {
   }
 
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (websiteId) assertWebsiteAccess(req.user, ownedWebsiteIds, websiteId);
   const targetWebsiteId = websiteId || ownedWebsiteIds[0];
+  if (!targetWebsiteId) {
+    throw new AppError("No accessible website found for this compliance record", 400);
+  }
 
   const crn = await generateCRN();
   const customer = await Customer.create({
@@ -1083,6 +1084,7 @@ export const updateCorporateTaxRecord = asyncHandler(async (req, res) => {
   if (!customer) {
     throw new AppError("Corporate Tax record not found", 404);
   }
+  assertWebsiteAccess(req.user, await getOwnedWebsiteIds(req.user), customer.websiteId);
 
   if (name !== undefined) customer.name = name;
   if (companyName !== undefined) customer.companyName = companyName;
@@ -1111,6 +1113,7 @@ export const deleteCorporateTaxRecord = asyncHandler(async (req, res) => {
   if (!customer) {
     throw new AppError("Corporate Tax record not found", 404);
   }
+  assertWebsiteAccess(req.user, await getOwnedWebsiteIds(req.user), customer.websiteId);
 
   customer.archivedAt = new Date();
   await customer.save();
@@ -1142,7 +1145,11 @@ export const createTradeLicenseRecord = asyncHandler(async (req, res) => {
   }
 
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (websiteId) assertWebsiteAccess(req.user, ownedWebsiteIds, websiteId);
   const targetWebsiteId = websiteId || ownedWebsiteIds[0];
+  if (!targetWebsiteId) {
+    throw new AppError("No accessible website found for this compliance record", 400);
+  }
 
   const crn = await generateCRN();
   const customer = await Customer.create({
@@ -1186,6 +1193,7 @@ export const updateTradeLicenseRecord = asyncHandler(async (req, res) => {
   if (!customer) {
     throw new AppError("Trade License record not found", 404);
   }
+  assertWebsiteAccess(req.user, await getOwnedWebsiteIds(req.user), customer.websiteId);
 
   if (name !== undefined) customer.name = name;
   if (companyName !== undefined) customer.companyName = companyName;
@@ -1213,6 +1221,7 @@ export const deleteTradeLicenseRecord = asyncHandler(async (req, res) => {
   if (!customer) {
     throw new AppError("Trade License record not found", 404);
   }
+  assertWebsiteAccess(req.user, await getOwnedWebsiteIds(req.user), customer.websiteId);
 
   customer.archivedAt = new Date();
   await customer.save();

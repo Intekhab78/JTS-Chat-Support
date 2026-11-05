@@ -50,7 +50,8 @@ function destinationForRole(role) {
   if (normalizedRole === "accounts") return "/accounts";
   if (normalizedRole === "supplier") return "/supplier";
   if (normalizedRole === "sales") return "/sales";
-  if (normalizedRole === "manager") return "/manager";
+  if (normalizedRole === "manager" || normalizedRole === "management") return "/manager";
+  if (normalizedRole === "agent") return "/agent";
   if (normalizedRole === "admin") return "/admin";
   return "/client";
 }
@@ -97,7 +98,7 @@ export default function App() {
           <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
           <Route path="/ticket-status/:ticketId" element={<TicketStatusPage />} />
           <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><ClientPage /></ProtectedRoute>} />
-          <Route path="/manager" element={<ProtectedRoute allowedRoles={["manager", "admin", "client"]}><ManagerPage /></ProtectedRoute>} />
+          <Route path="/manager" element={<ProtectedRoute allowedRoles={["manager", "management", "admin", "client"]}><ManagerPage /></ProtectedRoute>} />
           <Route path="/client" element={<ProtectedRoute allowedRoles={["client", "manager", "tax_consultant", "admin"]}><ClientPage /></ProtectedRoute>} />
           <Route path="/tax-consultant" element={<ProtectedRoute allowedRoles={["tax_consultant", "admin", "client"]}><ClientPage /></ProtectedRoute>} />
           <Route path="/purchase" element={<ProtectedRoute allowedRoles={["purchase", "admin", "client"]}><PurchasePage /></ProtectedRoute>} />

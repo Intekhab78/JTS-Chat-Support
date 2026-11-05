@@ -13,6 +13,7 @@ import { sendInvoiceDispatchNotification } from "../services/dispatchNotificatio
 import { applyTaxToInvoice } from "../utils/taxCalculator.js";
 import { Payment } from "../models/Payment.js";
 import { env } from "../config/env.js";
+import { canUseMockBilling } from "../utils/mockBillingAccess.js";
 import crypto from "crypto";
 import Razorpay from "razorpay";
 
@@ -51,8 +52,15 @@ export const listAllInvoices = asyncHandler(async (req, res) => {
   const { websiteId } = req.query;
   const validWebsiteId = (websiteId && websiteId !== "undefined" && websiteId !== "null" && String(websiteId).trim() !== "") ? String(websiteId).trim() : null;
 
+  if (req.user?.role !== "admin" && (!ownedWebsiteIds || ownedWebsiteIds.length === 0)) {
+    return res.json([]);
+  }
+
   let query = {};
   if (validWebsiteId) {
+    if (req.user?.role !== "admin" && !toWebsiteIdStrings(ownedWebsiteIds).includes(validWebsiteId)) {
+      throw new AppError("Access denied", 403);
+    }
     if (mongoose.Types.ObjectId.isValid(validWebsiteId)) {
       query.$or = [
         { websiteId: validWebsiteId },
@@ -61,22 +69,14 @@ export const listAllInvoices = asyncHandler(async (req, res) => {
     } else {
       query.websiteId = validWebsiteId;
     }
-  } else if (ownedWebsiteIds && ownedWebsiteIds.length > 0) {
+  } else if (req.user?.role !== "admin") {
     query.websiteId = { $in: ownedWebsiteIds };
   }
 
-  let invoices = await Invoice.find(query)
+  const invoices = await Invoice.find(query)
     .populate("customerId", "name companyName email phone trn websiteId")
     .sort({ issuedAt: -1, createdAt: -1 });
 
-  // Fallback: If query returned 0 invoices (e.g., website ID format mismatch), retrieve all invoices in DB
-  if (!invoices || invoices.length === 0) {
-    invoices = await Invoice.find({})
-      .populate("customerId", "name companyName email phone trn websiteId")
-      .sort({ issuedAt: -1, createdAt: -1 });
-  }
-
-  console.log(`[INVOICES_API] User: ${req.user?.role} (${req.user?._id}) -> Returning ${invoices.length} invoices.`);
   res.json(invoices);
 });
 
@@ -210,7 +210,15 @@ export const updateInvoice = asyncHandler(async (req, res) => {
 
   await findAuthorizedCustomer(nextCustomerId, nextWebsiteId, ownedWebsiteIds);
 
-  let updateData = { ...req.body };
+  const ALLOWED_INVOICE_FIELDS = [
+    "customerId", "websiteId", "items", "discountAmount", "shippingCharges",
+    "adjustment", "currency", "status", "dueDate", "notes", "terms",
+    "billingAddress", "shippingAddress", "paidAmount", "paymentStatus"
+  ];
+  let updateData = {};
+  for (const key of ALLOWED_INVOICE_FIELDS) {
+    if (req.body[key] !== undefined) updateData[key] = req.body[key];
+  }
   if (req.body.status === "paid") {
     updateData.paymentStatus = "paid";
     if (invoice && invoice.total) {
@@ -306,7 +314,7 @@ export const createRazorpayOrder = asyncHandler(async (req, res) => {
       }
     });
   } catch (rzpErr) {
-    if (keyId.startsWith("rzp_test_") || process.env.NODE_ENV !== "production") {
+    if (canUseMockBilling(env) && keyId.startsWith("rzp_test_")) {
       console.warn("Razorpay API order creation failed in test mode, using sandbox order ID:", rzpErr?.error?.description || rzpErr.message);
       order = {
         id: `order_mock_${Math.random().toString(36).substring(2, 12)}`,
@@ -335,13 +343,21 @@ export const verifyRazorpayPayment = asyncHandler(async (req, res) => {
     throw new AppError("Razorpay API Configuration missing.", 500);
   }
 
-  // Validate signature (skip for mock orders in test mode)
-  if (!razorpay_order_id?.startsWith("order_mock_") && !razorpay_payment_id?.startsWith("pay_mock_")) {
+  const isMockIds = razorpay_order_id?.startsWith("order_mock_") || razorpay_payment_id?.startsWith("pay_mock_");
+  if (isMockIds && !canUseMockBilling(env)) {
+    throw new AppError("Mock payment identifiers are disabled outside explicit sandbox mode.", 400);
+  }
+  if (!isMockIds) {
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      throw new AppError("Missing Razorpay verification parameters.", 400);
+    }
     const hmac = crypto.createHmac("sha256", keySecret);
     hmac.update(razorpay_order_id + "|" + razorpay_payment_id);
     const generatedSignature = hmac.digest("hex");
+    const genBuf = Buffer.from(generatedSignature, "utf8");
+    const sigBuf = Buffer.from(String(razorpay_signature), "utf8");
 
-    if (generatedSignature !== razorpay_signature) {
+    if (genBuf.length !== sigBuf.length || !crypto.timingSafeEqual(genBuf, sigBuf)) {
       throw new AppError("Payment verification failed. Signature mismatch.", 400);
     }
   }

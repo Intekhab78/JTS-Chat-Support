@@ -40,7 +40,7 @@ function ExportMenu({ data, title }) {
     // Transform data for export based on the dashboard type.
     // For simplicity, we assume `data` is an array of objects to export, or we just export the raw JSON object stringified for demo.
     // In a real app, we would parse out the metrics to a flat array.
-    const flatData = Array.isArray(data) ? data : [{ ...data.metrics, ...data }];
+    const flatData = Array.isArray(data) ? data : (data ? [{ ...(data.metrics || {}), ...data }] : []);
 
     if (type === 'csv') exportToCSV(flatData, `${title.replace(/\s+/g, '_')}_Report`);
     if (type === 'xlsx') exportToExcel(flatData, `${title.replace(/\s+/g, '_')}_Report`);
@@ -150,7 +150,7 @@ function ExecutiveDashboard({ reportRange, onDataLoaded }) {
   const widgets = {
     clients: <MetricCard label="Active Clients" value={data.totalClients?.value ?? data.totalClients} trend={data.totalClients?.trend} hint="Registered client accounts" icon={Users} colorClass="bg-gradient-to-br from-blue-500 to-indigo-600" />,
     websites: <MetricCard label="Active Websites" value={data.activeWebsites?.value ?? data.activeWebsites} trend={data.activeWebsites?.trend} hint="Domains with active tracking" icon={LayoutDashboard} colorClass="bg-gradient-to-br from-emerald-400 to-teal-500" />,
-    revenue: <MetricCard label="Total Revenue (MRR)" value={`$${(data.mrr?.value ?? data.mrr).toLocaleString()}`} trend={data.mrr?.trend} hint="Estimated monthly recurring" icon={DollarSign} colorClass="bg-gradient-to-br from-amber-400 to-orange-500" />,
+    revenue: <MetricCard label="Total Revenue (MRR)" value={`$${Number(data.mrr?.value ?? data.mrr ?? 0).toLocaleString()}`} trend={data.mrr?.trend} hint="Estimated monthly recurring" icon={DollarSign} colorClass="bg-gradient-to-br from-amber-400 to-orange-500" />,
     csat: <MetricCard label="CSAT Score" value={`${data.csat?.value ?? data.csat}%`} trend={data.csat?.trend} hint="Average Customer Satisfaction" icon={Activity} colorClass="bg-gradient-to-br from-rose-400 to-red-500" />
   };
 
@@ -308,9 +308,9 @@ function LeadAnalytics({ reportRange, onDataLoaded }) {
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={data.leadsBySource.length ? data.leadsBySource : [{ name: "No Data", count: 1 }]} dataKey="count" nameKey="name" cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={5} stroke="none">
-                  {(data.leadsBySource.length ? data.leadsBySource : [{ name: "No Data", count: 1 }]).map((_, i) => (
-                    <Cell key={i} fill={data.leadsBySource.length ? REPORT_COLORS[i % REPORT_COLORS.length] : "#e2e8f0"} />
+                <Pie data={data.leadsBySource?.length ? data.leadsBySource : [{ name: "No Data", count: 1 }]} dataKey="count" nameKey="name" cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={5} stroke="none">
+                  {(data.leadsBySource?.length ? data.leadsBySource : [{ name: "No Data", count: 1 }]).map((_, i) => (
+                    <Cell key={i} fill={data.leadsBySource?.length ? REPORT_COLORS[i % REPORT_COLORS.length] : "#e2e8f0"} />
                   ))}
                 </Pie>
                 <Tooltip contentStyle={{ borderRadius: "16px", border: "none", boxShadow: "0 10px 40px -10px rgba(0,0,0,0.1)", fontWeight: 700, fontSize: "12px" }} />
@@ -329,7 +329,7 @@ function LeadAnalytics({ reportRange, onDataLoaded }) {
                 <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 700, fill: "#64748b" }} width={80} />
                 <Tooltip contentStyle={{ borderRadius: "16px", border: "none", boxShadow: "0 10px 40px -10px rgba(0,0,0,0.1)", fontWeight: 700, fontSize: "12px" }} />
                 <Bar dataKey="count" radius={[0, 8, 8, 0]} barSize={20}>
-                  {data.leadsByService.map((_, i) => <Cell key={i} fill={REPORT_COLORS[i % REPORT_COLORS.length]} />)}
+                  {(data.leadsByService || []).map((_, i) => <Cell key={i} fill={REPORT_COLORS[i % REPORT_COLORS.length]} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -346,7 +346,7 @@ function LeadAnalytics({ reportRange, onDataLoaded }) {
                 <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 700, fill: "#64748b" }} width={100} />
                 <Tooltip contentStyle={{ borderRadius: "16px", border: "none", boxShadow: "0 10px 40px -10px rgba(0,0,0,0.1)", fontWeight: 700, fontSize: "12px" }} />
                 <Bar dataKey="count" radius={[0, 8, 8, 0]} barSize={30}>
-                  {data.leadsByWebsite.map((_, i) => <Cell key={i} fill={REPORT_COLORS[i % REPORT_COLORS.length]} />)}
+                  {(data.leadsByWebsite || []).map((_, i) => <Cell key={i} fill={REPORT_COLORS[i % REPORT_COLORS.length]} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -526,9 +526,9 @@ function AgentPerformanceAnalytics({ reportRange, onDataLoaded }) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-        <MetricCard label="Total Agents" value={data.metrics.totalAgents} icon={Users} colorClass="bg-gradient-to-br from-indigo-500 to-purple-600" />
-        <MetricCard label="Avg Productivity" value={data.metrics.avgProductivity} hint="Platform wide score" icon={Activity} colorClass="bg-gradient-to-br from-emerald-400 to-teal-500" />
-        <MetricCard label="Avg CSAT" value={data.metrics.avgCsat} hint="Customer Satisfaction" icon={MessageCircle} colorClass="bg-gradient-to-br from-amber-400 to-orange-500" />
+        <MetricCard label="Total Agents" value={data.metrics?.totalAgents ?? 0} icon={Users} colorClass="bg-gradient-to-br from-indigo-500 to-purple-600" />
+        <MetricCard label="Avg Productivity" value={data.metrics?.avgProductivity ?? 0} hint="Platform wide score" icon={Activity} colorClass="bg-gradient-to-br from-emerald-400 to-teal-500" />
+        <MetricCard label="Avg CSAT" value={data.metrics?.avgCsat ?? "0%"} hint="Customer Satisfaction" icon={MessageCircle} colorClass="bg-gradient-to-br from-amber-400 to-orange-500" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -537,7 +537,7 @@ function AgentPerformanceAnalytics({ reportRange, onDataLoaded }) {
         <div className="rounded-[32px] bg-white p-8 border border-slate-200/60 shadow-sm">
           <h3 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2"><Briefcase size={20} className="text-indigo-500" /> Top Performers</h3>
           <div className="space-y-4">
-            {data.topPerformers.map((agent, i) => {
+            {(data.topPerformers || []).map((agent, i) => {
               const rankColors = ["from-amber-400 to-yellow-500 shadow-amber-400/20", "from-slate-300 to-slate-400 shadow-slate-300/20", "from-amber-600 to-amber-700 shadow-amber-600/20"];
               const badgeBg = i < 3 ? rankColors[i] : "from-slate-100 to-slate-200 text-slate-500";
               return (
@@ -556,7 +556,7 @@ function AgentPerformanceAnalytics({ reportRange, onDataLoaded }) {
                 </div>
               );
             })}
-            {data.topPerformers.length === 0 && <p className="text-sm text-slate-500 text-center py-4 font-bold">No data available</p>}
+            {(!data.topPerformers || data.topPerformers.length === 0) && <p className="text-sm text-slate-500 text-center py-4 font-bold">No data available</p>}
           </div>
         </div>
 
@@ -564,7 +564,7 @@ function AgentPerformanceAnalytics({ reportRange, onDataLoaded }) {
         <div className="rounded-[32px] bg-white p-8 border border-slate-200/60 shadow-sm">
           <h3 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2"><Ticket size={20} className="text-emerald-500" /> Top Support Agents</h3>
           <div className="space-y-4">
-            {data.topSupport.map((agent, i) => {
+            {(data.topSupport || []).map((agent, i) => {
               const rankColors = ["from-amber-400 to-yellow-500 shadow-amber-400/20", "from-slate-300 to-slate-400 shadow-slate-300/20", "from-amber-600 to-amber-700 shadow-amber-600/20"];
               const badgeBg = i < 3 ? rankColors[i] : "from-slate-100 to-slate-200 text-slate-500";
               return (
@@ -583,7 +583,7 @@ function AgentPerformanceAnalytics({ reportRange, onDataLoaded }) {
                 </div>
               );
             })}
-            {data.topSupport.length === 0 && <p className="text-sm text-slate-500 text-center py-4 font-bold">No data available</p>}
+            {(!data.topSupport || data.topSupport.length === 0) && <p className="text-sm text-slate-500 text-center py-4 font-bold">No data available</p>}
           </div>
         </div>
 
@@ -591,7 +591,7 @@ function AgentPerformanceAnalytics({ reportRange, onDataLoaded }) {
         <div className="rounded-[32px] bg-white p-8 border border-slate-200/60 shadow-sm">
           <h3 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2"><DollarSign size={20} className="text-amber-500" /> Top Sales Agents</h3>
           <div className="space-y-4">
-            {data.topSales.map((agent, i) => {
+            {(data.topSales || []).map((agent, i) => {
               const rankColors = ["from-amber-400 to-yellow-500 shadow-amber-400/20", "from-slate-300 to-slate-400 shadow-slate-300/20", "from-amber-600 to-amber-700 shadow-amber-600/20"];
               const badgeBg = i < 3 ? rankColors[i] : "from-slate-100 to-slate-200 text-slate-500";
               return (
@@ -610,7 +610,7 @@ function AgentPerformanceAnalytics({ reportRange, onDataLoaded }) {
                 </div>
               );
             })}
-            {data.topSales.length === 0 && <p className="text-sm text-slate-500 text-center py-4 font-bold">No data available</p>}
+            {(!data.topSales || data.topSales.length === 0) && <p className="text-sm text-slate-500 text-center py-4 font-bold">No data available</p>}
           </div>
         </div>
       </div>
@@ -824,12 +824,12 @@ function RevenueAnalytics({ reportRange, onDataLoaded }) {
   if (loading && !data) return <div className="h-64 flex items-center justify-center text-slate-400 text-sm font-black uppercase tracking-widest animate-pulse">Loading Revenue Data...</div>;
   if (!data) return <EmptyState title="No Revenue Data" message="Unable to fetch revenue metrics for these filters." actionText="Clear Filters" onAction={() => setFilters({ clientId: "" })} />;
 
-  const chartDataWithTarget = data.revenueGrowth.map(item => ({
+  const chartDataWithTarget = (data.revenueGrowth || []).map(item => ({
     ...item,
     target: 12000
   }));
 
-  const mrrNumeric = parseFloat(data.metrics.mrr.replace(/[^0-9.]/g, "")) || 0;
+  const mrrNumeric = parseFloat(String(data.metrics?.mrr || "0").replace(/[^0-9.]/g, "")) || 0;
   const targetGoal = 20000;
   const targetPercent = Math.min(100, Math.round((mrrNumeric / targetGoal) * 100));
 

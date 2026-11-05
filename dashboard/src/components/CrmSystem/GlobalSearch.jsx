@@ -44,9 +44,12 @@ export default function GlobalSearch() {
         inputRef.current?.select();
       });
       document.body.style.overflow = "hidden";
-      return () => window.cancelAnimationFrame(focusTimer);
+      return () => {
+        window.cancelAnimationFrame(focusTimer);
+        document.body.style.overflow = "";
+      };
     } else {
-      document.body.style.overflow = "auto";
+      document.body.style.overflow = "";
       setQuery("");
       setResults([]);
     }
@@ -62,7 +65,7 @@ export default function GlobalSearch() {
       setLoading(true);
       try {
         const data = await api(`/api/crm/search?q=${encodeURIComponent(query)}`);
-        setResults(data || []);
+        setResults(Array.isArray(data) ? data : (data?.results || data?.customers || []));
         setSelectedIndex(0);
       } catch (err) {
         console.error("Global search failed:", err);
@@ -89,7 +92,15 @@ export default function GlobalSearch() {
 
   const handleSelect = (result) => {
     setIsOpen(false);
-    const pathPrefix = location.pathname.startsWith("/manager") ? "/manager" : location.pathname.startsWith("/client") ? "/client" : location.pathname.startsWith("/agent") ? "/agent" : "/sales";
+    const pathPrefix = location.pathname.startsWith("/admin")
+      ? "/admin"
+      : location.pathname.startsWith("/manager")
+        ? "/manager"
+        : location.pathname.startsWith("/client")
+          ? "/client"
+          : location.pathname.startsWith("/agent")
+            ? "/agent"
+            : "/sales";
     
     if (result.type === "company") {
       navigate(`${pathPrefix}?tab=crm&workspaceTab=companies&companyId=${result._id}`);
@@ -97,8 +108,10 @@ export default function GlobalSearch() {
       navigate(`${pathPrefix}?tab=crm&workspaceTab=contacts&contactId=${result._id}`);
     } else if (result.type === "opportunity") {
       navigate(`${pathPrefix}?tab=crm&workspaceTab=deals&dealId=${result._id}`);
+    } else if (pathPrefix === "/sales") {
+      navigate(`/sales?leadId=${result._id}`);
     } else {
-      navigate(`${pathPrefix}?leadId=${result._id}`);
+      navigate(`${pathPrefix}?tab=crm&leadId=${result._id}`);
     }
   };
 

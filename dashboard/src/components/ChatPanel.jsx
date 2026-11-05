@@ -3,7 +3,8 @@ import { api, apiUrl } from "../api/client.js";
 import { 
   Paperclip, FileText, Check, CheckCheck, Send, Ticket, PlusCircle, UserPlus, UserCheck, UserMinus, ShieldAlert, Globe,
   Sparkles, Bot, Zap, ShoppingCart, Calendar, DollarSign, Clock, ExternalLink, ArrowRightLeft,
-  MessageSquare, Plus, Phone, PhoneMissed, Mail, FileSpreadsheet, X, ArrowRight, Trash2, RotateCcw, XCircle 
+  MessageSquare, Plus, Phone, PhoneMissed, PhoneCall, Mail, FileSpreadsheet, X, ArrowRight, Trash2, RotateCcw, XCircle,
+  Smile, Mic, MicOff, Laptop, Smartphone, Tablet, MapPin, Video
 } from "lucide-react";
 import { cleanString } from "../utils/stringUtils.js";
 import { useToast } from "../context/ToastContext.jsx";
@@ -11,9 +12,9 @@ import { useToast } from "../context/ToastContext.jsx";
 
 function getDeviceIcon(deviceInfo = "", os = "", device = "") {
   const str = `${deviceInfo} ${os} ${device}`.toLowerCase();
-  if (/mobile|android|iphone|ios/.test(str)) return "📱";
-  if (/tablet|ipad/.test(str)) return "📟";
-  return "💻";
+  if (/mobile|android|iphone|ios/.test(str)) return <Smartphone size={12} className="inline mr-1 text-slate-400" />;
+  if (/tablet|ipad/.test(str)) return <Tablet size={12} className="inline mr-1 text-slate-400" />;
+  return <Laptop size={12} className="inline mr-1 text-slate-400" />;
 }
 
 function getFormattedDevice(visitor) {
@@ -53,6 +54,17 @@ function getFormattedLocation(visitor) {
   return "Kolkata";
 }
 
+function getSafePathname(pageUrl) {
+  if (!pageUrl) return "/";
+  try {
+    return new URL(pageUrl, typeof window !== "undefined" ? window.location.origin : "http://localhost").pathname || "/";
+  } catch {
+    return String(pageUrl).startsWith("/") ? String(pageUrl) : `/${String(pageUrl)}`;
+  }
+}
+
+const QUICK_EMOJIS = ["😊", "👍", "👋", "🙏", "🎉", "✅", "🔥", "❤️", "🤝", "💡", "📄", "📞", "⭐", "🚀", "🙌", "💼"];
+
 function getInitials(name = "") {
   return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2) || "?";
 }
@@ -83,6 +95,39 @@ const linkify = (text = "") => {
     }
     return part;
   });
+};
+
+const renderFormattedMessage = (rawText = "") => {
+  if (!rawText) return null;
+  const str = String(rawText);
+
+  // Parse Ticket note prefix: [Ticket #... Note]: ...
+  const tktMatch = str.match(/^(?:[\uD83C\uDFAB🎫]\s*)?\[Ticket\s*#([a-zA-Z0-9_-]+)\s*Note\]:\s*(.*)/is);
+  if (tktMatch) {
+    const tktId = tktMatch[1];
+    const restOfMsg = tktMatch[2];
+    return (
+      <div className="space-y-1 text-left">
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 text-[10.5px] font-bold">
+          <Ticket size={11} className="text-indigo-500 shrink-0" />
+          <span>Ticket #{tktId} Note</span>
+        </span>
+        <div className="pt-0.5">{linkify(restOfMsg)}</div>
+      </div>
+    );
+  }
+
+  // Parse Phone call prefix
+  if (str.startsWith("📞")) {
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <PhoneCall size={12} className="text-emerald-500 shrink-0" />
+        <span>{linkify(str.replace(/^📞\s*/, ""))}</span>
+      </span>
+    );
+  }
+
+  return linkify(str);
 };
 
 export default function ChatPanel({
@@ -124,21 +169,74 @@ export default function ChatPanel({
   // Enterprise additions
   const [localViewers, setLocalViewers] = useState([]);
   const [showVariablePicker, setShowVariablePicker] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isDictating, setIsDictating] = useState(false);
+  const recognitionRef = useRef(null);
   const [showSidebar, setShowSidebar] = useState(false);
   const [zeroAgentMode, setZeroAgentMode] = useState(false);
   const [isSynthesizingAiReply, setIsSynthesizingAiReply] = useState(false);
 
+  const toggleVoiceDictation = () => {
+    const SpeechRec = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
+    if (!SpeechRec) {
+      toast.info("Voice dictation is not supported in this browser.");
+      return;
+    }
+    if (isDictating && recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch {}
+      setIsDictating(false);
+      return;
+    }
+    try {
+      const rec = new SpeechRec();
+      rec.continuous = false;
+      rec.interimResults = false;
+      rec.lang = "en-US";
+      rec.onstart = () => setIsDictating(true);
+      rec.onresult = (event) => {
+        const transcript = Array.from(event.results || []).map((r) => r[0]?.transcript || "").join(" ").trim();
+        if (transcript) {
+          setDraft((prev) => (prev ? `${prev} ${transcript}` : transcript));
+          onTyping?.(true);
+        }
+      };
+      rec.onerror = () => setIsDictating(false);
+      rec.onend = () => setIsDictating(false);
+      recognitionRef.current = rec;
+      rec.start();
+    } catch {
+      setIsDictating(false);
+    }
+  };
+
   const handleTriggerZeroAgentAiResponse = async () => {
-    const lastVisitorMsg = [...messages].reverse().find(m => m.sender === "visitor" || m.sender === "client");
-    const query = lastVisitorMsg?.text || "Inquiring about UAE business solutions and tax filing packages.";
+    if (!session?.sessionId && !session?._id) return;
     setIsSynthesizingAiReply(true);
 
-    setTimeout(() => {
+    try {
+      const sId = session.sessionId || session._id;
+      const res = await api(`/api/chat/sessions/${sId}/ai-suggest`, {
+        method: "POST"
+      });
+
+      if (res?.reply) {
+        setDraft(res.reply);
+        toast.success(`AI suggested reply for ${res.websiteName || "website"} loaded!`);
+      } else {
+        throw new Error(res?.message || "Could not generate reply");
+      }
+    } catch (err) {
+      console.warn("AI suggest fallback:", err);
+      const lastVisitorMsg = [...messages].reverse().find(m => m.sender === "visitor" || m.sender === "client");
+      const websiteName = session?.websiteId?.websiteName || session?.websiteId?.domain || "our team";
+      const visitorName = session?.visitorId?.name || "there";
+      const query = lastVisitorMsg?.text ? `Regarding your inquiry "${lastVisitorMsg.text.slice(0, 45)}..."` : "Thank you for reaching out";
+      const fallbackReply = `Hello ${visitorName}! ${query}, our support team at ${websiteName} is here to assist you. How can I help you today?`;
+      setDraft(fallbackReply);
+      toast.info(`Generated contextual reply for ${websiteName}`);
+    } finally {
       setIsSynthesizingAiReply(false);
-      const aiReply = `Hello! I am your AI Virtual Assistant. Regarding your query: "${query.slice(0, 45)}...", our UAE operations desk provides complete end-to-end Corporate Tax, VAT Compliance, and Invoicing services. Would you like me to send our commercial proposal or connect you with a specialist?`;
-      setDraft(aiReply);
-      toast.success("AI suggested response loaded in message box!");
-    }, 600);
+    }
   };
 
 
@@ -188,17 +286,25 @@ export default function ChatPanel({
       const text = msg.message || msg.text;
       if (!text || msg.translatedText || clientTranslations[text]) return;
 
-      // Check for non-Latin characters (Cyrillic, Arabic, Devanagari/Hindi, etc.)
-      const hasNonLatin = /[^\u0000-\u007F]/.test(text);
-      if (hasNonLatin) {
-        fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=autodetect|en`)
+      // Check for non-Latin characters (Cyrillic, Arabic, Devanagari/Hindi, etc.) but ignore common emojis & ticket notes
+      const cleanForLang = text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F2FF}]/gu, "").trim();
+      const hasRealForeignScript = /[\u0600-\u06FF\u0750-\u077F\u0400-\u04FF\u4E00-\u9FFF\u0900-\u097F]/.test(cleanForLang);
+      if (hasRealForeignScript && !text.includes("[Ticket #")) {
+        fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(cleanForLang)}&langpair=autodetect|en`)
           .then(res => res.json())
           .then(data => {
-            if (data?.responseData?.translatedText && data.responseData.translatedText.toLowerCase() !== text.toLowerCase()) {
+            const trans = data?.responseData?.translatedText;
+            if (
+              trans &&
+              !trans.toUpperCase().includes("PLEASE SELECT TWO DISTINCT LANGUAGES") &&
+              !trans.toUpperCase().includes("INVALID") &&
+              trans.toLowerCase() !== text.toLowerCase() &&
+              trans.toLowerCase() !== cleanForLang.toLowerCase()
+            ) {
               setClientTranslations(prev => ({
                 ...prev,
                 [text]: {
-                  translatedText: data.responseData.translatedText,
+                  translatedText: trans,
                   detectedLanguage: data.responseData.detectedLanguage || data.matches?.[0]?.["subject"] || "ru"
                 }
               }));
@@ -413,6 +519,31 @@ export default function ChatPanel({
     setShortcutQuery("");
   };
 
+  const handleCreateJtsMeet = async () => {
+    try {
+      const randomPart = Math.random().toString(36).substring(2, 7) + Math.random().toString(36).substring(2, 7);
+      const roomId = `jts-${randomPart}`;
+      let meetUrl = `https://meet.jtsmiddleeast.com/meet/${roomId}`;
+
+      try {
+        const platRes = await api(`/api/crm/meeting-platforms?websiteId=${session?.websiteId?._id || session?.websiteId || ""}`).catch(() => ({}));
+        const jtsPlat = (platRes?.platforms || []).find(p => p.key === "jts_meet");
+        if (jtsPlat?.urlTemplate) {
+          meetUrl = jtsPlat.urlTemplate.replace("{roomId}", roomId);
+        }
+      } catch (e) {
+        // use fallback meetUrl
+      }
+
+      const inviteMsg = `📹 Let's connect on video call via JTS Meet:\n${meetUrl}`;
+      setDraft(inviteMsg);
+      textareaRef.current?.focus();
+      toast.success("JTS Meet link generated! Press Send or press Enter to share.");
+    } catch (err) {
+      toast.error("Could not generate JTS Meet link: " + (err.message || ""));
+    }
+  };
+
   const filteredShortcuts = shortcutQuery
     ? shortcuts.filter(s =>
       s.shortcut.toLowerCase().includes(shortcutQuery.toLowerCase()) ||
@@ -514,115 +645,126 @@ export default function ChatPanel({
 
           {/* Primary Action Controls */}
           <div className="flex items-center gap-1 shrink-0">
-            {/* Call Visitor (Web Direct Voice) */}
-            <button
-              type="button"
-              onClick={() => {
-                if (!isVisitorOnline) {
-                  toast.info(`${visitorName || 'Visitor'} is currently offline.`);
-                  return;
-                }
-                window.dispatchEvent(new CustomEvent("agent:start-call", {
-                  detail: {
-                    sessionId: session.sessionId,
-                    visitorId: session.visitorId?._id || session.visitorId?.visitorId || session.visitorId,
-                    visitorName: session.visitorId?.name || session.customerId?.name || visitorName || "Visitor",
-                    crn: session.crn,
-                    websiteId: session.websiteId?._id || session.websiteId,
-                    visitor: session.visitorId
-                  }
-                }));
-              }}
-              title={isVisitorOnline ? `Call ${visitorName || 'Visitor'} (Web Direct Voice)` : `${visitorName || 'Visitor'} is offline`}
-              className={`p-1.5 rounded-lg border transition-all flex items-center justify-center shadow-xs active:scale-95 ${
-                isVisitorOnline
-                  ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-sm cursor-pointer hover:scale-105"
-                  : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-60"
-              }`}
-            >
-              <Phone size={15} />
-            </button>
-
-            {/* Take Over Action */}
-            {isAssignedToMe ? (
-              <button
-                type="button"
-                onClick={onRelease}
-                title="Release Chat"
-                className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20 rounded-lg transition-all shadow-xs active:scale-95 flex items-center justify-center"
-              >
-                <UserMinus size={15} />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onTakeOver}
-                title="Take Over Chat"
-                className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-xs active:scale-95 flex items-center justify-center hover:shadow-md"
-              >
-                <UserCheck size={15} />
-              </button>
+            {readonly && (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold border border-slate-200/60 dark:border-white/5">
+                <ShieldCheck size={12} className="text-emerald-500" />
+                <span>Archived Transcript</span>
+              </div>
             )}
 
-            {/* Request Control */}
-            {!isAssignedToMe && (
-              <button
-                type="button"
-                onClick={onRequestControl || onTakeOver}
-                title="Request Control from Assigned Agent"
-                className="p-1.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg transition-all shadow-xs active:scale-95 hover:border-indigo-300 flex items-center justify-center"
-              >
-                <ShieldAlert size={15} />
-              </button>
-            )}
-
-            {/* Close / Trash / Restore actions */}
-            {session && (
+            {!readonly && (
               <>
-                {Boolean(session.archivedAt) ? (
-                  <>
-                    {onRestore && (
-                      <button
-                        type="button"
-                        onClick={onRestore}
-                        title="Restore chat from Trash"
-                        className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg transition-all shadow-xs active:scale-95 flex items-center justify-center"
-                      >
-                        <RotateCcw size={15} />
-                      </button>
-                    )}
-                    {onDeletePermanent && (
-                      <button
-                        type="button"
-                        onClick={onDeletePermanent}
-                        title="Delete permanently"
-                        className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg transition-all shadow-xs active:scale-95 flex items-center justify-center"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    )}
-                  </>
+                {/* Call Visitor (Web Direct Voice) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isVisitorOnline) {
+                      toast.info(`${visitorName || 'Visitor'} is currently offline.`);
+                      return;
+                    }
+                    window.dispatchEvent(new CustomEvent("agent:start-call", {
+                      detail: {
+                        sessionId: session.sessionId,
+                        visitorId: session.visitorId?._id || session.visitorId?.visitorId || session.visitorId,
+                        visitorName: session.visitorId?.name || session.customerId?.name || visitorName || "Visitor",
+                        crn: session.crn,
+                        websiteId: session.websiteId?._id || session.websiteId,
+                        visitor: session.visitorId
+                      }
+                    }));
+                  }}
+                  title={isVisitorOnline ? `Call ${visitorName || 'Visitor'} (Web Direct Voice)` : `${visitorName || 'Visitor'} is offline`}
+                  className={`p-1.5 rounded-lg border transition-all flex items-center justify-center shadow-xs active:scale-95 ${
+                    isVisitorOnline
+                      ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-sm cursor-pointer hover:scale-105"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-60"
+                  }`}
+                >
+                  <Phone size={15} />
+                </button>
+
+                {/* Take Over Action */}
+                {isAssignedToMe ? (
+                  <button
+                    type="button"
+                    onClick={onRelease}
+                    title="Release Chat"
+                    className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20 rounded-lg transition-all shadow-xs active:scale-95 flex items-center justify-center"
+                  >
+                    <UserMinus size={15} />
+                  </button>
                 ) : (
+                  <button
+                    type="button"
+                    onClick={onTakeOver}
+                    title="Take Over Chat"
+                    className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-xs active:scale-95 flex items-center justify-center hover:shadow-md"
+                  >
+                    <UserCheck size={15} />
+                  </button>
+                )}
+
+                {/* Request Control */}
+                {!isAssignedToMe && (
+                  <button
+                    type="button"
+                    onClick={onRequestControl || onTakeOver}
+                    title="Request Control from Assigned Agent"
+                    className="p-1.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg transition-all shadow-xs active:scale-95 hover:border-indigo-300 flex items-center justify-center"
+                  >
+                    <ShieldAlert size={15} />
+                  </button>
+                )}
+
+                {/* Close / Trash / Restore actions */}
+                {session && (
                   <>
-                    {session.status !== 'closed' && onClose && (
-                      <button
-                        type="button"
-                        onClick={onClose}
-                        title="Close active chat conversation"
-                        className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 rounded-lg transition-all shadow-xs active:scale-95 flex items-center justify-center"
-                      >
-                        <XCircle size={15} />
-                      </button>
-                    )}
-                    {onMoveToTrash && (
-                      <button
-                        type="button"
-                        onClick={onMoveToTrash}
-                        title="Move conversation to Trash"
-                        className="p-1.5 bg-slate-50 hover:bg-rose-50 dark:bg-slate-800 dark:hover:bg-rose-500/10 text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 border border-slate-200 hover:border-rose-200 dark:border-slate-700 rounded-lg transition-all shadow-xs active:scale-95 flex items-center justify-center"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                    {Boolean(session.archivedAt) ? (
+                      <>
+                        {onRestore && (
+                          <button
+                            type="button"
+                            onClick={onRestore}
+                            title="Restore chat from Trash"
+                            className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg transition-all shadow-xs active:scale-95 flex items-center justify-center"
+                          >
+                            <RotateCcw size={15} />
+                          </button>
+                        )}
+                        {onDeletePermanent && (
+                          <button
+                            type="button"
+                            onClick={onDeletePermanent}
+                            title="Delete permanently"
+                            className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg transition-all shadow-xs active:scale-95 flex items-center justify-center"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {session.status !== 'closed' && onClose && (
+                          <button
+                            type="button"
+                            onClick={onClose}
+                            title="Close active chat conversation"
+                            className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 rounded-lg transition-all shadow-xs active:scale-95 flex items-center justify-center"
+                          >
+                            <XCircle size={15} />
+                          </button>
+                        )}
+                        {onMoveToTrash && (
+                          <button
+                            type="button"
+                            onClick={onMoveToTrash}
+                            title="Move conversation to Trash"
+                            className="p-1.5 bg-slate-50 hover:bg-rose-50 dark:bg-slate-800 dark:hover:bg-rose-500/10 text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 border border-slate-200 hover:border-rose-200 dark:border-slate-700 rounded-lg transition-all shadow-xs active:scale-95 flex items-center justify-center"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </>
                     )}
                   </>
                 )}
@@ -680,14 +822,15 @@ export default function ChatPanel({
             <span className="text-slate-300 dark:text-slate-700">•</span>
 
             {/* Location (City) */}
-            <span className="font-semibold text-slate-700 dark:text-slate-300 shrink-0">
-              📍 {getFormattedLocation(visitor)}
+            <span className="font-semibold text-slate-700 dark:text-slate-300 shrink-0 inline-flex items-center gap-1">
+              <MapPin size={11} className="text-slate-400 shrink-0" />
+              <span>{getFormattedLocation(visitor)}</span>
             </span>
             <span className="text-slate-300 dark:text-slate-700">•</span>
 
             {/* Browsing Path */}
             <span className="text-indigo-600 dark:text-indigo-400 font-semibold truncate">
-              Browsing: {session.currentPage ? new URL(session.currentPage).pathname : "/"}
+              Browsing: {getSafePathname(session.currentPage)}
             </span>
           </div>
 
@@ -730,6 +873,16 @@ export default function ChatPanel({
               {zeroAgentMode && (
                 <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-purple-400 ring-2 ring-white dark:ring-slate-900 animate-pulse" />
               )}
+            </button>
+
+            {/* JTS Meet 1-Click Video Call */}
+            <button
+              type="button"
+              onClick={handleCreateJtsMeet}
+              className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 rounded-md flex items-center justify-center transition-all active:scale-95"
+              title="Instant JTS Meet Video Call with Visitor"
+            >
+              <Video size={13} />
             </button>
 
             {/* Ticket */}
@@ -780,37 +933,72 @@ export default function ChatPanel({
             )}
 
             {messages.map((msg, i) => {
-              const isSystem = msg.sender === "system" || msg.channel === "voice" || (msg.message && msg.message.startsWith("📞"));
+              const rawMsg = typeof msg.message === "string" ? msg.message : "";
+              const isVoiceCallMsg = msg.channel === "voice" || rawMsg.startsWith("📞");
+              const isSystem = msg.sender === "system" || isVoiceCallMsg;
               if (isSystem) {
+                const isCompletedCall = isVoiceCallMsg && (rawMsg.includes("completed") || rawMsg.includes("Completed") || rawMsg.includes("Duration:"));
+                const cleanText = rawMsg.replace(/^📞\s*/, "");
+                const timeString = msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
+
+                if (isCompletedCall) {
+                  return (
+                    <div key={msg._id || i} className="flex justify-center my-2.5">
+                      <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 text-emerald-800 dark:text-emerald-300 text-xs font-semibold shadow-xs">
+                        <PhoneCall size={13} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span>{cleanText}</span>
+                        <span className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 font-normal ml-1">
+                          {timeString}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (isVoiceCallMsg) {
+                  return (
+                    <div key={msg._id || i} className="flex justify-center my-2.5">
+                      <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/40 text-rose-700 dark:text-rose-300 text-xs font-semibold shadow-xs">
+                        <PhoneMissed size={13} className="text-rose-600 dark:text-rose-400 shrink-0" />
+                        <span>{cleanText}</span>
+                        <span className="text-[10px] text-rose-400 dark:text-rose-400 font-normal ml-1">
+                          {timeString}
+                        </span>
+                        {isVisitorOnline && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              window.dispatchEvent(new CustomEvent("agent:start-call", {
+                                detail: {
+                                  sessionId: session.sessionId,
+                                  visitorId: session.visitorId?._id || session.visitorId?.visitorId || session.visitorId,
+                                  visitorName: session.visitorId?.name || session.customerId?.name || visitorName || "Visitor",
+                                  crn: session.crn,
+                                  websiteId: session.websiteId?._id || session.websiteId,
+                                  visitor: session.visitorId
+                                }
+                              }));
+                            }}
+                            className="ml-1.5 px-2 py-0.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-[9.5px] font-bold flex items-center gap-1 transition-all active:scale-95 shadow-xs cursor-pointer"
+                            title="Call back visitor now via web voice"
+                          >
+                            <Phone size={9} />
+                            <span>Call Back</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
-                  <div key={msg._id || i} className="flex justify-center my-2.5">
-                    <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/40 text-rose-700 dark:text-rose-300 text-xs font-semibold shadow-xs">
-                      <PhoneMissed size={13} className="text-rose-600 dark:text-rose-400 shrink-0" />
-                      <span>{typeof msg.message === "string" ? msg.message.replace(/^📞\s*/, "") : msg.message}</span>
-                      <span className="text-[10px] text-rose-400 dark:text-rose-400 font-normal ml-1">
-                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                      {isVisitorOnline && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            window.dispatchEvent(new CustomEvent("agent:start-call", {
-                              detail: {
-                                sessionId: session.sessionId,
-                                visitorId: session.visitorId?._id || session.visitorId?.visitorId || session.visitorId,
-                                visitorName: session.visitorId?.name || session.customerId?.name || visitorName || "Visitor",
-                                crn: session.crn,
-                                websiteId: session.websiteId?._id || session.websiteId,
-                                visitor: session.visitorId
-                              }
-                            }));
-                          }}
-                          className="ml-1.5 px-2 py-0.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-[9.5px] font-bold flex items-center gap-1 transition-all active:scale-95 shadow-xs cursor-pointer"
-                          title="Call back visitor now via web voice"
-                        >
-                          <Phone size={9} />
-                          <span>Call Back</span>
-                        </button>
+                  <div key={msg._id || i} className="flex justify-center my-2">
+                    <div className="flex items-center gap-2 px-3.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 text-[11px] font-semibold shadow-2xs">
+                      <span>{cleanText}</span>
+                      {timeString && (
+                        <span className="text-[10px] text-slate-400 font-normal ml-0.5">
+                          {timeString}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -839,7 +1027,7 @@ export default function ChatPanel({
                           {msg.message && <p>{msg.message}</p>}
                         </div>
                       ) : (
-                        linkify(msg.message)
+                        renderFormattedMessage(msg.message)
                       )}
 
                       {/* Multilingual Translation */}
@@ -858,7 +1046,11 @@ export default function ChatPanel({
                           else if (langCode.includes("zh")) { flag = "🇨🇳"; langName = "Chinese"; }
                           else if (langCode.includes("de")) { flag = "🇩🇪"; langName = "German"; }
 
-                          if (!translated || translated.toLowerCase() === (msg.message || "").toLowerCase()) return null;
+                          if (
+                            !translated ||
+                            translated.toUpperCase().includes("PLEASE SELECT TWO DISTINCT LANGUAGES") ||
+                            translated.toLowerCase() === (msg.message || "").toLowerCase()
+                          ) return null;
 
                           return (
                             <div className="mt-2 text-xs p-2.5 rounded-xl border bg-indigo-50/90 border-indigo-200 text-indigo-950 dark:bg-indigo-950/60 dark:border-indigo-500/30 dark:text-indigo-100 shadow-sm">
@@ -879,10 +1071,12 @@ export default function ChatPanel({
                       </span>
                       {isMe && (
                         <div className="flex items-center">
-                          {msg.readAt ? (
-                            <CheckCheck size={12} className="text-indigo-600" />
+                          {(msg.readAt || msg.status === "read") ? (
+                            <CheckCheck size={12} className="text-indigo-600" title="Read" />
+                          ) : (msg.deliveredAt || msg.status === "delivered") ? (
+                            <CheckCheck size={12} className="text-slate-400" title="Delivered" />
                           ) : (
-                            <Check size={12} className="text-slate-400" />
+                            <Check size={12} className="text-slate-400" title="Sent" />
                           )}
                         </div>
                       )}
@@ -995,11 +1189,36 @@ export default function ChatPanel({
 
 
 
+              {showEmojiPicker && (
+                <div className="absolute bottom-full right-20 mb-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl p-3 z-50 w-56 animate-in slide-in-from-bottom-2 duration-200">
+                  <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-slate-100 dark:border-white/5">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Quick Emoji</span>
+                    <button type="button" onClick={() => setShowEmojiPicker(false)} className="text-slate-400 hover:text-slate-600 text-xs">✕</button>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {QUICK_EMOJIS.map((em) => (
+                      <button
+                        key={em}
+                        type="button"
+                        onClick={() => {
+                          setDraft((prev) => `${prev}${em}`);
+                          setShowEmojiPicker(false);
+                          textareaRef.current?.focus();
+                        }}
+                        className="p-1.5 text-base hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-all"
+                      >
+                        {em}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <form onSubmit={submit} className="flex flex-col gap-2">
                 <div className="relative group">
                   <textarea
                     ref={textareaRef}
-                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl pl-3 pr-24 py-2.5 text-xs md:text-sm font-medium focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 outline-none transition-all resize-none min-h-[60px] max-h-32 dark:text-white"
+                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl pl-3 pr-36 py-2.5 text-xs md:text-sm font-medium focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 outline-none transition-all resize-none min-h-[60px] max-h-32 dark:text-white"
                     placeholder={
                       isChatDisabled
                         ? "Session is read-only..."
@@ -1030,14 +1249,44 @@ export default function ChatPanel({
                     }}
                   />
 
-                  <div className="absolute right-2.5 bottom-2.5 flex items-center gap-1.5">
+                  <div className="absolute right-2.5 bottom-2.5 flex items-center gap-1">
                     <button
                       type="button"
-                      onClick={() => setShowVariablePicker(!showVariablePicker)}
+                      onClick={() => {
+                        setShowEmojiPicker((prev) => !prev);
+                        setShowVariablePicker(false);
+                      }}
+                      className={`w-7 h-7 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-white/10 rounded-lg transition-all ${showEmojiPicker ? "text-indigo-600 bg-indigo-50" : ""}`}
+                      title="Insert Emoji"
+                    >
+                      <Smile size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={toggleVoiceDictation}
+                      className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all ${isDictating ? "bg-rose-500 text-white animate-pulse" : "text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-white/10"}`}
+                      title={isDictating ? "Stop Voice Dictation" : "Voice-to-Text Dictation"}
+                    >
+                      {isDictating ? <MicOff size={15} /> : <Mic size={15} />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowVariablePicker(!showVariablePicker);
+                        setShowEmojiPicker(false);
+                      }}
                       className={`w-7 h-7 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-white/10 rounded-lg transition-all font-mono font-bold text-xs ${showVariablePicker ? "text-indigo-600 bg-indigo-50" : ""}`}
                       title="Insert placeholder variable"
                     >
                       {"{}"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCreateJtsMeet}
+                      className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-white/10 rounded-lg transition-all"
+                      title="Create & Insert JTS Video Meeting Link"
+                    >
+                      <Video size={15} />
                     </button>
                     <button
                       type="button"
@@ -1059,6 +1308,20 @@ export default function ChatPanel({
 
                 <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
               </form>
+            </div>
+          )}
+
+          {readonly && (
+            <div className="px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-white/10 flex items-center justify-between text-xs text-slate-500 shrink-0">
+              <div className="flex items-center gap-2">
+                <ShieldCheck size={14} className="text-emerald-500" />
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                  Archived Conversation Transcript &bull; Read-only Audit Mode
+                </span>
+              </div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                Audit Trail
+              </span>
             </div>
           )}
         </div>

@@ -12,6 +12,7 @@ import { User } from "../models/User.js";
 import { sendEmail, getEmailTemplate } from "./emailService.js";
 import { checkUnattendedClientsAndEscalate } from "./complianceInactivityService.js";
 import { runDatabaseBackup } from "./backupService.js";
+import { runSubscriptionBillingCron } from "./subscriptionCron.js";
 
 export const startCronJobs = () => {
 
@@ -61,6 +62,12 @@ export const startCronJobs = () => {
   cron.schedule("0 8 * * *", () => {
     console.log("[Cron] Running Subscription Renewal/Expiry Reminder check...");
     checkSubscriptionRenewalReminders();
+  });
+
+  // 8. JTS Workspace Subscription Expiry & Recurring Billing — fires daily at 8:05 AM
+  cron.schedule("5 8 * * *", () => {
+    checkWorkspaceSubscriptionExpirations();
+    runSubscriptionBillingCron();
   });
 
   // 9. Compliance Unattended Client Escalation Check — fires daily at 8:00 AM
@@ -113,9 +120,10 @@ export async function checkWorkspaceSubscriptionExpirations() {
     console.log(`[Cron] Found ${users.length} workspaces expiring in exactly 7 days.`);
 
     for (const u of users) {
+      const planLabel = String(u.subscription?.plan || "basic").toUpperCase();
       const emailHtml = getEmailTemplate(
         "Subscription Expiring Soon",
-        `Hi ${u.name},<br/><br/>Your JTS Chat Support subscription for plan <strong>${u.subscription.plan.toUpperCase()}</strong> is expiring in exactly 7 days on <strong>${new Date(u.subscription.expiresAt).toLocaleDateString()}</strong>.<br/><br/>Please renew your subscription to maintain uninterrupted access to all of JTS platform features.`,
+        `Hi ${u.name},<br/><br/>Your JTS Chat Support subscription for plan <strong>${planLabel}</strong> is expiring in exactly 7 days on <strong>${new Date(u.subscription.expiresAt).toLocaleDateString()}</strong>.<br/><br/>Please renew your subscription to maintain uninterrupted access to all of JTS platform features.`,
         "Renew Subscription Now",
         `${process.env.CLIENT_URL || "http://localhost:5173"}/client?tab=billing`
       );

@@ -3,7 +3,7 @@
  */
 import { Website } from "../models/Website.js";
 
-const OWNER_ROLES = new Set(["admin", "client", "manager"]);
+const OWNER_ROLES = new Set(["admin", "client", "manager", "management"]);
 const PERSONNEL_BASE_ROLES = new Set(["agent", "sales", "purchase", "supplier", "accounts", "tax_consultant", "customer"]);
 
 /**
@@ -15,6 +15,7 @@ const PERSONNEL_BASE_ROLES = new Set(["agent", "sales", "purchase", "supplier", 
 export function normalizeRole(role) {
   const normalized = String(role || "").trim().toLowerCase();
   if (!normalized) return normalized;
+  if (normalized === "user") return "agent";
   if (normalized === "account") return "accounts";
   if (OWNER_ROLES.has(normalized) || PERSONNEL_BASE_ROLES.has(normalized)) return normalized;
   return "agent";
@@ -63,20 +64,20 @@ export async function getOwnedWebsiteIds(user) {
   }
 
   if (role === "client") {
-    // Client: websites they own (fallback to all if managerId not set)
+    const assigned = sanitizeWebsiteIds(user.websiteIds);
     const websites = await Website.find({ managerId: user._id }).select("_id");
-    if (websites.length > 0) return websites.map((w) => w._id);
-    const allWebsites = await Website.find({}).select("_id");
-    return allWebsites.map((w) => w._id);
+    const merged = [...new Set([...assigned.map(String), ...websites.map((w) => String(w._id))])];
+    return merged;
   }
 
-  if (role === "manager") {
+  if (role === "manager" || role === "management") {
     const assigned = sanitizeWebsiteIds(user.websiteIds);
     if (assigned.length > 0) return assigned;
-    const websites = await Website.find({ managerId: user.managerId }).select("_id");
-    if (websites.length > 0) return websites.map((w) => w._id);
-    const allWebsites = await Website.find({}).select("_id");
-    return allWebsites.map((w) => w._id);
+    if (user.managerId) {
+      const websites = await Website.find({ managerId: user.managerId }).select("_id");
+      return websites.map((w) => w._id);
+    }
+    return [];
   }
 
   if (isPersonnelRole(rawRole)) {
@@ -84,12 +85,10 @@ export async function getOwnedWebsiteIds(user) {
     if (assigned.length > 0) return assigned;
     if (user.managerId) {
       const websites = await Website.find({ managerId: user.managerId }).select("_id");
-      if (websites.length > 0) return websites.map((w) => w._id);
+      return websites.map((w) => w._id);
     }
-    const allWebsites = await Website.find({}).select("_id");
-    return allWebsites.map((w) => w._id);
+    return [];
   }
 
-  const defaultWebsites = await Website.find({}).select("_id");
-  return defaultWebsites.map((w) => w._id);
+  return [];
 }

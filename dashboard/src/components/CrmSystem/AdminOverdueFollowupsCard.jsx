@@ -10,7 +10,7 @@ export default function AdminOverdueFollowupsCard() {
     setLoading(true);
     try {
       const res = await api("/api/crm/reminders/overdue-admin");
-      setData(res.overdueFollowups || []);
+      setData(Array.isArray(res) ? res : (res?.overdueFollowups || res?.data || []));
     } catch (err) {
       console.error("Failed to load overdue followups:", err);
     } finally {
@@ -72,7 +72,7 @@ export default function AdminOverdueFollowupsCard() {
                 <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
                   <td className="py-4 text-indigo-600 font-black flex items-center gap-2">
                     <div className="w-7 h-7 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-[10px] font-black">
-                      {item.consultantName[0]}
+                      {(item.consultantName || "?")[0]}
                     </div>
                     {item.consultantName}
                   </td>

@@ -64,7 +64,7 @@ export const getCallAnalytics = asyncHandler(async (req, res) => {
 });
 
 export const simulateIncomingCall = asyncHandler(async (req, res) => {
-  const { websiteId, callerPhone, transcriptText, prompt } = req.body;
+  const { websiteId, callerPhone, transcriptText, prompt, visitorId, sessionId, visitorName, visitorEmail, conversationHistory } = req.body;
 
   let resolvedWebsite = null;
   if (websiteId) {
@@ -93,8 +93,13 @@ export const simulateIncomingCall = asyncHandler(async (req, res) => {
 
   const result = await processAiVoiceCall({
     websiteId: resolvedWebsite?._id || null,
-    callerPhone: callerPhone || "+971-50-8492019",
-    transcriptText: transcriptText || prompt || "Hello, I am calling regarding my PRO Express Visa Application for Dubai."
+    callerPhone: callerPhone || null,
+    visitorId: visitorId || null,
+    sessionId: sessionId || null,
+    visitorName: visitorName || null,
+    visitorEmail: visitorEmail || null,
+    conversationHistory: Array.isArray(conversationHistory) ? conversationHistory : [],
+    transcriptText: transcriptText || prompt || "Hello"
   });
 
   res.status(201).json(result);

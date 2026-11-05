@@ -8,7 +8,7 @@ import {
 import Layout from "../components/Layout.jsx";
 import StatCard from "../components/StatCard.jsx";
 import EnterpriseReportsCenter from "../components/EnterpriseReportsCenter.jsx";
-import { api, getApiBase } from "../api/client.js";
+import { api, apiUrl } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useWebsite } from "../context/WebsiteContext.jsx";
 
@@ -51,18 +51,21 @@ export default function AccountsPage() {
           api(`/api/analytics?${params.toString()}`).catch(() => null)
         ]);
 
-        setInvoices(invData);
-        setPurchaseOrders(poData);
-        setSubscriptions(subData);
+        const invList = Array.isArray(invData) ? invData : (invData?.invoices || invData?.data || []);
+        const poList = Array.isArray(poData) ? poData : (poData?.orders || poData?.purchaseOrders || poData?.data || []);
+        const subList = Array.isArray(subData) ? subData : (subData?.clients || subData?.subscriptions || subData?.data || []);
+        setInvoices(invList);
+        setPurchaseOrders(poList);
+        setSubscriptions(subList);
         setAnalytics(anyData);
 
 
         // Calculate basic stats
-        const pending = invData.filter(i => i.status === "pending").length;
-        const paid = invData.filter(i => i.status === "paid").length;
-        const overdue = invData.filter(i => i.status === "overdue").length;
-        const revenue = invData.reduce((acc, curr) => acc + (curr.total || 0), 0);
-        const expenses = poData.reduce((acc, curr) => acc + (curr.total || 0), 0);
+        const pending = invList.filter(i => i.status === "pending").length;
+        const paid = invList.filter(i => i.status === "paid").length;
+        const overdue = invList.filter(i => i.status === "overdue").length;
+        const revenue = invList.reduce((acc, curr) => acc + (curr.total || 0), 0);
+        const expenses = poList.reduce((acc, curr) => acc + (curr.total || 0), 0);
 
         setFinancials({
           totalRevenue: revenue,
@@ -87,8 +90,7 @@ export default function AccountsPage() {
     try {
       // If already has pdfUrl, open directly
       if (inv.pdfUrl) {
-        const base = await getApiBase();
-        window.open(`${base}${inv.pdfUrl}`, "_blank");
+        window.open(apiUrl(inv.pdfUrl), "_blank");
         return;
       }
       // Generate PDF first
@@ -96,8 +98,7 @@ export default function AccountsPage() {
       // Update local state with pdfUrl
       setInvoices(prev => prev.map(i => i._id === inv._id ? { ...i, pdfUrl: updated.pdfUrl } : i));
       if (updated.pdfUrl) {
-        const base = await getApiBase();
-        window.open(`${base}${updated.pdfUrl}`, "_blank");
+        window.open(apiUrl(updated.pdfUrl), "_blank");
       } else {
         alert("PDF generation failed. Please try again.");
       }
@@ -308,7 +309,7 @@ export default function AccountsPage() {
     );
   }
 
-  if (tab === "billing") {
+  if (tab === "billing" || tab === "subscriptions") {
     return (
       <Layout menuItems={menuItems} title="Client Subscriptions" subtitle="Monitor platform recurring revenue">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -364,7 +365,7 @@ export default function AccountsPage() {
     );
   }
 
-  if (tab === "reports") {
+  if (tab === "reports" || tab === "intelligence") {
     return (
       <Layout menuItems={menuItems} title="Revenue Intelligence" subtitle="Financial analytics and reporting">
         <EnterpriseReportsCenter />

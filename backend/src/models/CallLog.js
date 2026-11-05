@@ -4,7 +4,7 @@ const callLogSchema = new mongoose.Schema(
   {
     websiteId: { type: mongoose.Schema.Types.ObjectId, ref: "Website", default: null, index: true },
     customerId: { type: mongoose.Schema.Types.ObjectId, ref: "Customer", default: null, index: true },
-    direction: { type: String, enum: ["incoming", "outgoing"], default: "outgoing", index: true },
+    direction: { type: String, enum: ["incoming", "outgoing", "outbound"], default: "outgoing", index: true },
     status: { type: String, enum: ["completed", "missed", "no_answer", "busy"], default: "completed", index: true },
     duration: { type: Number, default: 0 }, // in seconds
     recordingUrl: { type: String, trim: true, default: "" },
@@ -18,7 +18,11 @@ const callLogSchema = new mongoose.Schema(
     visitorName: { type: String, trim: true, default: "" },
     ticketId: { type: mongoose.Schema.Types.ObjectId, ref: "Ticket", default: null },
     autoTicketCreated: { type: Boolean, default: false },
-    followUpTaskId: { type: mongoose.Schema.Types.ObjectId, ref: "FollowUpTask", default: null }
+    followUpTaskId: { type: mongoose.Schema.Types.ObjectId, ref: "FollowUpTask", default: null },
+    rating: { type: Number, default: null },
+    sentiment: { type: String, trim: true, default: "" },
+    feedbackTags: [{ type: String, trim: true }],
+    feedbackComment: { type: String, trim: true, default: "" }
   },
   { timestamps: true }
 );

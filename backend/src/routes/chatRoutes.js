@@ -4,7 +4,8 @@ import {
   getSessionMessages, listAgentSessions, listManagerSessions, listSalesSessions,
   listQueuedSessions, getChatHistory, transferChatSession, submitOfflineMessage,
   addInternalNote, getInternalNotes, getSessionActivity,
-  bulkCloseSessions, bulkReassignSessions, bulkDeleteSessions, deleteChatSession
+  bulkCloseSessions, bulkReassignSessions, bulkDeleteSessions, deleteChatSession,
+  sendAgentSessionMessage, generateAiSuggestedReply
 } from "../controllers/chatController.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { upload } from "../utils/multerConfig.js";
@@ -27,6 +28,8 @@ router.get("/sessions", requireAuth, async (req, res, next) => {
 router.get("/queued", requireAuth, listQueuedSessions);
 router.get("/history", requireAuth, getChatHistory);
 router.get("/sessions/:sessionId/messages", requireAuth, getSessionMessages);
+router.post("/sessions/:sessionId/messages", requireAuth, sendAgentSessionMessage);
+router.post("/sessions/:sessionId/ai-suggest", requireAuth, generateAiSuggestedReply);
 router.get("/sessions/:sessionId/activity", requireAuth, getSessionActivity);
 router.patch("/sessions/:sessionId/accept", requireAuth, acceptChatSession);
 router.patch("/sessions/:sessionId/close", requireAuth, closeChatSession);
@@ -41,11 +44,11 @@ router.post("/bulk-reassign", requireAuth, requireRole("admin", "client", "manag
 router.post("/bulk-delete", requireAuth, requireRole("admin", "client", "manager"), bulkDeleteSessions);
 
 // Feature 5: Chat Transfer
-router.post("/sessions/:sessionId/transfer", requireAuth, requireRole("admin", "client", "agent"), transferChatSession);
+router.post("/sessions/:sessionId/transfer", requireAuth, requireRole("admin", "client", "manager", "management", "agent", "sales"), transferChatSession);
 
 // Feature 6: Internal Notes
-router.get("/sessions/:sessionId/notes", requireAuth, requireRole("admin", "client", "agent", "sales"), getInternalNotes);
-router.post("/sessions/:sessionId/notes", requireAuth, requireRole("admin", "client", "agent", "sales"), addInternalNote);
+router.get("/sessions/:sessionId/notes", requireAuth, requireRole("admin", "client", "manager", "management", "agent", "sales"), getInternalNotes);
+router.post("/sessions/:sessionId/notes", requireAuth, requireRole("admin", "client", "manager", "management", "agent", "sales"), addInternalNote);
 
 router.post("/upload", requireAuth, upload.single("attachment"), uploadAttachment);
 

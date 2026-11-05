@@ -54,8 +54,8 @@ export default function ManagerPage() {
         api("/api/chat/sessions")
       ]);
       setAnalytics(analyticsData);
-      setAgents(agentData);
-      setSessions(sessionData);
+      setAgents(Array.isArray(agentData) ? agentData : (agentData?.agents || agentData?.users || []));
+      setSessions(Array.isArray(sessionData) ? sessionData : (sessionData?.sessions || []));
     } catch (err) {
       console.error("Failed to load manager data:", err);
     }
@@ -71,6 +71,7 @@ export default function ManagerPage() {
 
   const menuItems = [
     { label: "Overview", href: "/manager" },
+    ...(hasPermission(user, PERMISSIONS.CHAT_VIEW) ? [{ label: "Chats", href: "/manager?tab=chats" }] : []),
   ];
 
   if (hasPermission(user, PERMISSIONS.CRM_VIEW) && canUseCRM) {
@@ -127,6 +128,25 @@ export default function ManagerPage() {
         subtitle="Global management of customer profiles and accounts"
       >
         <CustomerManager websiteId={selectedWebsiteId} />
+      </Layout>
+    );
+  }
+
+  /* ── Chats Tab ── */
+  if (tab === "chats") {
+    return (
+      <Layout
+        menuItems={menuItems}
+        title="Live Conversation Hub"
+        subtitle="Real-time oversight and handling of visitor chats"
+      >
+        <ConversationHub
+          socket={socket}
+          initialSessions={sessions}
+          websiteId={selectedWebsiteId}
+          userRole={user?.role || "manager"}
+          currentUser={user}
+        />
       </Layout>
     );
   }

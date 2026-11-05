@@ -222,8 +222,8 @@ export const updateActivity = async (id, data, actorId) => {
 
   const updated = await activityRepository.update(id, data);
 
-  // Sync reminder
-  const offset = data.reminderOffsetMinutes || (await Reminder.findOne({ relatedId: id }))?.remindAt ? 15 : null;
+  // Sync reminder (fixed operator precedence)
+  const offset = data.reminderOffsetMinutes ?? ((await Reminder.findOne({ relatedId: id }))?.remindAt ? 15 : null);
   if (offset || data.status === "cancelled" || data.status === "completed") {
     await syncActivityReminder(updated, offset);
   }

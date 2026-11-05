@@ -15,6 +15,7 @@ import { buildTicketId } from "../utils/ticketUtils.js";
 import { getSocketServer } from "../sockets/index.js";
 import { ChatSession } from "../models/ChatSession.js";
 import { autoAssignTicket } from "../services/ticketService.js";
+import { getStrictLanguageInstruction } from "../utils/languageDetector.js";
 
 /**
  * Serves the one-liner embed <script> snippet that customers paste into their websites.
@@ -121,14 +122,6 @@ export const submitWidgetLead = asyncHandler(async (req, res) => {
               phone: customer.phone
             });
           }
-          const UserModel = mongoose.models.User || mongoose.model("User");
-          if (UserModel) {
-            await UserModel.findByIdAndUpdate(session.visitorId, {
-              name: customer.name,
-              email: customer.email,
-              phone: customer.phone
-            });
-          }
         } catch (err) {
           console.error("Failed to update anonymous visitor profile details:", err);
         }
@@ -192,7 +185,16 @@ export const submitWidgetTicket = asyncHandler(async (req, res) => {
 
   await autoAssignTicket(ticket);
 
-  getSocketServer().to(`manager_${req.website.managerId}`).emit("ticketUpdated", ticket);
+  const io = getSocketServer();
+  if (io) {
+    io.to(`ws_${websiteId}`).to(`manager_${req.website.managerId}`).to(`us_${req.website.managerId}`).to("us_admin").emit("ticketUpdated", ticket);
+    io.to(`ws_${websiteId}`).to(`us_${req.website.managerId}`).to("us_admin").emit("ticket:created", {
+      message: `New ticket created from widget: ${ticket.subject}`,
+      user: "Visitor",
+      ticketId: ticket.ticketId,
+      websiteId
+    });
+  }
 
   res.status(201).json({
     success: true,
@@ -244,13 +246,16 @@ export const executeWidgetAction = asyncHandler(async (req, res) => {
     }
 
     try {
-      getSocketServer().emit("lead:created", {
-        message: `New Lead registered via chat widget`,
-        user: customer.name || "Visitor",
-        customerId: customer._id,
-        websiteId,
-        recordType: customer.recordType
-      });
+      const io = getSocketServer();
+      if (io) {
+        io.to(`ws_${websiteId}`).to(`us_${req.website.managerId}`).to("us_admin").emit("lead:created", {
+          message: `New Lead registered via chat widget`,
+          user: customer.name || "Visitor",
+          customerId: customer._id,
+          websiteId,
+          recordType: customer.recordType
+        });
+      }
     } catch (err) {
       console.error(err);
     }
@@ -302,14 +307,16 @@ export const executeWidgetAction = asyncHandler(async (req, res) => {
 
     await autoAssignTicket(ticket);
 
-    getSocketServer().to(`manager_${req.website.managerId}`).emit("ticketUpdated", ticket);
-
-    try {
-      getSocketServer().emit("ticket:created", {
+    const io = getSocketServer();
+    if (io) {
+      io.to(`ws_${websiteId}`).to(`manager_${req.website.managerId}`).to(`us_${req.website.managerId}`).to("us_admin").emit("ticketUpdated", ticket);
+      io.to(`ws_${websiteId}`).to(`us_${req.website.managerId}`).to("us_admin").emit("ticket:created", {
         message: `New ticket created from widget: ${ticket.subject}`,
-        user: context.name || "Visitor"
+        user: context.name || "Visitor",
+        ticketId: ticket.ticketId,
+        websiteId
       });
-    } catch (err) { }
+    }
 
     return res.status(201).json({
       success: true,
@@ -345,13 +352,16 @@ export const executeWidgetAction = asyncHandler(async (req, res) => {
     });
 
     try {
-      getSocketServer().emit("lead:created", {
-        message: `Callback requested by visitor`,
-        user: customer.name,
-        customerId: customer._id,
-        websiteId,
-        recordType: customer.recordType
-      });
+      const io = getSocketServer();
+      if (io) {
+        io.to(`ws_${websiteId}`).to(`us_${req.website.managerId}`).to("us_admin").emit("lead:created", {
+          message: `Callback requested by visitor`,
+          user: customer.name,
+          customerId: customer._id,
+          websiteId,
+          recordType: customer.recordType
+        });
+      }
     } catch (err) { }
 
     return res.status(201).json({ success: true, leadId: customer._id });
@@ -377,7 +387,19 @@ export const generateWidgetAiResponse = asyncHandler(async (req, res) => {
   const { AiProviderManager } = await import("../services/aiProviderManager.js");
   const provider = AiProviderManager.getProvider("gemini");
 
-  const systemInstruction = `You are a professional customer support AI assistant for ${website?.name || "our company"}. Answer visitor queries politely, clearly, and accurately.`;
+  const langInstruction = getStrictLanguageInstruction(userPrompt);
+  const customFaqsList = Array.isArray(website?.customFaqs) ? website.customFaqs.filter(f => f.question && f.answer) : [];
+  const customFaqsContext = customFaqsList.length > 0
+    ? customFaqsList.map(f => `Q: "${f.question}" -> A: "${f.answer}"`).join("\n")
+    : "";
+  const businessProfile = website?.businessDescription ? String(website.businessDescription).trim() : "";
+
+  const systemInstruction = `You are a professional customer support AI assistant for ${website?.websiteName || website?.domain || "our company"}.
+Answer visitor queries politely, clearly, and accurately.
+
+${businessProfile ? `BUSINESS PROFILE & GUIDELINES:\n${businessProfile}\n` : ""}
+${customFaqsContext ? `OFFICIAL FAQS & POLICIES:\n${customFaqsContext}\n` : ""}
+${langInstruction.directive}`;
   const fullPrompt = `${systemInstruction}\n\nVisitor Message: ${userPrompt}`;
 
   try {
@@ -387,9 +409,38 @@ export const generateWidgetAiResponse = asyncHandler(async (req, res) => {
       maxTokens: 500
     });
 
+    let outputText = result?.text || "";
+
+    // Language safety check
+    if (langInstruction.lang.code === "en") {
+      const hasHindiWords = /\b(aapke|aapka|aapki|aapko|naam|par|aur|ek|jinhe|hai|hain|kya|nahi|nhi|hoga|karein|kijiye|baare|mein|se|liye|kaam)\b/i.test(outputText);
+      if (hasHindiWords) {
+        const fixRes = await provider.generateCompletion({
+          prompt: `Translate this customer support answer into fluent, natural English:\n"${outputText}"\nOutput ONLY the English translation without quotes or commentary.`,
+          temperature: 0.1,
+          maxTokens: 300
+        });
+        if (fixRes?.text && !fixRes.text.includes("[Google Gemini Response]")) {
+          outputText = fixRes.text.replace(/```/g, "").replace(/^["']|["']$/g, "").trim();
+        }
+      }
+    } else if (langInstruction.lang.code === "hi-Latn" || langInstruction.lang.code === "hi") {
+      const hasHindiWords = /[\u0900-\u097F]/.test(outputText) || /\b(aap|aapka|aapke|aapki|aapko|hai|hain|kya|nahi|aur|ek|hoga|karein|kijiye|mein|se|ko|ka|ki)\b/i.test(outputText);
+      if (!hasHindiWords) {
+        const fixRes = await provider.generateCompletion({
+          prompt: `Translate this customer support answer into polite, natural conversational Hinglish (Hindi written in Roman English alphabet):\n"${outputText}"\nOutput ONLY the Hinglish translation without quotes or commentary.`,
+          temperature: 0.1,
+          maxTokens: 300
+        });
+        if (fixRes?.text && !fixRes.text.includes("[Google Gemini Response]")) {
+          outputText = fixRes.text.replace(/```/g, "").replace(/^["']|["']$/g, "").trim();
+        }
+      }
+    }
+
     res.json({
       success: true,
-      text: result.text,
+      text: outputText,
       provider: "Google Gemini AI"
     });
   } catch (err) {

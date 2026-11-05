@@ -340,12 +340,11 @@ export default function TaxConsultantDashboard({ websiteId }) {
 
   const filterByMonth = (items, dateKey = "dueDate") => {
     if (!items || !Array.isArray(items)) return [];
-    const filtered = items.filter(item => {
+    return items.filter(item => {
       const d = item[dateKey] || item.expiryDate || item.dueDate || item.filingDeadline;
-      if (!d) return true;
+      if (!d || d === "-") return activeMonth === thisMonthLabel;
       return String(d).startsWith(targetYearMonth);
     });
-    return filtered.length > 0 ? filtered : items;
   };
 
   const vatFilings = filterByMonth(rawVatFilings, "dueDate");
@@ -1362,7 +1361,7 @@ function KpiDetailsPanel({ kpiPanel, onClose, onViewFiling, reminderLogs, remind
 
   const colorMap = {
     emerald: { bg: "bg-emerald-600", badge: "bg-emerald-50 text-emerald-700 border-emerald-200", btn: "bg-emerald-600 hover:bg-emerald-700", accent: "text-emerald-400" },
-    purple:  { bg: "bg-purple-600",  badge: "bg-purple-50 text-purple-700 border-purple-200",   btn: "bg-purple-600 hover:bg-purpleald-700",  accent: "text-purple-400" },
+    purple:  { bg: "bg-purple-600",  badge: "bg-purple-50 text-purple-700 border-purple-200",   btn: "bg-purple-600 hover:bg-purple-700",  accent: "text-purple-400" },
     amber:   { bg: "bg-amber-500",   badge: "bg-amber-50 text-amber-700 border-amber-200",       btn: "bg-amber-500 hover:bg-amber-600",       accent: "text-amber-400" },
     indigo:  { bg: "bg-indigo-600",  badge: "bg-indigo-50 text-indigo-700 border-indigo-200",    btn: "bg-indigo-600 hover:bg-indigo-700",     accent: "text-indigo-400" },
   };

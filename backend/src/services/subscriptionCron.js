@@ -1,6 +1,8 @@
 import { Subscription } from "../models/Subscription.js";
 import { Invoice } from "../models/Invoice.js";
 import { Plan } from "../models/Plan.js";
+import { Website } from "../models/Website.js";
+import { User } from "../models/User.js";
 import { logCrmActivity } from "./activityLoggerService.js";
 
 /**
@@ -39,29 +41,38 @@ export async function runSubscriptionBillingCron() {
 
         const price = sub.planId ? sub.planId.price : 0;
         const invoiceId = `INV-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
+        const websiteDoc = sub.websiteId ? await Website.findById(sub.websiteId).select("managerId").lean() : null;
+        let resolvedOwnerId = websiteDoc?.managerId || null;
+        if (!resolvedOwnerId) {
+          const adminUser = await User.findOne({ role: "admin" }).select("_id").lean();
+          resolvedOwnerId = adminUser?._id || null;
+        }
 
         // Create Invoice
-        await Invoice.create({
-          invoiceId,
-          invoiceNumber: invoiceId,
-          customerId: sub.customerId,
-          websiteId: sub.websiteId,
-          ownerId: sub.planId ? sub.planId.websiteId : sub.websiteId, // fallback
-          items: [{
-            description: `${sub.planId ? sub.planId.name : "SaaS"} Subscription - Renewal`,
-            quantity: 1,
-            price: price,
-            total: price
-          }],
-          subtotal: price,
-          tax: 0,
-          total: price,
-          status: "pending"
-        });
+        if (resolvedOwnerId) {
+          await Invoice.create({
+            invoiceId,
+            invoiceNumber: invoiceId,
+            customerId: sub.customerId,
+            websiteId: sub.websiteId,
+            ownerId: resolvedOwnerId,
+            items: [{
+              description: `${sub.planId ? sub.planId.name : "SaaS"} Subscription - Renewal`,
+              quantity: 1,
+              price: price,
+              total: price
+            }],
+            subtotal: price,
+            tax: 0,
+            total: price,
+            status: "pending"
+          });
+        }
 
         // Renew subscription
         sub.startDate = nextStart;
         sub.endDate = nextEnd;
+        sub.renewalDate = nextEnd;
         sub.status = "renewed";
         await sub.save();
 

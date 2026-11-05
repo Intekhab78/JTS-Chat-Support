@@ -102,25 +102,32 @@ export const updateDsarStatus = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
 
+  const normalizedStatus = String(status || "").trim().toLowerCase();
+  if (!["pending", "in_review", "completed", "rejected"].includes(normalizedStatus)) {
+    throw new AppError("Invalid DSAR status", 400);
+  }
+
   let doc = await ComplianceGovernance.findOne({});
   if (!doc) throw new AppError("Compliance record not found", 404);
 
   const reqItem = doc.dsarRequests.id(id);
   if (!reqItem) throw new AppError("DSAR request not found", 404);
 
-  reqItem.status = status;
-  if (status === "completed") reqItem.completedAt = new Date();
+  reqItem.status = normalizedStatus;
+  if (normalizedStatus === "completed") reqItem.completedAt = new Date();
 
   await doc.save();
 
   await logAuditEvent({
+    actor: req.user,
     userId: req.user._id,
     websiteId: null,
-    action: `DSAR_REQUEST_${status.toUpperCase()}`,
+    action: `DSAR_REQUEST_${normalizedStatus.toUpperCase()}`,
     resource: "ComplianceGovernance",
+    resourceId: id,
     ipAddress: req.ip,
     userAgent: req.get("user-agent"),
-    changes: { subjectEmail: reqItem.subjectEmail, status }
+    changes: { subjectEmail: reqItem.subjectEmail, status: normalizedStatus }
   });
 
   return res.json(doc.dsarRequests);

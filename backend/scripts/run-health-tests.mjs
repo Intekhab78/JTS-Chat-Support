@@ -10,6 +10,9 @@ import { canUseMockBilling, isFlagEnabled } from "../src/utils/mockBillingAccess
 import { buildArticleSlug, buildArticleSort, normalizeArticleTags } from "../src/utils/knowledgeBaseUtils.js";
 import { generateQuotationPDF, generateInvoicePDF } from "../src/services/pdfService.js";
 import { validateEnvConfig } from "../src/config/env.js";
+import { CallLog } from "../src/models/CallLog.js";
+import { normalizeRole, getOwnershipQuery } from "../src/utils/roleUtils.js";
+import { ROLES, NOTIFICATION_TYPES, ACTIVITY_TYPES } from "../src/constants/domain.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -159,6 +162,42 @@ await run("env validation rejects placeholder JWT secret outside development", a
 
 await run("uploads directory exists", async () => {
   assert.ok(fs.existsSync(uploadsDir));
+});
+
+await run("CallLog schema validates outbound direction and post-call feedback fields", async () => {
+  const doc = new CallLog({
+    direction: "outbound",
+    status: "completed",
+    duration: 120,
+    rating: 5,
+    sentiment: "positive",
+    feedbackTags: ["Helpful", "Fast"],
+    feedbackComment: "Resolved quickly"
+  });
+  assert.equal(doc.validateSync(), undefined);
+});
+
+await run("normalizeRole preserves enterprise roles and normalizes legacy aliases", async () => {
+  assert.equal(normalizeRole("tax_consultant"), "tax_consultant");
+  assert.equal(normalizeRole("customer"), "customer");
+  assert.equal(normalizeRole("management"), "management");
+  assert.equal(normalizeRole("account"), "accounts");
+  assert.equal(normalizeRole("user"), "agent");
+});
+
+await run("getOwnershipQuery enforces row-level ownership for sales and tax_consultant", async () => {
+  assert.deepEqual(getOwnershipQuery({ _id: "u1", role: "sales" }), { ownerId: "u1" });
+  assert.deepEqual(getOwnershipQuery({ _id: "u2", role: "tax_consultant" }), { ownerId: "u2" });
+  assert.deepEqual(getOwnershipQuery({ _id: "u3", role: "admin" }), {});
+  assert.deepEqual(getOwnershipQuery({ _id: "u4", role: "manager" }), {});
+});
+
+await run("domain enums include required notification, activity, and role values", async () => {
+  assert.equal(ROLES.MANAGEMENT, "management");
+  assert.ok(NOTIFICATION_TYPES.includes("crm_approval_required"));
+  assert.ok(NOTIFICATION_TYPES.includes("payment_failed"));
+  assert.ok(ACTIVITY_TYPES.includes("invoice_created"));
+  assert.ok(ACTIVITY_TYPES.includes("whatsapp_received"));
 });
 
 if (process.exitCode) {

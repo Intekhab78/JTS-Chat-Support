@@ -4,7 +4,16 @@ import { handleRazorpayWebhook } from "../controllers/razorpayWebhookController.
 
 const router = Router();
 
-// Razorpay requires signature validation matching raw JSON request body
-router.post("/razorpay", express.json(), handleRazorpayWebhook);
+// Razorpay requires signature validation matching exact raw JSON request body
+router.post(
+  "/razorpay",
+  express.json({
+    limit: "2mb",
+    verify: (req, _res, buf) => {
+      req.rawBody = buf;
+    }
+  }),
+  handleRazorpayWebhook
+);
 
 export default router;

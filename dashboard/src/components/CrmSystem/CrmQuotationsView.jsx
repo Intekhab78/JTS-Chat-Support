@@ -4,7 +4,7 @@ import {
   Search, Filter, DollarSign, CheckCircle2, PackageCheck, Printer, Sparkles, PenTool, 
   MessageCircle, Copy, Share2, ShieldCheck, CheckCircle
 } from "lucide-react";
-import { api, API_BASE } from "../../api/client.js";
+import { api, apiUrl } from "../../api/client.js";
 import { exportToCSV, exportToPDF } from "../../utils/exportUtils.js";
 
 const getCurrencySymbol = (code) => {
@@ -253,6 +253,7 @@ WhatsApp: +971 50 123 4567 | Web: https://jtsmiddleeast.com`;
     if (canvas) {
       const dataUrl = canvas.toDataURL("image/png");
       setSignatureDataUrl(dataUrl);
+      if (selectedQuote?._id) { await api(`/api/crm/quotations/${selectedQuote._id}/status`, { method: "PATCH", body: JSON.stringify({ status: "accepted" }) }).catch(() => {}); fetchQuotations(); }
       setShowSignatureModal(false);
       alert(`Quotation #${selectedQuote?.quotationNumber || selectedQuote?._id?.slice(-6)} digitally approved with timestamped e-signature!`);
     }
@@ -597,7 +598,7 @@ WhatsApp: +971 50 123 4567 | Web: https://jtsmiddleeast.com`;
                     onClick={async () => {
                       try {
                         const result = await api(`/api/crm/quotations/${selectedQuote._id}/pdf`, { method: "POST" });
-                        const cleanUrl = `${API_BASE}${result.pdfUrl}`;
+                        const cleanUrl = apiUrl(result.pdfUrl);
                         window.open(cleanUrl, "_blank");
                       } catch (err) {
                         alert(err.message || "Failed to generate PDF");

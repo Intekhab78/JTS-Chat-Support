@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Plus, Trash2, Edit3, Check, X, MoveUp, MoveDown, Layout, ShieldAlert, Download, Printer } from "lucide-react";
 import { api } from "../../api/client.js";
+import { useWebsite } from "../../context/WebsiteContext.jsx";
 import { exportToCSV, exportToPDF, exportSingleRecordPDF } from "../../utils/exportUtils.js";
 
 const DEFAULT_STAGES = [
@@ -15,6 +16,39 @@ const DEFAULT_STAGES = [
 ];
 
 export default function CrmPipelinesConfig({ websiteId }) {
+  const { selectedWebsite, setWebsites } = useWebsite();
+  const activeWebsiteId = websiteId || selectedWebsite?._id;
+  const DEFAULT_ENABLED_MODULES = ["crm", "operations", "finance", "service", "automation"];
+  const [enabledModules, setEnabledModules] = useState(() =>
+    Array.isArray(selectedWebsite?.enabledModules) && selectedWebsite.enabledModules.length > 0
+      ? selectedWebsite.enabledModules
+      : DEFAULT_ENABLED_MODULES
+  );
+
+  useEffect(() => {
+    if (Array.isArray(selectedWebsite?.enabledModules) && selectedWebsite.enabledModules.length > 0) {
+      setEnabledModules(selectedWebsite.enabledModules);
+    }
+  }, [selectedWebsite?._id, selectedWebsite?.enabledModules]);
+
+  const handleToggleModule = async (modId) => {
+    const nextModules = enabledModules.includes(modId)
+      ? enabledModules.filter((m) => m !== modId)
+      : [...enabledModules, modId];
+    setEnabledModules(nextModules);
+    if (!activeWebsiteId) return;
+    try {
+      const updated = await api(`/api/websites/${activeWebsiteId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ enabledModules: nextModules })
+      });
+      if (setWebsites && updated?._id) {
+        setWebsites((prev) => Array.isArray(prev) ? prev.map((w) => (w._id === updated._id ? { ...w, enabledModules: nextModules } : w)) : prev);
+      }
+    } catch (err) {
+      console.error("Failed to save module entitlements:", err);
+    }
+  };
   const [pipelines, setPipelines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedPipeline, setSelectedPipeline] = useState(null);
@@ -290,32 +324,37 @@ export default function CrmPipelinesConfig({ websiteId }) {
             id="operations"
             title="Operations & Catalog"
             desc="Products, Service Catalog, Quotations, Sales Orders"
-            enabled={true}
+            enabled={enabledModules.includes("operations")}
+            onToggle={() => handleToggleModule("operations")}
           />
           <ModuleToggleCard
             id="finance"
             title="Finance & Billing"
             desc="Financial P&L Center, Subscriptions, Invoices, Payments Ledger"
-            enabled={true}
+            enabled={enabledModules.includes("finance")}
+            onToggle={() => handleToggleModule("finance")}
           />
           <ModuleToggleCard
             id="compliance"
             title="UAE Compliance Suite"
             desc="VAT Filing Audit, Corporate Tax, Trade License Expiry Reports"
-            enabled={false}
+            enabled={enabledModules.includes("compliance")}
+            onToggle={() => handleToggleModule("compliance")}
             badgeText="Optional / VAT Clients Only"
           />
           <ModuleToggleCard
             id="service"
             title="Service & Customer Care"
             desc="Unified Omnichannel Inbox, Canned Replies, Helpdesk, CSAT"
-            enabled={true}
+            enabled={enabledModules.includes("service")}
+            onToggle={() => handleToggleModule("service")}
           />
           <ModuleToggleCard
             id="automation"
             title="Workflows & AI Platform"
             desc="Automated Workflows, Workflow Logs, AI Agent, BI Analytics"
-            enabled={true}
+            enabled={enabledModules.includes("automation")}
+            onToggle={() => handleToggleModule("automation")}
           />
         </div>
       </div>
@@ -387,8 +426,9 @@ export default function CrmPipelinesConfig({ websiteId }) {
   );
 }
 
-function ModuleToggleCard({ id, title, desc, enabled: initialEnabled, locked = false, badgeText }) {
-  const [enabled, setEnabled] = useState(initialEnabled);
+function ModuleToggleCard({ id, title, desc, enabled: initialEnabled, locked = false, badgeText, onToggle }) {
+  const [localEnabled, setLocalEnabled] = useState(initialEnabled);
+  const enabled = onToggle ? initialEnabled : localEnabled;
 
   return (
     <div className={`p-5 rounded-[24px] border transition-all flex flex-col justify-between space-y-3 ${enabled ? "bg-slate-50/50 border-slate-200" : "bg-slate-100/40 border-slate-200/50 opacity-60"}`}>
@@ -401,7 +441,7 @@ function ModuleToggleCard({ id, title, desc, enabled: initialEnabled, locked = f
           <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-slate-200 text-slate-600 rounded-md">Required</span>
         ) : (
           <button
-            onClick={() => setEnabled(!enabled)}
+            onClick={() => (onToggle ? onToggle(id) : setLocalEnabled(!localEnabled))}
             className={`w-10 h-5 flex items-center rounded-full p-1 transition-colors ${enabled ? "bg-indigo-600 justify-end" : "bg-slate-300 justify-start"}`}
           >
             <span className="w-3.5 h-3.5 bg-white rounded-full shadow-md" />

@@ -15,15 +15,22 @@ import { getSocketServer } from "../sockets/index.js";
 export async function handleRazorpayWebhook(req, res) {
   try {
     const signature = req.headers["x-razorpay-signature"];
-    const secret = process.env.RAZORPAY_WEBHOOK_SECRET || env.razorpayWebhookSecret || "rzp_secret";
-    
-    // In production, verify signature. In development, allow bypass if header is missing for quick local mocks.
+    const secret = process.env.RAZORPAY_WEBHOOK_SECRET || env.razorpayWebhookSecret || "";
+
+    if (env.nodeEnv === "production" && (!signature || !secret)) {
+      console.warn("[Razorpay Webhook] Missing signature or webhook secret in production.");
+      return res.status(400).send("Missing signature");
+    }
+
     if (signature) {
-      const shasum = crypto.createHmac("sha256", secret);
-      shasum.update(JSON.stringify(req.body));
-      const digest = shasum.digest("hex");
-      
-      if (digest !== signature) {
+      if (!secret) {
+        return res.status(500).send("Misconfigured webhook secret");
+      }
+      const rawPayload = req.rawBody ? req.rawBody : Buffer.from(JSON.stringify(req.body || {}));
+      const digest = crypto.createHmac("sha256", secret).update(rawPayload).digest("hex");
+      const digestBuf = Buffer.from(digest, "utf8");
+      const sigBuf = Buffer.from(String(signature), "utf8");
+      if (digestBuf.length !== sigBuf.length || !crypto.timingSafeEqual(digestBuf, sigBuf)) {
         console.warn("[Razorpay Webhook] Invalid webhook signature detected.");
         return res.status(400).send("Invalid signature");
       }

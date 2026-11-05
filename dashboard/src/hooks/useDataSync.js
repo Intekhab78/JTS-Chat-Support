@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useSocket } from "../context/SocketContext.jsx";
 
 /**
@@ -13,23 +13,34 @@ import { useSocket } from "../context/SocketContext.jsx";
  */
 export function useDataSync({ entities = [], onSync, websiteId = null }) {
   const socket = useSocket();
+  const onSyncRef = useRef(onSync);
+  const entitiesRef = useRef(entities);
 
   useEffect(() => {
-    if (!socket || typeof onSync !== "function") return;
+    onSyncRef.current = onSync;
+  }, [onSync]);
+
+  useEffect(() => {
+    entitiesRef.current = Array.isArray(entities) ? entities : [];
+  }, [entities]);
+
+  useEffect(() => {
+    if (!socket) return;
 
     const handleDataChange = (payload) => {
-      if (!payload) return;
+      if (!payload || typeof onSyncRef.current !== "function") return;
       
       const { entity, websiteId: eventWebId } = payload;
+      const activeEntities = entitiesRef.current;
       
       // If entities list is provided, verify match
-      if (entities.length > 0 && !entities.includes(entity)) return;
+      if (activeEntities.length > 0 && !activeEntities.includes(entity)) return;
 
       // If websiteId filter is provided, verify match
       if (websiteId && eventWebId && String(websiteId) !== String(eventWebId)) return;
 
       // Trigger automatic live data update
-      onSync(payload);
+      onSyncRef.current(payload);
     };
 
     socket.on("data:change", handleDataChange);
@@ -37,5 +48,5 @@ export function useDataSync({ entities = [], onSync, websiteId = null }) {
     return () => {
       socket.off("data:change", handleDataChange);
     };
-  }, [socket, entities, onSync, websiteId]);
+  }, [socket, websiteId]);
 }

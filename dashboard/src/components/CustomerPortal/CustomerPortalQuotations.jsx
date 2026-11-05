@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { FileText, Download, Check, X, AlertCircle, ShieldCheck } from "lucide-react";
-import { api, API_BASE } from "../../api/client.js";
+import { api, apiUrl } from "../../api/client.js";
 import { useToast } from "../../context/ToastContext.jsx";
 import { useCurrency } from "../../context/CurrencyContext.jsx";
 
@@ -16,7 +16,7 @@ export default function CustomerPortalQuotations() {
   const fetchQuotations = async () => {
     try {
       const res = await api("/api/crm/customer-portal/quotations");
-      setQuotations(res || []);
+      setQuotations(Array.isArray(res) ? res : (res?.quotations || res?.data || []));
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -31,7 +31,7 @@ export default function CustomerPortalQuotations() {
   const handleDownloadPdf = async (quoteId) => {
     try {
       const result = await api(`/api/crm/quotations/${quoteId}/pdf`, { method: "POST" });
-      const cleanUrl = `${API_BASE}${result.pdfUrl}`;
+      const cleanUrl = apiUrl(result.pdfUrl);
       
       const response = await fetch(cleanUrl);
       const blob = await response.blob();

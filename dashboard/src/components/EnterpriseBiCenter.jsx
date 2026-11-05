@@ -71,7 +71,7 @@ export default function EnterpriseBiCenter() {
             <h3 className="text-xl font-black text-white mt-1">Real-Time Revenue & Compliance Intelligence</h3>
           </div>
           <span className="px-4 py-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-2xl text-xs font-black uppercase">
-            {summary.engineStatus}
+            {summary.engineStatus || "ONLINE"}
           </span>
         </div>
 
@@ -135,7 +135,7 @@ export default function EnterpriseBiCenter() {
                     <span className="text-[9px] font-black uppercase text-slate-400 block">{w.widgetName}</span>
                     <strong className="text-xl font-black text-slate-900 block">{w.metricValue}</strong>
                     <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[9px] font-mono text-indigo-600 font-bold">
-                      <span>Type: {w.chartType.toUpperCase()}</span>
+                      <span>Type: {(w.chartType || "metric").toUpperCase()}</span>
                       <ArrowUpRight size={14} />
                     </div>
                   </div>

@@ -28,7 +28,7 @@ export const MODULE_CATEGORIES = {
     "custom-crm-modules", "automation"
   ],
   enterprise: [
-    "multi-organization", "enterprise-bi", "enterprise-integrations",
+    "multi-organization", "enterprise-bi", "enterprise-integrations", "enterprise-integration",
     "mission-control", "sla-center", "observability", "load-testing",
     "release-management", "developer-portal", "product-management",
     "compliance-governance", "mobile-readiness", "enterprise"
@@ -56,8 +56,8 @@ export function hasModule(user, moduleName) {
   if (role.includes("admin") || role === "superadmin" || role === "global_admin") return true;
 
   const cleanMod = String(moduleName || "").toLowerCase().trim();
-  // Always allowed essentials so tenant can see their dashboard and renew billing
-  const ALWAYS_ALLOWED = ["overview", "billing", "websites", "agents"];
+  // Always allowed essentials so tenant can see their dashboard, integrations and renew billing
+  const ALWAYS_ALLOWED = ["overview", "billing", "websites", "agents", "enterprise-integrations", "enterprise-integration"];
   if (ALWAYS_ALLOWED.includes(cleanMod)) return true;
 
   const subscription = getSubscription(user);

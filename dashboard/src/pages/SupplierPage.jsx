@@ -4,14 +4,14 @@ import Layout from "../components/Layout.jsx";
 import { 
   Package, Truck, CheckCircle, Clock, IndianRupee, Download, ExternalLink, 
   ShieldAlert, Building2, MapPin, Mail, Phone, Lock, TrendingUp, BarChart3, 
-  Star, ShieldCheck, CreditCard, PieChart as LucidePieChart
+  Star, ShieldCheck, CreditCard, PieChart as LucidePieChart, AlertCircle
 } from "lucide-react";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   AreaChart, Area, Cell, PieChart, Pie 
 } from 'recharts';
 import { useAuth } from "../context/AuthContext.jsx";
-import { api, apiUrl } from "../api/client.js";
+import { api, apiDownload } from "../api/client.js";
 
 import { formatCurrency } from "../utils/currencyFormatter.js";
 
@@ -38,10 +38,10 @@ export default function SupplierPage() {
         api.get("/api/supplier/inventory"),
         api.get("/api/supplier/ledger")
       ]);
-      setProfile(profileRes.data);
-      setOrders(ordersRes.data || []);
-      setInventoryItems(inventoryRes || []);
-      setLedgerData(ledgerRes || null);
+      setProfile(profileRes?.data || profileRes || null);
+      setOrders(Array.isArray(ordersRes) ? ordersRes : (ordersRes?.data || []));
+      setInventoryItems(Array.isArray(inventoryRes) ? inventoryRes : (inventoryRes?.data || []));
+      setLedgerData(ledgerRes?.data || ledgerRes || null);
     } catch (err) {
       console.error("Failed to load supplier data", err);
     } finally {
@@ -80,20 +80,7 @@ export default function SupplierPage() {
 
   const downloadPO = async (orderId) => {
     try {
-      const token = localStorage.getItem("dashboard_token");
-      const res = await fetch(await apiUrl(`/api/supplier/orders/${orderId}/pdf`), {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      if (!res.ok) throw new Error("Failed to download PDF");
-      
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      window.open(url, "_blank");
-      
-      // Clean up the URL object after opening
-      setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+      await apiDownload(`/api/supplier/orders/${orderId}/pdf`, `PO-${orderId}.pdf`);
     } catch (err) {
       console.error("PDF Download Error:", err);
       alert("Failed to download PDF. Please try again.");

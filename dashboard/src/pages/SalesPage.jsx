@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
+import { useSocket } from "../context/SocketContext.jsx";
 import { useWebsite } from "../context/WebsiteContext.jsx";
 import { api } from "../api/client.js";
 import CRMManager from "../components/CRMManager.jsx";
@@ -56,9 +57,12 @@ function SessionStatusBadge({ status }) {
 }
 
 function SalesChatsPanel({ onConvertToLead }) {
+  const { user } = useAuth();
+  const socket = useSocket();
   const [sessions, setSessions] = useState([]);
   const [selectedSession, setSelectedSession] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [visitorTyping, setVisitorTyping] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [error, setError] = useState("");
@@ -87,7 +91,7 @@ function SalesChatsPanel({ onConvertToLead }) {
       setLoadingMessages(true);
       try {
         const data = await api(`/api/chat/sessions/${selectedSession.sessionId}/messages`);
-        if (!cancelled) setMessages(data);
+        if (!cancelled) setMessages(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Failed to load messages", err);
       } finally {
@@ -95,20 +99,68 @@ function SalesChatsPanel({ onConvertToLead }) {
       }
     }
     loadMessages();
+    if (socket) {
+      socket.emit("agent:join-session", { sessionId: selectedSession.sessionId });
+      socket.emit("agent:read-session", { sessionId: selectedSession.sessionId });
+    }
     return () => { cancelled = true; };
-  }, [selectedSession]);
+  }, [selectedSession, socket]);
+
+  useEffect(() => {
+    if (!socket || !selectedSession) return;
+    const activeSid = selectedSession.sessionId;
+    const onMsg = (payload) => {
+      if (payload?.sessionId !== activeSid) return;
+      setMessages((prev) => {
+        const idx = prev.findIndex(
+          (m) => (payload.tempId && m.tempId === payload.tempId) || (payload._id && m._id === payload._id)
+        );
+        if (idx !== -1) {
+          const copy = [...prev];
+          copy[idx] = { ...copy[idx], ...payload };
+          return copy;
+        }
+        return [...prev, payload];
+      });
+    };
+    const onTyping = ({ sessionId, isTyping, sender }) => {
+      if (sessionId === activeSid && (sender === "visitor" || sender === "client" || !sender)) {
+        setVisitorTyping(Boolean(isTyping));
+      }
+    };
+    socket.on("chat:new-message", onMsg);
+    socket.on("chat:message", onMsg);
+    socket.on("chat:typing", onTyping);
+    return () => {
+      socket.off("chat:new-message", onMsg);
+      socket.off("chat:message", onMsg);
+      socket.off("chat:typing", onTyping);
+    };
+  }, [socket, selectedSession]);
 
   const handleSendMessage = async (payload) => {
-    if (!selectedSession) return;
-    try {
-      const msg = await api(`/api/chat/sessions/${selectedSession.sessionId}/messages`, {
-        method: "POST",
-        body: JSON.stringify(payload)
-      });
-      setMessages(prev => [...prev, msg]);
-    } catch (err) {
-      alert("Failed to send message: " + err.message);
-    }
+    if (!selectedSession || !socket) return;
+    const tempId = `sales-msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const optimistic = {
+      _id: tempId,
+      tempId,
+      sessionId: selectedSession.sessionId,
+      message: payload.text,
+      attachmentUrl: payload.attachmentUrl,
+      attachmentType: payload.attachmentType,
+      sender: "agent",
+      senderName: user?.name || "Sales",
+      createdAt: new Date().toISOString()
+    };
+    setMessages((prev) => [...prev, optimistic]);
+    socket.emit("agent:message", {
+      sessionId: selectedSession.sessionId,
+      message: payload.text,
+      attachmentUrl: payload.attachmentUrl,
+      attachmentType: payload.attachmentType,
+      tempId
+    });
+    socket.emit("agent:typing", { sessionId: selectedSession.sessionId, isTyping: false });
   };
 
   if (loading) {
@@ -150,8 +202,8 @@ function SalesChatsPanel({ onConvertToLead }) {
           session={selectedSession}
           messages={messages}
           onSend={handleSendMessage}
-          onTyping={() => { }}
-          isTyping={false}
+          onTyping={(isTyping) => socket?.emit("agent:typing", { sessionId: selectedSession.sessionId, isTyping })}
+          isTyping={visitorTyping}
           onConvertToLead={() => onConvertToLead(selectedSession)}
         />
       </div>

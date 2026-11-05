@@ -47,7 +47,9 @@ export async function createWebsite(req, res) {
     businessHours: req.body.businessHours,
     webhooks: req.body.webhooks,
     ...(Array.isArray(req.body.pipelineStages) ? { pipelineStages: req.body.pipelineStages } : {}),
-    ...(req.body.currencySettings ? { currencySettings: req.body.currencySettings } : {})
+    ...(req.body.currencySettings ? { currencySettings: req.body.currencySettings } : {}),
+    businessDescription: req.body.businessDescription || "",
+    customFaqs: Array.isArray(req.body.customFaqs) ? req.body.customFaqs : []
   });
 
   await ensureAnalytics(website._id);
@@ -84,7 +86,7 @@ export async function updateWebsite(req, res) {
     "welcomeMessage", "awayMessage", "position", "businessHours", "webhooks",
     "isActive", "enableChat", "enableLeadGeneration", "enableTicketing",
     "enableKnowledgeBase", "enableLiveAgent", "enableAutomation", "autoCreateVoiceTicket",
-    "voiceSettings", "currencySettings", "enabledModules"
+    "voiceSettings", "currencySettings", "enabledModules", "businessDescription", "customFaqs"
   ];
   
   fields.forEach(field => {

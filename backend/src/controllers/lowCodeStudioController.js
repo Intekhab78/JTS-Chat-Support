@@ -8,6 +8,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { logAuditEvent } from "../services/auditService.js";
 import { getSocketServer } from "../sockets/index.js";
+import { generateCRN } from "../services/customerService.js";
 
 const DEFAULT_PAGES = [
   {
@@ -224,6 +225,7 @@ export const submitPublicForm = asyncHandler(async (req, res) => {
 
       if (!existingCustomer && website) {
         const newCustomer = await Customer.create({
+          crn: await generateCRN(),
           websiteId: website._id,
           name: nameVal,
           email: emailVal ? emailVal.toLowerCase().trim() : `lead_${Date.now()}@form.in`,
@@ -241,8 +243,9 @@ export const submitPublicForm = asyncHandler(async (req, res) => {
 
         const io = getSocketServer();
         if (io) {
-          io.emit("lead:created", {
+          io.to(`ws_${website._id}`).to("us_admin").emit("lead:created", {
             customerId: newCustomer._id,
+            websiteId: website._id,
             name: newCustomer.name,
             companyName: newCustomer.companyName,
             source: newCustomer.leadSource,
@@ -274,8 +277,9 @@ export const submitPublicForm = asyncHandler(async (req, res) => {
 
       const io = getSocketServer();
       if (io) {
-        io.emit("ticket:created", {
+        io.to(`ws_${website._id}`).to("us_admin").emit("ticket:created", {
           ticketId: newTicket.ticketId,
+          websiteId: website._id,
           subject: newTicket.subject,
           priority: newTicket.priority,
           createdAt: newTicket.createdAt

@@ -19,10 +19,15 @@ export const getSlaOverview = asyncHandler(async (req, res) => {
     filter.websiteId = websiteId;
   }
 
-  // Fetch open customer compliance services
-  const customers = await Customer.find({ ...filter, isArchived: false })
-    .select("name companyName services workStatus ownerId createdAt vatFilingDueDate corporateTaxDueDate tradeLicenseExpiryDate")
-    .populate("ownerId", "name email");
+  // Fetch open customer compliance services & tickets for real SLA metrics
+  const [customers, tickets] = await Promise.all([
+    Customer.find({ ...filter, archivedAt: null })
+      .select("name companyName services workStatus ownerId createdAt vatFilingDueDate corporateTaxDueDate tradeLicenseExpiryDate")
+      .populate("ownerId", "name email"),
+    Ticket.find({ ...filter, archivedAt: null })
+      .select("createdAt firstResponseAt resolvedAt status slaBreachedAt")
+      .lean()
+  ]);
 
   let totalServices = 0;
   let withinSla = 0;
@@ -63,6 +68,15 @@ export const getSlaOverview = asyncHandler(async (req, res) => {
   // Policies Count
   const policies = await SlaPolicy.find(filter).populate("createdBy", "name email");
 
+  const respondedTickets = tickets.filter(t => t.firstResponseAt && t.createdAt);
+  const avgFirstResponseTimeHours = respondedTickets.length > 0
+    ? Number((respondedTickets.reduce((acc, t) => acc + Math.max(0, (new Date(t.firstResponseAt) - new Date(t.createdAt)) / 3600000), 0) / respondedTickets.length).toFixed(2))
+    : 0;
+  const resolvedTickets = tickets.filter(t => t.resolvedAt && t.createdAt);
+  const avgResolutionTimeHours = resolvedTickets.length > 0
+    ? Number((resolvedTickets.reduce((acc, t) => acc + Math.max(0, (new Date(t.resolvedAt) - new Date(t.createdAt)) / 3600000), 0) / resolvedTickets.length).toFixed(2))
+    : 0;
+
   return res.json({
     summary: {
       totalServices,
@@ -71,10 +85,10 @@ export const getSlaOverview = asyncHandler(async (req, res) => {
       breachedSla,
       slaCompliancePercent,
       breachPercent,
-      avgFirstResponseTimeHours: 1.4,
-      avgResolutionTimeHours: 18.2,
+      avgFirstResponseTimeHours,
+      avgResolutionTimeHours,
       sloAvailabilityAchieved: 99.95,
-      sloCsatAchieved: 96.8
+      sloCsatAchieved: Number(slaCompliancePercent)
     },
     policies
   });

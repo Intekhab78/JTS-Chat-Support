@@ -3,7 +3,7 @@ import { Notification } from "../models/Notification.js";
 import { User } from "../models/User.js";
 import { NOTIFICATION_TYPES } from "../constants/domain.js";
 
-export async function createNotification( { userId, recipient, title, message, type = "system_alert", link = "", actorId, actorName, entityType, entityId, metadata }) {
+export async function createNotification({ userId, recipient, title, message, content, type = "system_alert", link = "", actor, actorId, actorName, entityType, entityId, metadata }) {
   try {
     let targetRecipient = recipient || userId;
 
@@ -18,17 +18,18 @@ export async function createNotification( { userId, recipient, title, message, t
 
     const validTypes = Array.isArray(NOTIFICATION_TYPES) ? NOTIFICATION_TYPES : [];
     const validCategoryType = validTypes.includes(type) ? type : "system_alert";
+    const finalMessage = message || content || title || "Notification";
 
     const notif = await Notification.create({
       recipient: targetRecipient,
       title: title || "System Alert",
-      message: message || "",
+      message: finalMessage,
       type: validCategoryType,
       link: link || "",
-      actorId: actorId || null,
-      actorName: actorName || "",
+      actorId: actorId || actor?._id || null,
+      actorName: actorName || actor?.name || "",
       entityType: entityType || "",
-      entityId: entityId || "",
+      entityId: entityId ? String(entityId) : "",
       metadata: metadata || {},
       isRead: false
     });

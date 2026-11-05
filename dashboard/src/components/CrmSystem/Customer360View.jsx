@@ -5,7 +5,7 @@ import {
   Trash2, Plus, Edit3, Eye, ArrowLeft, Paperclip, MessageSquare, AlertCircle, BookOpen, Search, Filter, Download, Send, Globe, Building2, ShieldCheck, Tag, Layers, Check, CheckCircle, ChevronRight, ChevronLeft, Upload, File, Share2, MoreVertical, AlertTriangle, Star, Save, RefreshCw, Printer,
   MapPin, Mic, MicOff, Navigation, Volume2, Sparkles, ExternalLink, Copy
 } from "lucide-react";
-import { api } from "../../api/client.js";
+import { api, apiUrl } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 
 import { useCurrency } from "../../context/CurrencyContext.jsx";
@@ -268,6 +268,11 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
   const [teamMembers, setTeamMembers] = useState([]);
   const [quickNoteText, setQuickNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [emailForm, setEmailForm] = useState({ subject: "", body: "" });
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [docFile, setDocFile] = useState(null);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
 
   // Field Sales GPS Visit Check-in State
   const [showGpsModal, setShowGpsModal] = useState(false);
@@ -401,34 +406,34 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
     try {
       if (activeTab === "timeline") {
         const res = await api(`/api/crm/${customerId}/activity`);
-        setTimeline(res || []);
+        setTimeline(Array.isArray(res) ? res : (res?.activities || res?.timeline || []));
       } else if (activeTab === "deals") {
         const res = await api(`/api/crm/deals?customerId=${customerId}&websiteId=${websiteId}`);
-        setDeals(res.deals || res);
+        setDeals(Array.isArray(res) ? res : (res?.deals || []));
       } else if (activeTab === "tasks") {
         const res = await api(`/api/crm/tasks/my?customerId=${customerId}`); // standard fallback
-        setTasks(Array.isArray(res) ? res : (res.tasks || []));
+        setTasks(Array.isArray(res) ? res : (res?.tasks || []));
       } else if (activeTab === "meetings") {
         const res = await api(`/api/crm/meetings?customerId=${customerId}&websiteId=${websiteId}`);
-        setMeetings(res.meetings || []);
+        setMeetings(Array.isArray(res) ? res : (res?.meetings || []));
       } else if (activeTab === "calls") {
         const res = await api(`/api/crm/calls?customerId=${customerId}&websiteId=${websiteId}`);
-        setCalls(res.calls || []);
+        setCalls(Array.isArray(res) ? res : (res?.calls || []));
       } else if (activeTab === "emails") {
         const res = await api(`/api/crm/emails?customerId=${customerId}&websiteId=${websiteId}`);
-        setEmails(res.emails || []);
+        setEmails(Array.isArray(res) ? res : (res?.emails || []));
       } else if (activeTab === "documents") {
         const res = await api(`/api/crm/documents?customerId=${customerId}&websiteId=${websiteId}`);
-        setDocuments(res.documents || []);
+        setDocuments(Array.isArray(res) ? res : (res?.documents || []));
       } else if (activeTab === "invoices") {
         const res = await api(`/api/crm/${customerId}/invoices`);
-        setInvoices(Array.isArray(res) ? res : (res.invoices || []));
+        setInvoices(Array.isArray(res) ? res : (res?.invoices || []));
       } else if (activeTab === "payments") {
         const res = await api(`/api/crm/payments?customerId=${customerId}&websiteId=${websiteId}`);
-        setPayments(res || []);
+        setPayments(Array.isArray(res) ? res : (res?.payments || []));
       } else if (activeTab === "subscriptions") {
         const res = await api(`/api/crm/subscriptions?customerId=${customerId}&websiteId=${websiteId}`);
-        setSubscriptions(res || []);
+        setSubscriptions(Array.isArray(res) ? res : (res?.subscriptions || []));
       } else if (activeTab === "notes") {
         // Fallback to internal notes on Customer
         setNotes(customer?.internalNotes || []);
@@ -517,17 +522,51 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
     }
   };
 
+  const handleSendEmail = async (e) => {
+    e.preventDefault();
+    if (!emailForm.subject.trim() || !emailForm.body.trim()) return;
+    setSendingEmail(true);
+    try {
+      await api(`/api/crm/${customerId}/send-email`, {
+        method: "POST",
+        body: JSON.stringify({
+          subject: emailForm.subject.trim(),
+          body: emailForm.body.trim(),
+          to: customer?.email
+        })
+      });
+      setShowEmailForm(false);
+      setEmailForm({ subject: "", body: "" });
+      fetchTabData();
+    } catch (err) {
+      alert(err.message || "Failed to send email");
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   const handleUploadDoc = async (e) => {
     e.preventDefault();
+    setUploadingDoc(true);
     try {
+      let resolvedFileUrl = docForm.fileUrl;
+      if (docFile) {
+        const fd = new FormData();
+        fd.append("file", docFile);
+        const uploaded = await api.post("/api/chat/upload", fd);
+        resolvedFileUrl = uploaded?.fileUrl || resolvedFileUrl;
+      }
       await api(`/api/crm/documents`, {
         method: "POST",
-        body: JSON.stringify({ ...docForm, customerId, websiteId })
+        body: JSON.stringify({ ...docForm, fileUrl: resolvedFileUrl, customerId, websiteId })
       });
+      setDocFile(null);
       setShowDocForm(false);
       fetchTabData();
     } catch (err) {
       alert(err.message);
+    } finally {
+      setUploadingDoc(false);
     }
   };
 
@@ -1783,7 +1822,7 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                           sender: "agent",
                           text: msg,
                           time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-                          status: res?.data?.mode === "live" ? "Sent Live ✓✓" : "Dispatched ✓"
+                          status: (res?.mode || res?.data?.mode) === "live" ? "Sent Live ✓✓" : "Dispatched ✓"
                         };
                         setWhatsappTimeline(prev => [...prev, newMsg]);
                         setWhatsappInput("");
@@ -2314,7 +2353,7 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                     <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between text-[8px] font-bold text-slate-400">
                       <span>{new Date(d.createdAt).toLocaleDateString()}</span>
                       {d.fileUrl && (
-                        <a href={d.fileUrl} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline font-black uppercase flex items-center gap-1">
+                        <a href={apiUrl(d.fileUrl)} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline font-black uppercase flex items-center gap-1">
                           Download
                         </a>
                       )}
@@ -2536,11 +2575,11 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                 onChange={(e) => {
                   const file = e.target.files[0];
                   if (file) {
-                    const fakeUrl = URL.createObjectURL(file);
+                    setDocFile(file);
                     setDocForm(prev => ({
                       ...prev,
                       name: prev.name || file.name,
-                      fileUrl: fakeUrl,
+                      fileUrl: prev.fileUrl && !prev.fileUrl.startsWith("blob:") ? prev.fileUrl : `/uploads/${encodeURIComponent(file.name)}`,
                       filename: file.name
                     }));
                   }
@@ -2560,8 +2599,52 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
               />
             </div>
 
-            <button type="submit" className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer">
-              <Check size={14} /> Save Compliance Document
+            <button type="submit" disabled={uploadingDoc} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer">
+              <Check size={14} /> {uploadingDoc ? "Uploading..." : "Save Compliance Document"}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* Compose Email Modal Overlay */}
+      {showEmailForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowEmailForm(false)} />
+          <form onSubmit={handleSendEmail} className="relative w-full max-w-md bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 border border-slate-100">
+            <div className="flex justify-between items-center border-b pb-2.5 border-slate-100">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Compose Client Email</h3>
+                <p className="text-[9px] font-bold text-slate-400">To: {customer?.email || "No email on record"}</p>
+              </div>
+              <button type="button" onClick={() => setShowEmailForm(false)} className="p-1.5 text-slate-400 hover:bg-slate-50 rounded-lg cursor-pointer"><X size={15} /></button>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Subject</label>
+              <input
+                required
+                value={emailForm.subject}
+                onChange={(e) => setEmailForm({ ...emailForm, subject: e.target.value })}
+                placeholder="e.g. Compliance Filing Update"
+                className="w-full bg-slate-50 rounded-xl border border-slate-200/70 px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Message Body</label>
+              <textarea
+                rows={4}
+                required
+                value={emailForm.body}
+                onChange={(e) => setEmailForm({ ...emailForm, body: e.target.value })}
+                placeholder="Write your message to the client..."
+                className="w-full bg-slate-50 rounded-xl border border-slate-200/70 px-3 py-2 text-xs font-medium outline-none focus:border-indigo-500"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={sendingEmail || !customer?.email}
+              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-black uppercase flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all"
+            >
+              <Send size={14} /> {sendingEmail ? "Sending..." : "Send Email"}
             </button>
           </form>
         </div>
@@ -2818,7 +2901,17 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
+                    try {
+                      await api(`/api/crm/${customerId}/notes`, {
+                        method: "POST",
+                        body: JSON.stringify({ text: `[Voice Note] ${transcribedText}` })
+                      });
+                      fetchProfile();
+                      fetchTabData();
+                    } catch (err) {
+                      console.warn("Failed to persist voice note:", err);
+                    }
                     alert("Voice Note transcription saved directly into client timeline & task queue!");
                     setShowVoiceModal(false);
                   }}

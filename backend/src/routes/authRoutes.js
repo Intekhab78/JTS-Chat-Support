@@ -17,8 +17,15 @@ const router = Router();
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: { message: "Too many login attempts from this IP, please try again after 15 minutes." },
+  max: 50,
+  validate: false,
+  keyGenerator: (req) => {
+    const email = req.body && typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    const ip = req.ip || req.socket?.remoteAddress || "unknown";
+    return email ? `${ip}_${email}` : ip;
+  },
+  skip: () => process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test",
+  message: { message: "Too many login attempts for this account, please try again after 15 minutes." },
   standardHeaders: true,
   legacyHeaders: false
 });

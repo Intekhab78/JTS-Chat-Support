@@ -166,6 +166,11 @@ export const runAgentQuery = asyncHandler(async (req, res) => {
     throw new AppError("Unauthorized scope", 403);
   }
 
+  const safeQueryText = String(queryText || "").trim();
+  if (!safeQueryText) {
+    throw new AppError("queryText is required", 400);
+  }
+
   // Fetch model configs to determine provider drivers
   const config = await AiModelConfig.findOne({ websiteId: resolvedWebsiteId }) || { provider: "gemini", modelName: "gemini-1.5-flash" };
   const driver = AiProviderManager.getProvider(config.provider);
@@ -174,7 +179,7 @@ export const runAgentQuery = asyncHandler(async (req, res) => {
   const knowledgeSources = await AiKnowledgeSource.find({ websiteId: resolvedWebsiteId });
   let ragContext = "";
   if (knowledgeSources.length > 0) {
-    const queryWords = queryText.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    const queryWords = safeQueryText.toLowerCase().split(/\s+/).filter(w => w.length > 2);
     const matched = knowledgeSources.filter(src => {
       const textToMatch = `${src.name} ${src.content}`.toLowerCase();
       return queryWords.some(word => textToMatch.includes(word));
@@ -194,7 +199,7 @@ export const runAgentQuery = asyncHandler(async (req, res) => {
 
   const fullPromptText = `${systemPrompt}
 ${ragContext ? `\nUse the following reference documents to answer the User Query:\n${ragContext}\n` : ""}
-User Query: ${queryText}`;
+User Query: ${safeQueryText}`;
   
   // Call LLM completion driver
   const result = await driver.generateCompletion({
@@ -216,12 +221,14 @@ User Query: ${queryText}`;
     provider: config.provider
   });
 
-  // Mock function call intent parsing (detect if response wants to create lead/ticket)
+  // Function call intent parsing — require explicit creation verb before mutating records
   let actionResult = null;
   if (executeToolCalls) {
-    if (queryText.toLowerCase().includes("ticket")) {
-      actionResult = await executeAgentToolCall(resolvedWebsiteId, "create_ticket", { subject: queryText }, req.user);
-    } else if (queryText.toLowerCase().includes("lead") || queryText.toLowerCase().includes("contact")) {
+    const lowerQ = safeQueryText.toLowerCase();
+    const hasCreateIntent = /\b(create|new|open|add|log|raise)\b/.test(lowerQ);
+    if (hasCreateIntent && /\bticket\b/.test(lowerQ)) {
+      actionResult = await executeAgentToolCall(resolvedWebsiteId, "create_ticket", { subject: safeQueryText }, req.user);
+    } else if (hasCreateIntent && /\b(lead|contact)\b/.test(lowerQ)) {
       actionResult = await executeAgentToolCall(resolvedWebsiteId, "create_lead", { name: "AI Inbound Lead" }, req.user);
     }
   }

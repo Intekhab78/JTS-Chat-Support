@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { ChatSession } from "../models/ChatSession.js";
 import { Message } from "../models/Message.js";
 import { Website } from "../models/Website.js";
@@ -14,6 +15,7 @@ import { createActivityEvent, listActivityForEntity } from "../services/activity
 import { dispatchWebsiteWebhook } from "../services/webhookService.js";
 import { emitSessionUpdate, getSocketServer } from "../sockets/index.js";
 import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
+import { getStrictLanguageInstruction } from "../utils/languageDetector.js";
 
 async function loadRealtimeSession(id) {
   return ChatSession.findById(id)
@@ -279,7 +281,7 @@ export async function submitOfflineMessage(req, res) {
         priority: ticketPriority,
         crmStage: "lead", // Automatically routes to Leads & Kanban Pipeline!
         status: "open",
-        channel: "live_chat",
+        channel: "chat",
         lastMessagePreview: String(message || "").trim()
       });
 
@@ -310,8 +312,8 @@ export async function submitOfflineMessage(req, res) {
 
       // 7. Emit lead & ticket creation event so agents / sales see it live
       if (io) {
-        io.to(`ws_${websiteId}`).emit("ticket:new", ticket);
-        io.emit("lead:created", {
+        io.to(`ws_${websiteId}`).to("us_admin").emit("ticket:new", ticket);
+        io.to(`ws_${websiteId}`).to("us_admin").emit("lead:created", {
           message: `New Lead auto-captured from off-hours chat (${ticket.ticketId})`,
           user: customer?.name || targetName,
           customerId: customer?._id,
@@ -841,7 +843,7 @@ export async function transferChatSession(req, res) {
 
     const [session, toAgent] = await Promise.all([
       ChatSession.findOne({ sessionId }).populate("visitorId", "name").populate("websiteId", "websiteName managerId"),
-      User.findById(toAgentId).select("name email role managerId")
+      User.findById(toAgentId).select("name email role managerId websiteIds")
     ]);
 
     if (!session) return res.status(404).json({ message: "Session not found" });
@@ -1171,8 +1173,8 @@ export function isBusinessOpen(businessHours) {
   });
   const parts = formatter.formatToParts(now);
   const dayName = parts.find(p => p.type === "weekday")?.value?.toLowerCase();
-  const hour = parseInt(parts.find(p => p.type === "hour")?.value || "0");
-  const minute = parseInt(parts.find(p => p.type === "minute")?.value || "0");
+  const hour = parseInt(parts.find(p => p.type === "hour")?.value || "0", 10) % 24;
+  const minute = parseInt(parts.find(p => p.type === "minute")?.value || "0", 10);
   const currentMinutes = hour * 60 + minute;
 
   const dayConfig = businessHours[dayName];
@@ -1188,3 +1190,207 @@ export function isBusinessOpen(businessHours) {
   }
   return currentMinutes >= openMinutes && currentMinutes < closeMinutes;
 }
+
+export async function sendAgentSessionMessage(req, res) {
+  try {
+    const { sessionId } = req.params;
+    const { content, message, attachmentUrl = "", attachmentType = "" } = req.body || {};
+    const msgText = String(message ?? content ?? "").trim();
+    if (!msgText && !attachmentUrl) {
+      return res.status(400).json({ message: "Message content is required" });
+    }
+
+    const session = await ChatSession.findOne({
+      $or: [
+        { sessionId },
+        ...( /^[0-9a-fA-F]{24}$/.test(String(sessionId)) ? [{ _id: sessionId }] : [] )
+      ]
+    }).populate("websiteId", "websiteName managerId");
+
+    if (!session) return res.status(404).json({ message: "Session not found" });
+    if (!await ensureSessionStaffAccess(session, req.user)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    if (!session.firstResponseAt) {
+      session.firstResponseAt = new Date();
+      await session.save();
+    }
+
+    const saved = await addMessage({
+      sessionId: session._id,
+      sender: "agent",
+      message: msgText || "Sent an attachment",
+      attachmentUrl,
+      attachmentType,
+      agentId: req.user._id
+    });
+
+    const payload = {
+      ...(saved.toObject ? saved.toObject() : saved),
+      sessionId: session.sessionId,
+      senderName: req.user.name || "Support Agent"
+    };
+
+    const io = getSocketServer();
+    const sessionWebsiteId = getSessionWebsiteId(session);
+    if (io) {
+      io.to(session.sessionId).emit("chat:message", payload);
+      if (sessionWebsiteId) {
+        io.to(`ws_${sessionWebsiteId}`).emit("chat:new-message", payload);
+      }
+      if (session.websiteId?.managerId) {
+        io.to(`us_${session.websiteId.managerId}`).emit("chat:new-message", payload);
+      }
+      io.to("us_admin").emit("chat:new-message", payload);
+    }
+
+    emitSessionUpdate(await loadRealtimeSession(session._id));
+    return res.status(201).json(payload);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+}
+
+export const generateAiSuggestedReply = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const session = await ChatSession.findOne({
+      $or: [
+        { sessionId },
+        ...(mongoose.isValidObjectId(sessionId) ? [{ _id: sessionId }] : [])
+      ]
+    })
+      .populate("websiteId")
+      .populate("visitorId")
+      .populate("customerId");
+
+    if (!session) {
+      return res.status(404).json({ success: false, message: "Session not found" });
+    }
+
+    const website = session.websiteId;
+    const websiteName = website?.websiteName || website?.domain || "our support desk";
+    const websiteDomain = website?.domain || "";
+    const visitorName = session.visitorId?.name || session.customerId?.name || "Visitor";
+
+    // Fetch the recent conversation history for this session
+    const messages = await Message.find({ sessionId: session._id })
+      .sort({ createdAt: -1 })
+      .limit(8);
+    const sortedMessages = messages.reverse();
+
+    const conversationTranscript = sortedMessages.map(m => {
+      const sender = m.sender === "visitor" ? visitorName : "Agent";
+      return `${sender}: ${m.message}`;
+    }).join("\n");
+
+    const lastVisitorMessage = [...sortedMessages].reverse().find(m => m.sender === "visitor")?.message || "";
+    const langInstruction = getStrictLanguageInstruction(lastVisitorMessage || "Hello");
+
+    // Fetch website-specific knowledge base articles or catalog items if available
+    let websiteContextInfo = "";
+    try {
+      const { KnowledgeBaseArticle } = await import("../models/KnowledgeBaseArticle.js");
+      if (website?._id) {
+        const kbArticles = await KnowledgeBaseArticle.find({ websiteId: website._id, status: "published" })
+          .select("title content category")
+          .limit(3);
+        if (kbArticles && kbArticles.length > 0) {
+          websiteContextInfo += "\nWebsite Knowledge Base:\n" + kbArticles.map(a => `- ${a.title}: ${a.content?.slice(0, 200)}`).join("\n");
+        }
+      }
+    } catch {}
+
+    try {
+      const { InventoryItem } = await import("../models/InventoryItem.js");
+      if (website?._id) {
+        const catalogItems = await InventoryItem.find({ websiteId: website._id, status: "active" })
+          .select("name price category")
+          .limit(4);
+        if (catalogItems && catalogItems.length > 0) {
+          websiteContextInfo += "\nOffered Products/Services:\n" + catalogItems.map(c => `- ${c.name} (${c.category || "General"}): $${c.price || 0}`).join("\n");
+        }
+      }
+    } catch {}
+
+    const prompt = `You are a professional customer support specialist for the website "${websiteName}" (${websiteDomain}).
+Answer the visitor's latest inquiry politely, helpfully, and concisely.
+Your reply MUST be strictly relevant to "${websiteName}". Never mention unrelated websites, other companies, or services that "${websiteName}" does not offer.
+
+Visitor Name: ${visitorName}
+Website: ${websiteName} (${websiteDomain})
+${websiteContextInfo}
+
+Recent conversation:
+${conversationTranscript || `Visitor: ${lastVisitorMessage || "Hello"}`}
+
+${langInstruction.directive}
+
+Generate a natural, ready-to-send support reply for the agent to send to ${visitorName} in the visitor's exact language:`;
+
+    let generatedReply = "";
+    try {
+      const { AiProviderManager } = await import("../services/aiProviderManager.js");
+      const provider = AiProviderManager.getProvider("gemini");
+      const result = await provider.generateCompletion({
+        prompt,
+        temperature: 0.7,
+        maxTokens: 300
+      });
+      if (result?.text && !result.text.startsWith("[Google Gemini Response] Simulated")) {
+        generatedReply = result.text.trim();
+      }
+
+      // Strict language guardrail
+      if (generatedReply && langInstruction.lang.code === "en") {
+        const hasHindiWords = /\b(aapke|aapka|aapki|aapko|naam|par|aur|ek|jinhe|hai|hain|kya|nahi|nhi|hoga|karein|kijiye|baare|mein|se|liye|kaam)\b/i.test(generatedReply);
+        if (hasHindiWords) {
+          const fixRes = await provider.generateCompletion({
+            prompt: `Translate this support reply into natural English:\n"${generatedReply}"\nOutput ONLY the English text.`,
+            temperature: 0.1,
+            maxTokens: 300
+          });
+          if (fixRes?.text && !fixRes.text.includes("[Google Gemini Response]")) {
+            generatedReply = fixRes.text.replace(/```/g, "").replace(/^["']|["']$/g, "").trim();
+          }
+        }
+      } else if (generatedReply && (langInstruction.lang.code === "hi-Latn" || langInstruction.lang.code === "hi")) {
+        const hasHindiWords = /[\u0900-\u097F]/.test(generatedReply) || /\b(aap|aapka|aapke|aapki|aapko|hai|hain|kya|nahi|aur|ek|hoga|karein|kijiye|mein|se|ko|ka|ki)\b/i.test(generatedReply);
+        if (!hasHindiWords) {
+          const fixRes = await provider.generateCompletion({
+            prompt: `Translate this support reply into polite conversational Hinglish (Hindi written in Roman English alphabet):\n"${generatedReply}"\nOutput ONLY the Hinglish text.`,
+            temperature: 0.1,
+            maxTokens: 300
+          });
+          if (fixRes?.text && !fixRes.text.includes("[Google Gemini Response]")) {
+            generatedReply = fixRes.text.replace(/```/g, "").replace(/^["']|["']$/g, "").trim();
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("[ChatController] Gemini suggestion error:", err.message);
+    }
+
+    if (!generatedReply) {
+      // Dynamic fallback tailored specifically to THIS website, query and language
+      if (langInstruction.lang.code === "en") {
+        const cleanQuery = lastVisitorMessage ? `Regarding your inquiry "${lastVisitorMessage.slice(0, 50)}"` : "Thank you for contacting us";
+        generatedReply = `Hello ${visitorName}! ${cleanQuery}, our team at ${websiteName} is here to help. How can I assist you further with our services today?`;
+      } else if (langInstruction.lang.code === "ar") {
+        generatedReply = `مرحباً ${visitorName}! فريقنا في ${websiteName} هنا لمساعدتك. كيف يمكنني خدمتك اليوم؟`;
+      } else {
+        const cleanQuery = lastVisitorMessage ? `Aapki inquiry "${lastVisitorMessage.slice(0, 50)}" ke baare mein` : "Humse contact karne ke liye dhanyawad";
+        generatedReply = `Namaste ${visitorName}! ${cleanQuery}, ${websiteName} ki taraf se hum aapki madad ke liye taiyar hain. Aapko hamari services ke baare mein kya jankari chahiye?`;
+      }
+    }
+
+    return res.json({
+      success: true,
+      reply: generatedReply,
+      websiteName
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};

@@ -35,6 +35,7 @@ const quotationSchema = new mongoose.Schema(
     tax: { type: Number, default: 0 },
     total: { type: Number, required: true },
     currency: { type: String, default: "INR" },
+    isInterState: { type: Boolean, default: false },
     status: { 
       type: String, 
       enum: ["draft", "sent", "viewed", "accepted", "rejected", "expired", "pending_approval", "denied", "converted"], 

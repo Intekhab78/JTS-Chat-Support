@@ -42,6 +42,11 @@ export const createPayment = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_CREATE);
   const { websiteId, invoiceId, customerId, amount, gateway, paymentMethod, referenceNumber } = req.body;
 
+  const numericAmount = Number(amount);
+  if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+    throw new AppError("Payment amount must be a positive number", 400);
+  }
+
   const invoice = await Invoice.findById(invoiceId);
   if (!invoice) throw new AppError("Invoice not found", 404);
 
@@ -58,7 +63,7 @@ export const createPayment = asyncHandler(async (req, res) => {
     paymentNumber,
     invoiceId,
     customerId: customerId || invoice.customerId,
-    amount,
+    amount: numericAmount,
     gateway: gateway || "cash",
     paymentMethod: paymentMethod || "cash",
     referenceNumber,
@@ -66,8 +71,8 @@ export const createPayment = asyncHandler(async (req, res) => {
   });
 
   // Calculate allocation
-  invoice.paidAmount = (invoice.paidAmount || 0) + amount;
-  if (invoice.paidAmount >= invoice.total) {
+  invoice.paidAmount = Number(invoice.paidAmount || 0) + numericAmount;
+  if (invoice.paidAmount >= Number(invoice.total || 0)) {
     invoice.status = "paid";
   } else {
     invoice.status = "partially_paid";
@@ -121,6 +126,9 @@ export const refundPayment = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_CREATE);
   const payment = await Payment.findById(req.params.id);
   if (!payment) throw new AppError("Payment log not found", 404);
+  if (payment.status === "refunded") {
+    throw new AppError("Payment has already been refunded", 400);
+  }
 
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
   if (!ownedWebsiteIds.map(id => id.toString()).includes(payment.websiteId.toString())) {
@@ -130,11 +138,16 @@ export const refundPayment = asyncHandler(async (req, res) => {
   const invoice = await Invoice.findById(payment.invoiceId);
   if (!invoice) throw new AppError("Invoice not found", 404);
 
+  const refundAmount = req.body.amount !== undefined ? Number(req.body.amount) : Number(payment.amount);
+  if (!Number.isFinite(refundAmount) || refundAmount <= 0 || refundAmount > Number(payment.amount)) {
+    throw new AppError("Invalid refund amount", 400);
+  }
+
   // Call Gateway Provider abstraction
   const provider = PaymentGatewayManager.getProvider(payment.gateway);
   const refundResult = await provider.refundTransaction({
     transactionId: payment.transactionId,
-    amount: payment.amount
+    amount: refundAmount
   });
 
   payment.status = "refunded";
@@ -147,13 +160,13 @@ export const refundPayment = asyncHandler(async (req, res) => {
     creditNoteNumber,
     invoiceId: payment.invoiceId,
     customerId: payment.customerId,
-    amount: payment.amount,
+    amount: refundAmount,
     reason: req.body.reason || "Customer refund request",
     refundId: refundResult.refundId || `manual_ref_${Date.now()}`
   });
 
-  invoice.paidAmount = Math.max(0, invoice.paidAmount - payment.amount);
-  invoice.status = "refunded";
+  invoice.paidAmount = Math.max(0, Number(invoice.paidAmount || 0) - refundAmount);
+  invoice.status = invoice.paidAmount > 0 ? "partially_paid" : "refunded";
   await invoice.save();
 
   // Log to Activity Timeline

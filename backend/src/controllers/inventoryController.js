@@ -331,8 +331,18 @@ export const updateInventoryItem = asyncHandler(async (req, res) => {
   if (req.body.colorId !== undefined) item.colorId = req.body.colorId || null;
   if (req.body.brandId !== undefined) item.brandId = req.body.brandId || null;
   if (req.body.unitId !== undefined) item.unitId = req.body.unitId || null;
-  if (req.body.supplierId !== undefined) item.supplierId = req.body.supplierId || null;
-  if (req.body.preferredSupplierId !== undefined) item.preferredSupplierId = req.body.preferredSupplierId || null;
+  if (req.body.supplierId !== undefined) {
+    item.supplierId = req.body.supplierId || null;
+    item.supplier_id = item.supplierId;
+    if (req.body.preferredSupplierId === undefined) item.preferredSupplierId = item.supplierId;
+  }
+  if (req.body.preferredSupplierId !== undefined) {
+    item.preferredSupplierId = req.body.preferredSupplierId || null;
+    if (req.body.supplierId === undefined) {
+      item.supplierId = item.preferredSupplierId;
+      item.supplier_id = item.preferredSupplierId;
+    }
+  }
 
   item.brand = normalizeText(req.body.brand ?? item.brand);
   item.unit = normalizeText(req.body.unit ?? item.unit) || "pcs";

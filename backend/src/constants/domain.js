@@ -2,6 +2,7 @@ export const ROLES = Object.freeze({
   ADMIN: "admin",
   CLIENT: "client",
   MANAGER: "manager",
+  MANAGEMENT: "management",
   AGENT: "agent",
   SALES: "sales",
   PURCHASE: "purchase",
@@ -83,7 +84,10 @@ export const NOTIFICATION_TYPES = Object.freeze([
   "trade_license_expiring",
   "overdue_compliance",
   "unattended_client_alert",
-  "missed_call"
+  "missed_call",
+  "alert",
+  "crm_approval_required",
+  "payment_failed"
 ]);
 
 export const UAE_SERVICES = Object.freeze([
@@ -152,7 +156,11 @@ export const ACTIVITY_TYPES = Object.freeze([
   "settings_updated",
   "auto_assigned",
   "sla_breached",
-  "page_view"
+  "page_view",
+  "invoice_created",
+  "email_logged",
+  "note_logged",
+  "whatsapp_received"
 ]);
 
 export const FOLLOW_UP_TASK_TYPES = Object.freeze([

@@ -3,6 +3,7 @@ import { uploadAttachment, initVisitorSession, submitSessionFeedback, getWidgetC
 import { getWidgetScript, submitWidgetLead, submitWidgetTicket, executeWidgetAction, generateWidgetAiResponse } from "../controllers/widgetController.js";
 import { requireWebsiteApiKey } from "../middleware/apiKey.js";
 import { upload } from "../utils/multerConfig.js";
+import { widgetUploadLimiter, widgetSubmissionLimiter, widgetAiLimiter } from "../middleware/rateLimiters.js";
 
 const router = Router();
 
@@ -20,10 +21,10 @@ const uploadAny = (req, res, next) => {
   });
 };
 
-router.post("/api/widget/upload", requireWebsiteApiKey, uploadAny, uploadAttachment);
-router.post("/api/widget/lead", requireWebsiteApiKey, submitWidgetLead);
-router.post("/api/widget/ticket", requireWebsiteApiKey, submitWidgetTicket);
+router.post("/api/widget/upload", requireWebsiteApiKey, widgetUploadLimiter, uploadAny, uploadAttachment);
+router.post("/api/widget/lead", requireWebsiteApiKey, widgetSubmissionLimiter, submitWidgetLead);
+router.post("/api/widget/ticket", requireWebsiteApiKey, widgetSubmissionLimiter, submitWidgetTicket);
 router.post("/api/widget/action", requireWebsiteApiKey, executeWidgetAction);
-router.post("/api/widget/ai-response", requireWebsiteApiKey, generateWidgetAiResponse);
+router.post("/api/widget/ai-response", requireWebsiteApiKey, widgetAiLimiter, generateWidgetAiResponse);
 
 export default router;

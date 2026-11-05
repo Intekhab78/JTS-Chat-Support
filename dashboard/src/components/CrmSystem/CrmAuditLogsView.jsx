@@ -28,7 +28,8 @@ export default function CrmAuditLogsView({ websiteId }) {
       if (action) url += `action=${action}&`;
       
       const res = await api(url);
-      setLogs(res || []);
+      const list = Array.isArray(res) ? res : (res?.logs || res?.data || []);
+      setLogs(list);
     } catch (err) {
       setError(err.message || "Failed to load audit logs from server.");
     } finally {
@@ -56,6 +57,31 @@ export default function CrmAuditLogsView({ websiteId }) {
 
   const toggleExpandLog = (id) => {
     setExpandedLog(expandedLog === id ? null : id);
+  };
+
+  const handleExportCSV = () => {
+    const data = filteredLogs.map((log) => ({
+      "Event ID": log._id || "-",
+      "Timestamp": log.createdAt ? new Date(log.createdAt).toLocaleString() : "-",
+      "Actor": log.actorName || "System",
+      "Role": log.actorRole || "system",
+      "Action": (log.action || "general").toUpperCase(),
+      "Entity Type": log.entityType || "-",
+      "Entity ID": log.entityId || "-",
+      "IP Address": log.ipAddress || "System"
+    }));
+    exportToCSV(data, `Security_Audit_Logs_${new Date().toISOString().slice(0, 10)}`);
+  };
+
+  const handleExportPDF = () => {
+    const data = filteredLogs.map((log) => ({
+      "Timestamp": log.createdAt ? new Date(log.createdAt).toLocaleString() : "-",
+      "Actor": `${log.actorName || "System"} (${log.actorRole || "system"})`,
+      "Action": (log.action || "general").toUpperCase(),
+      "Entity": `${log.entityType || "-"} (${log.entityId || "-"})`,
+      "IP": log.ipAddress || "System"
+    }));
+    exportToPDF(data, `Security_Audit_Logs_${new Date().toISOString().slice(0, 10)}`, "SECURITY AUDIT LOGS REPORT");
   };
 
   return (

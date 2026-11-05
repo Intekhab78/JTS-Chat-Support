@@ -8,7 +8,7 @@ import {
    Sliders, ArrowUp, ArrowDown, PlusCircle, Trash2, RotateCcw, FileSpreadsheet,
    Mail, Phone, ExternalLink, ShieldCheck, MapPin, Monitor, Calendar, Hash, CheckCircle
 } from "lucide-react";
-import { api, apiUrl } from "../api/client.js";
+import { api, apiDownload } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import PaginationControls from "./PaginationControls.jsx";
 import { getPaginationMeta } from "../utils/pagination.js";
@@ -45,6 +45,21 @@ const STATUS_CONFIG = {
    resolved: { label: "Resolved", color: "bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20", dot: "bg-emerald-500", badgeBg: "bg-emerald-500" },
    closed: { label: "Closed", color: "bg-slate-100 text-slate-500 border-slate-200 dark:bg-white/5 dark:text-slate-400 dark:border-white/5", dot: "bg-slate-400", badgeBg: "bg-slate-400" }
 };
+
+function renderTicketSubject(ticket) {
+   const isPhone = ticket?.channel === "phone" || ticket?.subject?.includes("📞");
+   const cleanSubj = (ticket?.subject || "Support Inquiry").replace(/^[📞🎫]\s*/, "");
+   return (
+      <span className="inline-flex items-center gap-1.5 truncate">
+         {isPhone ? (
+            <Phone size={12} className="text-emerald-500 shrink-0 inline" />
+         ) : (
+            <Ticket size={12} className="text-indigo-500 shrink-0 inline" />
+         )}
+         <span className="truncate">{cleanSubj}</span>
+      </span>
+   );
+}
 
 const getStageConfig = (statusKey, websiteId = null) => {
    let currentStages = DEFAULT_STAGES;
@@ -151,9 +166,26 @@ function TicketDetailPanel({ ticket, onUpdate, onClose, assignableAgents = [], c
    const [copiedId, setCopiedId] = useState(false);
    const [copiedEmail, setCopiedEmail] = useState(false);
 
+   const initialRequesterName = ticket.customerId?.name || ticket.visitorId?.name || "";
+   const initialRequesterEmail = ticket.customerId?.email || ticket.visitorId?.email || "";
+   const initialRequesterPhone = ticket.customerId?.phone || ticket.visitorId?.phone || "";
+
+   const [isEditingRequester, setIsEditingRequester] = useState(false);
+   const [requesterName, setRequesterName] = useState(initialRequesterName);
+   const [requesterEmail, setRequesterEmail] = useState(initialRequesterEmail);
+   const [requesterPhone, setRequesterPhone] = useState(initialRequesterPhone);
+
    useEffect(() => {
       api(`/api/tickets/${ticket._id}/activity`).then(setActivity).catch(() => setActivity([]));
    }, [ticket._id]);
+
+   useEffect(() => {
+      const handleKeyDown = (e) => {
+         if (e.key === "Escape") onClose();
+      };
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+   }, [onClose]);
 
    const dashboardBase = window.location.origin;
    const publicStatusUrl = `${dashboardBase}/ticket-status/${ticket.ticketId}`;
@@ -167,8 +199,14 @@ function TicketDetailPanel({ ticket, onUpdate, onClose, assignableAgents = [], c
             if (assignmentReason.trim()) payload.assignmentReason = assignmentReason.trim();
          }
          if (note.trim()) { payload.note = note; payload.noteIsPublic = noteIsPublic; }
+         if (isEditingRequester) {
+            payload.requesterName = requesterName;
+            payload.requesterEmail = requesterEmail;
+            payload.requesterPhone = requesterPhone;
+         }
          await api(`/api/tickets/${ticket._id}`, { method: "PATCH", body: JSON.stringify(payload) });
          toast.success("Ticket updated successfully!");
+         setIsEditingRequester(false);
          onUpdate();
          setNote("");
          setSavedSuccess(true);
@@ -195,8 +233,9 @@ function TicketDetailPanel({ ticket, onUpdate, onClose, assignableAgents = [], c
    };
 
    const copyEmail = () => {
-      if (ticket.visitorId?.email) {
-         navigator.clipboard.writeText(ticket.visitorId.email);
+      const emailToCopy = requesterEmail || ticket.customerId?.email || ticket.visitorId?.email;
+      if (emailToCopy) {
+         navigator.clipboard.writeText(emailToCopy);
          setCopiedEmail(true);
          setTimeout(() => setCopiedEmail(false), 2000);
       }
@@ -207,14 +246,14 @@ function TicketDetailPanel({ ticket, onUpdate, onClose, assignableAgents = [], c
    const crmCfg = CRM_STAGE_CONFIG[ticket.crmStage] || CRM_STAGE_CONFIG.none;
    const slaDetails = getSLADetails(ticket);
 
-   return (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4">
-         <div className="fixed inset-0 bg-slate-900/50 dark:bg-black/80 backdrop-blur-sm" onClick={onClose} />
+   return createPortal(
+      <div className="fixed inset-0 z-[9999] overflow-y-auto bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-150">
+         <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
 
-         <div className="relative w-full max-w-6xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200/90 dark:border-white/10 animate-in zoom-in-95 duration-200">
+         <div className="relative w-full max-w-5xl my-auto max-h-[92vh] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl flex flex-col border border-slate-200/90 dark:border-white/10 overflow-hidden z-10 animate-in zoom-in-95 duration-200">
 
             {/* ── Compact Integrated Header ── */}
-            <div className="px-5 py-3 border-b border-slate-100 dark:border-white/5 bg-slate-50/80 dark:bg-slate-800/50 shrink-0">
+            <div className="px-5 py-3 border-b border-slate-100 dark:border-white/5 bg-slate-50/95 dark:bg-slate-800/90 shrink-0 z-10">
                <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 flex-wrap min-w-0">
                      <div className="w-7 h-7 rounded-lg bg-sky-600 text-white flex items-center justify-center font-black shadow-xs shrink-0">
@@ -275,7 +314,7 @@ function TicketDetailPanel({ ticket, onUpdate, onClose, assignableAgents = [], c
                {/* Subject Line & Meta */}
                <div className="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                   <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white tracking-tight leading-tight truncate">
-                     {ticket.subject || "Support Inquiry"}
+                     {renderTicketSubject(ticket)}
                   </h2>
                   <div className="flex items-center gap-3 text-[10px] text-slate-400 font-medium shrink-0">
                      <span>Created: {new Date(ticket.createdAt).toLocaleString()}</span>
@@ -290,7 +329,7 @@ function TicketDetailPanel({ ticket, onUpdate, onClose, assignableAgents = [], c
             </div>
 
             {/* ── Body: 2-Column Split ── */}
-            <div className="flex-1 flex flex-col md:flex-row bg-slate-50/40 dark:bg-black/10">
+            <div className="flex-1 overflow-y-auto flex flex-col md:flex-row bg-slate-50/40 dark:bg-black/10 min-h-0">
 
                {/* ── Left Content (58% width): Complete Information ── */}
                <div className="flex-1 md:w-[58%] border-b md:border-b-0 md:border-r border-slate-100 dark:border-white/5 p-4 space-y-3">
@@ -301,35 +340,80 @@ function TicketDetailPanel({ ticket, onUpdate, onClose, assignableAgents = [], c
                         <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                            <User size={12} className="text-sky-600" /> Requester & Context
                         </span>
-                        {ticket.crn && (
-                           <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400">CRN: {ticket.crn}</span>
-                        )}
+                        <div className="flex items-center gap-2">
+                           <button
+                              type="button"
+                              onClick={() => setIsEditingRequester(!isEditingRequester)}
+                              className="text-[10px] font-bold text-sky-600 hover:text-sky-700 dark:text-sky-400 flex items-center gap-1 hover:underline cursor-pointer"
+                           >
+                              <Edit3 size={11} /> {isEditingRequester ? "Done" : "Edit Customer"}
+                           </button>
+                           {ticket.crn && (
+                              <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400">CRN: {ticket.crn}</span>
+                           )}
+                        </div>
                      </div>
 
                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
                         {/* Name */}
                         <div>
                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Name</p>
-                           <p className="font-extrabold text-slate-900 dark:text-white truncate">{cleanString(ticket.visitorId?.name, "Anonymous User")}</p>
+                           {isEditingRequester ? (
+                              <input
+                                 type="text"
+                                 value={requesterName}
+                                 onChange={e => setRequesterName(e.target.value)}
+                                 placeholder="Customer name..."
+                                 className="w-full text-xs font-bold border rounded px-1.5 py-1 mt-0.5 bg-slate-50 dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                              />
+                           ) : (
+                              <p className="font-extrabold text-slate-900 dark:text-white truncate">
+                                 {cleanString(requesterName || ticket.customerId?.name || ticket.visitorId?.name, "Anonymous User")}
+                              </p>
+                           )}
                         </div>
 
                         {/* Email */}
                         <div>
                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Email</p>
-                           <div className="flex items-center gap-1">
-                              <p className="font-bold text-slate-800 dark:text-slate-200 truncate">{cleanString(ticket.visitorId?.email, "No email")}</p>
-                              {ticket.visitorId?.email && (
-                                 <button onClick={copyEmail} title="Copy Email" className="text-slate-400 hover:text-sky-600 transition-colors shrink-0">
-                                    {copiedEmail ? <CheckCheck size={11} className="text-emerald-500" /> : <Copy size={11} />}
-                                 </button>
-                              )}
-                           </div>
+                           {isEditingRequester ? (
+                              <input
+                                 type="email"
+                                 value={requesterEmail}
+                                 onChange={e => setRequesterEmail(e.target.value)}
+                                 placeholder="Customer email..."
+                                 className="w-full text-xs font-bold border rounded px-1.5 py-1 mt-0.5 bg-slate-50 dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                              />
+                           ) : (
+                              <div className="flex items-center gap-1">
+                                 <p className="font-bold text-slate-800 dark:text-slate-200 truncate">
+                                    {cleanString(requesterEmail || ticket.customerId?.email || ticket.visitorId?.email, "No email")}
+                                 </p>
+                                 {(requesterEmail || ticket.customerId?.email || ticket.visitorId?.email) && (
+                                    <button onClick={copyEmail} title="Copy Email" className="text-slate-400 hover:text-sky-600 transition-colors shrink-0">
+                                       {copiedEmail ? <CheckCheck size={11} className="text-emerald-500" /> : <Copy size={11} />}
+                                    </button>
+                                 )}
+                              </div>
+                           )}
                         </div>
 
                         {/* Phone */}
                         <div>
                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Phone</p>
-                           <p className="font-bold text-slate-800 dark:text-slate-200 truncate">{ticket.visitorId?.phone || "Not provided"}</p>
+                           {isEditingRequester ? (
+                              <input
+                                 type="text"
+                                 value={requesterPhone}
+                                 onChange={e => setRequesterPhone(e.target.value)}
+                                 placeholder="Phone number..."
+                                 className="w-full text-xs font-bold border rounded px-1.5 py-1 mt-0.5 bg-slate-50 dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white"
+                              />
+                           ) : (
+                              <p className="font-bold text-slate-800 dark:text-slate-200 truncate">
+                                 {requesterPhone || ticket.customerId?.phone || ticket.visitorId?.phone || "Not provided"}
+                              </p>
+                           )}
                         </div>
 
                         {/* Website */}
@@ -548,7 +632,8 @@ function TicketDetailPanel({ ticket, onUpdate, onClose, assignableAgents = [], c
 
             </div>
          </div>
-      </div>
+      </div>,
+      document.body
    );
 }
 
@@ -690,8 +775,7 @@ export default function TicketManager({ websiteId }) {
    };
 
    const handleBulkExport = async () => {
-      const token = localStorage.getItem("dashboard_token");
-      window.open(await apiUrl(`/api/tickets/export?token=${encodeURIComponent(token || "")}`), "_blank");
+      try { await apiDownload("/api/tickets/export", `Tickets_Export_${new Date().toISOString().slice(0, 10)}.csv`); } catch (e) { toast.error("Export failed: " + e.message); }
    };
 
    const handleExportTickets = () => {
@@ -701,19 +785,21 @@ export default function TicketManager({ websiteId }) {
          { key: "status", label: "Status" },
          { key: "priority", label: "Priority" },
          { key: "crmStage", label: "CRM Stage" },
-         { key: "visitorName", label: "Customer Name", accessor: t => t.visitorId?.name || "N/A" },
-         { key: "visitorEmail", label: "Customer Email", accessor: t => t.visitorId?.email || "N/A" },
+         { key: "visitorName", label: "Customer Name", accessor: t => t.customerId?.name || t.visitorId?.name || "N/A" },
+         { key: "visitorEmail", label: "Customer Email", accessor: t => t.customerId?.email || t.visitorId?.email || "N/A" },
          { key: "createdAt", label: "Created Date" }
       ];
       exportToCsv(filtered, columns, "Tickets_Master_Report");
    };
 
    const filtered = tickets.filter(t => {
+      const custName = t.customerId?.name || t.visitorId?.name || "";
+      const custEmail = t.customerId?.email || t.visitorId?.email || "";
       const matchSearch = !searchTerm ||
-         t.ticketId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-         t.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-         (t.visitorId?.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-         (t.visitorId?.email || "").toLowerCase().includes(searchTerm.toLowerCase());
+         (t.ticketId || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+         (t.subject || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+         custName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         custEmail.toLowerCase().includes(searchTerm.toLowerCase());
       const [matchStatus, matchPriority, matchStage] = [
          filterStatus === "all" || t.status === filterStatus,
          filterPriority === "all" || t.priority === filterPriority,
@@ -721,7 +807,7 @@ export default function TicketManager({ websiteId }) {
       ];
       const matchCRN = !searchCRN ||
          (t.crn && t.crn.toLowerCase().includes(searchCRN.toLowerCase())) ||
-         (t.visitorId?.email && t.visitorId.email.toLowerCase().includes(searchCRN.toLowerCase()));
+         custEmail.toLowerCase().includes(searchCRN.toLowerCase());
       return matchSearch && matchStatus && matchPriority && matchStage && matchCRN;
    });
    const paginatedFiltered = getPaginationMeta(filtered, page);
@@ -1044,21 +1130,21 @@ export default function TicketManager({ websiteId }) {
 
                                     {/* Subject Header */}
                                     <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight leading-snug line-clamp-2 mb-3">
-                                       {ticket.subject}
+                                       {renderTicketSubject(ticket)}
                                     </h4>
 
                                     <div className="space-y-3">
                                        {/* Requester Identity Row */}
                                        <div className="flex items-center gap-2.5">
                                           <div className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xs font-black shrink-0 border border-emerald-100 dark:border-emerald-500/20">
-                                             {ticket.visitorId?.name?.[0]?.toUpperCase() || "A"}
+                                             {(ticket.customerId?.name || ticket.visitorId?.name)?.[0]?.toUpperCase() || "A"}
                                           </div>
                                           <div className="min-w-0">
                                              <p className="text-[11px] font-bold text-slate-900 dark:text-white uppercase tracking-tight truncate">
-                                                {cleanString(ticket.visitorId?.name, "ANONYMOUS")}
+                                                {cleanString(ticket.customerId?.name || ticket.visitorId?.name, "ANONYMOUS")}
                                              </p>
                                              <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 truncate">
-                                                {cleanString(ticket.visitorId?.email, "No email")}
+                                                {cleanString(ticket.customerId?.email || ticket.visitorId?.email, "No email")}
                                              </p>
                                           </div>
                                        </div>
@@ -1169,7 +1255,7 @@ export default function TicketManager({ websiteId }) {
                               <div className="lg:col-span-6 space-y-3">
                                  <div className="flex items-center justify-between gap-4">
                                     <h4 className="text-[12px] font-black text-slate-900 dark:text-white tracking-tight truncate group-hover:text-indigo-600 transition-colors">
-                                       {ticket.subject || "No Subject Transmission"}
+                                       {renderTicketSubject(ticket)}
                                     </h4>
                                     <div className="flex items-center gap-2">
                                        {ticket.heatScore && <HeatIndicator score={ticket.heatScore} />}
@@ -1182,11 +1268,11 @@ export default function TicketManager({ websiteId }) {
                                  </div>
                                  <div className="flex items-center gap-4">
                                     <div className="w-9 h-9 rounded-2xl bg-slate-50 dark:bg-white/5 flex items-center justify-center text-[12px] font-black text-indigo-500 dark:text-indigo-400 border border-slate-100 dark:border-white/5 shadow-inner">
-                                       {ticket.visitorId?.name?.[0] || "A"}
+                                       {(ticket.customerId?.name || ticket.visitorId?.name)?.[0]?.toUpperCase() || "A"}
                                     </div>
                                     <div>
-                                       <p className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-tight">{cleanString(ticket.visitorId?.name, "Participant Alpha")}</p>
-                                       <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">{cleanString(ticket.visitorId?.email, "Encrypted Vector")}</p>
+                                       <p className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-tight">{cleanString(ticket.customerId?.name || ticket.visitorId?.name, "Participant Alpha")}</p>
+                                       <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">{cleanString(ticket.customerId?.email || ticket.visitorId?.email, "Encrypted Vector")}</p>
                                     </div>
                                  </div>
                               </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { ShoppingBag, DollarSign, PackageCheck, Clock, Search, Filter, ArrowUpDown, RefreshCw, ChevronRight, Download, Printer } from "lucide-react";
+import { ShoppingBag, DollarSign, PackageCheck, Clock, Search, Filter, ArrowUpDown, RefreshCw, ChevronRight, Download, Printer, AlertCircle } from "lucide-react";
 import { api } from "../../api/client.js";
 import { exportToCSV, exportToPDF, exportSingleRecordPDF } from "../../utils/exportUtils.js";
 

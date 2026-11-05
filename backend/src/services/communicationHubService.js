@@ -9,6 +9,7 @@ import { InstagramProviderManager } from "./providers/instagramProvider.js";
 import { sendEmail } from "./emailService.js";
 import { getSocketServer, emitSessionUpdate } from "../sockets/index.js";
 import { logCrmActivity } from "./activityLoggerService.js";
+import { generateCRN } from "./customerService.js";
 import AppError from "../utils/AppError.js";
 
 // Decouple channels using provider adapters
@@ -164,13 +165,14 @@ export const receiveIncomingMessage = async ({ websiteId, channel, from, text, p
       metadata.set("instagramId", from);
     }
 
+    const crn = await generateCRN();
     customer = await Customer.create({
       websiteId,
-      name: `Omnichannel Contact (${from.slice(-6)})`,
-      email: channel === "email" ? from : `${from.replace(/\s+/g, "")}@omnichannel.jts.com`,
+      name: `Omnichannel Contact (${String(from || "").slice(-6)})`,
+      email: channel === "email" ? from : `${String(from || "visitor").replace(/\s+/g, "")}@omnichannel.jts.com`,
       phone: (channel === "whatsapp" || channel === "sms") ? from : "",
       metadata,
-      crn: "CUSTOMER",
+      crn,
       pipelineStage: "new"
     });
   }
@@ -261,16 +263,20 @@ export const updateMessageStatus = async (providerMessageId, status) => {
   if (status === "read") msg.readAt = new Date();
   await msg.save();
 
-  // Notify UI
+  // Notify UI scoped to session and website
   const io = getSocketServer();
   if (io) {
-    io.emit("message:status-updated", {
+    const sess = msg.sessionId ? await ChatSession.findById(msg.sessionId).select("sessionId websiteId").lean() : null;
+    const statusPayload = {
       messageId: msg._id,
       providerMessageId,
       status,
       deliveredAt: msg.deliveredAt,
       readAt: msg.readAt
-    });
+    };
+    if (sess?.sessionId) io.to(sess.sessionId).emit("message:status-updated", statusPayload);
+    if (sess?.websiteId) io.to(`ws_${sess.websiteId}`).emit("message:status-updated", statusPayload);
+    io.to("us_admin").emit("message:status-updated", statusPayload);
   }
 
   return msg;

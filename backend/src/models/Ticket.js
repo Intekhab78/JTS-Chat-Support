@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 const noteSchema = new mongoose.Schema({
   content: { type: String, required: true },
+  authorName: { type: String, trim: true, default: "" },
   addedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   isPublic: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now }
@@ -40,7 +41,7 @@ const ticketSchema = new mongoose.Schema(
     subcategory: { type: String, trim: true },
     department: { type: String, trim: true, lowercase: true, default: "general" },
     lastMessagePreview: { type: String },
-    channel: { type: String, enum: ["chat", "web", "email", "phone"], default: "chat" },
+    channel: { type: String, enum: ["chat", "live_chat", "web", "email", "phone", "whatsapp"], default: "chat" },
     isRead: { type: Boolean, default: false },
     firstResponseAt: { type: Date },
     firstResponseDueAt: { type: Date, default: null },

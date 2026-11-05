@@ -44,15 +44,19 @@ export const createSupplier = asyncHandler(async (req, res, next) => {
   const { companyName, contactPerson, email, phone, taxId, address, password } = req.body;
   const websiteIds = await getOwnedWebsiteIds(req.user);
 
-  // Check if user with email already exists
-  const existingUser = await User.findOne({ email });
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  if (!normalizedEmail) {
+    return next(new AppError("Supplier email is required.", 400));
+  }
+  const existingUser = await User.findOne({ email: normalizedEmail });
   if (existingUser) {
     return next(new AppError("Email is already registered.", 400));
   }
+  const hashedPassword = await bcrypt.hash(password || "Supplier@123", 12);
   const user = await User.create({
     name: contactPerson || companyName,
-    email,
-    password: password || "Supplier@123",
+    email: normalizedEmail,
+    password: hashedPassword,
     role: "supplier"
   });
 
@@ -60,12 +64,15 @@ export const createSupplier = asyncHandler(async (req, res, next) => {
     userId: user._id,
     companyName,
     contactPerson,
-    email,
+    email: normalizedEmail,
     phone,
     taxId,
     address,
     websiteIds
   });
+
+  user.supplierId = supplier._id;
+  await user.save();
 
   res.status(201).json(supplier);
 });
@@ -259,61 +266,70 @@ export const createPurchaseOrder = asyncHandler(async (req, res, next) => {
   const validWebsiteIds = await getOwnedWebsiteIds(req.user);
   assertWebsiteAccess(req.user, validWebsiteIds, websiteId);
 
+  if (!Array.isArray(items) || items.length === 0) {
+    return next(new AppError("At least one line item is required.", 400));
+  }
+
   // Validate and dynamically register any new inventory items
+  const createdById = req.user?._id || req.user?.id || req.user?.userId || null;
   const parsedItems = [];
   for (const item of items) {
-    let itemId = item.itemId;
-    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(itemId);
+    const desc = String(item?.description || item?.name || "Item").trim() || "Item";
+    let itemId = item?.itemId;
+    const isValidObjectId = typeof itemId === "string" && /^[0-9a-fA-F]{24}$/.test(itemId);
     if (!isValidObjectId || itemId === "new" || !itemId) {
       // Look up existing active item by name for this website to prevent duplicate SKUs
       let dbItem = await InventoryItem.findOne({
         websiteId,
-        name: item.description.trim(),
+        name: desc,
         isDeleted: { $ne: true }
       });
       
       if (!dbItem) {
         // Create matching inventory item on the fly
-        const cleanName = item.description.trim();
-        const cleanPrefix = cleanName.substring(0, 3).toUpperCase().replace(/[^A-Z]/g, "ITEM");
+        const cleanPrefix = desc.substring(0, 3).toUpperCase().replace(/[^A-Z]/g, "ITEM");
         const prefix = cleanPrefix.length === 3 ? cleanPrefix : "POITEM";
         const rand = Math.floor(1000 + Math.random() * 9000);
         const sku = `${prefix}-${rand}`;
         
         dbItem = await InventoryItem.create({
           websiteId,
-          name: cleanName,
+          name: desc,
           sku,
           unit: "pcs",
-          unitCost: Number(item.unitPrice || 0),
+          unitCost: Number(item?.unitPrice || 0),
           quantity: 0,
-          reorderLevel: 5
+          reorderLevel: 5,
+          createdBy: createdById
         });
       }
       itemId = dbItem._id;
     }
     
+    const qty = Math.max(1, Number(item?.quantity || 1));
+    const unitPrice = Math.max(0, Number(item?.unitPrice || 0));
     parsedItems.push({
       itemId,
-      description: item.description,
-      quantity: Number(item.quantity || 1),
-      unitPrice: Number(item.unitPrice || 0),
-      total: Number(item.quantity || 1) * Number(item.unitPrice || 0)
+      description: desc,
+      quantity: qty,
+      unitPrice,
+      total: qty * unitPrice
     });
   }
 
-  const createdById = req.user?._id || req.user?.id || req.user?.userId || null;
+  const total = parsedItems.reduce((sum, it) => sum + (Number(it.total) || 0), 0);
 
   const po = new PurchaseOrder({
-    poNumber: `PO-${Date.now()}`,
+    poNumber: `PO-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
     supplierId,
     websiteId,
     items: parsedItems,
+    subtotal: total,
     total,
     notes,
     terms,
     expectedDeliveryDate,
-    crmCustomerId,
+    crmCustomerId: crmCustomerId && /^[0-9a-fA-F]{24}$/.test(String(crmCustomerId)) ? crmCustomerId : undefined,
     status: "sent", // Assuming sending immediately
     createdBy: createdById
   });

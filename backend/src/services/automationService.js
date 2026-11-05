@@ -369,14 +369,14 @@ export async function processCrmAutomation() {
 
   const dueTasks = await FollowUpTask.find({
     status: { $in: ["open", "in_progress"] },
-    dueAt: { $lte: new Date(), $gte: oneMinuteAgo },
+    dueAt: { $lte: new Date() }, reminderSent: { $ne: true },
     ownerId: { $ne: null }
   })
     .populate("customerId", "name")
     .limit(50);
 
   for (const task of dueTasks) {
-    if (task.notified) continue;
+    if (task.reminderSent) continue;
     await createNotification({
       recipient: task.ownerId,
       type: "crm_follow_up_due",
@@ -394,12 +394,12 @@ export async function processCrmAutomation() {
           "Follow-up Task Due",
           `Hello ${ownerUser.name || "Consultant"},\n\nYour follow-up task for <strong>${task.customerId?.name || "Client"}</strong> is due now:\n\nTitle: ${task.title}\nDue Date: ${new Date(task.dueAt).toLocaleString()}`,
           "View Task Console",
-          `${env.APP_URL || "http://localhost:5173"}/sales?tab=tasks`
+          `${env.clientUrl || "http://localhost:5173"}/sales?tab=tasks`
         )
       });
     }
 
-    task.notified = true;
+    task.reminderSent = true;
     await task.save();
   }
 
@@ -432,7 +432,7 @@ export async function processCrmAutomation() {
             "Overdue Task Escalation Alert",
             `Hello ${managerUser.name || "Manager"},\n\nA follow-up task assigned to <strong>${task.ownerId.name || "Consultant"}</strong> for client <strong>${task.customerId?.name || "Client"}</strong> is overdue by 24+ hours.\n\nTask: ${task.title}`,
             "Open Management Console",
-            `${env.APP_URL || "http://localhost:5173"}/client?tab=crm`
+            `${env.clientUrl || "http://localhost:5173"}/client?tab=crm`
           )
         });
       }
@@ -463,7 +463,7 @@ export async function processCrmAutomation() {
     archivedAt: null,
     nextFollowUpAt: null,
     ownerId: { $ne: null },
-    lastInteraction: { $lte: tenMinutesAgo }
+    lastInteraction: { $lte: tenMinutesAgo }, "metadata.missingTaskFlagged": { $exists: false }
   }).limit(20);
 
   for (const lead of noFollowUpLeads) {
@@ -481,7 +481,7 @@ export async function processCrmAutomation() {
          });
        }
        // We only want to flag once to prevent spam, we can touch a metadata field
-       if (lead.metadata && lead.metadata.set) {
+       if (!lead.metadata) lead.metadata = new Map(); if (lead.metadata.set) {
          lead.metadata.set("missingTaskFlagged", new Date().toISOString());
          await lead.save();
        }

@@ -54,10 +54,17 @@ export const listOmnichannelSessions = asyncHandler(async (req, res) => {
   }
 
   if (search) {
-    query.$or = [
-      { sessionId: { $regex: search, $options: "i" } },
-      { lastMessagePreview: { $regex: search, $options: "i" } }
+    const escapedSearch = String(search).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const searchOr = [
+      { sessionId: { $regex: escapedSearch, $options: "i" } },
+      { lastMessagePreview: { $regex: escapedSearch, $options: "i" } }
     ];
+    if (query.$or) {
+      query.$and = [{ $or: query.$or }, { $or: searchOr }];
+      delete query.$or;
+    } else {
+      query.$or = searchOr;
+    }
   }
 
   const sessions = await ChatSession.find(query)
@@ -230,9 +237,25 @@ export const updateAgentStatus = asyncHandler(async (req, res) => {
 });
 
 export const trackOpen = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  if (id && /^[0-9a-fA-F]{24}$/.test(String(id))) {
+    try {
+      const { EmailHistory } = await import("../models/EmailHistory.js");
+      await Promise.all([
+        EmailHistory.findByIdAndUpdate(id, {
+          $set: { status: "opened", openedAt: new Date() },
+          $inc: { openCount: 1 }
+        }).catch(() => {}),
+        Message.findByIdAndUpdate(id, {
+          $set: { deliveryStatus: "read", readAt: new Date() }
+        }).catch(() => {})
+      ]);
+    } catch (_) {}
+  }
   const img = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64");
   res.writeHead(200, {
     "Content-Type": "image/gif",
+    "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
     "Content-Length": img.length
   });
   res.end(img);

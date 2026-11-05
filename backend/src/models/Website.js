@@ -23,6 +23,7 @@ const websiteSchema = new mongoose.Schema(
     accentColor: { type: String, default: "#00a5cf" },
     launcherIcon: { type: String, default: "💬" },
     welcomeMessage: { type: String, default: "Hi there! How can we help you today?" },
+    awayMessage: { type: String, default: "" },
     position: { type: String, enum: ["left", "right"], default: "right" },
 
     isActive: { type: Boolean, default: true },
@@ -58,6 +59,13 @@ const websiteSchema = new mongoose.Schema(
       type: [String],
       default: ["crm", "operations", "finance", "compliance", "service", "automation"]
     },
+    businessDescription: { type: String, default: "" },
+    customFaqs: [
+      {
+        question: { type: String, trim: true, default: "" },
+        answer: { type: String, trim: true, default: "" }
+      }
+    ],
     botWelcomeMessage: { type: String, default: "Hi 👋 How can we help you today?" },
     pipelineStages: {
       type: [

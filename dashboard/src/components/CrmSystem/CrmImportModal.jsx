@@ -52,19 +52,8 @@ export default function CrmImportModal({
       formData.append("websiteId", websiteId);
       formData.append("ownerId", selectedOwner);
 
-      // Perform multipart form upload
-      const res = await fetch(`${api.defaults?.baseURL || ""}/api/crm/import`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${localStorage.getItem("token") || ""}`
-        },
-        body: formData
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to import CSV file");
-      }
+      // Perform multipart form upload via authenticated API client
+      const data = await api.post("/api/crm/import", formData);
 
       if (data.skippedDetails && data.skippedDetails.length > 0) {
         setResultSummary(data);
@@ -208,7 +197,7 @@ export default function CrmImportModal({
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black uppercase text-slate-700 focus:bg-white transition-all outline-none"
                 >
                   <option value="">-- Assign to Me ({currentUser?.name || "Self"}) --</option>
-                  {teamMembers.map(m => (
+                  {(teamMembers || []).map(m => (
                     <option key={m._id} value={m._id}>{m.name} ({m.role || "sales"})</option>
                   ))}
                 </select>

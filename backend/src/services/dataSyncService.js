@@ -23,9 +23,14 @@ export function broadcastDataChange({ entity, action, websiteId = null, data = n
       timestamp: new Date().toISOString()
     };
 
-    // Broadcast globally to all authenticated sockets
-    io.emit("data:change", payload);
-    io.emit(`${entity}:${action}`, payload);
+    if (websiteId) {
+      const target = io.to(`ws_${websiteId}`).to("us_admin");
+      target.emit("data:change", payload);
+      target.emit(`${entity}:${action}`, payload);
+    } else {
+      io.emit("data:change", payload);
+      io.emit(`${entity}:${action}`, payload);
+    }
   } catch (err) {
     console.error("DataSync Broadcast Error:", err.message);
   }

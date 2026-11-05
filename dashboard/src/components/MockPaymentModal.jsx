@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X, CheckCircle, Loader2, Tag, Zap, ShieldCheck } from "lucide-react";
 import { api } from "../api/client.js";
 
@@ -8,6 +9,22 @@ export default function MockPaymentModal({ isOpen, onClose, plan, billingPeriod,
   const [error, setError] = useState("");
   const [promoCode, setPromoCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState(0); // e.g. 20%
+
+  // Modal scroll lock & Escape key
+  useEffect(() => {
+    if (isOpen) {
+      const orig = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      const handleKeyDown = (e) => {
+        if (e.key === "Escape") onClose();
+      };
+      window.addEventListener("keydown", handleKeyDown);
+      return () => {
+        document.body.style.overflow = orig;
+        window.removeEventListener("keydown", handleKeyDown);
+      };
+    }
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -143,17 +160,29 @@ export default function MockPaymentModal({ isOpen, onClose, plan, billingPeriod,
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-[36px] shadow-2xl border border-slate-100 dark:border-white/5 overflow-hidden relative flex flex-col max-h-[92vh]">
+  return typeof document !== "undefined" ? createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5">
+      {/* Full-screen Backdrop */}
+      <div 
+        className="fixed inset-0 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200" 
+        onClick={onClose} 
+      />
+
+      {/* Modal Dialog Card */}
+      <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl border border-slate-200/80 dark:border-white/10 overflow-hidden flex flex-col max-h-[90vh] z-10 animate-in zoom-in-95 duration-200">
 
         {/* Header */}
-        <div className="p-6 border-b border-slate-100 dark:border-white/5 flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-black/20">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-white/5 flex items-center justify-between shrink-0 bg-slate-50/80 dark:bg-slate-800/80 backdrop-blur-md">
           <div>
-            <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">Self-Serve Checkout</span>
-            <h2 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight">Complete Plan Upgrade</h2>
+            <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest block">Self-Serve Checkout</span>
+            <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white uppercase tracking-tight">Complete Plan Upgrade</h2>
           </div>
-          <button onClick={onClose} className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-2xl transition-all">
+          <button 
+            type="button"
+            onClick={onClose} 
+            className="p-2 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/30 text-slate-400 rounded-xl transition-all cursor-pointer"
+            title="Close (Esc)"
+          >
             <X size={18} />
           </button>
         </div>
@@ -248,6 +277,7 @@ export default function MockPaymentModal({ isOpen, onClose, plan, billingPeriod,
           )}
         </div>
       </div>
-    </div>
-  );
+    </div>,
+    document.body
+  ) : null;
 }

@@ -70,8 +70,11 @@ export default function RiskRegisterManager({ websiteId }) {
   };
 
   useEffect(() => {
-    fetchRisks();
-  }, [websiteId, categoryFilter, statusFilter]);
+    const timer = setTimeout(() => {
+      fetchRisks();
+    }, search ? 250 : 0);
+    return () => clearTimeout(timer);
+  }, [websiteId, categoryFilter, statusFilter, search]);
 
   const handleOpenCreate = () => {
     setEditingRisk(null);

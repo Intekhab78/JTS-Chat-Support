@@ -30,7 +30,7 @@ export default function CannedResponseManager() {
       setLoading(true);
       setError("");
       const data = await api("/api/canned-responses");
-      setResponses(data || []);
+      setResponses(Array.isArray(data) ? data : (data?.responses || data?.data || []));
     } catch (err) {
       setError(err.message || "Failed to load shortcuts.");
     } finally {
@@ -89,7 +89,7 @@ export default function CannedResponseManager() {
 
   const filtered = responses.filter(r => {
     const matchesSearch = 
-      r.shortcut.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      (r.shortcut || "").toLowerCase().includes(searchQuery.toLowerCase()) || 
       (r.content || r.text || "").toLowerCase().includes(searchQuery.toLowerCase());
     
     if (!matchesSearch) return false;

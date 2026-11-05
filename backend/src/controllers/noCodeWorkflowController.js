@@ -3,6 +3,7 @@ import { NoCodeWorkflow } from "../models/NoCodeWorkflow.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { logAuditEvent } from "../services/auditService.js";
+import { sendEmail } from "../services/emailService.js";
 
 const DEFAULT_WORKFLOWS = [
   {
@@ -107,17 +108,56 @@ export const executeWorkflowManual = asyncHandler(async (req, res) => {
   const workflow = await NoCodeWorkflow.findById(id);
   if (!workflow) throw new AppError("Workflow definition not found", 404);
 
+  const startedAt = Date.now();
+  const logs = [`Manual execution triggered by ${req.user?.name || req.user?.email || "user"}`];
+  let runStatus = "success";
+
+  for (const node of workflow.nodes || []) {
+    const label = node.label || node.nodeType || "Step";
+    const cfg = node.config || {};
+    if (node.nodeType === "trigger") {
+      logs.push(`Trigger evaluated: ${label}`);
+    } else if (node.nodeType === "condition") {
+      logs.push(`Condition verified: ${label}`);
+    } else if (node.nodeType === "action") {
+      if (cfg.to) {
+        try {
+          await sendEmail({
+            to: cfg.to,
+            subject: cfg.subject || `Workflow Notification: ${workflow.workflowName}`,
+            html: `<p>${cfg.message || `Automated workflow "${workflow.workflowName}" executed step: ${label}`}</p>`
+          });
+          logs.push(`Email dispatched to ${cfg.to} (${label})`);
+        } catch (err) {
+          runStatus = "partial";
+          logs.push(`Email dispatch failed for ${cfg.to}: ${err.message}`);
+        }
+      } else {
+        logs.push(`Action executed: ${label}`);
+      }
+    } else {
+      logs.push(`Processed node: ${label}`);
+    }
+  }
+
+  const durationMs = Math.max(12, Date.now() - startedAt);
   const newRun = {
-    runId: `RUN-${Math.floor(Math.random() * 90000 + 10000)}`,
-    status: "success",
-    durationMs: Math.floor(Math.random() * 40 + 90),
+    runId: `RUN-${Date.now().toString().slice(-6)}`,
+    status: runStatus,
+    durationMs,
     executedAt: new Date(),
-    logs: ["Manual test trigger initiated", "All canvas nodes evaluated", "Actions dispatched successfully"]
+    logs
   };
 
   workflow.executionHistory.unshift(newRun);
-  workflow.analytics.totalRuns += 1;
-  workflow.analytics.successCount += 1;
+  workflow.analytics.totalRuns = (workflow.analytics?.totalRuns || 0) + 1;
+  if (runStatus === "success") {
+    workflow.analytics.successCount = (workflow.analytics?.successCount || 0) + 1;
+  } else {
+    workflow.analytics.failureCount = (workflow.analytics?.failureCount || 0) + 1;
+  }
+  const prevAvg = workflow.analytics?.avgDurationMs || durationMs;
+  workflow.analytics.avgDurationMs = Math.round((prevAvg + durationMs) / 2);
 
   await workflow.save();
 

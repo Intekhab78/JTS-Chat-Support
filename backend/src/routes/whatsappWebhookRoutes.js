@@ -7,6 +7,6 @@ const router = express.Router();
 router.get("/", verifyWebhook);
 
 // POST for handling inbound message payloads from WhatsApp API
-router.post("/", handleIncomingMessage);
+router.post("/", express.json({ limit: "2mb" }), handleIncomingMessage);
 
 export default router;

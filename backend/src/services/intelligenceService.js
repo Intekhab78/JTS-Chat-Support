@@ -280,7 +280,7 @@ export async function processChatIntelligence(sessionId) {
     const session = await ChatSession.findOne({ sessionId });
     if (!session) return null;
 
-    const messages = await Message.find({ chatSessionId: session._id }).sort({ createdAt: 1 });
+    const messages = await Message.find({ sessionId: session._id }).sort({ createdAt: 1 });
     if (messages.length === 0) return null;
 
     // 1. Heuristic Sentiment Analysis
@@ -334,8 +334,8 @@ export async function processChatIntelligence(sessionId) {
         if (populatedSession && populatedSession.websiteId) {
           const managerId = populatedSession.websiteId.managerId;
           if (managerId) {
-            const { getIo } = await import("../sockets/index.js");
-            const io = getIo();
+            const { getSocketServer } = await import("../sockets/index.js");
+            const io = getSocketServer();
             if (io) {
               const { createNotification } = await import("./notificationService.js");
               const notif = await createNotification({

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Shield, Settings, Plus, Key, ToggleLeft, ToggleRight, Trash2, Cpu, Globe, Users, Clock, AlertTriangle, Video, Edit2, Check, X as XIcon } from "lucide-react";
 import { api } from "../../api/client.js";
+import { renderPlatformIcon } from "./platformIconHelper.jsx";
 
 export default function CrmAdminConsole({ websiteId }) {
   const [config, setConfig] = useState({ orgName: "Enterprise Org", fiscalYearStart: "January", timezone: "UTC", businessHours: [] });
@@ -10,7 +11,7 @@ export default function CrmAdminConsole({ websiteId }) {
   const [loading, setLoading] = useState(true);
   const [platforms, setPlatforms] = useState([]);
   const [showPlatformForm, setShowPlatformForm] = useState(false);
-  const [platformForm, setPlatformForm] = useState({ name: "", icon: "🎥", color: "#6366f1", urlTemplate: "", description: "" });
+  const [platformForm, setPlatformForm] = useState({ name: "", icon: "Video", color: "#6366f1", urlTemplate: "", description: "" });
   const [savingPlatform, setSavingPlatform] = useState(false);
 
   // Forms
@@ -349,7 +350,7 @@ export default function CrmAdminConsole({ websiteId }) {
             }`}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg" style={{ backgroundColor: p.color + "22" }}>
-                  {p.icon}
+                  {renderPlatformIcon(p.icon, p.color, 18)}
                 </div>
                 <div>
                   <p className="text-xs font-black text-slate-800">{p.name}</p>

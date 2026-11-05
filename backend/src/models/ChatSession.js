@@ -79,7 +79,7 @@ const chatSessionSchema = new mongoose.Schema(
     },
     aiSummary: { type: String, default: "" },
     sentimentScore: { type: Number, default: 0 },
-    sentimentLabel: { type: String, enum: ["positive", "satisfied", "neutral", "concerned", "frustrated", ""], default: "" },
+    sentimentLabel: { type: String, enum: ["positive", "satisfied", "neutral", "concerned", "frustrated", "negative", ""], default: "" },
     sentimentHistory: [{
       score: { type: Number },
       label: { type: String },

@@ -28,7 +28,7 @@ export default function MissionControlCenter() {
     fetchData();
 
     const handleKeyDown = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "k" || e.key === "K")) {
         e.preventDefault();
         setShowCommandPalette((prev) => !prev);
       }
@@ -99,7 +99,7 @@ export default function MissionControlCenter() {
             onClick={() => setShowCommandPalette(true)}
             className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-mono text-xs font-bold flex items-center gap-2 border border-slate-200 transition-colors"
           >
-            <Command size={14} /> Press Ctrl + K
+            <Command size={14} /> Command Palette (Ctrl+Shift+K)
           </button>
 
           <button
@@ -203,20 +203,24 @@ export default function MissionControlCenter() {
             </div>
 
             <div className="space-y-2 text-xs font-mono">
-              <button
-                onClick={() => handleExecuteCommand("trigger_smoke_tests")}
-                className="w-full p-3 bg-slate-800 hover:bg-indigo-600 rounded-xl text-left transition-colors flex items-center justify-between"
-              >
-                <span>Run Release Pre-Flight Smoke Test Suite</span>
-                <Play size={14} />
-              </button>
-              <button
-                onClick={() => handleExecuteCommand("flush_pwa_cache")}
-                className="w-full p-3 bg-slate-800 hover:bg-indigo-600 rounded-xl text-left transition-colors flex items-center justify-between"
-              >
-                <span>Sync PWA Offline Mutation Queue</span>
-                <RefreshCw size={14} />
-              </button>
+              {[
+                { key: "trigger_smoke_tests", label: "Run Release Pre-Flight Smoke Test Suite", icon: Play },
+                { key: "flush_pwa_cache", label: "Sync PWA Offline Mutation Queue", icon: RefreshCw }
+              ]
+                .filter(cmd => !commandSearch.trim() || cmd.label.toLowerCase().includes(commandSearch.toLowerCase()) || cmd.key.includes(commandSearch.toLowerCase()))
+                .map(cmd => {
+                  const Icon = cmd.icon;
+                  return (
+                    <button
+                      key={cmd.key}
+                      onClick={() => handleExecuteCommand(cmd.key)}
+                      className="w-full p-3 bg-slate-800 hover:bg-indigo-600 rounded-xl text-left transition-colors flex items-center justify-between"
+                    >
+                      <span>{cmd.label}</span>
+                      <Icon size={14} />
+                    </button>
+                  );
+                })}
             </div>
           </div>
         </div>

@@ -18,6 +18,7 @@ import { generateInvoicePDF, generateQuotationPDF } from "../services/pdfService
 import { sendEmail } from "../services/emailService.js";
 import { advancePurchaseWorkflow } from "../services/purchaseWorkflowService.js";
 import { paymentFailedRecoveryTemplate } from "../utils/emailTemplates.js";
+import { logCrmActivity } from "../services/activityLoggerService.js";
 
 const getStripe = () => {
   if (!env.stripeSecretKey || env.stripeSecretKey === "") {

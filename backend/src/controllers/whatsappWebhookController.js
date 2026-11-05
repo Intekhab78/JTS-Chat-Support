@@ -49,45 +49,51 @@ export async function handleIncomingMessage(req, res) {
 
       // Locate corresponding customer record by matching phone number in database
       // Clean phone check (matching last 10 digits to handle international country code variances)
-      const cleanPhoneQuery = fromPhone.slice(-10);
-      let customer = await Customer.findOne({ 
-        phone: new RegExp(cleanPhoneQuery + "$") 
-      });
+      const digitsOnly = String(fromPhone || "").replace(/\D/g, "");
+      const cleanPhoneQuery = digitsOnly.slice(-10);
+      const escapedPhone = cleanPhoneQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      let customer = cleanPhoneQuery
+        ? await Customer.findOne({ phone: new RegExp(escapedPhone + "$") })
+        : null;
 
       if (!customer) {
         console.log(`[WhatsApp] No existing customer found for ${fromPhone}. Creating new CRM lead...`);
         const defaultWebsite = await Website.findOne({ "voiceSettings.enableWhatsAppAlerts": true }) || await Website.findOne({});
+        if (!defaultWebsite) {
+          return res.status(200).send("EVENT_RECEIVED");
+        }
         const crn = await generateCRN();
         customer = await Customer.create({
           crn,
           name: senderName,
-          phone: "+" + fromPhone,
-          websiteId: defaultWebsite?._id || null,
+          phone: "+" + digitsOnly,
+          websiteId: defaultWebsite._id,
           recordType: "lead",
           pipelineStage: "new",
           leadSource: "whatsapp_cloud_api"
         });
 
-        // Broadcast new lead event so Kanban reflects it immediately
+        // Broadcast new lead event scoped to website & admin rooms
         const io = getSocketServer();
         if (io) {
-          io.emit("lead:created", {
+          const payload = {
             message: `New Lead arrived via WhatsApp: ${senderName} (${fromPhone})`,
             user: senderName,
             customerId: customer._id,
             websiteId: customer.websiteId,
             recordType: "lead"
-          });
+          };
+          io.to(`ws_${customer.websiteId}`).to("us_admin").emit("lead:created", payload);
         }
       }
 
       // Log interaction in customer's Activity Feed/Timeline
       await createActivityEvent({
-        customerId: customer._id,
+        entityType: "customer",
+        entityId: customer._id,
         websiteId: customer.websiteId || null,
-        type: "communication",
-        action: "whatsapp_received",
-        details: `Received WhatsApp: "${textBody}"`,
+        type: "whatsapp_received",
+        summary: `Received WhatsApp: "${textBody}"`,
         metadata: {
           from: fromPhone,
           messageId: message.id,
@@ -95,16 +101,16 @@ export async function handleIncomingMessage(req, res) {
         }
       });
 
-      // Broadcast socket update to client terminals so agents see message instantly
+      // Broadcast socket update to scoped client terminals so agents see message instantly
       const io = getSocketServer();
       if (io) {
-        io.to(String(customer._id)).emit("whatsapp_message_received", {
+        io.to(String(customer._id)).to(`lead_${customer._id}`).to(`ws_${customer.websiteId}`).emit("whatsapp_message_received", {
           customerId: customer._id,
           from: fromPhone,
           text: textBody,
           timestamp: new Date()
         });
-        io.emit("crm_timeline_refresh", { customerId: customer._id });
+        io.to(`ws_${customer.websiteId}`).to("us_admin").emit("crm_timeline_refresh", { customerId: customer._id });
       }
     }
 

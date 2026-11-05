@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { User } from "../models/User.js";
@@ -161,7 +162,13 @@ export const listAgents = asyncHandler(async (req, res) => {
     : buildPersonnelFilter({ managerId: parentId });
 
   if (req.query.websiteId) {
-    filter.websiteIds = req.query.websiteId;
+    let siteId = req.query.websiteId;
+    if (!mongoose.isValidObjectId(siteId)) {
+      const { Website } = await import("../models/Website.js");
+      const wDoc = await Website.findOne({ apiKey: siteId }).select("_id");
+      if (wDoc) siteId = wDoc._id;
+    }
+    filter.websiteIds = siteId;
   } else if (req.user.role === "manager" && Array.isArray(req.user.websiteIds) && req.user.websiteIds.length > 0) {
     filter.websiteIds = { $in: req.user.websiteIds };
   }
@@ -430,7 +437,7 @@ export const getClientDetails = asyncHandler(async (req, res) => {
     .limit(50);
 
   const visitors = await Visitor.find({ websiteId: { $in: websiteIds } })
-    .sort({ lastActive: -1, createdAt: -1 })
+    .sort({ lastVisitTime: -1, createdAt: -1 })
     .limit(50);
 
   return res.json({

@@ -20,11 +20,15 @@ export default function ActiveCallBar({ callData, onEndCall, onToggleMute, onTog
   const barRef = useRef(null);
 
   useEffect(() => {
+    if (callData?.status === "ringing") {
+      setDuration(0);
+      return;
+    }
     const timer = setInterval(() => {
       setDuration(prev => prev + 1);
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [callData?.status, callData?.callId]);
 
   const formatDuration = (secs) => {
     const m = Math.floor(secs / 60).toString().padStart(2, "0");

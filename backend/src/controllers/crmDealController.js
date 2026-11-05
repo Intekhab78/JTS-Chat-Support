@@ -25,7 +25,8 @@ export const listDeals = asyncHandler(async (req, res) => {
   if (stage) query.stage = stage;
 
   if (search) {
-    query.dealName = new RegExp(search, "i");
+    const escapedSearch = String(search).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    query.dealName = new RegExp(escapedSearch, "i");
   }
 
   if (customerId) {

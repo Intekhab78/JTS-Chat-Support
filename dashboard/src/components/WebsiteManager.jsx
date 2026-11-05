@@ -60,7 +60,9 @@ export default function WebsiteManager() {
     enableLiveAgent: true,
     enableAutomation: true,
     businessHours: createDefaultBusinessHours(),
-    webhooks: []
+    webhooks: [],
+    businessDescription: "",
+    customFaqs: []
   });
   const [customizingWebsite, setCustomizingWebsite] = useState(null);
   const [buildingFlowWebsite, setBuildingFlowWebsite] = useState(null);
@@ -127,7 +129,9 @@ export default function WebsiteManager() {
       },
       enabledModules: ["crm", "operations", "finance", "compliance", "service", "automation"],
       businessHours: createDefaultBusinessHours(),
-      webhooks: []
+      webhooks: [],
+      businessDescription: "",
+      customFaqs: []
     });
   };
 
@@ -170,7 +174,9 @@ export default function WebsiteManager() {
       },
       enabledModules: website.enabledModules || ["crm", "operations", "finance", "compliance", "service", "automation"],
       businessHours: website.businessHours || createDefaultBusinessHours(),
-      webhooks: website.webhooks || []
+      webhooks: website.webhooks || [],
+      businessDescription: website.businessDescription || "",
+      customFaqs: Array.isArray(website.customFaqs) ? website.customFaqs : []
     });
     setIsAdding(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -794,6 +800,97 @@ export default function WebsiteManager() {
                         />
                         <span className="text-[9px] font-bold text-slate-700 dark:text-slate-300">💬 SMS Text Alerts</span>
                       </label>
+                    </div>
+                  </div>
+
+                  {/* AI Knowledge Base & Business Profile */}
+                  <div className="pt-2.5 border-t border-slate-100 dark:border-white/5 space-y-2.5">
+                    <div>
+                      <h4 className="text-[9.5px] font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                        <span>🧠</span> AI Knowledge &amp; Business Profile
+                      </h4>
+                      <p className="text-[8.5px] text-slate-400">
+                        Teach AI exactly what your business does, what services you offer (or do not offer), and custom FAQs.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[8.5px] font-black uppercase tracking-wider text-slate-400">
+                        Company Capabilities &amp; Knowledge Guidelines
+                      </label>
+                      <textarea
+                        value={formData.businessDescription || ""}
+                        onChange={(e) => setFormData({ ...formData, businessDescription: e.target.value })}
+                        rows={3}
+                        className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10 rounded-lg p-2 text-xs font-medium focus:border-indigo-500 outline-none transition-all dark:text-white resize-y"
+                        placeholder="E.g. UAE Invoicing specializes exclusively in electronic invoicing, billing software, and POS inventory. We do NOT provide VAT tax filing or company trade license formation services."
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[8.5px] font-black uppercase tracking-wider text-slate-400">
+                          Custom FAQs &amp; Grounded Q&amp;A ({formData.customFaqs?.length || 0})
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({
+                            ...formData,
+                            customFaqs: [...(formData.customFaqs || []), { question: "", answer: "" }]
+                          })}
+                          className="bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded text-[8.5px] font-black uppercase tracking-wider transition-colors"
+                        >
+                          + Add FAQ
+                        </button>
+                      </div>
+
+                      {(formData.customFaqs || []).length === 0 ? (
+                        <p className="text-[9px] text-slate-400 italic bg-slate-50/50 dark:bg-slate-800/30 p-2 rounded-lg border border-dashed border-slate-200 dark:border-white/5 text-center">
+                          No custom FAQs configured yet. Click &quot;+ Add FAQ&quot; to add specific question &amp; answer pairs for the AI.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {(formData.customFaqs || []).map((faq, fIdx) => (
+                            <div key={fIdx} className="p-2 rounded-lg border border-slate-200/80 dark:border-white/10 bg-slate-50/50 dark:bg-slate-800/40 space-y-1.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <input
+                                  type="text"
+                                  value={faq.question}
+                                  onChange={(e) => {
+                                    const next = [...formData.customFaqs];
+                                    next[fIdx] = { ...next[fIdx], question: e.target.value };
+                                    setFormData({ ...formData, customFaqs: next });
+                                  }}
+                                  placeholder="Visitor Question (e.g. Do you support ZATCA e-invoicing?)"
+                                  className="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-xs font-bold outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const next = formData.customFaqs.filter((_, i) => i !== fIdx);
+                                    setFormData({ ...formData, customFaqs: next });
+                                  }}
+                                  className="text-rose-500 hover:text-rose-700 p-1 rounded"
+                                  title="Delete FAQ"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                              <textarea
+                                value={faq.answer}
+                                onChange={(e) => {
+                                  const next = [...formData.customFaqs];
+                                  next[fIdx] = { ...next[fIdx], answer: e.target.value };
+                                  setFormData({ ...formData, customFaqs: next });
+                                }}
+                                rows={2}
+                                placeholder="Direct Spoken Answer for AI (e.g. Yes, our platform is fully certified for Phase 2 ZATCA electronic invoicing integration.)"
+                                className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-xs outline-none resize-none"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 

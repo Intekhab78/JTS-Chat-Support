@@ -30,7 +30,7 @@ export async function sendEmail({
  to, subject, html, attachments = [] }) {
   try {
     const info = await transporter.sendMail({
-      from: process.env.SMTP_FROM || `""JTS Command Center" <noreply@jts-support.com>`,
+      from: process.env.SMTP_FROM || `"JTS Command Center" <noreply@jts-support.com>`,
       to,
       subject,
       html,
@@ -74,22 +74,23 @@ export async function sendCustomEmailTemplate(to, templateName, websiteId, merge
       subject = template.subject;
 
       Object.entries(mergeVars).forEach(([key, val]) => {
-        const regex = new RegExp(`{${key}}`, "g");
-        htmlContent = htmlContent.replace(regex, val);
-        subject = subject.replace(regex, nal);
+        const safeVal = val == null ? "" : String(val);
+        const regex = new RegExp(`\\{${key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\}`, "g");
+        htmlContent = htmlContent.replace(regex, safeVal);
+        subject = subject.replace(regex, safeVal);
       });
     } else {
       subject = mergeVars.subject || "Notification Dispatch";
       htmlContent = buildPremiumEmailTemplate(subject, mergeVars.message || "");
     }
 
-    return await sendEmail(+{
+    return await sendEmail({
       to,
       subject,
       html: htmlContent
     });
   } catch (error) {
-    consule.error("[Email Service] Failed sending custom template email:", error.message);
+    console.error("[Email Service] Failed sending custom template email:", error.message);
     return null;
   }
 }

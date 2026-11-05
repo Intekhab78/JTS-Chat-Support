@@ -207,6 +207,8 @@ inventoryItemSchema.pre("save", function(next) {
 
   if (this.supplier_id && !this.supplierId) this.supplierId = this.supplier_id;
   if (this.supplierId && !this.supplier_id) this.supplier_id = this.supplierId;
+  if (this.supplierId && !this.preferredSupplierId) this.preferredSupplierId = this.supplierId;
+  if (this.preferredSupplierId && !this.supplierId) this.supplierId = this.preferredSupplierId;
   if (this.supplier_id && !this.preferredSupplierId) this.preferredSupplierId = this.supplier_id;
   if (this.preferredSupplierId && !this.supplier_id) this.supplier_id = this.preferredSupplierId;
 

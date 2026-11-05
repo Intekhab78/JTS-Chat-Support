@@ -260,11 +260,16 @@ export default function ClientManager() {
    const paginatedClients = getPaginationMeta(filteredClients, page);
 
    if (selectedClient) {
-      return <ClientDetailView client={selectedClient} details={clientDetails} onBack={() => {
-         setSelectedClient(null);
-         setClientDetails(null);
-         fetchClients();
-      }} />;
+      return <ClientDetailView
+         client={selectedClient}
+         details={clientDetails}
+         onResetPassword={(u) => { setResettingUser(u); setCustomPassword(""); }}
+         onBack={() => {
+            setSelectedClient(null);
+            setClientDetails(null);
+            fetchClients();
+         }}
+      />;
    }
 
    if (loading) return (

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { FileText, Check, X, CreditCard, DollarSign, Send, HelpCircle, Download, Clock, Search, Filter, AlertTriangle, ArrowRight, ShieldCheck, CheckCircle2, RefreshCw, Printer, ChevronRight, MessageCircle } from "lucide-react";
-import { api, API_BASE } from "../../api/client.js";
+import { api, apiUrl } from "../../api/client.js";
 import { exportToCSV, exportToPDF } from "../../utils/exportUtils.js";
 
 
@@ -86,7 +86,7 @@ export default function CrmInvoicesView({ websiteId }) {
   const handleSimulateRazorpayPayment = async () => {
     if (!selectedInvoice) return;
     try {
-      const response = await fetch(`${API_BASE}/api/razorpay-webhooks/razorpay`, {
+      const response = await fetch(apiUrl("/api/razorpay-webhooks/razorpay"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -242,7 +242,8 @@ export default function CrmInvoicesView({ websiteId }) {
     e.preventDefault();
     try {
       // Find a payment associated with this invoice (or mock a refund request)
-      const payments = await api(`/api/crm/payments?customerId=${selectedInvoice.customerId?._id || selectedInvoice.customerId}`);
+      const paymentsRes = await api(`/api/crm/payments?customerId=${selectedInvoice.customerId?._id || selectedInvoice.customerId}`);
+      const payments = Array.isArray(paymentsRes) ? paymentsRes : (paymentsRes?.payments || paymentsRes?.data || []);
       const matchingPay = payments.find(p => String(p.invoiceId?._id || p.invoiceId) === String(selectedInvoice._id));
       if (!matchingPay) {
         throw new Error("No payments logged for this invoice to issue a refund against.");
@@ -639,7 +640,7 @@ export default function CrmInvoicesView({ websiteId }) {
                       onClick={async () => {
                         try {
                           const result = await api(`/api/crm/invoices/${selectedInvoice._id}/pdf`, { method: "POST" });
-                          const cleanUrl = `${API_BASE}${result.pdfUrl}`;
+                          const cleanUrl = apiUrl(result.pdfUrl);
                           window.open(cleanUrl, "_blank");
                         } catch (err) {
                           alert(err.message || "Failed to generate PDF");

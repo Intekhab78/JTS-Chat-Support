@@ -7,6 +7,7 @@ import {
 import { api } from "../../api/client.js";
 import { useToast } from "../../context/ToastContext.jsx";
 import { exportToCSV, exportToPDF, exportSingleRecordPDF } from "../../utils/exportUtils.js";
+import { renderPlatformIcon } from "./platformIconHelper.jsx";
 
 const VIEW_MODES = [
   { id: "month", label: "Month" },
@@ -328,7 +329,28 @@ export default function CrmCalendarView({ websiteId }) {
     return days;
   };
 
-  const allItems = [...activities, ...reminders];
+  const allItems = Array.from(new Map([...activities, ...reminders].filter(Boolean).map(item => [item._id, item])).values());
+
+  const openEditActivityModal = (item) => {
+    setSelectedActivity(item);
+    setForm({
+      title: item.title || "",
+      type: item.type || "meeting",
+      meetingType: item.meetingType || "zoom",
+      timezone: item.timezone || "Asia/Kolkata",
+      dueDate: item.dueDate ? new Date(item.dueDate).toISOString().slice(0, 16) : "",
+      endAt: item.endAt ? new Date(item.endAt).toISOString().slice(0, 16) : "",
+      description: item.description || "",
+      priority: item.priority || "medium",
+      reminderOffsetMinutes: String(item.reminderOffsetMinutes ?? "15"),
+      customerId: item.customerId?._id || item.customerId || "",
+      companyId: item.companyId?._id || item.companyId || "",
+      contactId: item.contactId?._id || item.contactId || "",
+      dealId: item.dealId?._id || item.dealId || "",
+      participantsInput: Array.isArray(item.participantEmails) ? item.participantEmails.join(", ") : ""
+    });
+    setShowScheduleModal(true);
+  };
 
   const handleExportCalendarCSV = () => {
     const data = allItems.map(item => ({
@@ -387,6 +409,7 @@ export default function CrmCalendarView({ websiteId }) {
               onClick={() => {
                 const next = new Date(currentDate);
                 if (viewMode === "month") next.setMonth(next.getMonth() - 1);
+                else if (viewMode === "day") next.setDate(next.getDate() - 1);
                 else next.setDate(next.getDate() - 7);
                 setCurrentDate(next);
               }}
@@ -401,6 +424,7 @@ export default function CrmCalendarView({ websiteId }) {
               onClick={() => {
                 const next = new Date(currentDate);
                 if (viewMode === "month") next.setMonth(next.getMonth() + 1);
+                else if (viewMode === "day") next.setDate(next.getDate() + 1);
                 else next.setDate(next.getDate() + 7);
                 setCurrentDate(next);
               }}
@@ -532,7 +556,7 @@ export default function CrmCalendarView({ websiteId }) {
                             {cellItems.map(item => (
                               <div
                                 key={item._id}
-                                onClick={() => { setSelectedActivity(item); setShowScheduleModal(true); }}
+                                onClick={() => openEditActivityModal(item)}
                                 className={`text-[8px] font-black px-1.5 py-1 rounded-lg mb-0.5 truncate cursor-pointer ${item.type === "meeting" ? "bg-indigo-100 text-indigo-700" : item.type === "call" ? "bg-sky-100 text-sky-700" : "bg-amber-50 text-amber-700"}`}
                               >
                                 {item.title}
@@ -573,7 +597,7 @@ export default function CrmCalendarView({ websiteId }) {
                           {slotItems.map(item => (
                             <div
                               key={item._id}
-                              onClick={() => { setSelectedActivity(item); setShowScheduleModal(true); }}
+                              onClick={() => openEditActivityModal(item)}
                               className={`flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer ${item.type === "meeting" ? "bg-indigo-100 text-indigo-700 hover:bg-indigo-200" : item.type === "call" ? "bg-sky-100 text-sky-700 hover:bg-sky-200" : "bg-amber-50 text-amber-700 hover:bg-amber-100"}`}
                             >
                               <div>
@@ -629,12 +653,12 @@ export default function CrmCalendarView({ websiteId }) {
                         {dateItems.map(item => (
                           <div
                             key={item._id}
-                            onClick={() => { setSelectedActivity(item); setShowScheduleModal(true); }}
+                            onClick={() => openEditActivityModal(item)}
                             className="flex items-center justify-between p-4 border border-slate-100 rounded-2xl hover:bg-slate-50/50 cursor-pointer transition-colors group"
                           >
                             <div className="flex items-center gap-3">
                               <div className={`p-2.5 rounded-xl ${item.type === "meeting" ? "bg-indigo-50 text-indigo-600" : item.type === "call" ? "bg-sky-50 text-sky-600" : "bg-amber-50 text-amber-600"}`}>
-                                {item.type === "meeting" ? <Video size={15} /> : item.type === "call" ? <Phone size={15} /> : <CheckSquare size={15} />}
+                                {item.type === "meeting" ? renderPlatformIcon(item.meetingType || "Video", "#6366f1", 15) : item.type === "call" ? <Phone size={15} /> : <CheckSquare size={15} />}
                               </div>
                               <div>
                                 <p className="text-xs font-black text-slate-800 group-hover:text-indigo-700 transition-colors">{item.title}</p>
@@ -695,27 +719,33 @@ export default function CrmCalendarView({ websiteId }) {
                 </div>
                 <div>
                   <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Meeting Platform</label>
-                  <select
-                    value={form.meetingType}
-                    onChange={(e) => setForm({ ...form, meetingType: e.target.value })}
-                    className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-xs font-bold"
-                  >
-                    {platforms.length > 0 ? (
-                      platforms.map(p => (
-                        <option key={p.key} value={p.key}>
-                          {p.icon} {p.name}
-                        </option>
-                      ))
-                    ) : (
-                      <>
-                        <option value="jts_meet">🎯 JTS Meet</option>
-                        <option value="zoom">📹 Zoom</option>
-                        <option value="google_meet">🟢 Google Meet</option>
-                        <option value="phone">📞 Phone</option>
-                        <option value="in_person">🤝 In Person</option>
-                      </>
-                    )}
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={form.meetingType}
+                      onChange={(e) => setForm({ ...form, meetingType: e.target.value })}
+                      className="w-full bg-slate-50 border rounded-xl pl-9 pr-3 py-2 text-xs font-bold"
+                    >
+                      {platforms.length > 0 ? (
+                        platforms.map(p => (
+                          <option key={p.key} value={p.key}>
+                            {p.name}
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="jts_meet">JTS Meet</option>
+                          <option value="zoom">Zoom</option>
+                          <option value="google_meet">Google Meet</option>
+                          <option value="ms_teams">Microsoft Teams</option>
+                          <option value="phone">Phone Call</option>
+                          <option value="in_person">In Person</option>
+                        </>
+                      )}
+                    </select>
+                    <div className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                      {renderPlatformIcon(platforms.find(p => p.key === form.meetingType)?.icon || form.meetingType, "#6366f1", 15)}
+                    </div>
+                  </div>
                   {/* Show join link hint if platform has URL template */}
                   {platforms.find(p => p.key === form.meetingType)?.urlTemplate && (
                     <p className="text-[9px] font-bold text-indigo-500 mt-1">

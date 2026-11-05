@@ -90,12 +90,89 @@ export const getCustomerActivity = asyncHandler(async (req, res) => {
 });
 
 export const promoteVisitor = asyncHandler(async (req, res) => {
-  const { visitorId, sessionId } = req.body;
-  const visitor = await Visitor.findOne({ visitorId });
+  requirePermission(req.user, PERMISSIONS.CRM_CREATE);
+  const { visitorId, sessionId, name, email, phone, companyName, requirement } = req.body;
+  const ownedWebsiteIds = (await getOwnedWebsiteIds(req.user)).map(String);
+
+  let visitor = null;
+  if (visitorId) {
+    visitor = /^[0-9a-fA-F]{24}$/.test(String(visitorId))
+      ? await Visitor.findById(visitorId)
+      : await Visitor.findOne({ visitorId });
+  }
+  const session = sessionId
+    ? (/^[0-9a-fA-F]{24}$/.test(String(sessionId))
+        ? await ChatSession.findById(sessionId).populate("visitorId")
+        : await ChatSession.findOne({ sessionId }).populate("visitorId"))
+    : null;
+
+  if (!visitor && session?.visitorId) {
+    visitor = session.visitorId;
+  }
   if (!visitor) throw new AppError("Visitor not found", 404);
 
-  // Promotion logic simplified for the controller split
-  res.status(501).json({ message: "Promote logic requires full service integration" });
+  const targetWebsiteId = session?.websiteId || visitor.websiteId;
+  if (req.user.role !== "admin" && targetWebsiteId && !ownedWebsiteIds.includes(String(targetWebsiteId))) {
+    throw new AppError("Access denied", 403);
+  }
+
+  const { getOrCreateCustomer, generateCRN } = await import("../services/customerService.js");
+  const resolvedName = String(name || visitor.name || "Promoted Visitor").trim();
+  const resolvedEmail = String(email || visitor.email || "").trim().toLowerCase();
+  const resolvedPhone = String(phone || visitor.phone || "").trim();
+
+  let customer = visitor.customerId ? await Customer.findById(visitor.customerId) : null;
+  if (!customer && resolvedEmail && !resolvedEmail.endsWith("@visitor.local")) {
+    customer = await getOrCreateCustomer({
+      name: resolvedName,
+      email: resolvedEmail,
+      phone: resolvedPhone,
+      websiteId: targetWebsiteId,
+      visitorId: visitor.visitorId,
+      leadSource: "Live Chat Promotion",
+      ownerId: req.user._id
+    });
+  }
+  if (!customer) {
+    customer = await Customer.create({
+      crn: await generateCRN(),
+      name: resolvedName,
+      email: resolvedEmail,
+      phone: resolvedPhone,
+      companyName: companyName || "",
+      requirement: requirement || session?.lastMessagePreview || "",
+      websiteId: targetWebsiteId,
+      ownerId: req.user._id,
+      leadSource: "Live Chat Promotion",
+      recordType: "lead",
+      pipelineStage: "new",
+      status: "new"
+    });
+  }
+
+  visitor.customerId = customer._id;
+  visitor.crn = customer.crn;
+  if (resolvedName) visitor.name = resolvedName;
+  if (resolvedEmail) visitor.email = resolvedEmail;
+  if (resolvedPhone) visitor.phone = resolvedPhone;
+  await visitor.save();
+
+  await ChatSession.updateMany(
+    { visitorId: visitor._id },
+    { $set: { customerId: customer._id, crn: customer.crn } }
+  );
+
+  await logAuditEvent({
+    actor: req.user,
+    action: "crm.visitor_promoted",
+    entityType: "customer",
+    entityId: customer._id,
+    websiteId: targetWebsiteId,
+    metadata: { visitorId: visitor.visitorId, sessionId: session?.sessionId || null },
+    ipAddress: req.ip
+  });
+
+  res.status(201).json({ success: true, customer });
 });
 
 export const getMyCustomerNotes = asyncHandler(async (req, res) => {

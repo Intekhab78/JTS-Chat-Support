@@ -18,7 +18,7 @@ const planLimitsSchema = new mongoose.Schema({
 }, { _id: false });
 
 const subscriptionSchema = new mongoose.Schema({
-  plan: { type: String, enum: ["basic", "standard", "pro", "enterprise"], default: "pro" },
+  plan: { type: String, trim: true, default: "pro" },
   status: { type: String, enum: ["trial", "active", "suspended", "expired"], default: "active" },
   enabledModules: {
     type: [String],

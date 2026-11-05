@@ -355,11 +355,30 @@ export default function NoCodeWorkflowCenter() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs font-bold text-slate-700">
-                {workflows.map(wf => (wf.executionHistory || []).map((run, i) => (
-                  <tr key={`${wf._id}-${i}`} className="hover:bg-slate-50/60 transition-colors">
+                {[
+                  ...(data?.history || []).map((h, idx) => ({
+                    key: h._id || `hist-${idx}`,
+                    runId: h.runId || h._id || `RUN-${idx + 1}`,
+                    workflowName: h.workflowName || "Workflow Run",
+                    executedAt: h.executedAt || h.createdAt,
+                    durationMs: h.durationMs || 100,
+                    status: h.status || "SUCCESS"
+                  })),
+                  ...workflows.flatMap(wf =>
+                    (wf.executionHistory || []).map((run, i) => ({
+                      key: `${wf._id}-${i}`,
+                      runId: run.runId || `RUN-${i + 1}`,
+                      workflowName: wf.workflowName,
+                      executedAt: run.executedAt,
+                      durationMs: run.durationMs,
+                      status: run.status
+                    }))
+                  )
+                ].map((run) => (
+                  <tr key={run.key} className="hover:bg-slate-50/60 transition-colors">
                     <td className="px-6 py-4 font-mono font-bold text-indigo-600">{run.runId}</td>
-                    <td className="px-6 py-4 font-black text-slate-900">{wf.workflowName}</td>
-                    <td className="px-6 py-4 font-mono text-[10px] text-slate-400">{new Date(run.executedAt).toLocaleString()}</td>
+                    <td className="px-6 py-4 font-black text-slate-900">{run.workflowName}</td>
+                    <td className="px-6 py-4 font-mono text-[10px] text-slate-400">{run.executedAt ? new Date(run.executedAt).toLocaleString() : "-"}</td>
                     <td className="px-6 py-4 text-center font-mono font-bold text-slate-800">{run.durationMs} ms</td>
                     <td className="px-6 py-4">
                       <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase bg-emerald-50 text-emerald-600 border border-emerald-200">
@@ -367,7 +386,7 @@ export default function NoCodeWorkflowCenter() {
                       </span>
                     </td>
                   </tr>
-                )))}
+                ))}
               </tbody>
             </table>
           </div>

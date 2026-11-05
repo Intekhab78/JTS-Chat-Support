@@ -11,6 +11,7 @@ const DEFAULT_CONNECTORS = [
   { connectorKey: "onedrive", connectorName: "Microsoft OneDrive", category: "storage", authType: "oauth2", status: "configured" },
   { connectorKey: "dropbox", connectorName: "Dropbox Cloud Vault", category: "storage", authType: "oauth2", status: "configured" },
   { connectorKey: "slack", connectorName: "Slack Workspace Notifications", category: "communication", authType: "oauth2", status: "connected" },
+  { connectorKey: "jts_meet", connectorName: "JTS Meet Video Conferencing", category: "communication", authType: "api_key", status: "connected" },
   { connectorKey: "ms_teams", connectorName: "Microsoft Teams Bot", category: "communication", authType: "oauth2", status: "configured" },
   { connectorKey: "zoom", connectorName: "Zoom Video Meetings", category: "communication", authType: "oauth2", status: "configured" },
   { connectorKey: "quickbooks", connectorName: "QuickBooks Online Accounting", category: "finance_erp", authType: "oauth2", status: "connected" },
@@ -75,6 +76,33 @@ export const toggleConnectorStatus = asyncHandler(async (req, res) => {
 
   await connector.save();
 
+  // If a valid HTTP webhook URL is configured, send a live verification ping
+  const targetWebhook = webhookUrl || connector.settings?.webhookUrl;
+  if (targetWebhook && targetWebhook.startsWith("http")) {
+    try {
+      await fetch(targetWebhook, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "JTS-Enterprise-Integration-Engine/1.0",
+          ...(apiKey ? { "X-API-Key": apiKey } : {})
+        },
+        body: JSON.stringify({
+          event: "CONNECTOR_VERIFICATION_TEST",
+          connectorId: connector._id,
+          connectorKey: connector.connectorKey,
+          connectorName: connector.connectorName,
+          status: connector.status,
+          verifiedAt: new Date().toISOString(),
+          message: `Connection successfully verified for ${connector.connectorName}`
+        }),
+        signal: AbortSignal.timeout(4000)
+      }).catch(err => console.log("Webhook verification ping warning:", err.message));
+    } catch (err) {
+      console.log("Webhook ping error:", err.message);
+    }
+  }
+
   await logAuditEvent({
     userId: req.user._id,
     websiteId: null,
@@ -104,6 +132,29 @@ export const retrySyncQueue = asyncHandler(async (req, res) => {
   connector.lastSyncAt = new Date();
 
   await connector.save();
+
+  // Dispatch live sync event to webhook if endpoint configured
+  if (connector.settings?.webhookUrl && connector.settings.webhookUrl.startsWith("http")) {
+    try {
+      await fetch(connector.settings.webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "JTS-Enterprise-Integration-Engine/1.0"
+        },
+        body: JSON.stringify({
+          event: "INTEGRATION_QUEUE_SYNC_DISPATCH",
+          connectorId: connector._id,
+          connectorKey: connector.connectorKey,
+          connectorName: connector.connectorName,
+          syncedQueueCount: connector.syncQueue.length,
+          lastSyncAt: connector.lastSyncAt,
+          timestamp: new Date().toISOString()
+        }),
+        signal: AbortSignal.timeout(4000)
+      }).catch(err => console.log("Webhook sync dispatch warning:", err.message));
+    } catch (err) {}
+  }
 
   await logAuditEvent({
     userId: req.user._id,

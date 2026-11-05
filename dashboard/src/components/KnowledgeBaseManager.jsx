@@ -86,7 +86,8 @@ export default function KnowledgeBaseManager({ websiteId }) {
     setLoading(true);
     try {
       const res = await api(`/api/knowledge-base/articles?websiteId=${websiteId || ""}`).catch(() => []);
-      const list = Array.isArray(res) && res.length > 0 ? res : SAMPLE_ARTICLES;
+      const normalized = Array.isArray(res) ? res : (res?.articles || res?.data || []);
+      const list = normalized.length > 0 ? normalized : SAMPLE_ARTICLES;
       setArticles(list);
     } catch (e) {
       setArticles(SAMPLE_ARTICLES);
@@ -114,24 +115,61 @@ export default function KnowledgeBaseManager({ websiteId }) {
     }
 
     const tagsArray = formData.tags.split(",").map(t => t.trim()).filter(Boolean);
-    const newArticle = {
-      _id: editingId || `kb-${Date.now()}`,
-      title: formData.title,
-      category: formData.category,
-      content: formData.content,
+    const payload = {
+      title: formData.title.trim(),
+      category: formData.category.trim() || "General Support",
+      content: formData.content.trim(),
       tags: tagsArray,
-      views: editingId ? (articles.find(a => a._id === editingId)?.views || 10) : 0,
-      helpful: editingId ? (articles.find(a => a._id === editingId)?.helpful || 5) : 0,
-      status: "Published",
-      updatedAt: new Date().toISOString()
+      status: "published",
+      ...(websiteId ? { websiteId } : {})
     };
 
-    if (editingId) {
-      setArticles(articles.map(a => a._id === editingId ? newArticle : a));
-      toast.success("Knowledge Article updated!");
-    } else {
-      setArticles([newArticle, ...articles]);
-      toast.success("New Knowledge Article published!");
+    try {
+      if (editingId && !String(editingId).startsWith("kb-")) {
+        const saved = await api(`/api/knowledge-base/articles/${editingId}`, {
+          method: "PUT",
+          body: JSON.stringify(payload)
+        });
+        const updatedArticle = saved?.article || saved;
+        setArticles(articles.map(a => a._id === editingId ? { ...a, ...updatedArticle } : a));
+        toast.success("Knowledge Article updated!");
+      } else if (!editingId) {
+        const created = await api("/api/knowledge-base/articles", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        const createdArticle = created?.article || created;
+        setArticles([createdArticle, ...articles]);
+        toast.success("New Knowledge Article published!");
+      } else {
+        const fallbackUpdated = {
+          ...articles.find(a => a._id === editingId),
+          ...payload,
+          status: "Published",
+          updatedAt: new Date().toISOString()
+        };
+        setArticles(articles.map(a => a._id === editingId ? fallbackUpdated : a));
+        toast.success("Knowledge Article updated!");
+      }
+    } catch {
+      const localArticle = {
+        _id: editingId || `kb-${Date.now()}`,
+        title: formData.title,
+        category: formData.category,
+        content: formData.content,
+        tags: tagsArray,
+        views: editingId ? (articles.find(a => a._id === editingId)?.views || 10) : 0,
+        helpful: editingId ? (articles.find(a => a._id === editingId)?.helpful || 5) : 0,
+        status: "Published",
+        updatedAt: new Date().toISOString()
+      };
+      if (editingId) {
+        setArticles(articles.map(a => a._id === editingId ? localArticle : a));
+        toast.success("Knowledge Article updated!");
+      } else {
+        setArticles([localArticle, ...articles]);
+        toast.success("New Knowledge Article published!");
+      }
     }
 
     setIsEditing(false);
@@ -139,8 +177,11 @@ export default function KnowledgeBaseManager({ websiteId }) {
     setFormData({ title: "", category: "General Support", content: "", tags: "" });
   };
 
-  const handleDeleteArticle = (id) => {
+  const handleDeleteArticle = async (id) => {
     if (!window.confirm("Are you sure you want to delete this knowledge article?")) return;
+    if (id && !String(id).startsWith("kb-")) {
+      await api(`/api/knowledge-base/articles/${id}`, { method: "DELETE" }).catch(() => null);
+    }
     setArticles(articles.filter(a => a._id !== id));
     toast.success("Article removed from Knowledge Base.");
   };

@@ -5,7 +5,7 @@ const meetingPlatformSchema = new mongoose.Schema(
     websiteId: { type: mongoose.Schema.Types.ObjectId, ref: "Website", required: true, index: true },
     name: { type: String, required: true, trim: true },          // "JTS Meet", "Zoom"
     key: { type: String, required: true, trim: true },            // "jts_meet", "zoom"
-    icon: { type: String, default: "🎥" },                        // emoji
+    icon: { type: String, default: "Video" },                     // Lucide React icon name
     color: { type: String, default: "#6366f1" },                  // brand color hex
     urlTemplate: { type: String, trim: true, default: "" },       // "https://meet.jts.com/{roomId}"
     description: { type: String, trim: true, default: "" },       // short description

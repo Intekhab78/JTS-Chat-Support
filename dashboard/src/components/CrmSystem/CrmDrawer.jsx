@@ -477,6 +477,8 @@ export default function CrmDrawer({
                 )}
                 {drawerTab === "actions" && (
                   <ActionsTab
+                    customer={selectedCustomer}
+                    websiteId={selectedCustomer?.websiteId?._id || selectedCustomer?.websiteId}
                     interactionType={interactionType}
                     setInteractionType={setInteractionType}
                     interactionNote={interactionNote}
@@ -489,6 +491,14 @@ export default function CrmDrawer({
                     taskSaving={taskSaving}
                     canAssignOwners={canAssignOwners}
                     teamMembers={teamMembers}
+                    onRefreshCustomer={async () => {
+                      if (selectedCustomer?._id) {
+                        try {
+                          const refreshed = await api(`/api/crm/${selectedCustomer._id}`);
+                          if (refreshed) setCustomerDetails(refreshed);
+                        } catch (e) {}
+                      }
+                    }}
                   />
                 )}
               </>

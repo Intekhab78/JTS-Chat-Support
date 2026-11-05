@@ -9,60 +9,55 @@ import { createNotification } from "./notificationService.js";
  */
 export async function createDraftFromLowStock(itemId, quantityRequested = null) {
   try {
-    const item = await InventoryItem.findById(itemId).populate("websiteId");
+    const item = await InventoryItem.findOne({ _id: itemId, isDeleted: { $ne: true } }).populate("websiteId");
     if (!item || !item.preferredSupplierId) return null;
 
-    // Check if there's already a draft PO for this supplier and website
-    // to avoid creating 50 draft POs if multiple items go low.
-    // Or we could append to an existing draft. 
-    // For now, let's create a specific "Low Stock Replenishment" draft.
-    
     let draftPo = await PurchaseOrder.findOne({
       supplierId: item.preferredSupplierId,
-      websiteId: item.websiteId,
+      websiteId: item.websiteId?._id || item.websiteId,
       status: "draft",
       notes: /Auto-Replenishment/i
     });
 
-    const qty = quantityRequested || (item.reorderLevel * 2); // Rule of thumb: order 2x reorder level
-    const lineTotal = item.unitCost * qty;
+    const qty = Math.max(1, Number(quantityRequested) || (Number(item.reorderLevel || 5) * 2));
+    const unitCost = Number(item.unitCost || 0);
+    const lineTotal = unitCost * qty;
 
     if (draftPo) {
       // Check if item already in draft
-      const itemExists = draftPo.items.find(i => i.itemId.toString() === itemId.toString());
+      const itemExists = draftPo.items.find(i => i.itemId && i.itemId.toString() === itemId.toString());
       if (!itemExists) {
         draftPo.items.push({
           itemId: item._id,
           description: item.name,
           quantity: qty,
-          unitPrice: item.unitCost,
+          unitPrice: unitCost,
           total: lineTotal
         });
-        draftPo.total += lineTotal;
-        draftPo.subtotal += lineTotal;
+        draftPo.total = Number(draftPo.total || 0) + lineTotal;
+        draftPo.subtotal = Number(draftPo.subtotal || 0) + lineTotal;
         await draftPo.save();
       }
     } else {
-      // Create new draft
-      const count = await PurchaseOrder.countDocuments();
-      const poNumber = `PO-AUTO-${(count + 1).toString().padStart(4, '0')}`;
+      // Create new collision-safe draft
+      const poNumber = `PO-AUTO-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
       
       draftPo = await PurchaseOrder.create({
         poNumber,
         supplierId: item.preferredSupplierId,
-        websiteId: item.websiteId,
+        websiteId: item.websiteId?._id || item.websiteId,
         items: [{
           itemId: item._id,
           description: item.name,
           quantity: qty,
-          unitPrice: item.unitCost,
+          unitPrice: unitCost,
           total: lineTotal
         }],
         subtotal: lineTotal,
         total: lineTotal,
         status: "draft",
         notes: "Auto-Replenishment: Generated due to low stock alert.",
-        createdBy: item.websiteId.managerId // Default to website manager
+        createdBy: item.websiteId?.managerId || null
       });
     }
 

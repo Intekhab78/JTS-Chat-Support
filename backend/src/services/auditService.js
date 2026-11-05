@@ -2,16 +2,29 @@ import { AuditLog } from "../models/AuditLog.js";
 
 export async function logAuditEvent({
   actor = null,
+  userId = null,
   action,
   entityType,
+  resource,
   entityId,
+  resourceId,
   websiteId = null,
   metadata = {},
+  changes = null,
+  details = null,
+  userAgent = "",
   ipAddress = "",
   before = null,
   after = null
 }) {
-  if (!action || !entityType || !entityId) return null;
+  const resolvedEntityType = entityType || resource || "system";
+  const resolvedEntityId = entityId || resourceId || resolvedEntityType;
+  if (!action) return null;
+
+  const resolvedMetadata = { ...(metadata || {}) };
+  if (changes && resolvedMetadata.changes === undefined) resolvedMetadata.changes = changes;
+  if (details && resolvedMetadata.details === undefined) resolvedMetadata.details = details;
+  if (userAgent && resolvedMetadata.userAgent === undefined) resolvedMetadata.userAgent = userAgent;
 
   // Calculate diff if before and after are provided
   if (before && after) {
@@ -35,20 +48,20 @@ export async function logAuditEvent({
     });
 
     if (Object.keys(diff).length > 0) {
-      metadata.diff = diff;
+      resolvedMetadata.diff = diff;
     }
   }
 
   try {
     return await AuditLog.create({
-      actorId: actor?._id || null,
-      actorName: actor?.name || "System",
-      actorRole: actor?.role || "system",
+      actorId: actor?._id || userId || null,
+      actorName: actor?.name || (userId ? "Authenticated User" : "System"),
+      actorRole: actor?.role || (userId ? "staff" : "system"),
       action,
-      entityType,
-      entityId: String(entityId),
+      entityType: String(resolvedEntityType),
+      entityId: String(resolvedEntityId),
       websiteId,
-      metadata,
+      metadata: resolvedMetadata,
       ipAddress
     });
   } catch (error) {

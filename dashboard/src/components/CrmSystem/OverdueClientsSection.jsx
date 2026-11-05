@@ -141,13 +141,21 @@ export default function OverdueClientsSection({ websiteId }) {
     const today = new Date();
 
     const isOverdue = (dateStr) => {
-      if (!dateStr || dateStr === "-") return true;
+      if (!dateStr || dateStr === "-") return false;
       const d = new Date(dateStr);
-      return d < today;
+      return !Number.isNaN(d.getTime()) && d < today;
+    };
+
+    const isPendingOrOverdue = (item) => {
+      const status = (item.workStatus || item.status || "Pending").toLowerCase();
+      if (status === "completed" || status === "filed") return false;
+      const due = item.dueDate || item.expiryDate;
+      return status === "overdue" || isOverdue(due) || !due || due === "-";
     };
 
     // 1. VAT Filings
     const vatList = data.vatFilings.filter(item => {
+      if (!isPendingOrOverdue(item)) return false;
       const matchSearch = !searchQuery.vat || 
         (item.clientName || "").toLowerCase().includes(searchQuery.vat.toLowerCase()) ||
         (item.trnNumber || "").toLowerCase().includes(searchQuery.vat.toLowerCase());
@@ -158,6 +166,7 @@ export default function OverdueClientsSection({ websiteId }) {
 
     // 2. Corporate Tax Filings
     const ctList = data.corporateTaxFilings.filter(item => {
+      if (!isPendingOrOverdue(item)) return false;
       const matchSearch = !searchQuery.corporateTax || 
         (item.clientName || "").toLowerCase().includes(searchQuery.corporateTax.toLowerCase()) ||
         (item.trnNumber || "").toLowerCase().includes(searchQuery.corporateTax.toLowerCase());
@@ -168,6 +177,7 @@ export default function OverdueClientsSection({ websiteId }) {
 
     // 3. Trade Licenses
     const tlList = data.tradeLicenses.filter(item => {
+      if (!isPendingOrOverdue(item)) return false;
       const matchSearch = !searchQuery.tradeLicense || 
         (item.clientName || "").toLowerCase().includes(searchQuery.tradeLicense.toLowerCase()) ||
         (item.licenseNumber || "").toLowerCase().includes(searchQuery.tradeLicense.toLowerCase());
@@ -178,6 +188,7 @@ export default function OverdueClientsSection({ websiteId }) {
 
     // 4. Visa & PRO Extensions
     const visaList = data.visaExtensions.filter(item => {
+      if (!isPendingOrOverdue(item)) return false;
       const matchSearch = !searchQuery.visa || 
         (item.clientName || "").toLowerCase().includes(searchQuery.visa.toLowerCase());
       const status = item.workStatus || item.status || "Pending";

@@ -5,10 +5,14 @@ import AppError from "../utils/AppError.js";
 
 const router = Router();
 
-// Multi-tenant boundary verification middleware for Customer role
+// Multi-tenant boundary verification middleware for Customer role (or Admin with customerId query)
 const requireCustomerPortal = (req, res, next) => {
+  if (req.user.role === "admin" && req.query.customerId) {
+    req.user.customerId = req.query.customerId;
+    return next();
+  }
   if (req.user.role !== "customer" || !req.user.customerId) {
-    throw new AppError("Access denied. Customer account authorization required.", 403);
+    return next(new AppError("Access denied. Customer account authorization required.", 403));
   }
   next();
 };

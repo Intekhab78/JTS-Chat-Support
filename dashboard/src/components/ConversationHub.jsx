@@ -488,7 +488,12 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
             await api(`/api/chat/sessions/${id}`, { method: "DELETE" });
             toast.success("Session deleted");
             setIsDrawerOpen(false);
-            window.location.reload();
+            setSessions(prev => prev.filter(s => s.sessionId !== id));
+            if (selectedSessionId === id) {
+              const params = new URLSearchParams(searchParams);
+              params.delete("sessionId");
+              setSearchParams(params);
+            }
           } catch (err) {
             toast.error(err.message);
           }

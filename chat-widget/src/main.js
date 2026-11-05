@@ -47,7 +47,7 @@ const DEFAULT_ICE_SERVERS = [
   }
 
   function setLauncherContent(element, icon) {
-    element.innerHTML = icon || "💬";
+    element.innerHTML = icon || `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>`;
   }
 
   function setStatusMessage(ui, message, color = "") {
@@ -132,9 +132,103 @@ const DEFAULT_ICE_SERVERS = [
 
   const MIC_ON_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>`;
 
-  const MIC_OFF_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>`;
+  // Professional React / Lucide SVG Icons for Crisp Hi-DPI Vector Rendering
+  const ICONS = {
+    bot: (size = 18, color = "currentColor", fill = "none") => `
+      <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${fill}" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; flex-shrink:0;">
+        <path d="M12 8V4H8"/>
+        <rect width="16" height="12" x="4" y="8" rx="2"/>
+        <path d="M2 14h2"/>
+        <path d="M20 14h2"/>
+        <path d="M15 13v2"/>
+        <path d="M9 13v2"/>
+      </svg>`,
+    user: (size = 14, color = "currentColor") => `
+      <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; flex-shrink:0;">
+        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+        <circle cx="12" cy="7" r="4"/>
+      </svg>`,
+    mic: (size = 14, color = "currentColor") => `
+      <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; flex-shrink:0;">
+        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        <line x1="12" x2="12" y1="19" y2="22"/>
+      </svg>`,
+    headset: (size = 14, color = "currentColor") => `
+      <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; flex-shrink:0;">
+        <path d="M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5a9 9 0 0 1 18 0v5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/>
+        <path d="M21 16v2a4 4 0 0 1-4 4h-5"/>
+      </svg>`,
+    phone: (size = 14, color = "currentColor") => `
+      <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; flex-shrink:0;">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+      </svg>`,
+    phoneOff: (size = 14, color = "currentColor") => `
+      <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; flex-shrink:0;">
+        <path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/>
+        <line x1="22" x2="2" y1="2" y2="22"/>
+      </svg>`,
+    volume2: (size = 14, color = "currentColor") => `
+      <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; flex-shrink:0;">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+      </svg>`,
+    ticket: (size = 13, color = "currentColor") => `
+      <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; flex-shrink:0;">
+        <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/>
+        <path d="M13 5v2"/>
+        <path d="M13 17v2"/>
+        <path d="M13 11v2"/>
+      </svg>`,
+    close: (size = 12, color = "currentColor") => `
+      <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; flex-shrink:0;">
+        <path d="M18 6 6 18"/>
+        <path d="m6 6 12 12"/>
+      </svg>`,
+    chat: (size = 18, color = "currentColor") => `
+      <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; flex-shrink:0;">
+        <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>
+      </svg>`,
+    sparkles: (size = 13, color = "currentColor") => `
+      <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; flex-shrink:0;">
+        <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+      </svg>`,
+    paperclip: (size = 13, color = "currentColor") => `
+      <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; flex-shrink:0;">
+        <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+      </svg>`
+  };
 
-  const PHONE_OFF_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-6-6 19.8 19.8 0 0 1-3.12-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"></path><line x1="23" y1="1" x2="1" y2="23"></line></svg>`;
+  const MIC_OFF_SVG = ICONS.phoneOff(15);
+  const PHONE_OFF_SVG = ICONS.phoneOff(15);
+
+  function getAiBotAvatarSvg(size = 24) {
+    return `
+      <svg width="${size}" height="${size}" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;">
+        <defs>
+          <linearGradient id="csw-ai-head-${size}" x1="8" y1="10" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#38bdf8"/>
+            <stop offset="50%" stop-color="#6366f1"/>
+            <stop offset="100%" stop-color="#0284c7"/>
+          </linearGradient>
+          <linearGradient id="csw-ai-visor-${size}" x1="14" y1="19" x2="34" y2="28" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#090d16"/>
+            <stop offset="100%" stop-color="#1e293b"/>
+          </linearGradient>
+        </defs>
+        <line x1="24" y1="4" x2="24" y2="10" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="24" cy="4" r="2.5" fill="#38bdf8"/>
+        <rect x="5" y="20" width="3" height="8" rx="1.5" fill="#38bdf8"/>
+        <rect x="40" y="20" width="3" height="8" rx="1.5" fill="#38bdf8"/>
+        <rect x="8" y="10" width="32" height="27" rx="8" fill="url(#csw-ai-head-${size})" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+        <rect x="13" y="18" width="22" height="11" rx="4" fill="url(#csw-ai-visor-${size})"/>
+        <circle cx="18.5" cy="23.5" r="2.2" fill="#38bdf8"/>
+        <circle cx="29.5" cy="23.5" r="2.2" fill="#38bdf8"/>
+        <path d="M19.5 32 Q24 35 28.5 32" stroke="#ffffff" stroke-width="2" stroke-linecap="round" fill="none"/>
+      </svg>
+    `;
+  }
 
   function getAgentAvatarSvg(size = 76) {
     return `
@@ -187,7 +281,7 @@ const DEFAULT_ICE_SERVERS = [
     const launcher = document.createElement("div");
     launcher.id = "csw-launcher";
     launcher.classList.add("right");
-    launcher.innerHTML = "💬";
+    launcher.innerHTML = ICONS.chat(24, "#ffffff");
 
     const panel = document.createElement("div");
     panel.id = "csw-panel";
@@ -197,7 +291,7 @@ const DEFAULT_ICE_SERVERS = [
       <div id="csw-header">
         <div class="csw-header-agent-info">
           <div class="csw-agent-avatar-wrap">
-            <span>💬</span>
+            <span style="display:flex; align-items:center; justify-content:center;">${ICONS.chat(16, "#ffffff")}</span>
             <span class="csw-avatar-online-dot"></span>
           </div>
           <div class="csw-header-text">
@@ -209,18 +303,19 @@ const DEFAULT_ICE_SERVERS = [
           </div>
         </div>
         <div class="csw-header-actions">
-          <button id="csw-voice-btn" title="Call 24/7 AI Voice Agent" type="button">
-            📞 Call AI
+          <button id="csw-voice-btn" title="Call 24/7 AI Voice Agent" type="button" style="display:inline-flex; align-items:center; gap:5px;">
+            ${ICONS.phone(12, "currentColor")}
+            <span>Call AI</span>
           </button>
           
-          <button id="csw-close-chat" title="Close Chat" type="button">&times;</button>
+          <button id="csw-close-chat" title="Close Chat" type="button" style="display:inline-flex; align-items:center; justify-content:center;">${ICONS.close(13, "currentColor")}</button>
         </div>
       </div>
 
       <!-- CLOSE CONFIRMATION OVERLAY -->
       <div id="csw-confirm-overlay" style="display:none; position:absolute; inset:0; background:rgba(15,23,42,0.65); backdrop-filter:blur(4px); z-index:9998; padding:20px; align-items:center; justify-content:center; text-align:center;">
         <div style="background:#ffffff; border-radius:18px; padding:18px 16px; width:100%; max-width:280px; box-shadow:0 20px 40px -10px rgba(0,0,0,0.3); border:1px solid #e2e8f0; display:flex; flex-direction:column; gap:10px;">
-          <div style="font-size:24px; line-height:1;">💬</div>
+          <div style="display:flex; justify-content:center; margin-bottom:2px;">${ICONS.chat(28, "#2563eb")}</div>
           <div style="font-size:13px; font-weight:800; color:#0f172a; line-height:1.2;">Do you want to close this chat?</div>
           <div style="font-size:10.5px; color:#64748b; font-weight:500; line-height:1.35;">Ending the chat will prompt for quick feedback and start a fresh session.</div>
           <div style="display:flex; gap:8px; margin-top:4px;">
@@ -243,11 +338,11 @@ const DEFAULT_ICE_SERVERS = [
         </div>
         
         <button id="csw-call-agent-btn" type="button" style="width:100%; max-width:240px; background:linear-gradient(135deg, #10b981 0%, #059669 100%); border:none; color:#ffffff; font-weight:800; font-size:12.5px; padding:11px 16px; border-radius:14px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; transition:all 0.2s; box-shadow:0 8px 20px -4px rgba(16,185,129,0.38); margin-bottom:10px;">
-          <span style="font-size:14px;">📞</span> Call Live Agent Now
+          ${ICONS.phone(14, "#ffffff")} <span>Call Live Agent Now</span>
         </button>
 
-        <button id="csw-start-web-call" type="button" style="width:100%; max-width:240px; background:#f8fafc; border:1px solid #e2e8f0; color:#334155; font-weight:700; font-size:11px; padding:10px 14px; border-radius:14px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:6px; transition:all 0.2s; margin-bottom:6px;">
-          <span>🤖</span> Talk to 24/7 AI Voice Bot
+        <button id="csw-start-web-call" type="button" style="width:100%; max-width:240px; background:#f8fafc; border:1px solid #e2e8f0; color:#334155; font-weight:700; font-size:11px; padding:10px 14px; border-radius:14px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; transition:all 0.2s; margin-bottom:6px;">
+          ${ICONS.bot(15, "#6366f1")} <span>Talk to 24/7 AI Voice Bot</span>
         </button>
         
         <button id="csw-close-voice" type="button" style="margin-top:10px; background:transparent; border:none; color:#94a3b8; font-size:11px; font-weight:600; cursor:pointer; text-decoration:none; transition:color 0.2s;">
@@ -439,17 +534,19 @@ const DEFAULT_ICE_SERVERS = [
                     <span style="width:6px; height:6px; border-radius:50%; background:#10b981; box-shadow:0 0 6px #10b981;"></span>
                     <span style="font-size:9.5px; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:0.06em;">LIVE AI VOICE SESSION</span>
                   </div>
-                  <button id="csw-close-live-top-btn" type="button" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:#cbd5e1; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:10px; transition:all 0.2s;">✕</button>
+                  <button id="csw-close-live-top-btn" type="button" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:#cbd5e1; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.2s;" title="Close voice session">
+                    ${ICONS.close(10, "#cbd5e1")}
+                  </button>
                 </div>
 
                 <!-- Compact Soundwave AI Bot Avatar Sphere (Ultra-low height) -->
                 <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:3px;">
-                  <div style="width:36px; height:36px; border-radius:50%; background:radial-gradient(circle at 30% 30%, #38bdf8, #6366f1, #10b981); display:flex; align-items:center; justify-content:center; font-size:18px; animation:csw-voice-pulse-ring 2.5s infinite ease-in-out; cursor:pointer; border:1.5px solid rgba(255,255,255,0.4); box-shadow:0 0 14px rgba(56,189,248,0.45); flex-shrink:0;">
-                    🤖
+                  <div style="width:38px; height:38px; border-radius:50%; background:radial-gradient(circle at 30% 30%, #38bdf8, #6366f1, #0f172a); display:flex; align-items:center; justify-content:center; animation:csw-voice-pulse-ring 2.5s infinite ease-in-out; cursor:pointer; border:1.5px solid rgba(255,255,255,0.35); box-shadow:0 0 14px rgba(56,189,248,0.45); flex-shrink:0;">
+                    ${getAiBotAvatarSvg(24)}
                   </div>
                   
                   <!-- Audio Frequency Equalizer Waves -->
-                  <div style="display:flex; align-items:flex-end; gap:2.5px; height:9px;">
+                  <div style="display:flex; align-items:flex-end; gap:2.5px; height:11px;">
                     <div class="csw-voice-eq-bar" style="width:2.5px;"></div>
                     <div class="csw-voice-eq-bar" style="width:2.5px;"></div>
                     <div class="csw-voice-eq-bar" style="width:2.5px;"></div>
@@ -459,16 +556,16 @@ const DEFAULT_ICE_SERVERS = [
                 </div>
 
                 <!-- Dynamic Real-time Status Badge -->
-                <div id="csw-voice-status-badge" style="display:inline-flex; align-items:center; gap:4px; background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); padding:1.5px 8px; border-radius:12px; font-size:8.5px; font-weight:800; color:#34d399; text-transform:uppercase; letter-spacing:0.04em;">
-                  <span style="width:5px; height:5px; border-radius:50%; background:#10b981; display:inline-block; box-shadow:0 0 4px #10b981;"></span>
+                <div id="csw-voice-status-badge" style="display:inline-flex; align-items:center; gap:5px; background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); padding:2px 9px; border-radius:12px; font-size:8.5px; font-weight:800; color:#34d399; text-transform:uppercase; letter-spacing:0.04em;">
+                  ${ICONS.mic(11, "#34d399")}
                   <span>MIC LISTENING... (SPEAK NOW)</span>
                 </div>
               </div>
 
               <!-- Real-Time Interactive Voice Speech Display Container (Takes Maximum Space) -->
               <div id="csw-voice-conversation-feed" style="width:100%; flex:1 1 0%; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:5px; padding:2px 2px; margin-bottom:3px; text-align:left;">
-                <div class="csw-speech-card-ai" style="align-self:center !important; width:100%; display:flex; flex-direction:column; align-items:center; text-align:center; padding:9px 8px; border-radius:10px; background:rgba(15,23,42,0.7); border:1px solid rgba(255,255,255,0.08);">
-                  <span style="font-size:16px; margin-bottom:2px;">🤖</span>
+                <div class="csw-speech-card-ai" style="align-self:center !important; width:100%; display:flex; flex-direction:column; align-items:center; text-align:center; padding:10px 8px; border-radius:10px; background:rgba(15,23,42,0.7); border:1px solid rgba(255,255,255,0.08);">
+                  <div style="margin-bottom:4px;">${getAiBotAvatarSvg(28)}</div>
                   <span style="font-size:11px; font-weight:800; color:#fff; margin-bottom:1px;">Live AI Voice Call Connected.</span>
                   <span style="font-size:9.5px; color:#94a3b8;">Speak your query into your microphone!</span>
                 </div>
@@ -476,14 +573,17 @@ const DEFAULT_ICE_SERVERS = [
 
               <!-- Bottom Call Controls Suite (Lighter, Attractive & Increased Gap) -->
               <div style="width:100%; display:flex; align-items:stretch; gap:10px; flex-shrink:0; margin-bottom:2px; padding:0 3px;">
-                <button id="csw-speak-mic-btn" class="csw-voice-action-btn csw-voice-btn-mic" type="button" style="flex:1 1 0; min-width:0; height:34px; background:linear-gradient(135deg, #34d399 0%, #10b981 55%, #059669 100%); color:#ffffff; border:1px solid rgba(255,255,255,0.35); border-radius:11px; padding:0 6px; font-weight:800; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:3px; box-shadow:0 4px 14px -1px rgba(52,211,153,0.45); transition:all 0.2s; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                  🎙️ Speak
+                <button id="csw-speak-mic-btn" class="csw-voice-action-btn csw-voice-btn-mic" type="button" style="flex:1 1 0; min-width:0; height:34px; background:linear-gradient(135deg, #34d399 0%, #10b981 55%, #059669 100%); color:#ffffff; border:1px solid rgba(255,255,255,0.35); border-radius:11px; padding:0 6px; font-weight:800; font-size:10.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; box-shadow:0 4px 14px -1px rgba(52,211,153,0.45); transition:all 0.2s; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                  ${ICONS.mic(13, "#ffffff")}
+                  <span>Listening...</span>
                 </button>
-                <button id="csw-transfer-agent-btn" type="button" style="flex:1 1 0; min-width:0; height:34px; background:linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color:#ffffff; border:1px solid rgba(255,255,255,0.35); border-radius:11px; padding:0 6px; font-weight:800; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:3px; box-shadow:0 4px 14px -1px rgba(99,102,241,0.45); transition:all 0.2s; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                  👨‍💼 Agent
+                <button id="csw-transfer-agent-btn" type="button" style="flex:1 1 0; min-width:0; height:34px; background:linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color:#ffffff; border:1px solid rgba(255,255,255,0.35); border-radius:11px; padding:0 6px; font-weight:800; font-size:10.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; box-shadow:0 4px 14px -1px rgba(99,102,241,0.45); transition:all 0.2s; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                  ${ICONS.headset(14, "#ffffff")}
+                  <span>Agent</span>
                 </button>
-                <button id="csw-end-live-call" class="csw-voice-action-btn csw-voice-btn-end" type="button" style="flex:1 1 0; min-width:0; height:34px; background:linear-gradient(135deg, #fb7185 0%, #f43f5e 55%, #e11d48 100%); color:#ffffff; border:1px solid rgba(255,255,255,0.35); border-radius:11px; padding:0 6px; font-weight:800; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:3px; box-shadow:0 4px 14px -1px rgba(251,113,133,0.45); transition:all 0.2s; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                  🔴 End
+                <button id="csw-end-live-call" class="csw-voice-action-btn csw-voice-btn-end" type="button" style="flex:1 1 0; min-width:0; height:34px; background:linear-gradient(135deg, #fb7185 0%, #f43f5e 55%, #e11d48 100%); color:#ffffff; border:1px solid rgba(255,255,255,0.35); border-radius:11px; padding:0 6px; font-weight:800; font-size:10.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; box-shadow:0 4px 14px -1px rgba(251,113,133,0.45); transition:all 0.2s; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                  ${ICONS.phoneOff(13, "#ffffff")}
+                  <span>End</span>
                 </button>
               </div>
             `;
@@ -499,154 +599,32 @@ const DEFAULT_ICE_SERVERS = [
             const endBtn = voiceOverlay.querySelector("#csw-end-live-call");
             const transferBtn = voiceOverlay.querySelector("#csw-transfer-agent-btn");
 
-            let widgetPeerConnection = null;
-            let widgetLocalStream = null;
-            let widgetRemoteAudio = new Audio();
+            function terminateAiCall() {
+              isCallActive = false;
+              isAiSpeaking = false;
+              if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+              if (recognition) {
+                try { recognition.stop(); } catch(e) {}
+              }
+              if (silenceTimer) clearTimeout(silenceTimer);
+              voiceOverlay.style.display = "none";
+              renderDefaultVoiceUI();
+            }
 
             function initiateAgentHandoff(reason = "Human assistance requested") {
               if (!isCallActive) return;
-              isHumanAgentCallActive = true;
+              isCallActive = false;
               if ("speechSynthesis" in window) window.speechSynthesis.cancel();
               isAiSpeaking = false;
               if (recognition) { try { recognition.stop(); } catch(e) {} }
               if (silenceTimer) clearTimeout(silenceTimer);
               accumulatedTranscript = "";
 
-              if (statusBadge) {
-                statusBadge.style.color = "#fbbf24";
-                statusBadge.style.borderColor = "rgba(251,191,36,0.4)";
-                statusBadge.style.background = "rgba(251,191,36,0.15)";
-                statusBadge.innerHTML = `<span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#fbbf24;"></span> Calling Agent...`;
-              }
-
-              voiceHistory.push({ role: 'ai', text: "Connecting you to a live support specialist. Please stay on the line..." });
-              renderVoiceFeed(false);
-
-              // Ensure socket connection exists
-              if (!socket) {
-                socket = io(originUrl || origin, {
-                  auth: { apiKey: websiteApiKey, visitorId, sessionId: activeSessionId || `voice_${Date.now()}`, type: "visitor" },
-                  transports: ["polling", "websocket"],
-                  reconnection: true
-                });
-              }
-
-              const triggerEmit = () => {
-                const transcript = voiceHistory.map(h => `${h.role === 'user' ? 'Visitor' : 'AI'}: ${h.text}`).join('\n');
-                console.log("[ChatWidget] Emitting call:request-human via socket", socket.id);
-                socket.emit("call:request-human", {
-                  sessionId: activeSessionId || `voice_${Date.now()}`,
-                  websiteId: websiteApiKey,
-                  visitorName: resolveVisitorName(),
-                  visitorId: visitorId,
-                  callerPhone: "Web Voice Call",
-                  transcript,
-                  aiSummary: reason,
-                  telemetry: {
-                    os: navigator.userAgent.includes("Windows") ? "Windows 10" : "Web",
-                    browser: navigator.userAgent.includes("Chrome") ? "Chrome" : "Browser",
-                    city: "Chicago"
-                  }
-                });
-              };
-
-              if (socket.connected) {
-                triggerEmit();
-              } else {
-                socket.connect();
-                socket.once("connect", triggerEmit);
-              }
-
-              socket.off("call:accepted");
-              socket.on("call:accepted", async ({ agentName, agentSocketId }) => {
-                isHumanAgentCallActive = true;
-                if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-                isAiSpeaking = false;
-                if (recognition) { try { recognition.stop(); } catch(e) {} }
-                if (silenceTimer) clearTimeout(silenceTimer);
-                accumulatedTranscript = "";
-                console.log("[ChatWidget] Call accepted by agent:", agentName, agentSocketId);
-                if (statusBadge) {
-                  statusBadge.style.color = "#34d399";
-                  statusBadge.style.borderColor = "rgba(52,211,153,0.4)";
-                  statusBadge.style.background = "rgba(52,211,153,0.15)";
-                  statusBadge.innerHTML = `<span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#10b981;"></span> Live with ${agentName || 'Agent'}`;
-                }
-
-                voiceHistory.push({ role: 'ai', text: `Connected live with ${agentName || 'Agent'}! You can speak now.` });
-                renderVoiceFeed(false);
-
-                try {
-                  const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                  widgetLocalStream = stream;
-
-                  const pc = new RTCPeerConnection({
-                    iceServers: DEFAULT_ICE_SERVERS
-                  });
-                  widgetPeerConnection = pc;
-
-                  stream.getTracks().forEach(track => pc.addTrack(track, stream));
-
-                  pc.onicecandidate = (event) => {
-                    if (event.candidate) {
-                      socket.emit("call:webrtc-signal", {
-                        targetSocketId: agentSocketId,
-                        signalData: { candidate: event.candidate }
-                      });
-                    }
-                  };
-
-                  pc.ontrack = (event) => {
-                    if (event.streams && event.streams[0]) {
-                      widgetRemoteAudio.srcObject = event.streams[0];
-                      widgetRemoteAudio.play().catch(e => console.warn("Remote audio play error:", e));
-                    }
-                  };
-
-                  socket.off("call:webrtc-signal");
-                  socket.on("call:webrtc-signal", async ({ signalData }) => {
-                    if (!pc) return;
-                    if (signalData.sdp) {
-                      await pc.setRemoteDescription(new RTCSessionDescription(signalData.sdp));
-                    } else if (signalData.candidate) {
-                      await pc.addIceCandidate(new RTCIceCandidate(signalData.candidate));
-                    }
-                  });
-
-                  const offer = await pc.createOffer();
-                  await pc.setLocalDescription(offer);
-                  socket.emit("call:webrtc-signal", {
-                    targetSocketId: agentSocketId,
-                    signalData: { sdp: pc.localDescription }
-                  });
-
-                } catch (err) {
-                  console.error("Widget WebRTC error:", err);
-                }
-              });
-
-              socket.off("call:busy");
-              socket.on("call:busy", () => {
-                if (statusBadge) {
-                  statusBadge.innerHTML = "Agents are busy";
-                }
-                voiceHistory.push({ role: 'ai', text: "All agents are currently busy. Our AI assistant will continue helping you!" });
-                renderVoiceFeed(false);
-              });
-
-              socket.off("call:ended");
-              socket.on("call:ended", () => {
-                if (widgetLocalStream) {
-                  widgetLocalStream.getTracks().forEach(t => t.stop());
-                  widgetLocalStream = null;
-                }
-                if (widgetPeerConnection) {
-                  widgetPeerConnection.close();
-                  widgetPeerConnection = null;
-                }
-                if (statusBadge) {
-                  statusBadge.innerHTML = "Call Ended";
-                }
+              const transcriptText = voiceHistory.map(h => `${h.role === 'user' ? 'Visitor' : 'AI'}: ${h.text}`).join('\n');
+              
+              startDirectAgentCall({
+                transcript: transcriptText,
+                aiSummary: reason || "Visitor requested live human agent voice assistance during AI session."
               });
             }
 
@@ -655,19 +633,29 @@ const DEFAULT_ICE_SERVERS = [
                 initiateAgentHandoff("Visitor requested human agent via Agent button");
               };
             }
-            const closeTopBtn = voiceOverlay.querySelector("#csw-close-live-top-btn");
 
+            const closeTopBtn = voiceOverlay.querySelector("#csw-close-live-top-btn");
             if (closeTopBtn) {
               closeTopBtn.onclick = () => {
-                isCallActive = false;
-                isAiSpeaking = false;
-                if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-                if (recognition) {
-                  try { recognition.stop(); } catch(e) {}
-                }
-                voiceOverlay.style.display = "none";
-                renderDefaultVoiceUI();
+                terminateAiCall();
               };
+            }
+
+            function formatVoiceText(text, fallbackBase) {
+              if (!text) return "";
+              let formatted = String(text)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+              formatted = formatted.replace(
+                /(https?:\/\/[^\s<]+)/g,
+                '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#38bdf8; text-decoration:underline; font-weight:700;">$1</a>'
+              );
+              formatted = formatted.replace(
+                /(\/ticket-status\/[A-Za-z0-9_-]+)/g,
+                `<a href="${fallbackBase}$1" target="_blank" rel="noopener noreferrer" style="color:#38bdf8; text-decoration:underline; font-weight:700;">$1</a>`
+              );
+              return formatted;
             }
 
             function renderVoiceFeed(isThinking = false) {
@@ -679,19 +667,35 @@ const DEFAULT_ICE_SERVERS = [
                 if (item.role === 'user') {
                   card.className = "csw-speech-card-visitor";
                   card.innerHTML = `
-                    <div style="font-size:8.5px; font-weight:800; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:2px; display:flex; align-items:center; justify-content:flex-end; gap:3px;">
-                      <span>You 👤</span>
+                    <div style="font-size:8.5px; font-weight:800; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:2px; display:inline-flex; align-items:center; justify-content:flex-end; gap:4px;">
+                      <span>YOU</span>
+                      ${ICONS.user(11, "rgba(255,255,255,0.9)")}
                     </div>
                     <div style="font-size:11.5px; color:#ffffff; font-weight:500; text-align:right;">${item.text}</div>
                   `;
                 } else {
                   card.className = "csw-speech-card-ai";
+                  const ticketId = item.ticketId;
+                  const ticketLink = item.ticketLink || (ticketId ? `${originUrl}/ticket-status/${ticketId}` : null);
                   card.innerHTML = `
-                    <div style="font-size:8.5px; font-weight:800; color:#38bdf8; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:2px; display:flex; align-items:center; gap:3px;">
-                      <span>🤖 AI Agent</span>
+                    <div style="font-size:8.5px; font-weight:800; color:#38bdf8; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:2px; display:inline-flex; align-items:center; gap:4px;">
+                      ${ICONS.bot(13, "#38bdf8")}
+                      <span>AI AGENT</span>
                     </div>
-                    <div style="font-size:11.5px; color:#f8fafc; font-weight:500; line-height:1.4;">${item.text}</div>
-                    ${item.ticketId ? `<div style="margin-top:4px; padding:3px 6px; background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); border-radius:6px; font-size:9px; color:#34d399; font-weight:700; display:inline-block;">🎫 Ticket: ${item.ticketId}</div>` : ''}
+                    <div style="font-size:11.5px; color:#f8fafc; font-weight:500; line-height:1.4;">${formatVoiceText(item.text, originUrl)}</div>
+                    ${ticketId && ticketLink ? `
+                      <div style="margin-top:7px;">
+                        <a href="${ticketLink}" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; background:linear-gradient(135deg, rgba(14,165,233,0.25), rgba(16,185,129,0.3)); border:1px solid rgba(56,189,248,0.5); border-radius:8px; font-size:11px; color:#38bdf8; font-weight:800; text-decoration:none; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.25); transition:all 0.2s;" onmouseover="this.style.background='rgba(56,189,248,0.35)'; this.style.borderColor='#38bdf8';" onmouseout="this.style.background='linear-gradient(135deg, rgba(14,165,233,0.25), rgba(16,185,129,0.3))'; this.style.borderColor='rgba(56,189,248,0.5)';">
+                          ${ICONS.ticket(13, "#38bdf8")}
+                          <span>Open Ticket #${ticketId}</span>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:2px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                        </a>
+                      </div>
+                    ` : (ticketId ? `
+                      <div style="margin-top:4px; padding:3px 7px; background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); border-radius:6px; font-size:9px; color:#34d399; font-weight:700; display:inline-flex; align-items:center; gap:4px;">
+                        ${ICONS.ticket(11, "#34d399")}<span>Ticket: ${ticketId}</span>
+                      </div>
+                    ` : '')}
                   `;
                 }
                 conversationFeed.appendChild(card);
@@ -735,10 +739,26 @@ const DEFAULT_ICE_SERVERS = [
                 return;
               }
 
+              const isEndCallIntent = 
+                lower.includes("end call") || 
+                lower.includes("end this call") ||
+                lower.includes("cut the call") || 
+                lower.includes("cut call") || 
+                lower.includes("hang up") || 
+                lower.includes("disconnect") || 
+                lower.includes("bye") || 
+                lower.includes("goodbye") || 
+                lower.includes("call band") || 
+                lower.includes("call kaat") || 
+                lower.includes("call kato") || 
+                lower.includes("call cut") || 
+                lower.includes("in this call") ||
+                lower.includes("and this call");
+
               voiceHistory.push({ role: 'user', text: promptText });
               renderVoiceFeed(true);
 
-              statusBadge.innerHTML = `<span style="width:7px; height:7px; border-radius:50%; background:#38bdf8; display:inline-block; box-shadow:0 0 8px #38bdf8;"></span> AI THINKING & RESPONDING...`;
+              statusBadge.innerHTML = `<span style="width:6px; height:6px; border-radius:50%; background:#38bdf8; display:inline-block; box-shadow:0 0 6px #38bdf8;"></span> ${ICONS.sparkles(11, '#38bdf8')} <span>AI THINKING & RESPONDING...</span>`;
 
               // Mute mic while AI thinks and speaks
               isAiSpeaking = true;
@@ -750,39 +770,80 @@ const DEFAULT_ICE_SERVERS = [
                 const res = await fetch(`${originUrl}/api/voice/call-simulated`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ websiteId: websiteApiKey, prompt: promptText })
+                  body: JSON.stringify({
+                    websiteId: websiteApiKey,
+                    prompt: promptText,
+                    visitorId: visitorId || localStorage.getItem(`csw_visitor_${websiteApiKey}`) || sessionStorage.getItem(`csw_visitor_${websiteApiKey}`) || "",
+                    sessionId: activeSessionId || localStorage.getItem(`csw_session_${websiteApiKey}`) || sessionStorage.getItem(`csw_session_${websiteApiKey}`) || "",
+                    callerPhone: localStorage.getItem(`csw_phone_${websiteApiKey}`) || "",
+                    visitorName: resolveVisitorName(),
+                    visitorEmail: localStorage.getItem(`csw_email_${websiteApiKey}`) || localStorage.getItem(`email_${websiteApiKey}`) || "",
+                    conversationHistory: voiceHistory.slice(-8).map(h => ({ role: h.role, text: h.text }))
+                  })
                 });
                 const data = await res.json();
 
                 if (data && data.voiceResponse) {
-                  const ticketId = data.ticket?.ticketId || null;
-                  voiceHistory.push({ role: 'ai', text: data.voiceResponse, ticketId });
+                  const ticketId = data.ticketId || data.ticket?.ticketId || null;
+                  const ticketLink = data.ticketLink || (ticketId ? `${originUrl}/ticket-status/${ticketId}` : null);
+                  voiceHistory.push({ role: 'ai', text: data.voiceResponse, ticketId, ticketLink });
                   renderVoiceFeed(false);
 
-                  statusBadge.innerHTML = `<span style="width:7px; height:7px; border-radius:50%; background:#38bdf8; display:inline-block; box-shadow:0 0 8px #38bdf8;"></span> 🔊 AI SPEAKING RESPONSE...`;
+                  const respLower = (data.voiceResponse || "").toLowerCase();
+                  const isCallEnding = Boolean(
+                    data.shouldEndCall ||
+                    isEndCallIntent ||
+                    respLower.includes("ending this call") ||
+                    respLower.includes("ending the call") ||
+                    respLower.includes("end this call") ||
+                    respLower.includes("call end kar") ||
+                    respLower.includes("call cut kar") ||
+                    respLower.includes("have a wonderful day") ||
+                    respLower.includes("have a great day")
+                  );
+
+                  if (isCallEnding) {
+                    statusBadge.innerHTML = `<span style="width:6px; height:6px; border-radius:50%; background:#ef4444; display:inline-block; box-shadow:0 0 6px #ef4444;"></span> ${ICONS.phoneOff(12, '#ef4444')} <span>CALL ENDING...</span>`;
+                  } else {
+                    statusBadge.innerHTML = `<span style="width:6px; height:6px; border-radius:50%; background:#38bdf8; display:inline-block; box-shadow:0 0 6px #38bdf8;"></span> ${ICONS.volume2(12, '#38bdf8')} <span>AI SPEAKING RESPONSE...</span>`;
+                  }
 
                   let speechFinished = false;
                   const onSpeechDone = () => {
                     if (speechFinished) return;
                     speechFinished = true;
                     isAiSpeaking = false;
+
+                    if (isCallEnding) {
+                      setTimeout(() => {
+                        terminateAiCall();
+                      }, 700);
+                      return;
+                    }
+
                     if (isCallActive) {
-                      statusBadge.innerHTML = `<span style="width:7px; height:7px; border-radius:50%; background:#34d399; display:inline-block; box-shadow:0 0 8px #34d399;"></span> 🟢 MIC LISTENING (SPEAK NOW)...`;
+                      statusBadge.innerHTML = `<span style="width:6px; height:6px; border-radius:50%; background:#34d399; display:inline-block; box-shadow:0 0 6px #34d399;"></span> ${ICONS.mic(11, '#34d399')} <span>MIC LISTENING (SPEAK NOW)...</span>`;
                       setTimeout(() => {
                         if (isCallActive && !isAiSpeaking) startListening();
                       }, 500);
                     }
                   };
 
-                  // Speak response using Web Speech API
+                  if (isCallEnding) {
+                    setTimeout(() => {
+                      if (isCallActive) terminateAiCall();
+                    }, 4000);
+                  }
+
+                  // Speak response using Web Speech API with fast synthesis delivery
                   if ("speechSynthesis" in window) {
                     window.speechSynthesis.cancel();
                     const utterance = new SpeechSynthesisUtterance(data.voiceResponse);
-                    utterance.rate = data.voiceSettings?.speed || 0.95;
+                    utterance.rate = data.voiceSettings?.speed || 1.05;
                     
                     const targetGender = data.voiceSettings?.gender || "female";
                     if (targetGender === "male") {
-                      utterance.pitch = 0.75;
+                      utterance.pitch = 0.85;
                     } else {
                       utterance.pitch = 1.05;
                     }
@@ -798,16 +859,23 @@ const DEFAULT_ICE_SERVERS = [
                         if (targetGender === "male") {
                           return name.includes("david") || name.includes("male") || name.includes("george") || name.includes("mark") || name.includes("guy") || name.includes("ravi") || name.includes("hemant") || name.includes("james") || name.includes("richard") || name.includes("alex");
                         } else {
-                          return name.includes("zira") || name.includes("female") || name.includes("samantha") || name.includes("victoria") || name.includes("heera") || name.includes("kalpana") || name.includes("karen");
+                          return name.includes("zira") || name.includes("female") || name.includes("samantha") || name.includes("natural") || name.includes("victoria") || name.includes("heera") || name.includes("kalpana") || name.includes("karen");
                         }
                       });
                       if (matchVoice) utterance.voice = matchVoice;
                     }
 
-                    utterance.onend = onSpeechDone;
-                    utterance.onerror = onSpeechDone;
+                    let safetyTimer = null;
+                    const cleanupAndDone = () => {
+                      if (safetyTimer) clearTimeout(safetyTimer);
+                      onSpeechDone();
+                    };
+
+                    utterance.onend = cleanupAndDone;
+                    utterance.onerror = cleanupAndDone;
                     window.speechSynthesis.speak(utterance);
-                    setTimeout(onSpeechDone, 6000);
+                    const dynamicTimeoutMs = Math.max(4500, (data.voiceResponse || "").length * 80);
+                    safetyTimer = setTimeout(cleanupAndDone, dynamicTimeoutMs);
                   } else {
                     onSpeechDone();
                   }
@@ -816,7 +884,7 @@ const DEFAULT_ICE_SERVERS = [
                 console.error("Voice response error:", err);
                 isAiSpeaking = false;
                 renderVoiceFeed(false);
-                statusBadge.innerHTML = `<span style="width:7px; height:7px; border-radius:50%; background:#34d399; display:inline-block; box-shadow:0 0 8px #34d399;"></span> 🟢 MIC LISTENING (SPEAK NOW)...`;
+                statusBadge.innerHTML = `<span style="width:6px; height:6px; border-radius:50%; background:#34d399; display:inline-block; box-shadow:0 0 6px #34d399;"></span> ${ICONS.mic(11, '#34d399')} <span>MIC LISTENING (SPEAK NOW)...</span>`;
               }
             }
 
@@ -845,10 +913,10 @@ const DEFAULT_ICE_SERVERS = [
 
                 recognition.onstart = () => {
                   if (speakMicBtn) {
-                    speakMicBtn.innerHTML = "🟢 Listening...";
+                    speakMicBtn.innerHTML = `${ICONS.mic(13, "#ffffff")} <span>Listening...</span>`;
                     speakMicBtn.style.background = "linear-gradient(135deg, #34d399 0%, #10b981 55%, #059669 100%)";
                   }
-                  statusBadge.innerHTML = `<span style="width:7px; height:7px; border-radius:50%; background:#10b981; display:inline-block;"></span> 🟢 MIC LISTENING... (SPEAK NOW)`;
+                  statusBadge.innerHTML = `<span style="width:6px; height:6px; border-radius:50%; background:#10b981; display:inline-block; box-shadow:0 0 6px #10b981;"></span> ${ICONS.mic(11, '#10b981')} <span>MIC LISTENING... (SPEAK NOW)</span>`;
                 };
 
                 recognition.onresult = (event) => {
@@ -867,7 +935,7 @@ const DEFAULT_ICE_SERVERS = [
                   const liveText = finalText || interimText;
                   if (liveText && liveText.trim()) {
                     accumulatedTranscript = liveText.trim();
-                    statusBadge.innerHTML = `<span style="width:6px; height:6px; border-radius:50%; background:#10b981; display:inline-block; box-shadow:0 0 8px #10b981;"></span> 🗣️ HEARD: "${accumulatedTranscript}"`;
+                    statusBadge.innerHTML = `<span style="width:6px; height:6px; border-radius:50%; background:#10b981; display:inline-block; box-shadow:0 0 8px #10b981;"></span> ${ICONS.sparkles(11, '#10b981')} <span>HEARD: "${accumulatedTranscript}"</span>`;
 
                     if (silenceTimer) clearTimeout(silenceTimer);
                     silenceTimer = setTimeout(() => {
@@ -905,26 +973,7 @@ const DEFAULT_ICE_SERVERS = [
 
             if (endBtn) {
               endBtn.onclick = () => {
-                if (isHumanAgentCallActive && socket) {
-                  socket.emit("call:end", { sessionId: activeSessionId });
-                }
-                if (widgetLocalStream) {
-                  widgetLocalStream.getTracks().forEach(t => t.stop());
-                  widgetLocalStream = null;
-                }
-                if (widgetPeerConnection) {
-                  widgetPeerConnection.close();
-                  widgetPeerConnection = null;
-                }
-                isHumanAgentCallActive = false;
-                isCallActive = false;
-                isAiSpeaking = false;
-                if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-                if (recognition) {
-                  try { recognition.stop(); } catch(e) {}
-                }
-                voiceOverlay.style.display = "none";
-                renderDefaultVoiceUI();
+                terminateAiCall();
               };
             }
 
@@ -1156,6 +1205,25 @@ const DEFAULT_ICE_SERVERS = [
       if (endCallBtn) endCallBtn.onclick = handleEnd;
 
       if (socket) {
+        socket.off("call:transfer-in-progress");
+        socket.on("call:transfer-in-progress", () => {
+          if (agentPeerConnection) {
+            agentPeerConnection.close();
+            agentPeerConnection = null;
+          }
+          socket.off("call:accepted");
+          socket.once("call:accepted", ({ callId: newCallId, agentName: newAgentName, agentSocketId: newTargetSid }) => {
+            if (callTimerInterval) clearInterval(callTimerInterval);
+            activateConnectedCallScreen({
+              activeCallId: newCallId || activeCallId,
+              agentName: newAgentName,
+              agentSocketId: newTargetSid,
+              micStream,
+              isIncomingAgentCall: false
+            });
+          });
+        });
+
         socket.off("call:ended");
         socket.on("call:ended", () => {
           window.__csw_call_active = false;
@@ -1184,14 +1252,17 @@ const DEFAULT_ICE_SERVERS = [
       }
     }
 
-    async function startDirectAgentCall() {
-      let micStream = null;
-      try {
-        micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      } catch (err) {
-        console.error("Microphone permission denied:", err);
-        alert("Microphone permission is required to speak with our live agent. Please allow microphone access in your browser.");
-        return;
+    async function startDirectAgentCall(options = {}) {
+      const { transcript = "", aiSummary = "", existingMicStream = null, initialCallId = null } = options || {};
+      let micStream = existingMicStream;
+      if (!micStream) {
+        try {
+          micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        } catch (err) {
+          console.error("Microphone permission denied:", err);
+          alert("Microphone permission is required to speak with our live agent. Please allow microphone access in your browser.");
+          return;
+        }
       }
 
       window.__csw_call_active = true;
@@ -1303,7 +1374,6 @@ const DEFAULT_ICE_SERVERS = [
           if (socket) {
             console.log("[ChatWidget] Visitor cancelled outgoing call:", activeCallId);
             socket.emit("call:cancel", { callId: activeCallId, sessionId: activeSessionId });
-            socket.emit("call:end", { callId: activeCallId, sessionId: activeSessionId });
           }
           renderDefaultVoiceUI();
         };
@@ -1312,7 +1382,6 @@ const DEFAULT_ICE_SERVERS = [
       const handleBeforeUnload = () => {
         if (window.__csw_call_active && socket) {
           socket.emit("call:cancel", { callId: activeCallId, sessionId: activeSessionId });
-          socket.emit("call:end", { callId: activeCallId, sessionId: activeSessionId });
         }
       };
       window.addEventListener("beforeunload", handleBeforeUnload, { once: true });
@@ -1326,16 +1395,17 @@ const DEFAULT_ICE_SERVERS = [
           if (micStream) micStream.getTracks().forEach(t => t.stop());
           if (socket) {
             socket.emit("call:cancel", { callId: activeCallId, sessionId: activeSessionId });
-            socket.emit("call:end", { callId: activeCallId, sessionId: activeSessionId });
           }
           voiceOverlay.style.background = "#ffffff";
           voiceOverlay.style.color = "#0f172a";
           voiceOverlay.innerHTML = `
             <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; height:100%; width:100%;">
-              <div style="width:52px; height:52px; border-radius:50%; background:#fef3c7; border:1px solid #fde68a; display:flex; align-items:center; justify-content:center; font-size:24px; margin-bottom:12px;">⏳</div>
+              <div style="width:52px; height:52px; border-radius:50%; background:#fef3c7; border:1px solid #fde68a; display:flex; align-items:center; justify-content:center; margin-bottom:12px;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </div>
               <div style="font-size:15px; font-weight:900; color:#0f172a; margin-bottom:4px;">All Specialists Currently Busy</div>
               <p style="font-size:11.5px; color:#64748b; max-width:250px; line-height:1.45; margin:0 0 16px 0;">Our specialists are on other calls. You can continue via chat or speak with our AI Voice Bot.</p>
-              <button id="csw-retry-ai-btn" type="button" style="width:100%; max-width:220px; padding:10px 16px; border-radius:12px; background:linear-gradient(135deg, #6366f1, #4f46e5); color:#fff; font-weight:800; font-size:11.5px; border:none; cursor:pointer; margin-bottom:8px; box-shadow:0 4px 12px rgba(99,102,241,0.3);">🤖 Talk with AI Voice Bot</button>
+              <button id="csw-retry-ai-btn" type="button" style="width:100%; max-width:220px; padding:10px 16px; border-radius:12px; background:linear-gradient(135deg, #6366f1, #4f46e5); color:#fff; font-weight:800; font-size:11.5px; border:none; cursor:pointer; margin-bottom:8px; box-shadow:0 4px 12px rgba(99,102,241,0.3); display:inline-flex; align-items:center; justify-content:center; gap:6px;">${ICONS.bot(14, "#ffffff")} <span>Talk with AI Voice Bot</span></button>
               <button id="csw-retry-back-btn" type="button" style="background:transparent; border:none; color:#64748b; font-size:11px; font-weight:600; cursor:pointer; text-decoration:underline;">Back to Chat</button>
             </div>
           `;
@@ -1361,7 +1431,7 @@ const DEFAULT_ICE_SERVERS = [
         voiceOverlay.style.color = "#0f172a";
         voiceOverlay.innerHTML = `
           <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; height:100%; width:100%;">
-            <div style="width:52px; height:52px; border-radius:50%; background:#fef2f2; border:1px solid #fecaca; display:flex; align-items:center; justify-content:center; font-size:24px; margin-bottom:12px; color:#ef4444;">📞</div>
+            <div style="width:52px; height:52px; border-radius:50%; background:#fef2f2; border:1px solid #fecaca; display:flex; align-items:center; justify-content:center; margin-bottom:12px; color:#ef4444;">${ICONS.phoneOff(24, "#ef4444")}</div>
             <div style="font-size:15px; font-weight:900; color:#0f172a; margin-bottom:4px;">Line Busy</div>
             <p style="font-size:11.5px; color:#64748b; max-width:240px; margin-bottom:16px; line-height:1.45;">Specialists are currently occupied on active calls.</p>
             <button id="csw-busy-close-btn" type="button" style="padding:9px 20px; border-radius:12px; background:#f1f5f9; border:1px solid #cbd5e1; color:#0f172a; font-size:11.5px; font-weight:700; cursor:pointer;">Return to Chat</button>
@@ -1399,8 +1469,8 @@ const DEFAULT_ICE_SERVERS = [
           visitorName: resolveVisitorName(),
           visitorId: visitorId,
           callerPhone: "Web Direct Voice Call",
-          transcript: "Visitor initiated direct voice call to agent from widget.",
-          aiSummary: "Direct voice call initiated by visitor."
+          transcript: transcript || "Visitor initiated direct voice call to agent from widget.",
+          aiSummary: aiSummary || "Direct voice call initiated by visitor."
         });
       };
 
@@ -1538,10 +1608,10 @@ const DEFAULT_ICE_SERVERS = [
 
           <div style="display:flex; align-items:center; gap:12px; width:100%; max-width:260px;">
             <button id="csw-incoming-decline-btn" type="button" style="flex:1; padding:11px 16px; border-radius:14px; background:#fee2e2; border:1px solid #fecaca; color:#b91c1c; font-size:12px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; transition:all 0.2s;">
-              ✕ Decline
+              ${ICONS.close(12, "#b91c1c")} <span>Decline</span>
             </button>
             <button id="csw-incoming-accept-btn" type="button" style="flex:1.2; padding:11px 16px; border-radius:14px; background:linear-gradient(135deg, #10b981, #059669); border:none; color:#ffffff; font-size:12px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 8px 20px -4px rgba(16,185,129,0.5); transition:all 0.2s;">
-              <span>📞</span> Accept
+              ${ICONS.phone(14, "#ffffff")} <span>Accept</span>
             </button>
           </div>
         </div>
@@ -1745,8 +1815,8 @@ const DEFAULT_ICE_SERVERS = [
           voiceOverlay.innerHTML = `
             <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; height:100%; width:100%;">
               <div style="font-size:36px; margin-bottom:8px;">🎉</div>
-              <div style="font-size:15px; font-weight:900; color:#fff; margin-bottom:4px;">Thank you!</div>
-              <div style="font-size:11px; color:#94a3b8; max-width:230px;">Your feedback helps us continuously improve our service quality.</div>
+              <div style="font-size:15px; font-weight:900; color:#0f172a; margin-bottom:4px;">Thank you!</div>
+              <div style="font-size:11px; color:#64748b; max-width:230px;">Your feedback helps us continuously improve our service quality.</div>
             </div>
           `;
           setTimeout(closeRating, 2200);
@@ -2107,6 +2177,17 @@ const DEFAULT_ICE_SERVERS = [
         }
       });
 
+      socket.on("chat:status:update", ({ messageId, status }) => {
+        const el = ui.panel.querySelector(`[data-msg-id="${messageId}"] .csw-status`);
+        if (!el) return;
+        if (status === "read") {
+          el.textContent = "Read";
+          el.classList.add("csw-read");
+        } else if (status === "delivered") {
+          el.textContent = "Delivered";
+        }
+      });
+
       const handleAgentTyping = (payload) => {
         const isTyping = typeof payload === 'object' ? Boolean(payload.isTyping) : Boolean(payload);
         if (isTyping) {
@@ -2286,26 +2367,39 @@ const DEFAULT_ICE_SERVERS = [
   }
 
   function appendMessage(ui, sender, text, attachmentUrl, attachmentType, senderName, isAi, messageId, deliveredAt, readAt, tempId) {
-    if (sender === "system" || (text && text.startsWith("📞"))) {
-      let displayText = text;
+    const isVoiceSymbol = typeof text === "string" && text.startsWith("📞");
+    if (sender === "system" || isVoiceSymbol) {
+      let displayText = text || "";
       let isVoiceReassurance = false;
+      let isVoiceCompleted = false;
+      const lowerText = String(text || "").toLowerCase();
+      const isVoiceMessage = isVoiceSymbol || lowerText.includes("voice call") || lowerText.includes("outbound call") || lowerText.includes("missed call");
 
       // Transform agent-facing missed call alerts into polite visitor reassurance
-      if (typeof text === "string" && (text.includes("Missed voice call") || text.includes("missed voice call") || text.includes("missed call"))) {
+      if (isVoiceMessage && (lowerText.includes("missed") || lowerText.includes("unanswered") || lowerText.includes("cancelled"))) {
         isVoiceReassurance = true;
-        const timeMatch = text.match(/at\s+([0-9]{1,2}:[0-9]{2}\s*(?:am|pm|AM|PM)?)/i);
+        const timeMatch = String(text).match(/at\s+([0-9]{1,2}:[0-9]{2}\s*(?:am|pm|AM|PM)?)/i);
         const timeStr = timeMatch ? ` at ${timeMatch[1]}` : "";
-        displayText = `📞 You called Support${timeStr} • Our team has been alerted and will call you back shortly`;
+        displayText = lowerText.includes("outbound")
+          ? `📞 Support tried calling you${timeStr}`
+          : `📞 You called Support${timeStr} • Our team has been alerted and will call you back shortly`;
+      } else if (isVoiceMessage && (lowerText.includes("completed") || lowerText.includes("duration:"))) {
+        isVoiceCompleted = true;
+        const durMatch = String(text).match(/Duration:\s*([0-9]{1,2}:[0-9]{2})/i);
+        const durStr = durMatch ? ` • Duration: ${durMatch[1]}` : "";
+        displayText = `📞 Voice call ended${durStr}`;
       }
 
       const sysMsg = document.createElement("div");
       sysMsg.className = "csw-message csw-system";
       if (messageId) sysMsg.setAttribute("data-msg-id", messageId);
 
-      if (isVoiceReassurance) {
+      if (isVoiceCompleted) {
+        sysMsg.style.cssText = "align-self:center; margin:10px auto; background:#ecfdf5; border:1px solid #a7f3d0; color:#065f46; padding:8px 16px; border-radius:999px; font-size:11.5px; font-weight:700; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.04); max-width:92%; line-height:1.45;";
+      } else if (isVoiceReassurance || isVoiceMessage) {
         sysMsg.style.cssText = "align-self:center; margin:10px auto; background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8; padding:8px 16px; border-radius:999px; font-size:11.5px; font-weight:700; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.04); max-width:92%; line-height:1.45;";
       } else {
-        sysMsg.style.cssText = "align-self:center; margin:8px auto; background:#fee2e2; border:1px solid #fecaca; color:#991b1b; padding:6px 14px; border-radius:999px; font-size:11px; font-weight:700; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,0.04); max-width:88%;";
+        sysMsg.style.cssText = "align-self:center; margin:8px auto; background:#f1f5f9; border:1px solid #e2e8f0; color:#475569; padding:6px 14px; border-radius:999px; font-size:11px; font-weight:600; text-align:center; box-shadow:0 1px 2px rgba(0,0,0,0.03); max-width:88%;";
       }
 
       sysMsg.innerHTML = `<span>${escapeHtml(displayText)}</span>`;
@@ -2329,10 +2423,25 @@ const DEFAULT_ICE_SERVERS = [
       if (attachmentType === "image" || attachmentType?.startsWith("image/")) {
         html += `<img src="${attachmentUrl}" style="max-width:100%; border-radius:10px; margin-bottom:4px; display:block;" />`;
       } else {
-        html += `<a href="${attachmentUrl}" target="_blank" style="color:inherit; text-decoration:underline; display:inline-flex; align-items:center; gap:4px; margin-bottom:4px;">📄 ${text || "View Document"}</a>`;
+        html += `<a href="${attachmentUrl}" target="_blank" style="color:inherit; text-decoration:underline; display:inline-flex; align-items:center; gap:5px; margin-bottom:4px;">${ICONS.paperclip(12)} <span>${escapeHtml(text || "View Document")}</span></a>`;
       }
     } else if (text) {
-      html += `<div>${escapeHtml(text)}</div>`;
+      const tktMatch = String(text).match(/^(?:[\uD83C\uDFAB🎫]\s*)?\[Ticket\s*#([a-zA-Z0-9_-]+)\s*Note\]:\s*(.*)/is);
+      if (tktMatch) {
+        const tktId = tktMatch[1];
+        const cleanBody = tktMatch[2];
+        html += `
+          <div style="margin-bottom:5px;">
+            <span style="display:inline-flex; align-items:center; gap:4.5px; padding:2px 8px; background:rgba(255,255,255,0.22); border-radius:6px; font-size:10px; font-weight:800; letter-spacing:0.02em;">
+              ${ICONS.ticket(11, "currentColor")}
+              <span>Ticket #${escapeHtml(tktId)} Note</span>
+            </span>
+          </div>
+          <div style="line-height:1.45;">${escapeHtml(cleanBody)}</div>
+        `;
+      } else {
+        html += `<div>${escapeHtml(text)}</div>`;
+      }
     }
 
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

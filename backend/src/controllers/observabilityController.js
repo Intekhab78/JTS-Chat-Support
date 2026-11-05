@@ -5,6 +5,24 @@ import { AuditLog } from "../models/AuditLog.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { logAuditEvent } from "../services/auditService.js";
+import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
+
+function computeCpuPercent(cpus, cpuLoadAvg) {
+  if (cpuLoadAvg[0] > 0 && cpus.length > 0) {
+    return Math.min(Math.round((cpuLoadAvg[0] / cpus.length) * 100), 95);
+  }
+  if (!cpus || cpus.length === 0) return 0;
+  let totalIdle = 0;
+  let totalTick = 0;
+  for (const cpu of cpus) {
+    for (const type of Object.keys(cpu.times)) {
+      totalTick += cpu.times[type];
+    }
+    totalIdle += cpu.times.idle;
+  }
+  if (totalTick === 0) return 0;
+  return Math.max(1, Math.min(95, Math.round(100 - (100 * totalIdle) / totalTick)));
+}
 
 export const getObservabilityOverview = asyncHandler(async (req, res) => {
   const dbState = mongoose.connection.readyState;
@@ -18,7 +36,7 @@ export const getObservabilityOverview = asyncHandler(async (req, res) => {
 
   const cpus = os.cpus();
   const cpuLoadAvg = os.loadavg();
-  const cpuPercent = Math.min(Math.round((cpuLoadAvg[0] / cpus.length) * 100), 95);
+  const cpuPercent = computeCpuPercent(cpus, cpuLoadAvg);
 
   const rssMb = Math.round(memoryUsage.rss / 1024 / 1024);
   const heapUsedMb = Math.round(memoryUsage.heapUsed / 1024 / 1024);
@@ -88,21 +106,36 @@ export const searchAuditLogs = asyncHandler(async (req, res) => {
   const { action, search, level, limit = 50 } = req.query;
   const query = {};
 
+  if (req.user && req.user.role !== "admin") {
+    const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+    query.$and = [
+      {
+        $or: [
+          { websiteId: { $in: ownedWebsiteIds } },
+          { actorId: req.user._id }
+        ]
+      }
+    ];
+  }
+
   if (action) query.action = action;
   if (level) query.level = level;
   if (search) {
-    query.$or = [
-      { action: { $regex: search, $options: "i" } },
-      { resource: { $regex: search, $options: "i" } },
-      { ipAddress: { $regex: search, $options: "i" } }
+    const escaped = String(search).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const searchOr = [
+      { action: { $regex: escaped, $options: "i" } },
+      { entityType: { $regex: escaped, $options: "i" } },
+      { actorName: { $regex: escaped, $options: "i" } },
+      { ipAddress: { $regex: escaped, $options: "i" } }
     ];
+    if (query.$and) query.$and.push({ $or: searchOr });
+    else query.$or = searchOr;
   }
 
   const logs = await AuditLog.find(query)
     .populate({ path: "actorId", select: "name email role", strictPopulate: false })
-    .populate({ path: "userId", select: "name email role", strictPopulate: false })
     .sort({ createdAt: -1 })
-    .limit(Number(limit));
+    .limit(Math.min(500, Math.max(1, Number(limit) || 50)));
 
   return res.json(logs);
 });
