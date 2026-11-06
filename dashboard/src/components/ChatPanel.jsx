@@ -77,24 +77,49 @@ function getAvatarColor(name = "") {
 }
 
 const linkify = (text = "") => {
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  return text.split(urlRegex).map((part, i) => {
-    if (part.match(urlRegex)) {
-      return (
-        <a
-          key={i}
-          href={part}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline decoration-indigo-400/50 hover:decoration-indigo-400 transition-all font-bold"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {part}
-        </a>
-      );
+  if (!text) return "";
+  const urlRegex = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+  const str = String(text);
+
+  while ((match = urlRegex.exec(str)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(str.substring(lastIndex, match.index));
     }
-    return part;
-  });
+
+    let url = match[0];
+    let trailing = "";
+    while (/[.,;:\?!)]$/.test(url)) {
+      trailing = url.slice(-1) + trailing;
+      url = url.slice(0, -1);
+    }
+
+    const href = url.toLowerCase().startsWith("www.") ? "https://" + url : url;
+    parts.push(
+      <a
+        key={match.index}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline decoration-indigo-400 hover:decoration-indigo-600 dark:decoration-indigo-400 transition-all font-semibold break-all"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {url}
+      </a>
+    );
+    if (trailing) {
+      parts.push(trailing);
+    }
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < str.length) {
+    parts.push(str.substring(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : str;
 };
 
 const renderFormattedMessage = (rawText = "") => {

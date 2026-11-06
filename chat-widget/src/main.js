@@ -2402,7 +2402,7 @@ const DEFAULT_ICE_SERVERS = [
         sysMsg.style.cssText = "align-self:center; margin:8px auto; background:#f1f5f9; border:1px solid #e2e8f0; color:#475569; padding:6px 14px; border-radius:999px; font-size:11px; font-weight:600; text-align:center; box-shadow:0 1px 2px rgba(0,0,0,0.03); max-width:88%;";
       }
 
-      sysMsg.innerHTML = `<span>${escapeHtml(displayText)}</span>`;
+      sysMsg.innerHTML = `<span>${linkifyText(displayText, "system")}</span>`;
       ui.messages.appendChild(sysMsg);
       ui.messages.scrollTop = ui.messages.scrollHeight;
       return;
@@ -2437,10 +2437,10 @@ const DEFAULT_ICE_SERVERS = [
               <span>Ticket #${escapeHtml(tktId)} Note</span>
             </span>
           </div>
-          <div style="line-height:1.45;">${escapeHtml(cleanBody)}</div>
+          <div style="line-height:1.45;">${linkifyText(cleanBody, sender)}</div>
         `;
       } else {
-        html += `<div>${escapeHtml(text)}</div>`;
+        html += `<div>${linkifyText(text, sender)}</div>`;
       }
     }
 
@@ -2472,6 +2472,23 @@ const DEFAULT_ICE_SERVERS = [
     const div = document.createElement("div");
     div.textContent = str;
     return div.innerHTML;
+  }
+
+  function linkifyText(rawText, sender) {
+    if (!rawText) return "";
+    const escaped = escapeHtml(String(rawText));
+    const urlPattern = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
+    return escaped.replace(urlPattern, (matched) => {
+      let href = matched;
+      let trailing = "";
+      while (/[.,;:\?!)]$/.test(href)) {
+        trailing = href.slice(-1) + trailing;
+        href = href.slice(0, -1);
+      }
+      const fullHref = href.toLowerCase().startsWith("www.") ? "https://" + href : href;
+      const linkColor = sender === "visitor" ? "#ffffff" : "#2563eb";
+      return '<a href="' + fullHref + '" target="_blank" rel="noopener noreferrer" class="csw-msg-link" style="color:' + linkColor + ';text-decoration:underline;text-underline-offset:2.5px;font-weight:600;word-break:break-all;" onclick="event.stopPropagation();">' + href + '</a>' + trailing;
+    });
   }
 
   function submitFeedback(ui, rating, comment = "") {
