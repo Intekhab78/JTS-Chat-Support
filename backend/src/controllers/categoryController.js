@@ -1,6 +1,7 @@
 import { Category } from "../models/Category.js";
 import { Website } from "../models/Website.js";
 import { broadcastDataChange } from "../services/dataSyncService.js";
+import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 
 export const getCategories = async (req, res) => {
   try {
@@ -8,22 +9,19 @@ export const getCategories = async (req, res) => {
     const filter = {};
 
     if (websiteId) {
-      // Security: Verify website belongs to manager (if role is client)
-      const website = await Website.findById(websiteId);
-      if (!website) return res.status(404).json({ message: "Website not found" });
-
-      if (req.user.role === "client" && website.managerId.toString() !== req.user._id.toString()) {
+      const owned = await getOwnedWebsiteIds(req.user);
+      if (req.user.role !== "admin" && !owned.some(id => String(id) === String(websiteId))) {
         return res.status(403).json({ message: "Access denied: Unauthorized website access" });
       }
-      
       filter.websiteId = websiteId;
     } else if (req.user.role === "client") {
-      filter.managerId = req.user._id;
+      const owned = await getOwnedWebsiteIds(req.user);
+      filter.$or = [{ websiteId: { $in: owned } }, { managerId: req.user._id }];
     } else if (req.user.role === "admin") {
-      // Admins see everything if no websiteId provided, but usually they filter by website
+      // Admins see all categories
     } else {
-      // Agents MUST provide a websiteId via query
-      return res.status(400).json({ message: "Specific website context is required for categorization." });
+      const owned = await getOwnedWebsiteIds(req.user);
+      filter.websiteId = { $in: owned };
     }
 
     const categories = await Category.find(filter).sort({ name: 1 });
@@ -38,9 +36,9 @@ export const createCategory = async (req, res) => {
     const { name, subcategories, websiteId, department, createDashboard } = req.body;
     
     // Verify website ownership
-    const website = await Website.findById(websiteId);
-    if (!website || (req.user.role === "client" && website.managerId.toString() !== req.user._id.toString())) {
-      return res.status(403).json({ message: "Access denied" });
+    const owned = await getOwnedWebsiteIds(req.user);
+    if (req.user.role !== "admin" && !owned.some(id => String(id) === String(websiteId))) {
+      return res.status(403).json({ message: "Access denied: Unauthorized website access" });
     }
 
     const category = new Category({

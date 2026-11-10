@@ -5,7 +5,7 @@ import {
   BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area, Cell, LineChart, Line
 } from 'recharts';
 import {
-  Users, Globe, Headphones, MessageSquare, LayoutDashboard, Search, Bell, Menu, X, Trash2, Send, Paperclip, AlertTriangle, Lock, Shield
+  Users, Globe, Headphones, MessageSquare, LayoutDashboard, Search, Bell, Menu, X, Trash2, Send, Paperclip, AlertTriangle, Lock, Shield, Plus, ArrowRight, Layers
 } from "lucide-react";
 import Layout from "../components/Layout.jsx";
 import ChatPanel from "../components/ChatPanel.jsx";
@@ -190,10 +190,75 @@ const workflowStages = [
   }
 ];
 
-const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId, procurementStats }) => {
+const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId, procurementStats, websiteId, selectedWebsite }) => {
   const [selectedCategoryModal, setSelectedCategoryModal] = useState(null);
   const [categorySearch, setCategorySearch] = useState("");
+  const [categories, setCategories] = useState([]);
+  const [inventoryItems, setInventoryItems] = useState([]);
+  const [loadingCats, setLoadingCats] = useState(false);
   const isNewAccount = isExpired && !stripeCustomerId;
+
+  const { formatCurrency } = useCurrency();
+
+  useEffect(() => {
+    let active = true;
+    if (!websiteId) {
+      setCategories([]);
+      setInventoryItems([]);
+      return;
+    }
+
+    setLoadingCats(true);
+    Promise.all([
+      api(`/api/categories?websiteId=${websiteId}`).catch(() => []),
+      api(`/api/inventory/items?websiteId=${websiteId}`).catch(() => [])
+    ])
+      .then(([cats, items]) => {
+        if (!active) return;
+        setCategories(Array.isArray(cats) ? cats : []);
+        setInventoryItems(Array.isArray(items) ? items : []);
+      })
+      .finally(() => {
+        if (active) setLoadingCats(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [websiteId]);
+
+  const dynamicCategories = useMemo(() => {
+    const colors = ["indigo", "purple", "emerald", "cyan", "amber", "rose", "blue"];
+    return categories.map((cat, idx) => {
+      const subs = Array.isArray(cat.subcategories) ? cat.subcategories : [];
+      const mapped = inventoryItems.filter(item => 
+        (item.categoryId && String(item.categoryId) === String(cat._id)) ||
+        (item.category && String(item.category).toLowerCase() === String(cat.name).toLowerCase())
+      );
+      const totalVal = mapped.reduce((acc, it) => acc + ((it.unitCost || 0) * (it.quantity || 1)), 0);
+
+      return {
+        id: cat._id,
+        name: cat.name,
+        department: cat.department || "General",
+        subs,
+        items: mapped.length,
+        itemNames: mapped.map(it => `${it.name}${it.sku ? ` (${it.sku})` : ''}`),
+        val: totalVal > 0 ? formatCurrency(totalVal) : "—",
+        color: colors[idx % colors.length]
+      };
+    });
+  }, [categories, inventoryItems, formatCurrency]);
+
+  const filteredCategories = useMemo(() => {
+    if (!categorySearch.trim()) return dynamicCategories;
+    const q = categorySearch.toLowerCase();
+    return dynamicCategories.filter(cat => 
+      cat.name.toLowerCase().includes(q) || 
+      cat.subs.some(s => s.toLowerCase().includes(q)) ||
+      (cat.department && cat.department.toLowerCase().includes(q))
+    );
+  }, [dynamicCategories, categorySearch]);
   const chartData = analytics.trends?.dailyChats || [];
   const snapshotData = analytics.trends?.hourly?.map(s => ({
     label: s.time,
@@ -201,8 +266,6 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
     chats: s.chats,
     resolutions: s.resolved
   })) || [];
-
-  const { formatCurrency } = useCurrency();
 
   return (
     <div className="space-y-10">
@@ -283,7 +346,7 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
         </section>
       )}
 
-      {/* AUTOMATIC CATEGORY ANALYTICS DASHBOARDS SECTION (BOSS REQUIREMENT) */}
+      {/* DYNAMIC CATEGORY & SERVICE ANALYTICS HUB (100% DYNAMIC PER WEBSITE) */}
       <section className="bg-white p-8 rounded-[36px] border border-slate-200/70 shadow-sm space-y-6 animate-in fade-in duration-700">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
           <div>
@@ -291,89 +354,132 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
               <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 text-[9px] font-black uppercase tracking-wider">
                 ⚡ AUTO-GENERATED DASHBOARDS
               </span>
-              <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
-                🟢 5 Categories Mapped
+              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${
+                dynamicCategories.length > 0
+                  ? "text-emerald-600 bg-emerald-50 border-emerald-100"
+                  : "text-slate-500 bg-slate-50 border-slate-200"
+              }`}>
+                {dynamicCategories.length > 0 ? `🟢 ${dynamicCategories.length} Categories Mapped` : "⚪ 0 Categories"}
               </span>
             </div>
             <h3 className="text-xl font-black text-slate-900 tracking-tight mt-1">Category Analytics & Intelligence Hub</h3>
-            <p className="text-xs text-slate-400 font-bold">Auto-generated category dashboards mapping items, subcategories & live operations. Click any category card to inspect full analytics.</p>
+            <p className="text-xs text-slate-400 font-bold">
+              Auto-generated category dashboards mapping items, subcategories & live operations for {selectedWebsite?.websiteName || selectedWebsite?.domain || "the active website"}.
+            </p>
           </div>
-          <a href="/client?tab=inventory-category" className="px-5 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-md shrink-0 flex items-center gap-1.5 self-start sm:self-auto">
+          <a
+            href="/client?tab=categories"
+            className="px-5 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-md shrink-0 flex items-center gap-1.5 self-start sm:self-auto"
+          >
             Manage Categories
           </a>
         </div>
 
-        {/* Category Search & Quick Filter Bar */}
-        <div className="flex items-center gap-3 bg-slate-50/80 p-3 rounded-2xl border border-slate-200/80">
-          <Search size={16} className="text-slate-400 ml-2" />
-          <input
-            type="text"
-            value={categorySearch}
-            onChange={(e) => setCategorySearch(e.target.value)}
-            placeholder="Quick search category or subcategory..."
-            className="flex-1 bg-transparent text-xs font-bold text-slate-900 outline-none placeholder:text-slate-400"
-          />
-          {categorySearch && (
-            <button onClick={() => setCategorySearch("")} className="text-[10px] font-black text-slate-400 hover:text-slate-600 px-2">
-              CLEAR
-            </button>
-          )}
-        </div>
+        {loadingCats ? (
+          <div className="py-16 text-center text-slate-400 font-bold text-xs space-y-2">
+            <div className="w-8 h-8 mx-auto border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            <p>Loading category intelligence...</p>
+          </div>
+        ) : dynamicCategories.length > 0 ? (
+          <>
+            {/* Category Search & Quick Filter Bar */}
+            <div className="flex items-center gap-3 bg-slate-50/80 p-3 rounded-2xl border border-slate-200/80">
+              <Search size={16} className="text-slate-400 ml-2" />
+              <input
+                type="text"
+                value={categorySearch}
+                onChange={(e) => setCategorySearch(e.target.value)}
+                placeholder="Quick search category or subcategory..."
+                className="flex-1 bg-transparent text-xs font-bold text-slate-900 outline-none placeholder:text-slate-400"
+              />
+              {categorySearch && (
+                <button onClick={() => setCategorySearch("")} className="text-[10px] font-black text-slate-400 hover:text-slate-600 px-2">
+                  CLEAR
+                </button>
+              )}
+            </div>
 
-        {/* Category Dashboards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[
-            { name: "PRO Services", subs: ["Visa Stamping", "Emirates ID"], items: 1, itemNames: ["VIP Express Visa Processing (PRO-ALR-VIP-3201)"], val: "10,000 AED", color: "indigo" },
-            { name: "Trade License", subs: ["License Renewals", "Amendments"], items: 1, itemNames: ["TRADE LICENSE RENEWAL (TRA-ALR-TRA-4894)"], val: "10,000 AED", color: "purple" },
-            { name: "VAT Registration & Filing", subs: ["VAT Filing", "Returns"], items: 1, itemNames: ["VAT REGISTRATION & FILING ANNUAL (VAT-ALR-VAT-2586)"], val: "25,000 AED", color: "emerald" },
-            { name: "Corporate Tax Filing", subs: ["Tax Returns", "Ledger"], items: 2, itemNames: ["CORPORATE TAX FILING (COR-ALR-COR-8777)", "CORPORATE TAX REGISTRATION"], val: "95,000 AED", color: "cyan" },
-            { name: "Other Govt. Services", subs: ["MOFA Attestation"], items: 1, itemNames: ["MOFA DOCUMENT ATTESTATION"], val: "15,000 AED", color: "amber" }
-          ]
-            .filter(cat => {
-              if (!categorySearch.trim()) return true;
-              const q = categorySearch.toLowerCase();
-              return cat.name.toLowerCase().includes(q) || cat.subs.some(s => s.toLowerCase().includes(q));
-            })
-            .map((cat, idx) => (
-              <div
-                key={idx}
-                onClick={() => setSelectedCategoryModal(cat)}
-                className="p-6 rounded-3xl bg-slate-50/80 border border-slate-200/80 space-y-4 hover:border-indigo-400 hover:bg-white transition-all group hover:shadow-lg cursor-pointer active:scale-[0.98]"
+            {/* Category Dashboards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredCategories.length === 0 ? (
+                <div className="col-span-full py-12 text-center text-slate-400 font-bold text-xs bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                  No categories match "{categorySearch}".
+                </div>
+              ) : (
+                filteredCategories.map((cat, idx) => (
+                  <div
+                    key={cat.id || idx}
+                    onClick={() => setSelectedCategoryModal(cat)}
+                    className="p-6 rounded-3xl bg-slate-50/80 border border-slate-200/80 space-y-4 hover:border-indigo-400 hover:bg-white transition-all group hover:shadow-lg cursor-pointer active:scale-[0.98]"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-indigo-600 font-black shadow-sm group-hover:scale-110 group-hover:bg-indigo-50 transition-all">
+                          📊
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-black text-slate-900 uppercase tracking-tight group-hover:text-indigo-600 transition-colors">
+                            {cat.name}
+                          </h4>
+                          <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-md">
+                            Dashboard Active ↗
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 pt-2 border-t border-slate-200/50">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">
+                        Mapped Subcategories:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {cat.subs && cat.subs.length > 0 ? (
+                          cat.subs.map((s, i) => (
+                            <span key={i} className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-slate-600 text-[9px] font-bold">
+                              {s}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-medium italic">No subcategories mapped</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 text-xs font-black text-slate-900 border-t border-slate-200/50">
+                      <span className="text-slate-400 text-[10px] uppercase font-bold">Category Mapped Items:</span>
+                      <span className="text-indigo-600 font-extrabold flex items-center gap-1">
+                        {cat.items} Mapped Item{cat.items === 1 ? "" : "s"} <span className="text-[10px]">➔</span>
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </>
+        ) : (
+          /* Zero-Data Empty State When Website Has No Services/Categories */
+          <div className="py-16 px-6 text-center bg-slate-50/60 rounded-3xl border border-dashed border-slate-200/90 space-y-4">
+            <div className="w-16 h-16 mx-auto rounded-3xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-3xl shadow-sm">
+              🏷️
+            </div>
+            <div className="max-w-md mx-auto space-y-1.5">
+              <h4 className="text-base font-black text-slate-900">
+                No Services or Categories Configured
+              </h4>
+              <p className="text-xs font-medium text-slate-500 leading-relaxed">
+                {selectedWebsite?.websiteName || "This website"} does not have any active service categories or item tiers yet. Define your services to unlock automated triaging, ticket routing, and inventory intelligence.
+              </p>
+            </div>
+            <div className="pt-2">
+              <a
+                href="/client?tab=categories"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-md transition-all"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-indigo-600 font-black shadow-sm group-hover:scale-110 group-hover:bg-indigo-50 transition-all">
-                      📊
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-black text-slate-900 uppercase tracking-tight group-hover:text-indigo-600 transition-colors">{cat.name}</h4>
-                      <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-md">
-                        Dashboard Active ↗
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5 pt-2 border-t border-slate-200/50">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Mapped Subcategories:</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {cat.subs.map((s, i) => (
-                      <span key={i} className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-slate-600 text-[9px] font-bold">
-                        {s}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-2 text-xs font-black text-slate-900 border-t border-slate-200/50">
-                  <span className="text-slate-400 text-[10px] uppercase font-bold">Category Mapped Items:</span>
-                  <span className="text-indigo-600 font-extrabold flex items-center gap-1">
-                    {cat.items} Mapped Item <span className="text-[10px]">➔</span>
-                  </span>
-                </div>
-              </div>
-            ))}
-        </div>
+                <Plus size={14} /> Add First Category / Service
+              </a>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* CATEGORY DASHBOARD ANALYTICS MODAL */}
@@ -417,27 +523,37 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
             <div className="space-y-2">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mapped Items List:</p>
               <div className="space-y-2 max-h-40 overflow-y-auto">
-                {selectedCategoryModal.itemNames?.map((item, idx) => (
-                  <div key={idx} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
-                    <span className="text-xs font-black text-slate-900 flex items-center gap-2">
-                      📦 {item}
-                    </span>
-                    <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-lg">
-                      LIVE
-                    </span>
+                {selectedCategoryModal.itemNames && selectedCategoryModal.itemNames.length > 0 ? (
+                  selectedCategoryModal.itemNames.map((item, idx) => (
+                    <div key={idx} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
+                      <span className="text-xs font-black text-slate-900 flex items-center gap-2">
+                        📦 {item}
+                      </span>
+                      <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-lg">
+                        LIVE
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-4 rounded-2xl bg-slate-50 text-center text-xs font-semibold text-slate-400">
+                    No individual inventory items linked to this category yet.
                   </div>
-                ))}
+                )}
               </div>
             </div>
 
             <div className="space-y-2">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mapped Subcategories & Tiers:</p>
               <div className="flex flex-wrap gap-2">
-                {selectedCategoryModal.subs.map((s, i) => (
-                  <span key={i} className="px-3.5 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 text-xs font-black flex items-center gap-1.5">
-                    📁 {s}
-                  </span>
-                ))}
+                {selectedCategoryModal.subs && selectedCategoryModal.subs.length > 0 ? (
+                  selectedCategoryModal.subs.map((s, i) => (
+                    <span key={i} className="px-3.5 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 text-xs font-black flex items-center gap-1.5">
+                      📁 {s}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs font-medium text-slate-400 italic">No subcategories defined</span>
+                )}
               </div>
             </div>
 
@@ -450,10 +566,11 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
 
             <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
               <a
-                href="/client?tab=inventory-master"
+                href="/client?tab=categories"
                 className="px-6 py-3.5 rounded-2xl bg-indigo-600 text-white text-xs font-black uppercase tracking-wider hover:bg-indigo-700 transition-all shadow-lg flex items-center gap-2"
               >
-                View Mapped Items in Inventory ➔
+                <span>Manage in Categories Hub</span>
+                <ArrowRight size={14} />
               </a>
             </div>
           </div>
@@ -864,7 +981,17 @@ export default function ClientPage() {
   }
 
 
-  let content = <ClientOverview analytics={analytics} queuedSessions={queuedSessions} isExpired={isExpired} stripeCustomerId={user?.stripeCustomerId} procurementStats={procurementStats} />;
+  let content = (
+    <ClientOverview
+      analytics={analytics}
+      queuedSessions={queuedSessions}
+      isExpired={isExpired}
+      stripeCustomerId={user?.stripeCustomerId}
+      procurementStats={procurementStats}
+      websiteId={selectedWebsiteId}
+      selectedWebsite={selectedWebsite}
+    />
+  );
   let title = user?.role === "admin" ? "Admin Command Center" : "Master Overview";
   let subtitle = user?.role === "admin" ? "Global ecosystem intelligence and control" : "Real-time operations dashboard";
 
