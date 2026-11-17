@@ -26,11 +26,17 @@ function formatMetadataValue(value) {
   if (value === null || value === undefined || value === "") return "empty";
   if (typeof value === "boolean") return value ? "Yes" : "No";
   if (typeof value === "object") {
-    if (Array.isArray(value)) return `[ ${value.length} items ]`;
-    return "{ complex data }";
+    if (Array.isArray(value)) return `[${value.length} items]`;
+    return "{details}";
   }
-  return String(value);
+  const str = String(value);
+  if (/^[a-z0-9]+(_[a-z0-9]+)+$/i.test(str)) {
+    return str.replace(/_/g, " ");
+  }
+  return str;
 }
+
+const MONGO_ID_RE = /^[a-f0-9]{24}$/i;
 
 function renderMetadata(metadata) {
   if (!metadata || Object.keys(metadata).length === 0) return null;
@@ -52,18 +58,18 @@ function renderMetadata(metadata) {
 
     if (changes.length > 0) {
       return (
-        <div className="mt-4 space-y-2">
+        <div className="mt-2 space-y-1">
           {changes.map(change => (
-            <div key={change.field} className="flex flex-wrap items-center gap-2 md:gap-3 text-[10px]">
-              <span className="font-black uppercase tracking-widest text-slate-400 w-full md:w-[120px] shrink-0">
+            <div key={change.field} className="flex flex-wrap items-center gap-1.5 text-[9.5px]">
+              <span className="font-bold uppercase tracking-wider text-slate-400 w-full sm:w-[110px] shrink-0">
                 {change.field.replace(/[A-Z]/g, letter => ` ${letter}`).trim()}
               </span>
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <span className="px-2 border border-rose-100 py-1 rounded bg-rose-50 text-rose-600 line-through min-w-0 truncate max-w-[130px]">
+              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                <span className="px-1.5 py-0.5 border border-rose-100 rounded bg-rose-50 text-rose-600 line-through min-w-0 truncate max-w-[130px]">
                   {change.from}
                 </span>
                 <span className="text-slate-300">→</span>
-                <span className="px-2 border border-emerald-100 py-1 rounded bg-emerald-50 text-emerald-700 font-bold min-w-0 truncate max-w-[130px]">
+                <span className="px-1.5 py-0.5 border border-emerald-100 rounded bg-emerald-50 text-emerald-700 font-semibold min-w-0 truncate max-w-[130px]">
                   {change.to}
                 </span>
               </div>
@@ -75,21 +81,25 @@ function renderMetadata(metadata) {
     return null;
   }
 
-  // Handle other generic metadata as nice parameter chips
-  const displayKeys = Object.keys(metadata).filter(k => 
-    typeof metadata[k] !== 'object' || Array.isArray(metadata[k])
-  );
-  
+  // Filter out raw internal Mongo ObjectIds so timeline stays human-readable
+  const displayKeys = Object.keys(metadata).filter(k => {
+    const val = metadata[k];
+    if (typeof val === "object" && !Array.isArray(val)) return false;
+    if (typeof val === "string" && MONGO_ID_RE.test(val.trim())) return false;
+    if (k.toLowerCase().endsWith("id") && typeof val === "string" && val.length >= 16) return false;
+    return true;
+  });
+
   if (displayKeys.length === 0) return null;
 
   return (
-    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+    <div className="mt-2 flex flex-wrap gap-1.5">
       {displayKeys.map((key) => (
-        <div key={key} className="flex flex-col bg-slate-50 px-3 py-2 rounded-xl border border-slate-100">
-          <span className="text-[8px] font-black uppercase tracking-[0.16em] text-slate-400">
-            {key.replace(/[A-Z]/g, letter => ` ${letter}`).trim()}
+        <div key={key} className="inline-flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">
+          <span className="text-[8.5px] font-bold uppercase tracking-wider text-slate-400">
+            {key.replace(/[A-Z]/g, letter => ` ${letter}`).trim()}:
           </span>
-          <span className="text-[10px] font-bold text-slate-700 truncate mt-0.5">
+          <span className="text-[9.5px] font-semibold text-slate-700 truncate max-w-[180px] capitalize">
             {formatMetadataValue(metadata[key])}
           </span>
         </div>
@@ -109,6 +119,15 @@ export default function ActivityTimeline({ items = [], emptyLabel = "No timeline
     { id: "web", label: "Web activity", types: ["page_view"] }
   ];
 
+  const categoriesWithCounts = categories.map((cat) => ({
+    ...cat,
+    count: cat.id === "all"
+      ? items.length
+      : items.filter((item) => cat.types?.includes(item.type)).length
+  }));
+
+  const visibleCategories = categoriesWithCounts.filter((cat) => cat.id === "all" || cat.count > 0);
+
   const filteredItems = items.filter(item => {
     if (filter === "all") return true;
     const cat = categories.find(c => c.id === filter);
@@ -117,43 +136,47 @@ export default function ActivityTimeline({ items = [], emptyLabel = "No timeline
 
   if (!items.length) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-5 py-8 text-center">
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">{emptyLabel}</p>
+      <div className="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{emptyLabel}</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap gap-2 pb-2 border-b border-slate-100">
-        {categories.map(cat => (
+    <div className="space-y-2.5">
+      <div className="flex flex-wrap gap-1.5 pb-2 border-b border-slate-100">
+        {visibleCategories.map(cat => (
           <button
             key={cat.id}
+            type="button"
             onClick={() => setFilter(cat.id)}
-            className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
+            className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
               filter === cat.id 
-                ? "bg-slate-900 text-white shadow-md" 
-                : "bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                ? "bg-indigo-600 text-white" 
+                : "bg-slate-100 text-slate-500 hover:bg-slate-200/70 hover:text-slate-700"
             }`}
           >
-            {cat.label}
+            <span>{cat.label}</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[8px] ${filter === cat.id ? "bg-white/20 text-white" : "bg-white text-slate-600"}`}>
+              {cat.count}
+            </span>
           </button>
         ))}
       </div>
 
-      <div className="space-y-4 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-px before:bg-slate-100 animate-in fade-in duration-300" key={filter}>
+      <div className="space-y-2 relative before:absolute before:left-[7px] before:top-2 before:bottom-2 before:w-px before:bg-slate-200/70" key={filter}>
         {filteredItems.length > 0 ? filteredItems.map((item, index) => (
-          <div key={item._id || `${item.type}-${index}`} className="relative flex gap-5">
-            <div className={`relative z-10 mt-1 h-6 w-6 shrink-0 rounded-full border-4 border-white ${TYPE_STYLES[item.type] || "bg-slate-400"}`} />
-            <div className="flex-1 rounded-2xl border border-slate-100 bg-white px-5 py-4 shadow-sm hover:border-slate-200 transition-colors">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-[11px] font-black text-slate-900">{item.summary || item.title || item.type}</p>
-                  <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+          <div key={item._id || `${item.type}-${index}`} className="relative flex gap-2.5">
+            <div className={`relative z-10 mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-white ${TYPE_STYLES[item.type] || "bg-slate-400"}`} />
+            <div className="flex-1 min-w-0 rounded-xl border border-slate-200/70 bg-white px-3 py-2.5 hover:border-slate-300 transition-colors">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-bold text-slate-900 break-words leading-snug">{item.summary || item.title || item.type}</p>
+                  <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-400">
                     {(item.actorName || "System")} {item.actorRole ? `• ${item.actorRole}` : ""}
                   </p>
                 </div>
-                <span className="text-[9px] font-bold uppercase text-slate-300">
+                <span className="text-[9px] font-medium text-slate-400 whitespace-nowrap shrink-0">
                   {new Date(item.createdAt).toLocaleString()}
                 </span>
               </div>
@@ -161,8 +184,8 @@ export default function ActivityTimeline({ items = [], emptyLabel = "No timeline
             </div>
           </div>
         )) : (
-          <div className="py-12 text-center">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-200">No activity in this category</p>
+          <div className="py-6 text-center">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">No activity in this category</p>
           </div>
         )}
       </div>

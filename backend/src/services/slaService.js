@@ -1,5 +1,6 @@
 import { ChatSession } from "../models/ChatSession.js";
 import { Ticket } from "../models/Ticket.js";
+import { SlaPolicy } from "../models/SlaPolicy.js";
 import { Website } from "../models/Website.js";
 import { User } from "../models/User.js";
 import { env } from "../config/env.js";
@@ -8,6 +9,7 @@ import { sendEmail } from "./emailService.js";
 import { slaBreachTemplate } from "../utils/emailTemplates.js";
 import { processCrmAutomation, processTicketAutomation } from "./automationService.js";
 import { runTicketEscalationEngine } from "./ticketEscalationService.js";
+import { computeElapsedSlaHours } from "../utils/slaTimeUtils.js";
 import { emitSessionUpdate } from "../sockets/index.js";
 
 async function alertManager(manager, breachType, details, dashboardUrl) {
@@ -61,14 +63,35 @@ export async function processSlaBreaches() {
 
 
 
-  const staleTickets = await Ticket.find({
-    status: { $nin: ["resolved", "closed", "archived"] },
-    createdAt: { $lte: ticketCutoff },
-    resolutionAlertSentAt: null
-  }).populate("websiteId", "websiteName managerId");
+  const [openTickets, activePolicies] = await Promise.all([
+    Ticket.find({
+      status: { $nin: ["resolved", "closed", "archived"] },
+      resolutionAlertSentAt: null
+    }).populate("websiteId", "websiteName managerId"),
+    SlaPolicy.find({ status: "active" }).lean()
+  ]);
 
-  for (const ticket of staleTickets) {
+  const policyMap = new Map();
+  for (const p of activePolicies) {
+    const key = `${String(p.websiteId)}_${String(p.priority || "Medium").toLowerCase()}`;
+    if (!policyMap.has(key)) policyMap.set(key, p);
+  }
+
+  const priorityNormalize = { urgent: "critical", high: "high", medium: "medium", low: "low" };
+  const now = new Date();
+
+  for (const ticket of openTickets) {
     if (!ticket.websiteId?.managerId) continue;
+
+    const prioKey = priorityNormalize[String(ticket.priority || "medium").toLowerCase()] || "medium";
+    const policy = policyMap.get(`${String(ticket.websiteId._id)}_${prioKey}`);
+    const targetHrs = Number(policy?.resolutionTimeTargetHours) || env.slaTicketAlertHours;
+    const escalationPct = Number(policy?.escalationThresholdPercent) || 100;
+    const escalationHrs = targetHrs * (escalationPct / 100);
+    const elapsedHrs = computeElapsedSlaHours(ticket.createdAt, now, Boolean(policy?.businessHoursOnly));
+
+    if (elapsedHrs < escalationHrs) continue;
+
     const manager = await User.findById(ticket.websiteId.managerId).select("name email");
     if (!manager) continue;
 
@@ -77,13 +100,14 @@ export async function processSlaBreaches() {
       manager,
       "Unresolved ticket",
       [
-        `Ticket ${ticket.ticketId} (${ticket.subject}) is still unresolved after ${env.slaTicketAlertHours} hours.`,
-        `Current status: ${ticket.status}.`
+        `Ticket ${ticket.ticketId} (${ticket.subject}) exceeded ${escalationHrs.toFixed(1)}h SLA escalation threshold (${elapsedHrs.toFixed(1)}h elapsed).`,
+        `Current status: ${ticket.status}. Policy: ${policy?.name || "Default"}.`
       ],
       dashboardUrl
     );
 
-    ticket.resolutionAlertSentAt = new Date();
+    ticket.resolutionAlertSentAt = now;
+    if (!ticket.slaBreachedAt) ticket.slaBreachedAt = now;
     await ticket.save();
   }
 

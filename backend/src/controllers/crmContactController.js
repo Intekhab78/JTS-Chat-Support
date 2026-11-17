@@ -3,6 +3,7 @@ import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
+import { escapeRegex } from "../utils/regexUtils.js";
 
 export const listContacts = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_VIEW);
@@ -26,10 +27,10 @@ export const listContacts = asyncHandler(async (req, res) => {
 
   if (search) {
     query.$or = [
-      { firstName: new RegExp(search, "i") },
-      { lastName: new RegExp(search, "i") },
-      { displayName: new RegExp(search, "i") },
-      { email: new RegExp(search, "i") }
+      { firstName: new RegExp(escapeRegex(search), "i") },
+      { lastName: new RegExp(escapeRegex(search), "i") },
+      { displayName: new RegExp(escapeRegex(search), "i") },
+      { email: new RegExp(escapeRegex(search), "i") }
     ];
   }
 

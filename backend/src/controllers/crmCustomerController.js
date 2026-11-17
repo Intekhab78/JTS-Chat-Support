@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Customer } from "../models/Customer.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -103,8 +104,12 @@ export const listCustomers = asyncHandler(async (req, res) => {
   if (includeArchived !== "true") query.archivedAt = null;
 
   if (req.query.includeAnonymous !== "true") {
-    query.name = { $ne: "Anonymous Visitor" };
-    query.email = { $not: /@anonymous\.local$/i };
+    query.$and = query.$and || [];
+    query.$and.push({
+      isAnonymous: { $ne: true },
+      name: { $not: /^(anonymous(\s+(visitor|user))?|visitor|guest(\s+user)?)$/i },
+      email: { $not: /(@(anonymous|visitor)\.local$|^anon-visitor)/i }
+    });
   }
 
   // UAE Compliance Specific Query Filters
@@ -246,7 +251,7 @@ export const listCustomers = asyncHandler(async (req, res) => {
   // Sales can see stats across all website leads, not just their own
   // if (req.user.role === "sales") scopeQuery.ownerId = req.user._id;  ← removed: too restrictive
 
-  const allScopedCustomers = await Customer.find(scopeQuery).select('_id leadValue probability pipelineStage ownerId archivedAt interestLevel updatedAt');
+  const allScopedCustomers = await Customer.find(scopeQuery).select('_id leadValue probability pipelineStage ownerId archivedAt interestLevel updatedAt heatScore lastInteraction');
 
   let totalLeads = 0;
   let pipelineValue = 0;
@@ -263,9 +268,9 @@ export const listCustomers = asyncHandler(async (req, res) => {
   for (const c of allScopedCustomers) {
     const doc = c.toObject();
     const prob = calculateWinProbability(doc);
-    
+
     totalLeads++;
-    
+
     if (c.ownerId && c.ownerId.toString() === req.user._id.toString()) {
       myLeads++;
     }
@@ -281,7 +286,7 @@ export const listCustomers = asyncHandler(async (req, res) => {
     if (c.pipelineStage !== "won" && c.pipelineStage !== "lost" && c.updatedAt < sevenDaysAgo) {
       staleLeads++;
     }
-    
+
     if (c.pipelineStage === "won") {
       wonRevenue += Number(c.leadValue || 0);
       wonCount++;
@@ -346,15 +351,29 @@ export const listCustomers = asyncHandler(async (req, res) => {
     averageCac = Math.round(15000 / websiteCustomers.length);
   }
 
+  // Aggregate pipelines do NOT auto-cast string IDs to ObjectId like .find() does
+  const castToObjectId = (val) =>
+    typeof val === "string" && mongoose.Types.ObjectId.isValid(val)
+      ? new mongoose.Types.ObjectId(val)
+      : val;
+
+  const aggScopeQuery = {
+    ...scopeQuery,
+    websiteId:
+      scopeQuery.websiteId && scopeQuery.websiteId.$in
+        ? { $in: scopeQuery.websiteId.$in.map(castToObjectId) }
+        : castToObjectId(scopeQuery.websiteId)
+  };
+
   // Calculate stageBreakdown
   const stageBreakdown = await Customer.aggregate([
-    { $match: scopeQuery },
+    { $match: aggScopeQuery },
     { $group: { _id: "$pipelineStage", count: { $sum: 1 }, totalValue: { $sum: "$leadValue" } } }
   ]);
 
   // Calculate leadsBySource
   const leadsBySource = await Customer.aggregate([
-    { $match: scopeQuery },
+    { $match: aggScopeQuery },
     { $group: { _id: "$leadSource", count: { $sum: 1 } } }
   ]);
   leadsBySource.forEach(item => {
@@ -363,13 +382,53 @@ export const listCustomers = asyncHandler(async (req, res) => {
 
   // Calculate leadsPerDay (sevenDaysAgo already declared above)
   const leadsPerDay = await Customer.aggregate([
-    { $match: { ...scopeQuery, createdAt: { $gte: sevenDaysAgo } } },
-    { $group: {
+    { $match: { ...aggScopeQuery, createdAt: { $gte: sevenDaysAgo } } },
+    {
+      $group: {
         _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
         count: { $sum: 1 }
-    }},
+      }
+    },
     { $sort: { _id: 1 } }
   ]);
+
+  // Calculate Top Closers / Agents Leaderboard from scoped customers
+  const agentStatsMap = new Map();
+  for (const c of allScopedCustomers) {
+    if (!c.ownerId) continue;
+    const ownerKey = c.ownerId.toString();
+    if (!agentStatsMap.has(ownerKey)) {
+      agentStatsMap.set(ownerKey, { ownerId: c.ownerId, deals: 0, wonDeals: 0, revenue: 0 });
+    }
+    const stat = agentStatsMap.get(ownerKey);
+    const isWon = c.pipelineStage === "won" || c.pipelineStage === "closed_won";
+    if (isWon) {
+      stat.wonDeals += 1;
+      stat.deals += 1;
+      stat.revenue += Number(c.leadValue || 0);
+    } else if (c.pipelineStage !== "lost" && c.pipelineStage !== "closed_lost") {
+      stat.deals += 1;
+    }
+  }
+  const agentOwnerIds = Array.from(agentStatsMap.values()).map(s => s.ownerId);
+  const agentUsers = agentOwnerIds.length > 0
+    ? await User.find({ _id: { $in: agentOwnerIds } }).select("name email").lean()
+    : [];
+  const agentUserMap = new Map(agentUsers.map(u => [u._id.toString(), u]));
+  const agents = Array.from(agentStatsMap.entries())
+    .map(([id, stat]) => {
+      const user = agentUserMap.get(id);
+      return {
+        _id: id,
+        name: user?.name || user?.email || "Sales Consultant",
+        email: user?.email || "",
+        deals: stat.wonDeals > 0 ? stat.wonDeals : stat.deals,
+        wonDeals: stat.wonDeals,
+        revenue: stat.revenue
+      };
+    })
+    .sort((a, b) => b.revenue - a.revenue || b.deals - a.deals)
+    .slice(0, 10);
 
   // Calculate aging
   const twoDaysAgo = new Date();
@@ -493,6 +552,7 @@ export const listCustomers = asyncHandler(async (req, res) => {
     mrr,
     arr: mrr * 12,
     planDistribution,
+    agents,
     totalInvoiced,
     totalReceived,
     totalOutstanding
@@ -546,8 +606,8 @@ export const createCustomer = asyncHandler(async (req, res) => {
 
   validateLifecycleTransition({ recordType: "lead", leadStatus: lifecycle.leadStatus, dealStage: null }, lifecycle, true);
 
-  if (trn && String(trn).trim() !== "" && !/^\d{15}$/.test(String(trn).trim())) {
-    throw new AppError("Tax Registration Number (TRN) must be a 15-digit number", 400);
+  if (trn && String(trn).trim() !== "" && !/^[A-Za-z0-9\- ]{5,30}$/.test(String(trn).trim())) {
+    throw new AppError("Tax Registration Number (TRN / Tax ID) must be 5–30 alphanumeric characters", 400);
   }
 
   let resolvedOwnerId = (req.user.role === "sales") ? req.user._id : (ownerId || null);
@@ -573,7 +633,7 @@ export const createCustomer = asyncHandler(async (req, res) => {
     trn: String(trn || "").trim(),
     tradeLicenseNumber: String(tradeLicenseNumber || "").trim(),
     tradeLicenseExpiryDate: tradeLicenseExpiryDate ? new Date(tradeLicenseExpiryDate) : null,
-    serviceType: serviceType || "Corporate Tax Registration",
+    serviceType: serviceType || "General",
     workStatus: workStatus || "Pending",
     paymentStatus: paymentStatus || "Pending",
     vatFilingPeriod: String(vatFilingPeriod || "").trim(),
@@ -680,8 +740,8 @@ export const updateCustomer = asyncHandler(async (req, res) => {
     if (existingUser) throw new AppError("A user account with this email already exists", 409);
   }
 
-  if (updates.trn !== undefined && updates.trn !== null && String(updates.trn).trim() !== "" && !/^\d{15}$/.test(String(updates.trn).trim())) {
-    throw new AppError("Tax Registration Number (TRN) must be a 15-digit number", 400);
+  if (updates.trn !== undefined && updates.trn !== null && String(updates.trn).trim() !== "" && !/^[A-Za-z0-9\- ]{5,30}$/.test(String(updates.trn).trim())) {
+    throw new AppError("Tax Registration Number (TRN / Tax ID) must be 5–30 alphanumeric characters", 400);
   }
 
   if (updates.pipelineStage) {
@@ -1115,7 +1175,7 @@ function parseCsvLine(line) {
   const result = [];
   let current = "";
   let inQuotes = false;
-  
+
   for (let i = 0; i < line.length; i++) {
     const char = line[i];
     if (char === '"') {
@@ -1156,7 +1216,7 @@ export const importCustomers = asyncHandler(async (req, res) => {
 
   // Parse headers
   const headers = parseCsvLine(lines[0]).map(h => h.toLowerCase().trim());
-  
+
   const nameIdx = headers.indexOf("name");
   if (nameIdx === -1) {
     throw new AppError("CSV file must contain a 'name' column header", 400);
@@ -1210,7 +1270,7 @@ export const importCustomers = asyncHandler(async (req, res) => {
         skippedDetails.push({ row: i + 1, name, reason: `Invalid email address format: "${email}"` });
         continue;
       }
-      
+
       const existing = await Customer.findOne({ websiteId, email });
       if (existing) {
         skippedCount++;
@@ -1229,7 +1289,7 @@ export const importCustomers = asyncHandler(async (req, res) => {
     }
 
     const crn = await generateCRN();
-    
+
     await Customer.create({
       crn,
       name,

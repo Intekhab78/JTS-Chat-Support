@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {
   Layout,
@@ -6,19 +6,11 @@ import {
   Tablet,
   Smartphone,
   Download,
-  Upload,
   Plus,
   RefreshCw,
   X,
   Trash2,
   CheckCircle2,
-  Code,
-  Layers,
-  FileText,
-  Check,
-  Eye,
-  Settings,
-  Sliders,
   Type,
   FormInput,
   ListOrdered,
@@ -29,93 +21,271 @@ import {
   Columns,
   UploadCloud,
   Search,
-  Sparkles
+  ArrowUp,
+  ArrowDown,
+  Save,
+  Eye,
+  Wrench,
+  Inbox,
+  Globe,
+  Settings2,
+  Send
 } from "lucide-react";
 import { api } from "../api/client.js";
 
 const COMPONENT_PALETTE = [
-  { type: "text", label: "Heading Label", icon: Type },
-  { type: "input", label: "Text Input", icon: FormInput },
-  { type: "select", label: "Dropdown Select", icon: ListOrdered },
-  { type: "checkbox", label: "Checkbox Field", icon: CheckSquare },
-  { type: "date", label: "Date Picker", icon: Calendar },
-  { type: "table", label: "Data Grid", icon: Table },
-  { type: "chart", label: "Analytics Chart", icon: BarChart2 },
-  { type: "kanban", label: "Kanban Board", icon: Columns },
-  { type: "file_upload", label: "File Attachment", icon: UploadCloud }
+  { type: "text", label: "Heading Label", icon: Type, defaultProps: { description: "Section guidance or instructions." } },
+  { type: "input", label: "Text Input", icon: FormInput, defaultProps: { name: "field_input", placeholder: "Enter value...", required: false } },
+  { type: "select", label: "Dropdown Select", icon: ListOrdered, defaultProps: { name: "field_select", options: ["Option A", "Option B", "Option C"], required: false } },
+  { type: "checkbox", label: "Checkbox Field", icon: CheckSquare, defaultProps: { name: "field_agree", description: "I confirm these details are accurate", checked: false } },
+  { type: "date", label: "Date Picker", icon: Calendar, defaultProps: { name: "field_date", required: false } },
+  { type: "file_upload", label: "File Attachment", icon: UploadCloud, defaultProps: { name: "attachment", accept: "*" } },
+  { type: "chart", label: "Analytics Chart", icon: BarChart2, defaultProps: { dataSource: "invoices", chartType: "bar" } },
+  { type: "table", label: "Data Grid", icon: Table, defaultProps: { dataSource: "customers" } },
+  { type: "kanban", label: "Kanban Board", icon: Columns, defaultProps: { dataSource: "tickets" } }
+];
+
+const DATA_SOURCES = [
+  { value: "customers", label: "Customers & Leads" },
+  { value: "tickets", label: "Support Tickets" },
+  { value: "invoices", label: "Billing Invoices" },
+  { value: "deals", label: "CRM Deals" },
+  { value: "risks", label: "Risk Register" },
+  { value: "submissions", label: "Form Submissions" }
 ];
 
 export default function LowCodeStudioCenter() {
   const [deviceViewport, setDeviceViewport] = useState("desktop");
+  const [canvasMode, setCanvasMode] = useState("build"); // build | preview | submissions
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [selectedPage, setSelectedPage] = useState(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const [form, setForm] = useState({
+  const [selectedPageId, setSelectedPageId] = useState(null);
+  const [draftPage, setDraftPage] = useState(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [editingCompIdx, setEditingCompIdx] = useState(null);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  // Live data cache keyed by source
+  const [liveDataMap, setLiveDataMap] = useState({});
+  const [loadingLive, setLoadingLive] = useState(false);
+
+  // Interactive form preview state
+  const [formAnswers, setFormAnswers] = useState({});
+  const [submittingForm, setSubmittingForm] = useState(false);
+  const [submitBanner, setSubmitBanner] = useState(null);
+
+  // Submissions tab state
+  const [submissions, setSubmissions] = useState([]);
+  const [loadingSubmissions, setLoadingSubmissions] = useState(false);
+
+  // Create/Page Settings Modal
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState({
     pageName: "",
-    pageType: "dashboard"
+    pageType: "form",
+    targetEntity: "lead",
+    submitButtonText: "Submit Request",
+    successMessage: "Thank you! Your submission has been received.",
+    isPublished: true
   });
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async (preserveSelection = true) => {
     setLoading(true);
     try {
       const res = await api("/api/lowcode-studio/overview");
+      const pagesList = res?.pages || [];
       setData(res || {});
-      if (res?.pages?.length > 0 && !selectedPage) {
-        setSelectedPage(res.pages[0]);
+
+      if (pagesList.length > 0) {
+        const current = preserveSelection && selectedPageId
+          ? pagesList.find(p => p._id === selectedPageId)
+          : null;
+        const target = current || pagesList[0];
+        setSelectedPageId(target._id);
+        setDraftPage(JSON.parse(JSON.stringify(target)));
+        setHasUnsavedChanges(false);
+      } else {
+        setSelectedPageId(null);
+        setDraftPage(null);
+        setHasUnsavedChanges(false);
       }
     } catch (err) {
       console.error("Failed to load studio overview:", err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedPageId]);
 
   useEffect(() => {
-    fetchData();
+    fetchData(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Load live data for any chart/table/kanban blocks in the active page
+  const loadLiveSourcesForPage = useCallback(async (page) => {
+    if (!page?.layoutComponents) return;
+    const sourcesNeeded = new Set();
+    page.layoutComponents.forEach(c => {
+      if (["chart", "table", "kanban"].includes(c.componentType)) {
+        const src = c.props?.dataSource || (c.componentType === "chart" ? "invoices" : c.componentType === "kanban" ? "tickets" : "customers");
+        sourcesNeeded.add(src);
+      }
+    });
+    if (sourcesNeeded.size === 0) return;
+
+    setLoadingLive(true);
+    try {
+      const entries = await Promise.all(
+        Array.from(sourcesNeeded).map(async (src) => {
+          const res = await api(`/api/lowcode-studio/live-data?source=${encodeURIComponent(src)}`);
+          return [src, res];
+        })
+      );
+      setLiveDataMap(prev => ({ ...prev, ...Object.fromEntries(entries) }));
+    } catch (err) {
+      console.error("Failed to load live component data:", err);
+    } finally {
+      setLoadingLive(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (draftPage) {
+      loadLiveSourcesForPage(draftPage);
+    }
+  }, [draftPage?._id, draftPage?.layoutComponents?.length, loadLiveSourcesForPage]);
+
+  const loadSubmissionsForPage = useCallback(async (pageId) => {
+    if (!pageId) return;
+    setLoadingSubmissions(true);
+    try {
+      const res = await api(`/api/lowcode-studio/pages/${pageId}/submissions`);
+      setSubmissions(res?.submissions || []);
+    } catch (err) {
+      console.error("Failed to load submissions:", err);
+      setSubmissions([]);
+    } finally {
+      setLoadingSubmissions(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (canvasMode === "submissions" && draftPage?._id) {
+      loadSubmissionsForPage(draftPage._id);
+    }
+  }, [canvasMode, draftPage?._id, loadSubmissionsForPage]);
 
   // Modal scroll lock & Escape key
   useEffect(() => {
-    if (showCreateModal) {
-      const orig = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-      const handleKeyDown = (e) => {
-        if (e.key === "Escape") setShowCreateModal(false);
-      };
-      window.addEventListener("keydown", handleKeyDown);
-      return () => {
-        document.body.style.overflow = orig;
-        window.removeEventListener("keydown", handleKeyDown);
-      };
-    }
+    if (!showCreateModal) return;
+    const orig = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e) => {
+      if (e.key === "Escape") setShowCreateModal(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = orig;
+      window.removeEventListener("keydown", onKey);
+    };
   }, [showCreateModal]);
+
+  const selectPage = (page) => {
+    setSelectedPageId(page._id);
+    setDraftPage(JSON.parse(JSON.stringify(page)));
+    setHasUnsavedChanges(false);
+    setEditingCompIdx(null);
+    setFormAnswers({});
+    setSubmitBanner(null);
+  };
 
   const handleCreatePage = async (e) => {
     e.preventDefault();
     try {
-      await api("/api/lowcode-studio/pages", {
+      const created = await api("/api/lowcode-studio/pages", {
         method: "POST",
-        body: JSON.stringify(form)
+        body: JSON.stringify(createForm)
       });
       setShowCreateModal(false);
-      setForm({ pageName: "", pageType: "dashboard" });
-      fetchData();
+      setCreateForm({
+        pageName: "",
+        pageType: "form",
+        targetEntity: "lead",
+        submitButtonText: "Submit Request",
+        successMessage: "Thank you! Your submission has been received.",
+        isPublished: true
+      });
+      setSelectedPageId(created._id);
+      await fetchData(false);
+      if (created?._id) {
+        setSelectedPageId(created._id);
+        setDraftPage(JSON.parse(JSON.stringify(created)));
+      }
     } catch (err) {
-      alert(err.message);
+      alert(err.message || "Failed to create page");
+    }
+  };
+
+  const handleSaveLayout = async () => {
+    if (!draftPage?._id) return;
+    setSaving(true);
+    try {
+      const updated = await api(`/api/lowcode-studio/pages/${draftPage._id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          pageName: draftPage.pageName,
+          pageType: draftPage.pageType,
+          targetEntity: draftPage.targetEntity,
+          submitButtonText: draftPage.submitButtonText,
+          successMessage: draftPage.successMessage,
+          layoutComponents: draftPage.layoutComponents,
+          isPublished: draftPage.isPublished
+        })
+      });
+      setDraftPage(JSON.parse(JSON.stringify(updated)));
+      setHasUnsavedChanges(false);
+      await fetchData(true);
+    } catch (err) {
+      alert(err.message || "Failed to save layout");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTogglePublish = async () => {
+    if (!draftPage?._id) return;
+    const nextState = !draftPage.isPublished;
+    setSaving(true);
+    try {
+      const updated = await api(`/api/lowcode-studio/pages/${draftPage._id}`, {
+        method: "PUT",
+        body: JSON.stringify({ isPublished: nextState })
+      });
+      setDraftPage(prev => ({ ...prev, isPublished: updated.isPublished }));
+      await fetchData(true);
+    } catch (err) {
+      alert(err.message || "Failed to update publish status");
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDeletePage = async (id) => {
-    if (!confirm("Purge this custom studio page definition?")) return;
+    if (!confirm("Delete this custom studio page definition?")) return;
     try {
       await api(`/api/lowcode-studio/pages/${id}`, { method: "DELETE" });
-      if (selectedPage?._id === id) setSelectedPage(null);
-      fetchData();
+      if (selectedPageId === id) {
+        setSelectedPageId(null);
+        setDraftPage(null);
+      }
+      await fetchData(false);
     } catch (err) {
-      alert(err.message);
+      alert(err.message || "Failed to delete page");
     }
   };
 
@@ -123,14 +293,111 @@ export default function LowCodeStudioCenter() {
     try {
       const res = await api(`/api/lowcode-studio/pages/${pageId}/export`);
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(res, null, 2));
-      const downloadAnchor = document.createElement("a");
-      downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `${pageName || "layout"}-schema.json`);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
+      const a = document.createElement("a");
+      a.setAttribute("href", dataStr);
+      a.setAttribute("download", `${pageName || "layout"}-schema.json`);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     } catch (err) {
       alert("Failed to export layout schema: " + err.message);
+    }
+  };
+
+  const addComponentToPage = (paletteItem) => {
+    if (!draftPage) return;
+    const idx = (draftPage.layoutComponents || []).length + 1;
+    const newComp = {
+      componentType: paletteItem.type,
+      label: `${paletteItem.label} ${idx}`,
+      props: {
+        ...paletteItem.defaultProps,
+        name: paletteItem.defaultProps?.name ? `${paletteItem.defaultProps.name}_${idx}` : `field_${idx}`
+      }
+    };
+    const nextComponents = [...(draftPage.layoutComponents || []), newComp];
+    setDraftPage({ ...draftPage, layoutComponents: nextComponents });
+    setHasUnsavedChanges(true);
+    setEditingCompIdx(nextComponents.length - 1);
+    if (canvasMode !== "build") setCanvasMode("build");
+    if (["chart", "table", "kanban"].includes(paletteItem.type)) {
+      loadLiveSourcesForPage({ ...draftPage, layoutComponents: nextComponents });
+    }
+  };
+
+  const moveComponent = (index, direction) => {
+    if (!draftPage) return;
+    const list = [...(draftPage.layoutComponents || [])];
+    const targetIdx = index + direction;
+    if (targetIdx < 0 || targetIdx >= list.length) return;
+    const [item] = list.splice(index, 1);
+    list.splice(targetIdx, 0, item);
+    setDraftPage({ ...draftPage, layoutComponents: list });
+    setHasUnsavedChanges(true);
+    setEditingCompIdx(targetIdx);
+  };
+
+  const removeComponent = (index) => {
+    if (!draftPage) return;
+    const list = [...(draftPage.layoutComponents || [])];
+    list.splice(index, 1);
+    setDraftPage({ ...draftPage, layoutComponents: list });
+    setHasUnsavedChanges(true);
+    if (editingCompIdx === index) setEditingCompIdx(null);
+  };
+
+  const updateComponentProp = (index, patch) => {
+    if (!draftPage) return;
+    const list = [...(draftPage.layoutComponents || [])];
+    const current = list[index];
+    if (!current) return;
+    list[index] = {
+      ...current,
+      ...patch,
+      props: patch.props ? { ...(current.props || {}), ...patch.props } : current.props
+    };
+    setDraftPage({ ...draftPage, layoutComponents: list });
+    setHasUnsavedChanges(true);
+    if (patch.props?.dataSource) {
+      loadLiveSourcesForPage({ ...draftPage, layoutComponents: list });
+    }
+  };
+
+  const handleInteractiveFormSubmit = async (e) => {
+    e.preventDefault();
+    if (!draftPage?._id) return;
+    if (!draftPage.isPublished) {
+      setSubmitBanner({ type: "error", text: "Publish this page first to test live form submissions." });
+      return;
+    }
+    setSubmittingForm(true);
+    setSubmitBanner(null);
+    try {
+      const res = await api(`/api/lowcode-studio/public/forms/${draftPage.slug || draftPage._id}/submit`, {
+        method: "POST",
+        body: JSON.stringify({ answers: formAnswers })
+      });
+      setSubmitBanner({
+        type: "success",
+        text: `${res.message || "Submitted!"} (${res.conversionStatus || "saved"})`
+      });
+      setFormAnswers({});
+      await fetchData(true);
+    } catch (err) {
+      setSubmitBanner({ type: "error", text: err.message || "Submission failed" });
+    } finally {
+      setSubmittingForm(false);
+    }
+  };
+
+  const handleDeleteSubmission = async (submissionId) => {
+    if (!confirm("Delete this submission record?")) return;
+    try {
+      await api(`/api/lowcode-studio/submissions/${submissionId}`, { method: "DELETE" });
+      await loadSubmissionsForPage(draftPage._id);
+      await fetchData(true);
+    } catch (err) {
+      alert(err.message || "Failed to delete submission");
     }
   };
 
@@ -138,437 +405,959 @@ export default function LowCodeStudioCenter() {
   const pages = data?.pages || [];
 
   const filteredPages = useMemo(() => {
-    if (!searchQuery.trim()) return pages;
-    const q = searchQuery.toLowerCase();
-    return pages.filter(p =>
-      p.pageName?.toLowerCase().includes(q) ||
-      p.pageType?.toLowerCase().includes(q)
-    );
-  }, [pages, searchQuery]);
+    return pages.filter(p => {
+      if (typeFilter !== "all" && p.pageType !== typeFilter) return false;
+      if (statusFilter === "published" && !p.isPublished) return false;
+      if (statusFilter === "draft" && p.isPublished) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        return (
+          p.pageName?.toLowerCase().includes(q) ||
+          p.pageType?.toLowerCase().includes(q) ||
+          p.slug?.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [pages, searchQuery, typeFilter, statusFilter]);
 
-  if (loading) {
+  const hasFormInputs = useMemo(() => {
+    return (draftPage?.layoutComponents || []).some(c =>
+      ["input", "select", "checkbox", "date", "file_upload"].includes(c.componentType)
+    );
+  }, [draftPage]);
+
+  if (loading && !data) {
     return (
-      <div className="py-20 text-center">
-        <RefreshCw size={24} className="animate-spin text-indigo-600 mx-auto mb-2" />
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-          Loading Visual Studio & Component Engine...
+      <div className="py-16 text-center bg-white rounded-xl border border-slate-200">
+        <RefreshCw size={20} className="animate-spin text-indigo-600 mx-auto mb-2" />
+        <p className="text-[11px] font-semibold text-slate-500">
+          Loading Low-Code Studio & Live Engine...
         </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3.5 animate-fade-in">
-      {/* ── Control Header Bar ───────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2 border-b border-slate-100 dark:border-white/5">
+    <div className="space-y-3">
+      {/* ── Clean White Header ───────────────────────────────── */}
+      <div className="bg-white border border-slate-200 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-xs text-white shrink-0">
-            <Layout size={15} />
+          <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+            <Layout size={16} />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-sm font-bold text-slate-900">
                 Low-Code Visual Studio
               </h3>
-              <span className="px-1.5 py-0.2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-300 text-[8px] font-black rounded-md uppercase flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                {summary.sdkStatus || "ENGINE READY"}
+              <span className="px-2 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-semibold rounded-md flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                {summary.sdkStatus || "LOW_CODE_ENGINE_READY"}
               </span>
             </div>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-              Drag & Drop Form Builder, Dashboard Creator, Component Palette & Live Viewport
+            <p className="text-[11px] text-slate-500 truncate">
+              Build dynamic intake forms, live data dashboards, and interactive layouts
             </p>
           </div>
         </div>
 
-        {/* Viewport Switcher & Actions */}
-        <div className="flex items-center gap-2 self-end sm:self-auto w-full sm:w-auto">
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Device Viewport Switcher */}
-          <div className="flex items-center p-0.5 bg-slate-100 dark:bg-white/5 rounded-xl border border-slate-200/60 dark:border-white/10 shrink-0">
-            <button
-              onClick={() => setDeviceViewport("desktop")}
-              className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                deviceViewport === "desktop"
-                  ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xs"
-                  : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-              }`}
-              title="Desktop Viewport (100%)"
-            >
-              <Monitor size={13} />
-            </button>
-            <button
-              onClick={() => setDeviceViewport("tablet")}
-              className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                deviceViewport === "tablet"
-                  ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xs"
-                  : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-              }`}
-              title="Tablet Viewport (768px)"
-            >
-              <Tablet size={13} />
-            </button>
-            <button
-              onClick={() => setDeviceViewport("mobile")}
-              className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                deviceViewport === "mobile"
-                  ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xs"
-                  : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-              }`}
-              title="Mobile Viewport (375px)"
-            >
-              <Smartphone size={13} />
-            </button>
+          <div className="flex items-center p-0.5 bg-slate-100 rounded-lg border border-slate-200">
+            {[
+              { id: "desktop", icon: Monitor, title: "Desktop (100%)" },
+              { id: "tablet", icon: Tablet, title: "Tablet (680px)" },
+              { id: "mobile", icon: Smartphone, title: "Mobile (360px)" }
+            ].map(vp => {
+              const Icon = vp.icon;
+              return (
+                <button
+                  key={vp.id}
+                  onClick={() => setDeviceViewport(vp.id)}
+                  title={vp.title}
+                  className={`p-1.5 rounded-md transition-all cursor-pointer ${
+                    deviceViewport === vp.id
+                      ? "bg-white text-indigo-600 shadow-xs"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  <Icon size={13} />
+                </button>
+              );
+            })}
           </div>
 
           <button
-            onClick={fetchData}
+            onClick={() => fetchData(true)}
             title="Refresh Studio"
-            className="p-1.5 rounded-xl border border-slate-200 dark:border-white/10 text-slate-500 hover:text-indigo-600 hover:bg-slate-50 dark:hover:bg-white/5 transition-all cursor-pointer"
+            className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-indigo-600 hover:border-indigo-200 transition-all cursor-pointer"
           >
             <RefreshCw size={13} />
           </button>
 
           <button
             onClick={() => setShowCreateModal(true)}
-            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-xs transition-all active:scale-95 flex items-center gap-1.5 shrink-0 cursor-pointer"
+            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all"
           >
-            <Plus size={13} />
-            New Custom Layout
+            <Plus size={14} />
+            New Layout
           </button>
         </div>
       </div>
 
-      {/* ── Compact Telemetry Strip ──────────────────────────── */}
-      <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 border border-slate-800/80 rounded-2xl p-2.5 text-white shadow-xs">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-          <div className="bg-white/5 border border-white/10 rounded-xl p-2">
-            <span className="text-[7.5px] font-black uppercase text-slate-400 block tracking-wider">Custom Layouts</span>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-              <span className="text-[10px] font-mono font-bold text-indigo-300">{summary.totalPages || pages.length} Pages Created</span>
-            </div>
+      {/* ── Clean White KPI Strip ────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+        <div className="bg-white border border-slate-200 rounded-xl p-3">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block">
+            Custom Layouts
+          </span>
+          <div className="flex items-baseline justify-between mt-1">
+            <span className="text-lg font-bold text-slate-900">{summary.totalPages ?? pages.length}</span>
+            <span className="text-[10px] text-slate-500">{summary.draftPages || 0} drafts</span>
           </div>
+        </div>
 
-          <div className="bg-white/5 border border-white/10 rounded-xl p-2">
-            <span className="text-[7.5px] font-black uppercase text-slate-400 block tracking-wider">Published Status</span>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-[10px] font-mono font-bold text-emerald-400">{summary.publishedPages || pages.length} Published Live</span>
-            </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-3">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block">
+            Published Live
+          </span>
+          <div className="flex items-baseline justify-between mt-1">
+            <span className="text-lg font-bold text-emerald-600">{summary.publishedPages ?? 0}</span>
+            <span className="text-[10px] text-emerald-600 font-medium">Active endpoints</span>
           </div>
+        </div>
 
-          <div className="bg-white/5 border border-white/10 rounded-xl p-2">
-            <span className="text-[7.5px] font-black uppercase text-slate-400 block tracking-wider">Palette Components</span>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-              <span className="text-[10px] font-mono font-bold text-purple-300">{summary.availableDragDropComponents || COMPONENT_PALETTE.length} Blocks</span>
-            </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-3">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block">
+            Form Submissions
+          </span>
+          <div className="flex items-baseline justify-between mt-1">
+            <span className="text-lg font-bold text-indigo-600">{summary.totalSubmissionsReceived ?? 0}</span>
+            <span className="text-[10px] text-slate-500">Saved in DB</span>
           </div>
+        </div>
 
-          <div className="bg-white/5 border border-white/10 rounded-xl p-2">
-            <span className="text-[7.5px] font-black uppercase text-slate-400 block tracking-wider">Active Viewport</span>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-              <span className="text-[10px] font-mono font-bold text-amber-300 uppercase">{deviceViewport} MODE</span>
-            </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-3">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block">
+            Active Viewport
+          </span>
+          <div className="flex items-baseline justify-between mt-1">
+            <span className="text-lg font-bold text-slate-900 uppercase">{deviceViewport}</span>
+            <span className="text-[10px] text-slate-500">{COMPONENT_PALETTE.length} palette blocks</span>
           </div>
         </div>
       </div>
 
-      {/* ── Component Palette Strip (Micro Chips) ───────────── */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 rounded-2xl p-2.5 shadow-xs space-y-1.5">
+      {/* ── Interactive Component Palette ────────────────────── */}
+      <div className="bg-white border border-slate-200 rounded-xl p-3 space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 block">
-            Drag & Drop Component Palette ({COMPONENT_PALETTE.length})
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            Component Palette ({COMPONENT_PALETTE.length})
           </span>
-          <span className="text-[8px] font-medium text-slate-400">Available to insert into layouts</span>
+          <span className="text-[10px] text-slate-400">
+            Click or drag any block onto the canvas to insert
+          </span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-1.5">
-          {COMPONENT_PALETTE.map((comp, i) => {
+          {COMPONENT_PALETTE.map((comp) => {
             const Icon = comp.icon;
             return (
-              <div
-                key={i}
-                className="p-1.5 px-2 rounded-xl border border-slate-200/70 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-indigo-400 hover:bg-indigo-50/20 dark:hover:bg-indigo-950/20 cursor-grab flex items-center gap-1.5 transition-all select-none group"
+              <button
+                key={comp.type}
+                type="button"
+                draggable
+                onDragStart={(e) => e.dataTransfer.setData("text/plain", comp.type)}
+                onClick={() => addComponentToPage(comp)}
+                disabled={!draftPage}
+                title={draftPage ? `Add ${comp.label} to ${draftPage.pageName}` : "Select or create a page first"}
+                className="p-2 rounded-lg border border-slate-200 bg-slate-50/70 hover:border-indigo-400 hover:bg-indigo-50/50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1.5 transition-all text-left group"
               >
-                <div className="w-5 h-5 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 group-hover:text-indigo-600 shrink-0">
+                <div className="w-5 h-5 rounded bg-white border border-slate-200 flex items-center justify-center text-slate-500 group-hover:text-indigo-600 shrink-0">
                   <Icon size={11} />
                 </div>
-                <div className="min-w-0">
-                  <span className="text-[8.5px] font-bold text-slate-700 dark:text-slate-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 block truncate">
-                    {comp.label}
-                  </span>
-                </div>
-              </div>
+                <span className="text-[11px] font-medium text-slate-700 group-hover:text-indigo-700 truncate">
+                  {comp.label}
+                </span>
+              </button>
             );
           })}
         </div>
       </div>
 
-      {/* ── Studio Workspace: Left Pages List + Right Live Canvas ── */}
+      {/* ── Main Workspace: Pages List + Live Canvas ─────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-start">
-        {/* Left Column: Custom Pages List */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 rounded-2xl p-3 shadow-xs space-y-2.5">
-          <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 dark:border-white/5">
-            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
-              Custom Layout Pages ({filteredPages.length})
+        {/* Left Sidebar: Pages List & Filters */}
+        <div className="bg-white border border-slate-200 rounded-xl p-3 space-y-2.5">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+              Layout Pages ({filteredPages.length})
             </span>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="text-[8px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider hover:underline cursor-pointer flex items-center gap-0.5"
+              className="text-[11px] font-semibold text-indigo-600 hover:underline cursor-pointer flex items-center gap-0.5"
             >
-              <Plus size={10} /> Add
+              <Plus size={12} /> Add
             </button>
           </div>
 
-          {/* Search bar inside left column */}
-          <div className="relative">
-            <Search size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Filter pages..."
-              className="w-full pl-7 pr-2.5 py-1 bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 rounded-lg text-[9.5px] font-medium outline-none focus:border-indigo-400 dark:text-slate-200"
-            />
+          <div className="space-y-1.5">
+            <div className="relative">
+              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search pages or slug..."
+                className="w-full pl-7 pr-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:border-indigo-400"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-1.5">
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-[11px] text-slate-700 outline-none"
+              >
+                <option value="all">All Types</option>
+                <option value="form">Form</option>
+                <option value="dashboard">Dashboard</option>
+                <option value="report">Report</option>
+                <option value="kanban">Kanban</option>
+              </select>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-[11px] text-slate-700 outline-none"
+              >
+                <option value="all">All Status</option>
+                <option value="published">Published</option>
+                <option value="draft">Draft</option>
+              </select>
+            </div>
           </div>
 
-          <div className="space-y-1.5 max-h-[460px] overflow-y-auto pr-0.5 custom-scrollbar">
+          <div className="space-y-1.5 max-h-[480px] overflow-y-auto pr-0.5">
             {filteredPages.map((p) => {
-              const isSelected = selectedPage?._id === p._id;
+              const isSelected = draftPage?._id === p._id;
               return (
                 <div
                   key={p._id}
-                  onClick={() => setSelectedPage(p)}
-                  className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+                  onClick={() => selectPage(p)}
+                  className={`p-2.5 rounded-lg border transition-all cursor-pointer ${
                     isSelected
-                      ? "bg-indigo-50/60 dark:bg-indigo-950/40 border-indigo-500 shadow-xs ring-1 ring-indigo-500/20"
-                      : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200/70 dark:border-white/10 hover:border-slate-300"
+                      ? "bg-indigo-50/70 border-indigo-400"
+                      : "bg-white border-slate-200 hover:border-slate-300"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-1 mb-1">
-                    <span className="px-1.5 py-0.2 rounded-md text-[7.5px] font-black uppercase bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-200">
-                      {p.pageType}
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-indigo-100 text-indigo-700">
+                        {p.pageType}
+                      </span>
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase ${
+                          p.isPublished ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        {p.isPublished ? "Live" : "Draft"}
+                      </span>
+                    </div>
                     <div className="flex items-center gap-0.5">
                       <button
                         onClick={(e) => { e.stopPropagation(); handleExportPage(p._id, p.pageName); }}
                         title="Export JSON Schema"
-                        className="p-1 text-slate-400 hover:text-indigo-600 rounded transition-colors cursor-pointer"
+                        className="p-1 text-slate-400 hover:text-indigo-600 rounded cursor-pointer"
                       >
-                        <Download size={11} />
+                        <Download size={12} />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleDeletePage(p._id); }}
                         title="Delete Page"
-                        className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors cursor-pointer"
+                        className="p-1 text-slate-400 hover:text-rose-600 rounded cursor-pointer"
                       >
-                        <Trash2 size={11} />
+                        <Trash2 size={12} />
                       </button>
                     </div>
                   </div>
-                  <h4 className="text-xs font-black text-slate-900 dark:text-white truncate">
-                    {p.pageName}
-                  </h4>
-                  <p className="text-[8.5px] font-mono text-slate-400 mt-0.5">
-                    {(p.layoutComponents || []).length} Components Configured
-                  </p>
+
+                  <h4 className="text-xs font-semibold text-slate-900 truncate">{p.pageName}</h4>
+                  <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1">
+                    <span>{(p.layoutComponents || []).length} blocks</span>
+                    <span>{p.submissionCount || 0} submissions</span>
+                  </div>
                 </div>
               );
             })}
 
             {filteredPages.length === 0 && (
-              <div className="py-8 text-center text-slate-400 text-[9px] font-bold">
-                No custom layout pages found.
+              <div className="py-8 text-center text-slate-400 text-xs">
+                No layout pages match your filter. Click <strong>+ Add</strong> to create one.
               </div>
             )}
           </div>
         </div>
 
-        {/* Right Column: Live Viewport Canvas */}
+        {/* Right Workspace: Builder / Live Preview / Submissions */}
         <div className="lg:col-span-2 flex flex-col items-center">
-          <div className={`bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-xs p-3.5 transition-all duration-300 w-full ${
-            deviceViewport === "mobile" ? "max-w-[360px]" : deviceViewport === "tablet" ? "max-w-[680px]" : "max-w-full"
-          }`}>
-            {/* Canvas Header */}
-            <div className="border-b pb-2 mb-3 border-slate-100 dark:border-white/5 flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-[8px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-                    Live Device Canvas ({deviceViewport})
-                  </span>
-                </div>
-                <h4 className="text-xs font-black text-slate-900 dark:text-white mt-0.5">
-                  {selectedPage?.pageName || "Select a layout page to preview"}
-                </h4>
-              </div>
-              <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 rounded-md text-[8px] font-black uppercase">
-                Interactive Preview
-              </span>
+          {!draftPage ? (
+            <div className="w-full bg-white border border-slate-200 rounded-xl p-10 text-center space-y-2">
+              <Layout size={28} className="mx-auto text-slate-300" />
+              <p className="text-xs font-semibold text-slate-700">No layout selected</p>
+              <p className="text-[11px] text-slate-400">
+                Create a new form or dashboard layout to start building.
+              </p>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="mt-2 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold cursor-pointer"
+              >
+                + New Layout
+              </button>
             </div>
-
-            {/* Canvas Form / Component Renderings */}
-            <div className="space-y-2.5">
-              {(selectedPage?.layoutComponents && selectedPage.layoutComponents.length > 0 
-                ? selectedPage.layoutComponents 
-                : COMPONENT_PALETTE.slice(0, 4)
-              ).map((comp, idx) => (
-                <div key={idx} className="p-2.5 bg-slate-50/70 dark:bg-white/[0.02] rounded-xl border border-slate-200/60 dark:border-white/10 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[9px] font-black uppercase text-slate-700 dark:text-slate-300 block">
-                      {comp.label}
-                    </label>
-                    <span className="text-[7.5px] font-mono text-slate-400 uppercase">
-                      [{comp.componentType || comp.type}]
+          ) : (
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                const type = e.dataTransfer.getData("text/plain");
+                const found = COMPONENT_PALETTE.find(c => c.type === type);
+                if (found) addComponentToPage(found);
+              }}
+              className={`bg-white rounded-xl border border-slate-200 p-3.5 transition-all duration-200 w-full ${
+                deviceViewport === "mobile"
+                  ? "max-w-[360px]"
+                  : deviceViewport === "tablet"
+                  ? "max-w-[680px]"
+                  : "max-w-full"
+              }`}
+            >
+              {/* Canvas Toolbar */}
+              <div className="border-b border-slate-100 pb-2.5 mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">
+                      {deviceViewport} Canvas
                     </span>
+                    {draftPage.slug && (
+                      <span className="text-[10px] font-mono text-slate-400 truncate">
+                        /public/forms/{draftPage.slug}
+                      </span>
+                    )}
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-900 truncate mt-0.5">
+                    {draftPage.pageName}
+                  </h4>
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {/* Mode Switcher */}
+                  <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                    {[
+                      { id: "build", label: "Build", icon: Wrench },
+                      { id: "preview", label: "Live Preview", icon: Eye },
+                      { id: "submissions", label: `Submissions (${draftPage.submissionCount || 0})`, icon: Inbox }
+                    ].map(m => {
+                      const Icon = m.icon;
+                      return (
+                        <button
+                          key={m.id}
+                          onClick={() => setCanvasMode(m.id)}
+                          className={`px-2 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-all ${
+                            canvasMode === m.id
+                              ? "bg-white text-indigo-600 shadow-xs"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        >
+                          <Icon size={11} />
+                          {m.label}
+                        </button>
+                      );
+                    })}
                   </div>
 
-                  {(comp.componentType === "input" || comp.type === "input") && (
-                    <input 
-                      readOnly 
-                      placeholder={comp.props?.placeholder || "Enter value..."} 
-                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] outline-none text-slate-800 dark:text-slate-200" 
-                    />
-                  )}
+                  <button
+                    onClick={handleTogglePublish}
+                    disabled={saving}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border flex items-center gap-1 cursor-pointer ${
+                      draftPage.isPublished
+                        ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                        : "bg-slate-50 border-slate-200 text-slate-600"
+                    }`}
+                  >
+                    <Globe size={11} />
+                    {draftPage.isPublished ? "Published" : "Draft"}
+                  </button>
 
-                  {(comp.componentType === "select" || comp.type === "select") && (
-                    <select disabled className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-700 dark:text-slate-300">
-                      {(comp.props?.options || ["Select standard option...", "Corporate Plan", "Retail Plan"]).map((opt, oIdx) => (
-                        <option key={oIdx}>{opt}</option>
-                      ))}
-                    </select>
-                  )}
-
-                  {(comp.componentType === "checkbox" || comp.type === "checkbox") && (
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input type="checkbox" defaultChecked className="w-3.5 h-3.5 rounded text-indigo-600 border-slate-300" />
-                      <span className="text-[10px] font-medium text-slate-700 dark:text-slate-300">Acknowledge agreement terms</span>
-                    </label>
-                  )}
-
-                  {(comp.componentType === "date" || comp.type === "date") && (
-                    <input 
-                      type="date" 
-                      readOnly 
-                      defaultValue={new Date().toISOString().split("T")[0]}
-                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-700 dark:text-slate-300" 
-                    />
-                  )}
-
-                  {(comp.componentType === "file_upload" || comp.type === "file_upload") && (
-                    <div className="border border-dashed border-slate-200 dark:border-white/15 bg-white dark:bg-slate-800 p-2.5 rounded-lg text-center">
-                      <UploadCloud size={14} className="mx-auto text-slate-400 mb-0.5" />
-                      <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400">Drag files here or click to upload</span>
-                    </div>
-                  )}
-
-                  {(comp.componentType === "chart" || comp.type === "chart") && (
-                    <div className="h-16 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 rounded-lg border border-indigo-100 dark:border-indigo-900/40 flex items-center justify-center font-mono text-[9px] text-indigo-600 dark:text-indigo-400 font-bold">
-                      [Chart Analytics Canvas Simulator]
-                    </div>
-                  )}
-
-                  {(comp.componentType === "table" || comp.type === "table") && (
-                    <div className="rounded-lg border border-slate-200 dark:border-white/10 overflow-hidden text-[9px] font-mono">
-                      <div className="grid grid-cols-3 bg-slate-100 dark:bg-slate-800 p-1 font-bold text-slate-600 dark:text-slate-300">
-                        <span>ID</span>
-                        <span>Record</span>
-                        <span>Status</span>
-                      </div>
-                      <div className="grid grid-cols-3 bg-white dark:bg-slate-900 p-1 border-t border-slate-100 dark:border-white/5 text-slate-500">
-                        <span>#1001</span>
-                        <span>Client Registry</span>
-                        <span className="text-emerald-500 font-bold">Active</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {(comp.componentType === "text" || comp.type === "text") && (
-                    <p className="text-[10px] font-medium text-slate-600 dark:text-slate-400 leading-snug">
-                      Custom form field instruction or descriptive content for user guidance.
-                    </p>
+                  {hasUnsavedChanges && (
+                    <button
+                      onClick={handleSaveLayout}
+                      disabled={saving}
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1 cursor-pointer"
+                    >
+                      <Save size={11} />
+                      {saving ? "Saving..." : "Save Layout"}
+                    </button>
                   )}
                 </div>
-              ))}
+              </div>
+
+              {/* ── MODE 1: BUILDER ────────────────────────────── */}
+              {canvasMode === "build" && (
+                <div className="space-y-2">
+                  {(draftPage.layoutComponents || []).length === 0 ? (
+                    <div className="py-10 border-2 border-dashed border-slate-200 rounded-xl text-center text-xs text-slate-400">
+                      This layout is empty. Click or drag any block from the Component Palette above to insert it.
+                    </div>
+                  ) : (
+                    (draftPage.layoutComponents || []).map((comp, idx) => {
+                      const isEditing = editingCompIdx === idx;
+                      return (
+                        <div
+                          key={idx}
+                          className={`p-2.5 rounded-lg border transition-all ${
+                            isEditing ? "border-indigo-400 bg-indigo-50/30" : "border-slate-200 bg-slate-50/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[9px] font-mono uppercase text-slate-600">
+                                {comp.componentType}
+                              </span>
+                              <span className="text-xs font-semibold text-slate-800 truncate">
+                                {comp.label}
+                              </span>
+                              {comp.props?.required && (
+                                <span className="text-[10px] font-bold text-rose-500">*</span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => moveComponent(idx, -1)}
+                                disabled={idx === 0}
+                                title="Move Up"
+                                className="p-1 rounded hover:bg-white text-slate-500 disabled:opacity-30 cursor-pointer"
+                              >
+                                <ArrowUp size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveComponent(idx, 1)}
+                                disabled={idx === draftPage.layoutComponents.length - 1}
+                                title="Move Down"
+                                className="p-1 rounded hover:bg-white text-slate-500 disabled:opacity-30 cursor-pointer"
+                              >
+                                <ArrowDown size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingCompIdx(isEditing ? null : idx)}
+                                title="Configure Block"
+                                className={`p-1 rounded cursor-pointer ${
+                                  isEditing ? "bg-indigo-600 text-white" : "hover:bg-white text-slate-500"
+                                }`}
+                              >
+                                <Settings2 size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeComponent(idx)}
+                                title="Remove Block"
+                                className="p-1 rounded hover:bg-white text-slate-400 hover:text-rose-600 cursor-pointer"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Inline Property Editor */}
+                          {isEditing && (
+                            <div className="mt-2.5 pt-2.5 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                              <div>
+                                <label className="text-[10px] font-semibold text-slate-500 block mb-0.5">
+                                  Block Label
+                                </label>
+                                <input
+                                  value={comp.label || ""}
+                                  onChange={(e) => updateComponentProp(idx, { label: e.target.value })}
+                                  className="w-full bg-white border border-slate-200 rounded-md px-2 py-1 text-xs outline-none focus:border-indigo-400"
+                                />
+                              </div>
+
+                              {["input", "select", "checkbox", "date", "file_upload"].includes(comp.componentType) && (
+                                <div>
+                                  <label className="text-[10px] font-semibold text-slate-500 block mb-0.5">
+                                    Field Key (API Name)
+                                  </label>
+                                  <input
+                                    value={comp.props?.name || ""}
+                                    onChange={(e) => updateComponentProp(idx, { props: { name: e.target.value } })}
+                                    className="w-full bg-white border border-slate-200 rounded-md px-2 py-1 text-xs font-mono outline-none focus:border-indigo-400"
+                                  />
+                                </div>
+                              )}
+
+                              {comp.componentType === "input" && (
+                                <div>
+                                  <label className="text-[10px] font-semibold text-slate-500 block mb-0.5">
+                                    Placeholder
+                                  </label>
+                                  <input
+                                    value={comp.props?.placeholder || ""}
+                                    onChange={(e) => updateComponentProp(idx, { props: { placeholder: e.target.value } })}
+                                    className="w-full bg-white border border-slate-200 rounded-md px-2 py-1 text-xs outline-none focus:border-indigo-400"
+                                  />
+                                </div>
+                              )}
+
+                              {comp.componentType === "select" && (
+                                <div className="sm:col-span-2">
+                                  <label className="text-[10px] font-semibold text-slate-500 block mb-0.5">
+                                    Options (comma-separated)
+                                  </label>
+                                  <input
+                                    value={(comp.props?.options || []).join(", ")}
+                                    onChange={(e) =>
+                                      updateComponentProp(idx, {
+                                        props: { options: e.target.value.split(",").map(s => s.trim()).filter(Boolean) }
+                                      })
+                                    }
+                                    className="w-full bg-white border border-slate-200 rounded-md px-2 py-1 text-xs outline-none focus:border-indigo-400"
+                                  />
+                                </div>
+                              )}
+
+                              {comp.componentType === "text" && (
+                                <div className="sm:col-span-2">
+                                  <label className="text-[10px] font-semibold text-slate-500 block mb-0.5">
+                                    Instruction Text
+                                  </label>
+                                  <input
+                                    value={comp.props?.description || ""}
+                                    onChange={(e) => updateComponentProp(idx, { props: { description: e.target.value } })}
+                                    className="w-full bg-white border border-slate-200 rounded-md px-2 py-1 text-xs outline-none focus:border-indigo-400"
+                                  />
+                                </div>
+                              )}
+
+                              {["chart", "table", "kanban"].includes(comp.componentType) && (
+                                <div>
+                                  <label className="text-[10px] font-semibold text-slate-500 block mb-0.5">
+                                    Live MongoDB Data Source
+                                  </label>
+                                  <select
+                                    value={comp.props?.dataSource || (comp.componentType === "chart" ? "invoices" : comp.componentType === "kanban" ? "tickets" : "customers")}
+                                    onChange={(e) => updateComponentProp(idx, { props: { dataSource: e.target.value } })}
+                                    className="w-full bg-white border border-slate-200 rounded-md px-2 py-1 text-xs outline-none"
+                                  >
+                                    {DATA_SOURCES.map(ds => (
+                                      <option key={ds.value} value={ds.value}>{ds.label}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )}
+
+                              {["input", "select", "date", "checkbox"].includes(comp.componentType) && (
+                                <label className="flex items-center gap-1.5 cursor-pointer pt-3">
+                                  <input
+                                    type="checkbox"
+                                    checked={!!comp.props?.required}
+                                    onChange={(e) => updateComponentProp(idx, { props: { required: e.target.checked } })}
+                                    className="rounded text-indigo-600"
+                                  />
+                                  <span className="text-[11px] font-medium text-slate-700">Required Field</span>
+                                </label>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+
+              {/* ── MODE 2: LIVE INTERACTIVE PREVIEW ───────────── */}
+              {canvasMode === "preview" && (
+                <form onSubmit={handleInteractiveFormSubmit} className="space-y-3">
+                  {submitBanner && (
+                    <div
+                      className={`p-2.5 rounded-lg border text-xs font-medium flex items-center gap-2 ${
+                        submitBanner.type === "success"
+                          ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                          : "bg-rose-50 border-rose-200 text-rose-700"
+                      }`}
+                    >
+                      <CheckCircle2 size={14} />
+                      <span>{submitBanner.text}</span>
+                    </div>
+                  )}
+
+                  {(draftPage.layoutComponents || []).length === 0 ? (
+                    <div className="py-8 text-center text-xs text-slate-400">
+                      Add blocks in Build mode to preview live data and forms.
+                    </div>
+                  ) : (
+                    (draftPage.layoutComponents || []).map((comp, idx) => {
+                      const fieldKey = comp.props?.name || `field_${idx}`;
+                      const dataSource =
+                        comp.props?.dataSource ||
+                        (comp.componentType === "chart" ? "invoices" : comp.componentType === "kanban" ? "tickets" : "customers");
+                      const live = liveDataMap[dataSource];
+
+                      return (
+                        <div key={idx} className="p-3 bg-slate-50/60 rounded-lg border border-slate-200 space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[11px] font-semibold text-slate-800">
+                              {comp.label}
+                              {comp.props?.required && <span className="text-rose-500 ml-0.5">*</span>}
+                            </label>
+                            {["chart", "table", "kanban"].includes(comp.componentType) && (
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                Source: {dataSource}
+                              </span>
+                            )}
+                          </div>
+
+                          {comp.componentType === "text" && (
+                            <p className="text-xs text-slate-600">
+                              {comp.props?.description || "Informational block"}
+                            </p>
+                          )}
+
+                          {comp.componentType === "input" && (
+                            <input
+                              type={comp.props?.type || "text"}
+                              required={!!comp.props?.required}
+                              value={formAnswers[fieldKey] || ""}
+                              onChange={(e) => setFormAnswers(prev => ({ ...prev, [fieldKey]: e.target.value }))}
+                              placeholder={comp.props?.placeholder || "Enter value..."}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-indigo-400"
+                            />
+                          )}
+
+                          {comp.componentType === "select" && (
+                            <select
+                              required={!!comp.props?.required}
+                              value={formAnswers[fieldKey] || ""}
+                              onChange={(e) => setFormAnswers(prev => ({ ...prev, [fieldKey]: e.target.value }))}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-indigo-400"
+                            >
+                              <option value="">Select an option...</option>
+                              {(comp.props?.options || []).map((opt, oIdx) => (
+                                <option key={oIdx} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          )}
+
+                          {comp.componentType === "checkbox" && (
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                required={!!comp.props?.required}
+                                checked={!!formAnswers[fieldKey]}
+                                onChange={(e) => setFormAnswers(prev => ({ ...prev, [fieldKey]: e.target.checked }))}
+                                className="rounded text-indigo-600"
+                              />
+                              <span className="text-xs text-slate-700">
+                                {comp.props?.description || comp.label}
+                              </span>
+                            </label>
+                          )}
+
+                          {comp.componentType === "date" && (
+                            <input
+                              type="date"
+                              required={!!comp.props?.required}
+                              value={formAnswers[fieldKey] || ""}
+                              onChange={(e) => setFormAnswers(prev => ({ ...prev, [fieldKey]: e.target.value }))}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-indigo-400"
+                            />
+                          )}
+
+                          {comp.componentType === "file_upload" && (
+                            <input
+                              type="file"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  setFormAnswers(prev => ({ ...prev, [fieldKey]: `${file.name} (${Math.round(file.size / 1024)} KB)` }));
+                                }
+                              }}
+                              className="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border file:border-slate-200 file:text-xs file:bg-white"
+                            />
+                          )}
+
+                          {comp.componentType === "chart" && (
+                            <div className="bg-white border border-slate-200 rounded-lg p-3">
+                              {loadingLive && !live ? (
+                                <p className="text-[11px] text-slate-400">Loading live chart metrics...</p>
+                              ) : (live?.chartSeries || []).length === 0 ? (
+                                <p className="text-[11px] text-slate-400">No records in {dataSource} yet.</p>
+                              ) : (
+                                <div className="space-y-2">
+                                  {(() => {
+                                    const maxVal = Math.max(...live.chartSeries.map(s => Number(s.value) || 0), 1);
+                                    return live.chartSeries.map((pt, pIdx) => {
+                                      const pct = Math.max(4, Math.round(((Number(pt.value) || 0) / maxVal) * 100));
+                                      return (
+                                        <div key={pIdx} className="space-y-0.5">
+                                          <div className="flex justify-between text-[11px]">
+                                            <span className="font-medium text-slate-700">{pt.label}</span>
+                                            <span className="font-mono text-slate-600">{Number(pt.value).toLocaleString()}</span>
+                                          </div>
+                                          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                            <div
+                                              className="h-full bg-indigo-600 rounded-full transition-all"
+                                              style={{ width: `${pct}%` }}
+                                            />
+                                          </div>
+                                        </div>
+                                      );
+                                    });
+                                  })()}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {comp.componentType === "table" && (
+                            <div className="bg-white border border-slate-200 rounded-lg overflow-x-auto">
+                              {loadingLive && !live ? (
+                                <p className="p-3 text-[11px] text-slate-400">Loading live table rows...</p>
+                              ) : (live?.tableRows || []).length === 0 ? (
+                                <p className="p-3 text-[11px] text-slate-400">No records in {dataSource} yet.</p>
+                              ) : (
+                                <table className="w-full text-left text-[11px]">
+                                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
+                                    <tr>
+                                      {(live.tableColumns || []).map((col, cIdx) => (
+                                        <th key={cIdx} className="px-2.5 py-1.5 font-semibold">{col}</th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {live.tableRows.map((row, rIdx) => (
+                                      <tr key={rIdx} className="hover:bg-slate-50/50">
+                                        <td className="px-2.5 py-1.5 font-mono text-slate-700 truncate max-w-[140px]">{row.id}</td>
+                                        <td className="px-2.5 py-1.5 text-slate-800 truncate max-w-[180px]">{row.col2}</td>
+                                        <td className="px-2.5 py-1.5 text-slate-600 uppercase text-[10px]">{row.col3}</td>
+                                        <td className="px-2.5 py-1.5">
+                                          <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[10px] font-medium uppercase">
+                                            {row.col4}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              )}
+                            </div>
+                          )}
+
+                          {comp.componentType === "kanban" && (
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                              {(live?.kanbanColumns || []).map((col, kIdx) => (
+                                <div key={kIdx} className="bg-white border border-slate-200 rounded-lg p-2 space-y-1.5">
+                                  <div className="flex items-center justify-between border-b border-slate-100 pb-1">
+                                    <span className="text-[10px] font-bold uppercase text-slate-700">{col.stage}</span>
+                                    <span className="text-[10px] font-mono text-slate-400">{col.items.length}</span>
+                                  </div>
+                                  {col.items.length === 0 ? (
+                                    <p className="text-[10px] text-slate-400 py-2 text-center">Empty</p>
+                                  ) : (
+                                    col.items.map((item) => (
+                                      <div key={item.id} className="p-1.5 bg-slate-50 border border-slate-200/80 rounded text-[11px]">
+                                        <p className="font-medium text-slate-800 truncate">{item.title}</p>
+                                        <p className="text-[10px] text-slate-500 truncate">{item.meta}</p>
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+
+                  {hasFormInputs && (
+                    <button
+                      type="submit"
+                      disabled={submittingForm}
+                      className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Send size={12} />
+                      {submittingForm ? "Submitting..." : draftPage.submitButtonText || "Submit Form"}
+                    </button>
+                  )}
+                </form>
+              )}
+
+              {/* ── MODE 3: SAVED SUBMISSIONS ──────────────────── */}
+              {canvasMode === "submissions" && (
+                <div className="space-y-2">
+                  {loadingSubmissions ? (
+                    <div className="py-8 text-center text-xs text-slate-400">Loading submissions...</div>
+                  ) : submissions.length === 0 ? (
+                    <div className="py-10 text-center text-xs text-slate-400">
+                      No submissions recorded for this page yet. Test it in <strong>Live Preview</strong>!
+                    </div>
+                  ) : (
+                    <div className="border border-slate-200 rounded-lg overflow-x-auto">
+                      <table className="w-full text-left text-[11px]">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
+                          <tr>
+                            <th className="px-2.5 py-2 font-semibold">Submitted Answers</th>
+                            <th className="px-2.5 py-2 font-semibold">Conversion</th>
+                            <th className="px-2.5 py-2 font-semibold">Date</th>
+                            <th className="px-2.5 py-2 font-semibold text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {submissions.map((sub) => (
+                            <tr key={sub._id} className="hover:bg-slate-50/50">
+                              <td className="px-2.5 py-2 text-slate-800 max-w-[280px]">
+                                <div className="space-y-0.5">
+                                  {Object.entries(sub.answers || {}).map(([k, v]) => (
+                                    <div key={k} className="truncate">
+                                      <span className="font-mono text-slate-500">{k}:</span>{" "}
+                                      <span>{String(v)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </td>
+                              <td className="px-2.5 py-2">
+                                <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[10px] font-semibold uppercase">
+                                  {sub.conversionStatus}
+                                </span>
+                              </td>
+                              <td className="px-2.5 py-2 text-slate-500">
+                                {new Date(sub.createdAt).toLocaleString()}
+                              </td>
+                              <td className="px-2.5 py-2 text-right">
+                                <button
+                                  onClick={() => handleDeleteSubmission(sub._id)}
+                                  className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"
+                                  title="Delete submission"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* ── Create Modal via createPortal ────────────────────── */}
+      {/* ── Create Custom Page Modal (Portal) ────────────────── */}
       {showCreateModal && createPortal(
-        <div className="fixed inset-0 z-[99999] overflow-y-auto p-2 sm:p-4 md:p-6 flex items-center justify-center">
-          <div 
-            className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm transition-opacity" 
-            onClick={() => setShowCreateModal(false)} 
+        <div className="fixed inset-0 z-[9999] overflow-y-auto p-3 sm:p-6 flex items-center justify-center">
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs"
+            onClick={() => setShowCreateModal(false)}
           />
-          <div className="relative z-10 my-auto bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 border border-slate-200 dark:border-white/10">
-            
-            {/* Modal Header */}
-            <div className="px-4 py-3 border-b border-slate-100 dark:border-white/10 flex items-center justify-between shrink-0 bg-slate-50/80 dark:bg-white/[0.02]">
+          <div className="relative z-10 my-auto bg-white rounded-xl shadow-xl w-full max-w-md border border-slate-200 overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center shadow-xs text-white shrink-0">
-                  <Layout size={13} />
+                <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center text-white">
+                  <Layout size={14} />
                 </div>
                 <div>
-                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight">
-                    Create Custom Low-Code Page
-                  </h3>
-                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">
-                    Design forms, dashboards & reports
-                  </p>
+                  <h3 className="text-xs font-bold text-slate-900">Create Low-Code Page</h3>
+                  <p className="text-[10px] text-slate-500">Forms, dashboards, reports & Kanban views</p>
                 </div>
               </div>
-              <button 
-                type="button" 
-                onClick={() => setShowCreateModal(false)} 
-                className="p-1.5 text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/10 rounded-lg transition-all cursor-pointer"
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded cursor-pointer"
               >
                 <X size={15} />
               </button>
             </div>
 
-            {/* Modal Form */}
-            <form onSubmit={handleCreatePage} className="p-4 space-y-3 overflow-y-auto max-h-[calc(90vh-100px)] custom-scrollbar">
-              <div className="space-y-1">
-                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Page Title *</label>
+            <form onSubmit={handleCreatePage} className="p-4 space-y-3 text-xs">
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Page Title *</label>
                 <input
                   required
-                  value={form.pageName}
-                  onChange={(e) => setForm({ ...form, pageName: e.target.value })}
-                  placeholder="e.g. Executive Corporate Tax Form"
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500 transition-all dark:text-white placeholder:text-slate-400"
+                  value={createForm.pageName}
+                  onChange={(e) => setCreateForm({ ...createForm, pageName: e.target.value })}
+                  placeholder="e.g. Client Onboarding Intake"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-indigo-500"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Page Type</label>
-                <select
-                  value={form.pageType}
-                  onChange={(e) => setForm({ ...form, pageType: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500 transition-all dark:text-white cursor-pointer"
-                >
-                  <option value="dashboard">Executive Dashboard</option>
-                  <option value="form">Data Intake Form</option>
-                  <option value="report">Custom Analytics Report</option>
-                  <option value="kanban">Kanban Pipeline Board</option>
-                </select>
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Page Type</label>
+                  <select
+                    value={createForm.pageType}
+                    onChange={(e) => setCreateForm({ ...createForm, pageType: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 text-xs outline-none"
+                  >
+                    <option value="form">Data Intake Form</option>
+                    <option value="dashboard">Live Dashboard</option>
+                    <option value="report">Analytics Report</option>
+                    <option value="kanban">Kanban Board</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">On Submit Create</label>
+                  <select
+                    value={createForm.targetEntity}
+                    onChange={(e) => setCreateForm({ ...createForm, targetEntity: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 text-xs outline-none"
+                  >
+                    <option value="lead">CRM Lead</option>
+                    <option value="ticket">Support Ticket</option>
+                    <option value="none">Save Only</option>
+                  </select>
+                </div>
               </div>
 
-              {/* Submit Buttons */}
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Submit Button Text</label>
+                <input
+                  value={createForm.submitButtonText}
+                  onChange={(e) => setCreateForm({ ...createForm, submitButtonText: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={createForm.isPublished}
+                  onChange={(e) => setCreateForm({ ...createForm, isPublished: e.target.checked })}
+                  className="rounded text-indigo-600"
+                />
+                <span className="text-xs text-slate-700 font-medium">Publish live immediately</span>
+              </label>
+
               <div className="pt-2 flex items-center gap-2">
                 <button
                   type="submit"
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-wider py-2.5 rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs py-2 rounded-lg cursor-pointer"
                 >
-                  Save Page
+                  Create Page
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2.5 border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 dark:text-slate-400 font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer"
+                  className="px-4 py-2 border border-slate-200 text-slate-600 font-semibold text-xs rounded-lg cursor-pointer"
                 >
                   Cancel
                 </button>

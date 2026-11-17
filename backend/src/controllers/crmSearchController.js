@@ -6,6 +6,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
 import AppError from "../utils/AppError.js";
+import { escapeRegex } from "../utils/regexUtils.js";
 
 export const globalSearch = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_VIEW);
@@ -22,7 +23,7 @@ export const globalSearch = asyncHandler(async (req, res) => {
     throw new AppError("Unauthorized access to website scope", 403);
   }
 
-  const regex = new RegExp(q, "i");
+  const regex = new RegExp(escapeRegex(q), "i");
   const websiteQuery = { websiteId: resolvedWebsiteId, isDeleted: { $ne: true } };
 
   const [companies, contacts, customers, deals] = await Promise.all([

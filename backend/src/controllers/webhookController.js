@@ -6,6 +6,7 @@ import { buildSubscription } from "../utils/planUtils.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { logAuditEvent } from "../services/auditService.js";
 import { WebhookDelivery } from "../models/WebhookDelivery.js";
+import { WebhookDeliveryLog } from "../models/WebhookDeliveryLog.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import { Quotation } from "../models/Quotation.js";
 import { Invoice } from "../models/Invoice.js";
@@ -436,10 +437,59 @@ export const handleJtsMeetWebhook = asyncHandler(async (req, res) => {
 
 export const listWebhookDeliveries = asyncHandler(async (req, res) => {
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
-  const filter = req.user.role === "admin" ? {} : { websiteId: { $in: ownedWebsiteIds } };
-  const deliveries = await WebhookDelivery.find(filter)
-    .populate("websiteId", "websiteName domain")
-    .sort({ attemptedAt: -1 })
-    .limit(100);
-  res.json(deliveries);
+  const { websiteId } = req.query;
+  let filter = req.user.role === "admin" ? {} : { websiteId: { $in: ownedWebsiteIds } };
+  if (websiteId) {
+    if (req.user.role !== "admin" && !ownedWebsiteIds.some((id) => String(id) === String(websiteId))) {
+      return res.json([]);
+    }
+    filter = { websiteId };
+  }
+
+  const [gatewayDeliveries, integrationLogs] = await Promise.all([
+    WebhookDelivery.find(filter)
+      .populate("websiteId", "websiteName domain")
+      .sort({ attemptedAt: -1, createdAt: -1 })
+      .limit(100)
+      .lean(),
+    WebhookDeliveryLog.find(filter)
+      .populate("websiteId", "websiteName domain")
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean()
+  ]);
+
+  const normalizedGateway = gatewayDeliveries.map((d) => ({
+    _id: d._id,
+    event: d.event,
+    endpointUrl: d.endpointUrl,
+    responseStatus: d.responseStatus,
+    responseBody: d.responseBody || "",
+    success: Boolean(d.success),
+    attempts: d.attempts || 1,
+    latencyMs: null,
+    source: "gateway",
+    websiteName: d.websiteId?.websiteName || "",
+    createdAt: d.attemptedAt || d.createdAt
+  }));
+
+  const normalizedLogs = integrationLogs.map((l) => ({
+    _id: l._id,
+    event: l.eventName,
+    endpointUrl: l.url,
+    responseStatus: l.httpStatus || (l.status === "sent" ? 200 : 500),
+    responseBody: "",
+    success: l.status === "sent",
+    attempts: 1,
+    latencyMs: l.latencyMs ?? null,
+    source: "crm_integration",
+    websiteName: l.websiteId?.websiteName || "",
+    createdAt: l.createdAt
+  }));
+
+  const merged = [...normalizedGateway, ...normalizedLogs]
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, 100);
+
+  res.json(merged);
 });

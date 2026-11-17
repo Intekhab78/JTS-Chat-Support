@@ -1,7 +1,12 @@
 import mongoose from "mongoose";
 
 const syncQueueItemSchema = new mongoose.Schema({
+  direction: { type: String, enum: ["outbound", "inbound"], default: "outbound" },
+  eventType: { type: String, default: "WEBHOOK_EVENT" },
   payload: { type: Object, default: {} },
+  httpStatus: { type: Number, default: null },
+  latencyMs: { type: Number, default: null },
+  responseSnippet: { type: String, default: "" },
   status: { type: String, enum: ["pending", "synced", "failed"], default: "pending" },
   attempts: { type: Number, default: 0 },
   lastError: { type: String, default: "" },
@@ -21,7 +26,7 @@ const enterpriseIntegrationSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ["connected", "configured", "disconnected", "error"],
-      default: "configured",
+      default: "disconnected",
       index: true
     },
     authType: {
@@ -31,13 +36,17 @@ const enterpriseIntegrationSchema = new mongoose.Schema(
     },
     settings: {
       apiKeyMasked: { type: String, default: "" },
+      signingSecret: { type: String, default: "" },
       webhookUrl: { type: String, default: "" },
+      description: { type: String, default: "" },
+      events: { type: [String], default: ["ticket.created", "lead.created", "invoice.paid"] },
       rateLimitPerMin: { type: Number, default: 120 },
       retryCountMax: { type: Number, default: 3 }
     },
     lastSyncAt: { type: Date, default: null },
     syncQueue: [syncQueueItemSchema],
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }
+    websiteId: { type: mongoose.Schema.Types.ObjectId, ref: "Website", default: null, index: true },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true }
   },
   { timestamps: true }
 );

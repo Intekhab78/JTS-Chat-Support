@@ -6,8 +6,38 @@ import {
 } from "lucide-react";
 import { api } from "../../api/client.js";
 import { useToast } from "../../context/ToastContext.jsx";
+import { useCurrency } from "../../context/CurrencyContext.jsx";
 import { exportToCSV, exportToPDF, exportSingleRecordPDF } from "../../utils/exportUtils.js";
 import { renderPlatformIcon } from "./platformIconHelper.jsx";
+
+const isValidRealRecord = (rec) => {
+  if (!rec) return false;
+  if (rec.isAnonymous) return false;
+  const email = String(rec.email || "").trim().toLowerCase();
+  if (email.endsWith("@visitor.local") || email.startsWith("anon-visitor")) return false;
+  const rawName = String(
+    rec.displayName ||
+      rec.name ||
+      [rec.firstName, rec.lastName].filter(Boolean).join(" ") ||
+      rec.companyName ||
+      ""
+  )
+    .trim()
+    .toLowerCase();
+  if (
+    !rawName ||
+    rawName === "anonymous" ||
+    rawName === "anonymous visitor" ||
+    rawName === "anonymous user" ||
+    rawName === "visitor" ||
+    rawName === "guest" ||
+    rawName === "guest user" ||
+    rawName.startsWith("anon-")
+  ) {
+    return false;
+  }
+  return true;
+};
 
 const VIEW_MODES = [
   { id: "month", label: "Month" },
@@ -15,6 +45,8 @@ const VIEW_MODES = [
   { id: "day", label: "Day" },
   { id: "agenda", label: "Agenda" }
 ];
+
+const DEFAULT_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
 // ─── Reusable Searchable Combobox ─────────────────────────────────────────────
 function SearchableSelect({ value, onChange, options, placeholder = "Search...", labelKey = "label", valueKey = "value", emptyText = "No results found" }) {
@@ -52,18 +84,24 @@ function SearchableSelect({ value, onChange, options, placeholder = "Search...",
   return (
     <div ref={ref} className="relative">
       <div
-        className={`flex items-center w-full bg-slate-50 border rounded-xl px-3 py-2 cursor-text gap-2 transition-all ${open ? "border-indigo-400 ring-2 ring-indigo-100" : "border-slate-200 hover:border-slate-300"}`}
+        className={`flex items-center w-full bg-slate-50 dark:bg-slate-800 border rounded-xl px-3 py-1.5 cursor-text gap-2 transition-all relative ${
+          open
+            ? "border-indigo-400 ring-2 ring-indigo-100 dark:ring-indigo-900/40"
+            : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
+        }`}
         onClick={() => setOpen(true)}
       >
         <input
-          className="flex-1 bg-transparent outline-none text-xs font-bold text-slate-700 placeholder:text-slate-400 min-w-0"
-          placeholder={open ? "Type to search..." : (displayLabel || placeholder)}
+          className="flex-1 bg-transparent outline-none text-xs font-semibold text-slate-700 dark:text-slate-100 placeholder:text-slate-400 min-w-0"
+          placeholder={open ? "Type to search..." : (displayLabel ? "" : placeholder)}
           value={open ? query : ""}
           onChange={e => { setQuery(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
         />
         {!open && displayLabel && (
-          <span className="text-xs font-bold text-slate-700 truncate flex-1 pointer-events-none absolute left-3">{displayLabel}</span>
+          <span className="text-xs font-semibold text-slate-700 dark:text-slate-100 truncate flex-1 pointer-events-none absolute left-3 right-10">
+            {displayLabel}
+          </span>
         )}
         <div className="flex items-center gap-1 shrink-0">
           {value && (
@@ -71,16 +109,16 @@ function SearchableSelect({ value, onChange, options, placeholder = "Search...",
               <X size={12} />
             </button>
           )}
-          <ChevronLeft size={12} className={`text-slate-400 transition-transform ${open ? "-rotate-90" : "rotate-180"}`} style={{transform: open ? 'rotate(90deg)' : 'rotate(-90deg)'}} />
+          <ChevronLeft size={12} className="text-slate-400 transition-transform" style={{transform: open ? 'rotate(90deg)' : 'rotate(-90deg)'}} />
         </div>
       </div>
       {open && (
-        <div className="absolute top-full left-0 right-0 z-[9999] mt-1 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
-          <div className="max-h-48 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 z-[9999] mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden">
+          <div className="max-h-44 overflow-y-auto">
             <button
               type="button"
               onMouseDown={() => handleSelect("")}
-              className="w-full text-left px-4 py-2.5 text-[10px] font-black text-slate-400 uppercase hover:bg-slate-50 border-b border-slate-50"
+              className="w-full text-left px-3 py-2 text-[10px] font-black text-slate-400 uppercase hover:bg-slate-50 dark:hover:bg-slate-800 border-b border-slate-100 dark:border-slate-800"
             >
               — {placeholder}
             </button>
@@ -89,18 +127,20 @@ function SearchableSelect({ value, onChange, options, placeholder = "Search...",
                 key={o[valueKey]}
                 type="button"
                 onMouseDown={() => handleSelect(o[valueKey])}
-                className={`w-full text-left px-4 py-2.5 text-xs font-bold hover:bg-indigo-50 hover:text-indigo-700 transition-colors ${
-                  String(o[valueKey]) === String(value) ? "bg-indigo-50 text-indigo-700" : "text-slate-700"
+                className={`w-full text-left px-3 py-2 text-xs font-semibold hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors ${
+                  String(o[valueKey]) === String(value)
+                    ? "bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300"
+                    : "text-slate-700 dark:text-slate-200"
                 }`}
               >
                 {o[labelKey]}
               </button>
             ))}
             {filtered.length === 0 && (
-              <p className="px-4 py-3 text-[10px] font-bold text-slate-400">{emptyText}</p>
+              <p className="px-3 py-2.5 text-[10px] font-bold text-slate-400">{emptyText}</p>
             )}
             {filtered.length > 50 && (
-              <p className="px-4 py-2 text-[9px] font-bold text-slate-400 bg-slate-50 border-t">Showing first 50 — type to narrow down</p>
+              <p className="px-3 py-1.5 text-[9px] font-bold text-slate-400 bg-slate-50 dark:bg-slate-800 border-t dark:border-slate-700">Showing first 50 — type to narrow down</p>
             )}
           </div>
         </div>
@@ -111,6 +151,7 @@ function SearchableSelect({ value, onChange, options, placeholder = "Search...",
 
 export default function CrmCalendarView({ websiteId }) {
   const toast = useToast();
+  const { formatCurrency } = useCurrency();
   const [viewMode, setViewMode] = useState("month");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [activities, setActivities] = useState([]);
@@ -123,8 +164,8 @@ export default function CrmCalendarView({ websiteId }) {
   const [form, setForm] = useState({
     title: "",
     type: "meeting",
-    meetingType: "zoom",
-    timezone: "Asia/Kolkata",
+    meetingType: "",
+    timezone: DEFAULT_TIMEZONE,
     dueDate: "", // start time
     endAt: "",
     description: "",
@@ -191,21 +232,23 @@ export default function CrmCalendarView({ websiteId }) {
   };
 
   const fetchLookups = async () => {
+    const wsQs = websiteId && websiteId !== "all" ? `websiteId=${encodeURIComponent(websiteId)}` : "";
+    const qsPrefix = wsQs ? `?${wsQs}` : "";
     try {
       const [custRes, compRes, contRes] = await Promise.all([
-        api(`/api/crm?websiteId=${websiteId}&limit=200`).catch(() => ({})),
-        api(`/api/crm/companies?websiteId=${websiteId}`).catch(() => ({})),
-        api(`/api/crm/contacts?websiteId=${websiteId}`).catch(() => ({}))
+        api(`/api/crm?${wsQs ? `${wsQs}&` : ""}limit=200`).catch(() => ({})),
+        api(`/api/crm/companies${qsPrefix}`).catch(() => ({})),
+        api(`/api/crm/contacts${qsPrefix}`).catch(() => ({}))
       ]);
-      setCustomers(custRes.customers || []);
-      setCompanies(compRes.companies || []);
-      setContacts(contRes.contacts || []);
+      setCustomers((custRes.customers || []).filter(isValidRealRecord));
+      setCompanies((compRes.companies || []).filter(isValidRealRecord));
+      setContacts((contRes.contacts || []).filter(isValidRealRecord));
 
       // Deals: fetch customers with recordType=deal (the CRM's deal pipeline)
-      const dealCustRes = await api(`/api/crm?websiteId=${websiteId}&recordType=deal&limit=200`).catch(() => ({}));
-      const dealCustomers = dealCustRes.customers || [];
+      const dealCustRes = await api(`/api/crm?${wsQs ? `${wsQs}&` : ""}recordType=deal&limit=200`).catch(() => ({}));
+      const dealCustomers = (dealCustRes.customers || []).filter(isValidRealRecord);
       // Also try the dedicated deals endpoint
-      const dealRes = await api(`/api/crm/deals?websiteId=${websiteId}&limit=200`).catch(() => ({}));
+      const dealRes = await api(`/api/crm/deals?${wsQs ? `${wsQs}&` : ""}limit=200`).catch(() => ({}));
       const dedicatedDeals = dealRes.deals || [];
       // Merge both sources, prefer dedicated deals
       if (dedicatedDeals.length > 0) {
@@ -214,7 +257,7 @@ export default function CrmCalendarView({ websiteId }) {
         // Map deal-stage customers as deals (dealName = companyName or name + leadValue)
         setDeals(dealCustomers.map(c => ({
           _id: c._id,
-          dealName: `${c.companyName || c.name}${c.leadValue ? ` — ₹${Number(c.leadValue).toLocaleString()}` : ''}`
+          dealName: `${c.companyName || c.name}${c.leadValue ? ` — ${formatCurrency(Number(c.leadValue))}` : ''}`
         })));
       }
     } catch (err) {
@@ -223,7 +266,7 @@ export default function CrmCalendarView({ websiteId }) {
 
     // Fetch meeting platforms
     try {
-      const platRes = await api(`/api/crm/meeting-platforms?websiteId=${websiteId}`).catch(() => ({}));
+      const platRes = await api(`/api/crm/meeting-platforms${qsPrefix}`).catch(() => ({}));
       const loadedPlatforms = platRes.platforms || [];
       setPlatforms(loadedPlatforms);
       // Set default meetingType to first platform's key
@@ -316,17 +359,19 @@ export default function CrmCalendarView({ websiteId }) {
     }
   };
 
-  // Render Calendar Month Grid helper
+  // Render Calendar Month Grid helper (includes leading weekday offset)
   const getDaysInMonth = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const leadingBlanks = Array.from({ length: firstDay.getDay() }, () => null);
     const date = new Date(year, month, 1);
     const days = [];
     while (date.getMonth() === month) {
       days.push(new Date(date));
       date.setDate(date.getDate() + 1);
     }
-    return days;
+    return [...leadingBlanks, ...days];
   };
 
   const allItems = Array.from(new Map([...activities, ...reminders].filter(Boolean).map(item => [item._id, item])).values());
@@ -336,8 +381,8 @@ export default function CrmCalendarView({ websiteId }) {
     setForm({
       title: item.title || "",
       type: item.type || "meeting",
-      meetingType: item.meetingType || "zoom",
-      timezone: item.timezone || "Asia/Kolkata",
+      meetingType: item.meetingType || platforms[0]?.key || "",
+      timezone: item.timezone || DEFAULT_TIMEZONE,
       dueDate: item.dueDate ? new Date(item.dueDate).toISOString().slice(0, 16) : "",
       endAt: item.endAt ? new Date(item.endAt).toISOString().slice(0, 16) : "",
       description: item.description || "",
@@ -374,37 +419,52 @@ export default function CrmCalendarView({ websiteId }) {
     exportToPDF(data, `Calendar_Meetings_Report_${new Date().toISOString().slice(0, 10)}`, "CENTRALIZED CRM CALENDAR & SCHEDULED MEETINGS REPORT");
   };
 
+  const todayStr = new Date().toDateString();
+
   return (
-    <div className="space-y-6">
-      {/* Calendar Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-center bg-white border border-slate-200/80 rounded-[28px] p-6 shadow-sm gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
-            <CalendarIcon size={20} />
+    <div className="space-y-3">
+      {/* Compact Calendar Header */}
+      <div className="flex flex-col xl:flex-row justify-between xl:items-center bg-white border border-slate-200/80 rounded-2xl p-3.5 sm:p-4 shadow-xs gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+            <CalendarIcon size={16} />
           </div>
-          <div>
-            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Centralized CRM Calendar</h3>
-            <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">Manage Calls, Meetings, Tasks, and Reminders</p>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-slate-900 tracking-tight truncate">Centralized CRM Calendar</h3>
+              <span className="bg-indigo-50 text-indigo-600 border border-indigo-100 text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0">
+                {allItems.length} Events
+              </span>
+            </div>
+            <p className="text-[11px] font-medium text-slate-400 leading-tight truncate">Manage calls, meetings, tasks, and reminders</p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button 
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
             onClick={handleExportCalendarCSV}
-            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            className="flex items-center gap-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[11px] font-semibold rounded-lg transition-all"
             title="Export Calendar Meetings to Excel CSV"
           >
-            <Download size={13} /> Export CSV
+            <Download size={12} /> CSV
           </button>
-          <button 
+          <button
             onClick={handleExportCalendarPDF}
-            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            className="flex items-center gap-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[11px] font-semibold rounded-lg transition-all"
             title="Export Calendar Meetings to PDF"
           >
-            <Printer size={13} /> Export PDF
+            <Printer size={12} /> PDF
           </button>
+
+          <button
+            onClick={() => setCurrentDate(new Date())}
+            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200/80 text-slate-700 text-[11px] font-semibold rounded-lg transition-all"
+          >
+            Today
+          </button>
+
           {/* Navigation */}
-          <div className="flex items-center bg-slate-100 p-1.5 rounded-2xl gap-1">
+          <div className="flex items-center bg-slate-100 p-0.5 rounded-lg gap-0.5 border border-slate-200/60">
             <button
               onClick={() => {
                 const next = new Date(currentDate);
@@ -413,12 +473,12 @@ export default function CrmCalendarView({ websiteId }) {
                 else next.setDate(next.getDate() - 7);
                 setCurrentDate(next);
               }}
-              className="p-1.5 hover:bg-white rounded-xl transition-all"
+              className="p-1 hover:bg-white rounded-md transition-all text-slate-600"
             >
-              <ChevronLeft size={16} />
+              <ChevronLeft size={14} />
             </button>
-            <span className="text-xs font-black uppercase text-slate-700 px-3">
-              {currentDate.toLocaleString("default", { month: "long", year: "numeric" })}
+            <span className="text-[11px] font-bold text-slate-800 px-2 whitespace-nowrap">
+              {currentDate.toLocaleString("default", { month: "short", year: "numeric" })}
             </span>
             <button
               onClick={() => {
@@ -428,19 +488,19 @@ export default function CrmCalendarView({ websiteId }) {
                 else next.setDate(next.getDate() + 7);
                 setCurrentDate(next);
               }}
-              className="p-1.5 hover:bg-white rounded-xl transition-all"
+              className="p-1 hover:bg-white rounded-md transition-all text-slate-600"
             >
-              <ChevronRight size={16} />
+              <ChevronRight size={14} />
             </button>
           </div>
 
           {/* Mode Selector */}
-          <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1">
+          <div className="flex bg-slate-100 p-0.5 rounded-lg gap-0.5 border border-slate-200/60">
             {VIEW_MODES.map(mode => (
               <button
                 key={mode.id}
                 onClick={() => setViewMode(mode.id)}
-                className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all ${viewMode === mode.id ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:bg-white/40"}`}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${viewMode === mode.id ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-800"}`}
               >
                 {mode.label}
               </button>
@@ -451,62 +511,76 @@ export default function CrmCalendarView({ websiteId }) {
             onClick={() => {
               setSelectedActivity(null);
               setForm({
-                title: "", type: "meeting", meetingType: "zoom", timezone: "Asia/Kolkata",
+                title: "", type: "meeting", meetingType: platforms[0]?.key || "", timezone: DEFAULT_TIMEZONE,
                 dueDate: "", endAt: "", description: "", priority: "medium",
                 reminderOffsetMinutes: "15", customerId: "", companyId: "",
                 contactId: "", dealId: "", participantsInput: ""
               });
               setShowScheduleModal(true);
             }}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-md transition-all"
+            className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[11px] font-semibold flex items-center gap-1 shadow-xs transition-all"
           >
-            <Plus size={14} /> Schedule Event
+            <Plus size={13} /> Schedule Event
           </button>
         </div>
       </div>
 
       {/* Main Grid Workspace */}
-      <div className="bg-white border border-slate-200/80 rounded-[30px] p-6 shadow-sm min-h-[500px]">
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-3.5 sm:p-4 shadow-xs">
         {loading ? (
-          <p className="text-center py-20 text-slate-400 font-bold text-xs uppercase">Loading calendar...</p>
+          <p className="text-center py-16 text-slate-400 font-semibold text-xs">Loading calendar...</p>
         ) : viewMode === "month" ? (
           /* Month View Grid */
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-7 gap-1.5">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
-              <div key={day} className="text-center text-[10px] font-black text-slate-400 uppercase pb-2 border-b">{day}</div>
+              <div key={day} className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider pb-1.5 border-b border-slate-100">{day}</div>
             ))}
-            {getDaysInMonth().map(day => {
+            {getDaysInMonth().map((day, idx) => {
+              if (!day) {
+                return <div key={`blank-${idx}`} className="min-h-[82px] rounded-xl bg-slate-50/40 border border-slate-100/60" />;
+              }
               const dayStr = day.toDateString();
+              const isToday = dayStr === todayStr;
               const dayItems = allItems.filter(item => new Date(item.dueDate).toDateString() === dayStr);
 
               return (
-                <div key={dayStr} className="min-h-[100px] border border-slate-100 rounded-2xl p-2 space-y-1 hover:bg-slate-50/55 transition-colors">
-                  <div className="text-[10px] font-black text-slate-400">{day.getDate()}</div>
-                  <div className="space-y-1 overflow-y-auto max-h-[70px]">
+                <div
+                  key={dayStr}
+                  className={`min-h-[82px] border rounded-xl p-1.5 space-y-1 transition-colors ${
+                    isToday
+                      ? "border-indigo-300 bg-indigo-50/30"
+                      : "border-slate-100 hover:bg-slate-50/60"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`text-[11px] font-bold inline-flex items-center justify-center ${
+                        isToday
+                          ? "w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px]"
+                          : "text-slate-500 px-0.5"
+                      }`}
+                    >
+                      {day.getDate()}
+                    </span>
+                    {dayItems.length > 0 && (
+                      <span className="text-[9px] font-semibold text-slate-400">{dayItems.length}</span>
+                    )}
+                  </div>
+                  <div className="space-y-1 overflow-y-auto max-h-[54px] pr-0.5">
                     {dayItems.map(item => (
                       <div
                         key={item._id}
-                        onClick={() => {
-                          setSelectedActivity(item);
-                          setForm({
-                            title: item.title,
-                            type: item.type,
-                            meetingType: item.meetingType || "zoom",
-                            timezone: item.timezone || "Asia/Kolkata",
-                            dueDate: new Date(item.dueDate).toISOString().slice(0, 16),
-                            endAt: item.endAt ? new Date(item.endAt).toISOString().slice(0, 16) : "",
-                            description: item.description || "",
-                            priority: item.priority || "medium",
-                            reminderOffsetMinutes: "15",
-                            customerId: item.customerId?._id || item.customerId || "",
-                            companyId: item.companyId?._id || item.companyId || "",
-                            contactId: item.contactId?._id || item.contactId || "",
-                            dealId: item.dealId?._id || item.dealId || "",
-                            participantsInput: ""
-                          });
-                          setShowScheduleModal(true);
-                        }}
-                        className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded truncate cursor-pointer transition-all ${item.type === "meeting" ? "bg-indigo-50 text-indigo-600 hover:bg-indigo-100" : item.type === "call" ? "bg-sky-50 text-sky-600 hover:bg-sky-100" : item.type === "reminder" ? "bg-amber-50 text-amber-600" : "bg-slate-100 text-slate-600"}`}
+                        onClick={() => openEditActivityModal(item)}
+                        title={item.title}
+                        className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md truncate cursor-pointer transition-all ${
+                          item.type === "meeting"
+                            ? "bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                            : item.type === "call"
+                              ? "bg-sky-50 text-sky-700 hover:bg-sky-100"
+                              : item.type === "reminder"
+                                ? "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                        }`}
                       >
                         {item.title}
                       </div>
@@ -687,30 +761,37 @@ export default function CrmCalendarView({ websiteId }) {
 
       {/* Schedule / Reschedule Event Modal */}
       {showScheduleModal && createPortal(
-        <div className="fixed inset-0 z-[9999] p-4 sm:p-6 flex items-center justify-center pointer-events-none">
-          <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm pointer-events-auto" onClick={() => setShowScheduleModal(false)} />
-          <div className="relative z-10 pointer-events-auto bg-white rounded-[28px] max-w-lg w-full border shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
-            <div className="flex justify-between items-center px-6 sm:px-8 py-5 border-b border-slate-100 shrink-0">
-              <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest">
-                {selectedActivity ? "Reschedule / Edit Event" : "Schedule New Event"}
-              </h4>
+        <div className="fixed inset-0 z-[9999] p-3 sm:p-4 flex items-center justify-center pointer-events-none">
+          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm pointer-events-auto" onClick={() => setShowScheduleModal(false)} />
+          <div className="relative z-10 pointer-events-auto bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col max-h-[94vh] overflow-hidden">
+            <div className="flex justify-between items-center px-5 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
+              <div className="flex items-center gap-2">
+                <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                  {selectedActivity ? "Reschedule / Edit Event" : "Schedule New Event"}
+                </h4>
+                {platforms.find(p => p.key === form.meetingType)?.urlTemplate && (
+                  <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-full">
+                    Auto join link
+                  </span>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={() => setShowScheduleModal(false)}
-                className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-all"
+                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
               >
-                <X size={18} />
+                <X size={15} />
               </button>
             </div>
 
-            <form onSubmit={handleCreateOrUpdate} className="px-6 sm:px-8 py-6 space-y-4 text-xs font-bold text-slate-600 overflow-y-auto custom-scrollbar flex-1">
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleCreateOrUpdate} className="px-5 py-3.5 space-y-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Event Type</label>
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">Event Type</label>
                   <select
                     value={form.type}
                     onChange={(e) => setForm({ ...form, type: e.target.value })}
-                    className="w-full bg-slate-50 border rounded-xl px-3 py-2"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-semibold outline-none focus:border-indigo-500"
                   >
                     <option value="meeting">Meeting</option>
                     <option value="call">Call</option>
@@ -718,12 +799,12 @@ export default function CrmCalendarView({ websiteId }) {
                   </select>
                 </div>
                 <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Meeting Platform</label>
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">Meeting Platform</label>
                   <div className="relative">
                     <select
                       value={form.meetingType}
                       onChange={(e) => setForm({ ...form, meetingType: e.target.value })}
-                      className="w-full bg-slate-50 border rounded-xl pl-9 pr-3 py-2 text-xs font-bold"
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-3 py-1.5 text-xs font-semibold outline-none focus:border-indigo-500"
                     >
                       {platforms.length > 0 ? (
                         platforms.map(p => (
@@ -732,74 +813,84 @@ export default function CrmCalendarView({ websiteId }) {
                           </option>
                         ))
                       ) : (
-                        <>
-                          <option value="jts_meet">JTS Meet</option>
-                          <option value="zoom">Zoom</option>
-                          <option value="google_meet">Google Meet</option>
-                          <option value="ms_teams">Microsoft Teams</option>
-                          <option value="phone">Phone Call</option>
-                          <option value="in_person">In Person</option>
-                        </>
+                        <option value="">No platforms configured</option>
                       )}
                     </select>
                     <div className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
-                      {renderPlatformIcon(platforms.find(p => p.key === form.meetingType)?.icon || form.meetingType, "#6366f1", 15)}
+                      {renderPlatformIcon(platforms.find(p => p.key === form.meetingType)?.icon || form.meetingType, "#6366f1", 14)}
                     </div>
                   </div>
-                  {/* Show join link hint if platform has URL template */}
-                  {platforms.find(p => p.key === form.meetingType)?.urlTemplate && (
-                    <p className="text-[9px] font-bold text-indigo-500 mt-1">
-                      ✨ Join link will be auto-generated
-                    </p>
-                  )}
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">Priority</label>
+                  <select
+                    value={form.priority}
+                    onChange={(e) => setForm({ ...form, priority: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-semibold outline-none focus:border-indigo-500"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
                 </div>
               </div>
 
-              <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Subject / Title</label>
-                <input
-                  type="text"
-                  placeholder="Meeting Subject"
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  className="w-full bg-slate-50 border rounded-xl px-4 py-2"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Start Time</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className="sm:col-span-2">
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">Subject / Title *</label>
                   <input
-                    type="datetime-local"
-                    value={form.dueDate}
-                    onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
-                    className="w-full bg-slate-50 border rounded-xl px-3 py-2"
+                    type="text"
+                    placeholder="e.g. Quarterly Account Review"
+                    value={form.title}
+                    onChange={(e) => setForm({ ...form, title: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-semibold outline-none focus:border-indigo-500"
                     required
                   />
                 </div>
                 <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">End Time</label>
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">Reminder Alert</label>
+                  <select
+                    value={form.reminderOffsetMinutes}
+                    onChange={(e) => setForm({ ...form, reminderOffsetMinutes: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-semibold outline-none focus:border-indigo-500"
+                  >
+                    <option value="5">5 Minutes Before</option>
+                    <option value="15">15 Minutes Before</option>
+                    <option value="30">30 Minutes Before</option>
+                    <option value="60">1 Hour Before</option>
+                    <option value="1440">1 Day Before</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">Start Time *</label>
+                  <input
+                    type="datetime-local"
+                    value={form.dueDate}
+                    onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-semibold outline-none focus:border-indigo-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">End Time</label>
                   <input
                     type="datetime-local"
                     value={form.endAt}
                     onChange={(e) => setForm({ ...form, endAt: e.target.value })}
-                    className="w-full bg-slate-50 border rounded-xl px-3 py-2"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-semibold outline-none focus:border-indigo-500"
                   />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Timezone</label>
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">Timezone</label>
                   <SearchableSelect
                     value={form.timezone}
-                    onChange={val => setForm({ ...form, timezone: val || "Asia/Kolkata" })}
+                    onChange={val => setForm({ ...form, timezone: val || DEFAULT_TIMEZONE })}
                     placeholder="Search timezone..."
                     options={(Intl.supportedValuesOf ? Intl.supportedValuesOf('timeZone') : [
-                      'Asia/Kolkata','UTC','America/New_York','America/Los_Angeles',
-                      'Europe/London','Europe/Paris','Asia/Dubai','Asia/Tokyo',
-                      'Australia/Sydney','Pacific/Auckland'
+                      DEFAULT_TIMEZONE, 'UTC', 'America/New_York', 'Europe/London', 'Asia/Dubai', 'Asia/Kolkata'
                     ]).map(tz => {
                       let offset = '';
                       try {
@@ -811,108 +902,98 @@ export default function CrmCalendarView({ websiteId }) {
                     emptyText="No timezone found"
                   />
                 </div>
-                <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Reminder Alert Time</label>
-                  <select
-                    value={form.reminderOffsetMinutes}
-                    onChange={(e) => setForm({ ...form, reminderOffsetMinutes: e.target.value })}
-                    className="w-full bg-slate-50 border rounded-xl px-3 py-2"
-                  >
-                    <option value="5">5 Minutes Before</option>
-                    <option value="15">15 Minutes Before</option>
-                    <option value="30">30 Minutes Before</option>
-                    <option value="60">1 Hour Before</option>
-                    <option value="1440">1 Day Before</option>
-                  </select>
-                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 border-t pt-4 border-slate-100">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 border-t border-slate-100 dark:border-slate-800 pt-2.5">
                 <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Link Customer</label>
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">Link Customer</label>
                   <SearchableSelect
                     value={form.customerId}
                     onChange={val => setForm({ ...form, customerId: val })}
                     placeholder="Select customer..."
-                    options={customers.map(c => ({ value: c._id, label: c.name || c.companyName || c._id }))}
-                    emptyText="No customers found"
+                    options={customers.map(c => ({ value: c._id, label: c.name || c.companyName || c.email }))}
+                    emptyText="No named customers found"
                   />
                 </div>
                 <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Link Company</label>
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">Link Company</label>
                   <SearchableSelect
                     value={form.companyId}
                     onChange={val => setForm({ ...form, companyId: val })}
                     placeholder="Select company..."
-                    options={companies.map(c => ({ value: c._id, label: c.companyName || c._id }))}
+                    options={companies.map(c => ({ value: c._id, label: c.companyName }))}
                     emptyText="No companies found"
                   />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Link Contact</label>
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">Link Contact</label>
                   <SearchableSelect
                     value={form.contactId}
                     onChange={val => setForm({ ...form, contactId: val })}
                     placeholder="Select contact..."
-                    options={contacts.map(c => ({ value: c._id, label: c.displayName || c.name || c._id }))}
-                    emptyText="No contacts found"
+                    options={contacts.map(c => ({
+                      value: c._id,
+                      label: c.displayName || [c.firstName, c.lastName].filter(Boolean).join(" ") || c.email
+                    }))}
+                    emptyText="No named contacts found"
                   />
                 </div>
                 <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Link Opportunity (Deal)</label>
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">Link Opportunity (Deal)</label>
                   <SearchableSelect
                     value={form.dealId}
                     onChange={val => setForm({ ...form, dealId: val })}
                     placeholder="Select deal..."
-                    options={deals.map(d => ({ value: d._id, label: d.dealName || d.name || d._id }))}
+                    options={deals.map(d => ({ value: d._id, label: d.dealName || d.name }))}
                     emptyText="No deals found"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Participants (comma separated emails)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. client@domain.com, team@jts.com"
-                  value={form.participantsInput}
-                  onChange={(e) => setForm({ ...form, participantsInput: e.target.value })}
-                  className="w-full bg-slate-50 border rounded-xl px-4 py-2"
-                />
-              </div>
-
-              <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Meeting Notes / Agenda</label>
-                <textarea
-                  placeholder="Description..."
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  className="w-full bg-slate-50 border rounded-xl px-4 py-2 h-16"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">Participants (Comma Separated Emails)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. client@domain.com, team@company.com"
+                    value={form.participantsInput}
+                    onChange={(e) => setForm({ ...form, participantsInput: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-semibold outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">Meeting Notes / Agenda</label>
+                  <input
+                    type="text"
+                    placeholder="Optional agenda or meeting notes..."
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-semibold outline-none focus:border-indigo-500"
+                  />
+                </div>
               </div>
 
               {/* Join Meeting link button for host */}
               {selectedActivity && selectedActivity.meetingLink && (
-                <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 flex flex-col items-center gap-2">
-                  <p className="text-[10px] font-black text-indigo-600 uppercase">⚡ Host Controls</p>
+                <div className="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-800 rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase">Host Controls</p>
+                    <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 truncate">
+                      {selectedActivity.meetingLink}
+                    </p>
+                  </div>
                   <a
                     href={selectedActivity.meetingLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full text-center py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase rounded-xl shadow-md inline-block"
+                    className="shrink-0 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black uppercase rounded-lg shadow-sm"
                   >
-                    🎯 Join Meeting Room
+                    Join Meeting
                   </a>
-                  <p className="text-[9px] font-bold text-slate-400 truncate max-w-full">
-                    Link: {selectedActivity.meetingLink}
-                  </p>
                 </div>
               )}
 
-              <div className="flex gap-2 border-t pt-4 flex-wrap">
+              <div className="flex items-center justify-end gap-2 border-t border-slate-100 dark:border-slate-800 pt-3 flex-wrap">
                 {selectedActivity && (
                   <button
                     type="button"
@@ -922,7 +1003,7 @@ export default function CrmCalendarView({ websiteId }) {
                         {
                           "Event Title": form.title,
                           "Activity Type": (form.type || "MEETING").toUpperCase(),
-                          "Meeting Platform": (form.meetingType || "ZOOM").toUpperCase(),
+                          "Meeting Platform": (form.meetingType || "N/A").toUpperCase(),
                           "Scheduled Date & Time": form.dueDate ? new Date(form.dueDate).toLocaleString() : "-",
                           "End Time": form.endAt ? new Date(form.endAt).toLocaleString() : "-",
                           "Priority": (form.priority || "MEDIUM").toUpperCase(),
@@ -931,17 +1012,24 @@ export default function CrmCalendarView({ websiteId }) {
                         `Event_${(form.title || "Record").replace(/\s+/g, '_')}`
                       );
                     }}
-                    className="py-2.5 px-4 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-black uppercase rounded-xl flex items-center gap-1.5 transition-all"
+                    className="mr-auto py-2 px-3.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-black uppercase rounded-xl flex items-center gap-1.5 transition-all"
                     title="Export Single Meeting PDF"
                   >
-                    <Printer size={13} /> Export PDF
+                    <Printer size={12} /> Export PDF
                   </button>
                 )}
-                <button type="button" onClick={() => setShowScheduleModal(false)} className="flex-1 py-2.5 bg-slate-100 text-slate-700 text-xs font-black uppercase rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setShowScheduleModal(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[10px] font-black uppercase rounded-xl transition-colors"
+                >
                   Cancel
                 </button>
-                <button type="submit" className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase rounded-xl shadow-md">
-                  Confirm Event
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black uppercase rounded-xl shadow-sm transition-colors"
+                >
+                  {selectedActivity ? "Save Event" : "Confirm Event"}
                 </button>
               </div>
             </form>

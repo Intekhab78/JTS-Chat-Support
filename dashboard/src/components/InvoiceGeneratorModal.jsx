@@ -15,7 +15,7 @@ export default function InvoiceGeneratorModal({ isOpen, onClose, defaultItem = n
 
   const [lineItems, setLineItems] = useState([
     {
-      description: defaultItem?.name || "Corporate Tax Filing & VAT Consultation",
+      description: defaultItem?.name || "Enterprise Customer Support & Platform Subscription",
       sku: defaultItem?.sku || "COR-ALR-8777",
       qty: defaultItem?.quantity || 1,
       unitPrice: defaultItem?.unitCost || 2500,

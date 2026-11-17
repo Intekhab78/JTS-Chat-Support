@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Activity, UserPlus, Ticket, MessageCircle, UserCheck, Globe, Clock, RefreshCw } from "lucide-react";
 import { useSocket } from "../context/SocketContext.jsx";
+import { api } from "../api/client.js";
 
 const EVENT_CONFIG = {
   "lead:created": { icon: UserPlus, color: "text-emerald-500", bg: "bg-emerald-50", label: "New Lead" },
@@ -11,10 +12,31 @@ const EVENT_CONFIG = {
   "website:registered": { icon: Globe, color: "text-purple-500", bg: "bg-purple-50", label: "Website Registered" }
 };
 
-export default function RealTimeActivityCenter() {
+export default function RealTimeActivityCenter({ onDataLoaded }) {
   const socket = useSocket();
   const [events, setEvents] = useState([]);
   const [connected, setConnected] = useState(false);
+
+  useEffect(() => {
+    api("/api/audit?limit=15")
+      .then((res) => {
+        const logs = Array.isArray(res) ? res : (res?.logs || res?.data || []);
+        if (logs.length > 0) {
+          const mapped = logs.map((log) => ({
+            id: log._id || Date.now() + Math.random(),
+            type: log.action?.includes("ticket") ? "ticket:created" : log.action?.includes("lead") || log.action?.includes("customer") ? "lead:created" : "chat:started",
+            payload: {
+              message: log.details || `${log.entityType || "System"}: ${log.action || "activity"}`,
+              user: log.actorName || log.userId?.name || log.userId?.email || "System"
+            },
+            timestamp: new Date(log.createdAt || Date.now())
+          }));
+          setEvents(mapped);
+          onDataLoaded?.(mapped.map(e => ({ Type: e.type, Message: e.payload.message, Actor: e.payload.user, Time: e.timestamp.toLocaleString() })));
+        }
+      })
+      .catch(() => { });
+  }, []);
 
   useEffect(() => {
     if (!socket) return;
@@ -51,18 +73,7 @@ export default function RealTimeActivityCenter() {
     };
   }, [socket]);
 
-  // Mock initial data if empty to show the premium UI
-  useEffect(() => {
-    if (events.length === 0) {
-      setEvents([
-        { id: '1', type: 'lead:created', payload: { message: "John Doe from Acme Corp submitted details", user: "John Doe" }, timestamp: new Date(Date.now() - 1000 * 60 * 2) },
-        { id: '2', type: 'chat:started', payload: { message: "New visitor session started on domain.com", user: "Visitor-891" }, timestamp: new Date(Date.now() - 1000 * 60 * 15) },
-        { id: '3', type: 'ticket:created', payload: { message: "Payment failing on checkout page", user: "Sarah Smith" }, timestamp: new Date(Date.now() - 1000 * 60 * 45) },
-        { id: '4', type: 'chat:assigned', payload: { message: "Agent Michael assigned to Visitor-891", user: "Michael" }, timestamp: new Date(Date.now() - 1000 * 60 * 60) },
-        { id: '5', type: 'ticket:resolved', payload: { message: "Password reset issue resolved", user: "Agent Sarah" }, timestamp: new Date(Date.now() - 1000 * 60 * 120) }
-      ]);
-    }
-  }, [events.length]);
+  // Real-time events only (no fake seeded events)
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">

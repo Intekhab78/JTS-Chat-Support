@@ -7,9 +7,12 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { sendEmail } from "../services/emailService.js";
 import { passwordResetTemplate } from "../utils/emailTemplates.js";
 import { logAuditEvent } from "../services/auditService.js";
+import { verifyRecaptchaToken } from "../utils/recaptcha.js";
 
 // POST /api/auth/forgot-password
 export const forgotPassword = asyncHandler(async (req, res, next) => {
+  await verifyRecaptchaToken(req.body?.captchaToken, req.ip);
+
   const { email } = req.body;
   if (!email) return next(new AppError("Email is required", 400));
 

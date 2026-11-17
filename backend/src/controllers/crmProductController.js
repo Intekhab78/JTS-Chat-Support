@@ -5,6 +5,7 @@ import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
+import { escapeRegex, sanitizeUpdatePayload } from "../utils/regexUtils.js";
 
 // -- Category Endpoints --
 export const listCategories = asyncHandler(async (req, res) => {
@@ -14,6 +15,9 @@ export const listCategories = asyncHandler(async (req, res) => {
 
   const query = {};
   if (validWebsiteId) {
+    if (ownedWebsiteIds && ownedWebsiteIds.length > 0 && !ownedWebsiteIds.some((id) => String(id) === validWebsiteId)) {
+      return res.status(403).json({ message: "Access denied for this website" });
+    }
     query.websiteId = validWebsiteId;
   } else if (ownedWebsiteIds && ownedWebsiteIds.length > 0) {
     query.websiteId = { $in: ownedWebsiteIds };
@@ -60,6 +64,9 @@ export const listProducts = asyncHandler(async (req, res) => {
   const invQuery = { isDeleted: { $ne: true } };
 
   if (validWebsiteId) {
+    if (ownedWebsiteIds && ownedWebsiteIds.length > 0 && !ownedWebsiteIds.some((id) => String(id) === validWebsiteId)) {
+      return res.status(403).json({ message: "Access denied for this website" });
+    }
     query.websiteId = validWebsiteId;
     invQuery.websiteId = validWebsiteId;
   } else if (ownedWebsiteIds && ownedWebsiteIds.length > 0) {
@@ -69,7 +76,7 @@ export const listProducts = asyncHandler(async (req, res) => {
 
   if (category) query.category = category;
   if (search && search.trim() !== "") {
-    const searchRegex = new RegExp(search.trim(), "i");
+    const searchRegex = new RegExp(escapeRegex(search.trim()), "i");
     query.$or = [
       { name: searchRegex },
       { sku: searchRegex },
@@ -151,7 +158,7 @@ export const updateProduct = asyncHandler(async (req, res) => {
     throw new AppError("Unauthorized access", 403);
   }
 
-  const updated = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  const updated = await Product.findByIdAndUpdate(req.params.id, sanitizeUpdatePayload(req.body), { new: true });
   res.json(updated);
 });
 

@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { Website } from "../models/Website.js";
 import { getOwnedWebsiteIds, normalizeRole } from "../utils/roleUtils.js";
 import { generateApiKey } from "../utils/generateKey.js";
@@ -15,12 +16,15 @@ function buildEmbedScript(apiKey) {
 }
 
 export async function createWebsite(req, res) {
-  const tenantId = req.user.role === "client" ? req.user._id : req.user.managerId;
-  const tenant = req.user.role === "client" ? req.user : await User.findById(tenantId).select("subscription");
-  const subscription = resolveSubscriptionForUser(tenant);
-  const websiteCount = await Website.countDocuments({ managerId: tenantId });
-  if (websiteCount >= (subscription.limits?.websites || 0)) {
-    return res.status(403).json({ message: `Your ${subscription.plan} plan allows up to ${subscription.limits?.websites || 0} websites.` });
+  const isAdmin = req.user.role === "admin";
+  const tenantId = isAdmin || req.user.role === "client" ? req.user._id : req.user.managerId;
+  if (!isAdmin) {
+    const tenant = req.user.role === "client" ? req.user : await User.findById(tenantId).select("subscription");
+    const subscription = resolveSubscriptionForUser(tenant);
+    const websiteCount = await Website.countDocuments({ managerId: tenantId });
+    if (websiteCount >= (subscription.limits?.websites || 0)) {
+      return res.status(403).json({ message: `Your ${subscription.plan} plan allows up to ${subscription.limits?.websites || 0} websites.` });
+    }
   }
 
   const website = await Website.create({
@@ -174,4 +178,66 @@ export async function deleteWebsite(req, res) {
 
   broadcastDataChange({ entity: "website", action: "deleted", websiteId: website._id, data: { id: website._id } });
   return res.json({ message: "Website deleted successfully", _id: website._id });
+}
+
+export async function testWebsiteWebhook(req, res) {
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const role = normalizeRole(req.user.role);
+  if (role !== "admin" && !ownedWebsiteIds.map((id) => id.toString()).includes(req.params.id)) {
+    return res.status(403).json({ message: "Access denied" });
+  }
+
+  const { url, secret = "", events = ["webhook.test"] } = req.body || {};
+  const targetUrl = String(url || "").trim();
+  if (!/^https?:\/\//i.test(targetUrl)) {
+    return res.status(400).json({ message: "Valid http:// or https:// webhook URL is required." });
+  }
+
+  try {
+    const parsed = new URL(targetUrl);
+    if (process.env.NODE_ENV === "production" && /^(localhost|127\.0\.0\.1|0\.0\.0\.0|10\.|192\.168\.|169\.254\.)/i.test(parsed.hostname)) {
+      return res.status(400).json({ message: "Private/local webhook targets are not allowed in production." });
+    }
+  } catch {
+    return res.status(400).json({ message: "Invalid webhook URL." });
+  }
+
+  const payload = JSON.stringify({
+    event: "webhook.test",
+    subscribedEvents: Array.isArray(events) ? events : [],
+    websiteId: req.params.id,
+    timestamp: new Date().toISOString(),
+    message: "Test ping from Chat Support Platform"
+  });
+
+  const headers = {
+    "Content-Type": "application/json",
+    "X-Webhook-Event": "webhook.test"
+  };
+  if (secret) {
+    headers["X-Webhook-Signature"] = crypto.createHmac("sha256", String(secret)).update(payload).digest("hex");
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch(targetUrl, {
+      method: "POST",
+      headers,
+      body: payload,
+      signal: controller.signal
+    });
+    return res.json({
+      ok: response.ok,
+      status: response.status,
+      statusText: response.statusText || (response.ok ? "OK" : "Error")
+    });
+  } catch (err) {
+    return res.status(502).json({
+      ok: false,
+      message: err.name === "AbortError" ? "Webhook endpoint timed out (5s)" : (err.message || "Failed to reach webhook URL")
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 }

@@ -4,9 +4,12 @@ import {
   createRisk,
   updateRisk,
   deleteRisk,
-  addRiskComment
+  addRiskComment,
+  addRiskAttachment,
+  deleteRiskAttachment
 } from "../controllers/riskController.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { upload } from "../utils/multerConfig.js";
 
 const router = Router();
 
@@ -17,5 +20,7 @@ router.post("/", requireRole("admin", "client", "manager", "management", "tax_co
 router.patch("/:id", requireRole("admin", "client", "manager", "management", "tax_consultant"), updateRisk);
 router.delete("/:id", requireRole("admin", "client", "manager"), deleteRisk);
 router.post("/:id/comments", requireRole("admin", "client", "manager", "management", "tax_consultant"), addRiskComment);
+router.post("/:id/attachments", requireRole("admin", "client", "manager", "management", "tax_consultant"), upload.single("attachment"), addRiskAttachment);
+router.delete("/:id/attachments/:attachmentId", requireRole("admin", "client", "manager", "management", "tax_consultant"), deleteRiskAttachment);
 
 export default router;

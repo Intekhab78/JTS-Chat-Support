@@ -5,5 +5,6 @@ const router = Router();
 
 router.get("/", creditNoteController.listCreditNotes);
 router.post("/", creditNoteController.createCreditNote);
+router.patch("/:id", creditNoteController.updateCreditNoteStatus);
 
 export default router;

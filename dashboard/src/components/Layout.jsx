@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   LayoutDashboard, Users, Globe, Headphones, MessageSquare, BarChart, ChevronLeft,
   ChevronRight, LogOut, Sun, Moon, Bell, Ticket, AlertTriangle, AlertCircle, Clock, Menu, X,
@@ -11,7 +11,7 @@ import {
   Scale, Truck, ArrowDownRight, ArrowUpRight, Sliders, ShoppingCart, LayoutGrid, FilePlus,
   Landmark, BarChart2, BookOpen, Receipt, TrendingUp, BrainCircuit, Target, UserPlus,
   Briefcase, Grid, Zap, GitMerge, Lock, HelpCircle, UserCheck, FileCheck, Code2, RefreshCw,
-  PhoneMissed
+  PhoneMissed, Settings
 } from "lucide-react";
 import { api, getBackendStatus, resolveActiveBackend, setActiveApiBase, DEFAULT_LOCAL_API_URL } from "../api/client.js";
 import { useSocket } from "../context/SocketContext.jsx";
@@ -42,18 +42,16 @@ function getAvatarColor(name = "") {
 
 const iconMap = {
   "Dashboard": LayoutDashboard,
+  "Overview": LayoutDashboard,
   "Clients": Users,
   "Websites": Globe,
   "Agents": Headphones,
   "Chats": MessageSquare,
+  "Live Chat": MessageSquare,
   "Assigned Chats": MessageSquare,
   "Tickets": Ticket,
   "CRM": Contact,
   "Customer Master": UserCheck,
-  "VAT Compliance": FileSpreadsheet,
-  "Corporate Tax": Building2,
-  "Trade License": ShieldAlert,
-  "Compliance Reports": FileCheck,
   "Risk Register": AlertTriangle,
   "SLA & SLO Center": Award,
   "Observability Center": Activity,
@@ -65,7 +63,7 @@ const iconMap = {
   "Compliance Governance": ShieldCheck,
   "Mobile Center": Smartphone,
   "Integration Hub": Network,
-  "Workflow Builder": GitBranch,
+  "Workflow Builder": GitMerge,
   "Flow Builder": GitBranch,
   "AI Voice Logs": Radio,
   "AI Knowledge Base": BookOpen,
@@ -74,8 +72,8 @@ const iconMap = {
   "Low-Code Studio": Boxes,
   "Custom Modules": Database,
   "Enterprise BI": PieChart,
-  "Multi-Org Center": Building,
-  "Mission Control": Radio,
+  "Multi-Org Center": Building2,
+  "Mission Control": Compass,
   "Financial Center": DollarSign,
 
   "Inventory": Package,
@@ -94,7 +92,8 @@ const iconMap = {
   "Unit Master": Scale,
   "Suppliers": Truck,
   "Supplier Master": Truck,
-  "VAT Master": Receipt,
+  "Tax Master": FileSpreadsheet,
+  "VAT Master": FileSpreadsheet,
   "Stock Movement": RefreshCw,
   "Stock In": ArrowDownRight,
   "Stock Out": ArrowUpRight,
@@ -104,7 +103,7 @@ const iconMap = {
   "Purchase Dashboard": LayoutGrid,
   "Purchase Orders": FileText,
   "Purchase Requests": FilePlus,
-  "Purchase Accounts": CreditCard,
+  "Purchase Accounts": Landmark,
 
   "Finance (Accounts)": Landmark,
   "Finance Dashboard": BarChart2,
@@ -125,21 +124,60 @@ const iconMap = {
   "Security": Lock,
   "Help Center": HelpCircle,
   "Billing": CreditCard,
-  "Subscriptions": ShieldCheck,
-  "Role Master": UserCheck,
-  "Orders": FileText,
+  "Subscriptions": Award,
+  "Role Master": ShieldAlert,
+  "Orders": ShoppingBag,
   "Catalog": Package,
-  "Ledger": CreditCard,
-  "Insights": BarChart,
+  "Ledger": BookOpen,
+  "Insights": TrendingUp,
   "Invoices": Receipt,
+  "Command Center": LayoutDashboard,
+  "Performance": BarChart2,
+  "Active Queue": MessageSquare,
+  "My Team": Users,
+  "Pipeline": Target,
+  "Tasks": FileCheck,
+  "Notes": FileText,
+  "Requests": FilePlus,
+  "Procurement": ShoppingCart,
+  "Settings": Settings,
+  "Company Settings": Settings,
+  "Inventory Master": Package,
+  "CRM Pipeline": Contact,
+  "Integrations Hub": Network,
+  "Security Center": Lock,
+  "Billing & Plans": CreditCard,
 };
+
+function resolveMenuIcon(item) {
+  if (item?.icon) return item.icon;
+  const label = String(item?.label || "").trim();
+  if (iconMap[label]) return iconMap[label];
+  const lower = `${label} ${item?.href || ""}`.toLowerCase();
+  if (lower.includes("chat")) return MessageSquare;
+  if (lower.includes("invoice")) return Receipt;
+  if (lower.includes("ledger")) return BookOpen;
+  if (lower.includes("bill")) return CreditCard;
+  if (lower.includes("ticket")) return Ticket;
+  if (lower.includes("crm")) return Contact;
+  if (lower.includes("customer")) return UserCheck;
+  if (lower.includes("inventory") || lower.includes("catalog")) return Package;
+  if (lower.includes("procure") || lower.includes("purchase")) return ShoppingCart;
+  if (lower.includes("report") || lower.includes("analytic")) return BarChart;
+  if (lower.includes("insight")) return TrendingUp;
+  if (lower.includes("role")) return ShieldAlert;
+  if (lower.includes("security")) return Lock;
+  if (lower.includes("setting")) return Settings;
+  if (lower.includes("team") || lower.includes("agent")) return Users;
+  return LayoutDashboard;
+}
 
 /* ── nav link ─────────────────────────────────────── */
 function SideNavLink({ item, collapsed, onNavigate, isChild = false }) {
   const location = useLocation();
   const currentPath = `${location.pathname}${location.search}`;
   const isActive = currentPath === item.href;
-  const Icon = iconMap[item.label] || LayoutDashboard;
+  const Icon = resolveMenuIcon(item);
 
   return (
     <NavLink
@@ -149,18 +187,18 @@ function SideNavLink({ item, collapsed, onNavigate, isChild = false }) {
         `relative flex items-center gap-3 rounded-2xl transition-all duration-200 group
          ${collapsed ? "justify-center px-0 py-3" : isChild ? "px-8 py-2.5" : "px-4 py-2.5"}
          ${isActive
-          ? "bg-indigo-600/20 text-indigo-300"
-          : "text-slate-400 hover:text-white hover:bg-white/5"
+          ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-600/20 dark:text-indigo-300"
+          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5"
         }`
       }
     >
       {isActive && (
-        <div className="absolute left-0 w-1 h-6 bg-indigo-500 rounded-r-full shadow-[0_0_12px_rgba(99,102,241,0.7)]" />
+        <div className="absolute left-0 w-1 h-6 bg-indigo-600 dark:bg-indigo-500 rounded-r-full" />
       )}
       <Icon
         size={collapsed ? 22 : 17}
         className={`shrink-0 transition-transform duration-200 group-hover:scale-110
-          ${isActive ? "text-indigo-300" : "text-slate-400 group-hover:text-white"}`}
+          ${isActive ? "text-indigo-600 dark:text-indigo-300" : "text-slate-400 group-hover:text-slate-700 dark:group-hover:text-white"}`}
       />
       {!collapsed && (
         <span className="text-[11px] font-black uppercase tracking-[0.12em] truncate">
@@ -172,7 +210,7 @@ function SideNavLink({ item, collapsed, onNavigate, isChild = false }) {
 }
 
 function SidebarNavItem({ item, collapsed, onNavigate, currentPath, expandedMenus, setExpandedMenus, isChild = false }) {
-  const Icon = iconMap[item.label] || LayoutDashboard;
+  const Icon = resolveMenuIcon(item);
   const children = Array.isArray(item.children) ? item.children : [];
   const hasChildren = children.length > 0;
   const childActive = hasChildren && children.some((child) => child.href === currentPath);
@@ -189,13 +227,13 @@ function SidebarNavItem({ item, collapsed, onNavigate, currentPath, expandedMenu
         onClick={() => setExpandedMenus((current) => ({ ...current, [item.label]: !current[item.label] }))}
         className={`relative flex w-full items-center gap-3 rounded-2xl transition-all duration-200 group ${collapsed ? "justify-center px-0 py-3" : isChild ? "px-8 py-2.5" : "px-4 py-2.5"
           } ${isExpanded || childActive
-            ? "bg-indigo-600/20 text-indigo-300"
-            : "text-slate-400 hover:text-white hover:bg-white/5"
+            ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-600/20 dark:text-indigo-300"
+            : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5"
           }`}
       >
         <Icon
           size={collapsed ? 22 : 17}
-          className={`shrink-0 transition-transform duration-200 group-hover:scale-110 ${isExpanded || childActive ? "text-indigo-300" : "text-slate-400 group-hover:text-white"
+          className={`shrink-0 transition-transform duration-200 group-hover:scale-110 ${isExpanded || childActive ? "text-indigo-600 dark:text-indigo-300" : "text-slate-400 group-hover:text-slate-700 dark:group-hover:text-white"
             }`}
         />
         {!collapsed && (
@@ -205,7 +243,7 @@ function SidebarNavItem({ item, collapsed, onNavigate, currentPath, expandedMenu
             </span>
             <ChevronDown
               size={15}
-              className={`transition-transform duration-200 ${isExpanded ? "rotate-180 text-indigo-300" : "text-slate-400 group-hover:text-white"
+              className={`transition-transform duration-200 ${isExpanded ? "rotate-180 text-indigo-600 dark:text-indigo-300" : "text-slate-400 group-hover:text-slate-700 dark:group-hover:text-white"
                 }`}
             />
           </>
@@ -213,7 +251,7 @@ function SidebarNavItem({ item, collapsed, onNavigate, currentPath, expandedMenu
       </button>
 
       {!collapsed && isExpanded && (
-        <div className="space-y-1 pl-2.5 py-1 bg-white/[0.02] border-l border-white/5 rounded-r-2xl mt-1">
+        <div className="space-y-1 pl-2.5 py-1 bg-slate-50/70 dark:bg-white/[0.02] border-l border-slate-200/80 dark:border-white/5 rounded-r-2xl mt-1">
           {children.map((child) => (
             <SidebarNavItem
               key={child.label}
@@ -297,11 +335,11 @@ function SidebarContent({ links, collapsed, onNavigate, user, isDarkMode, setIsD
         ) : (
           <div className="animate-fade-in">
             <div className="flex items-center gap-2 mb-1">
-              <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(99,102,241,0.8)]" />
+              <div className="w-2 h-2 bg-indigo-600 rounded-full animate-pulse" />
               <span className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">Command Center</span>
             </div>
-            <h1 className="text-xl font-black text-white tracking-tight leading-none">
-              JTS <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-cyan-400 italic">Support</span>
+            <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
+              JTS <span className="text-indigo-600 dark:text-indigo-400 italic">Support</span>
             </h1>
           </div>
         )}
@@ -326,7 +364,7 @@ function SidebarContent({ links, collapsed, onNavigate, user, isDarkMode, setIsD
       </nav>
 
       {/* User panel */}
-      <div className={`mx-3 mb-4 shrink-0 rounded-2xl border border-white/5 bg-white/5 backdrop-blur-sm ${collapsed ? "p-2" : "p-4"}`}>
+      <div className={`mx-3 mb-4 shrink-0 rounded-2xl border border-slate-200/80 bg-slate-50/80 dark:border-white/5 dark:bg-white/5 ${collapsed ? "p-2" : "p-4"}`}>
         {collapsed ? (
           <div className="flex flex-col items-center gap-3">
             <div
@@ -338,7 +376,7 @@ function SidebarContent({ links, collapsed, onNavigate, user, isDarkMode, setIsD
             <button
               onClick={() => setIsDarkMode(d => !d)}
               title={isDarkMode ? "Light mode" : "Dark mode"}
-              className="p-2 text-slate-400 hover:text-indigo-400 hover:bg-indigo-400/10 rounded-xl transition-all"
+              className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:text-slate-400 dark:hover:text-indigo-400 dark:hover:bg-indigo-400/10 rounded-xl transition-all"
             >
               {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
             </button>
@@ -350,8 +388,8 @@ function SidebarContent({ links, collapsed, onNavigate, user, isDarkMode, setIsD
                 {getInitials(user?.name || "")}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[12px] font-black text-white truncate">{user?.name}</p>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest truncate">
+                <p className="text-[12px] font-black text-slate-900 dark:text-white truncate">{user?.name}</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest truncate">
                   {role === "admin" ? "Global Admin" : role}
                 </p>
               </div>
@@ -360,14 +398,14 @@ function SidebarContent({ links, collapsed, onNavigate, user, isDarkMode, setIsD
               <button
                 onClick={() => setIsDarkMode(d => !d)}
                 title="Toggle theme"
-                className="flex-1 flex items-center justify-center py-2 rounded-xl text-slate-400 hover:text-white bg-white/5 border border-white/5 hover:border-white/10 transition-all"
+                className="flex-1 flex items-center justify-center py-2 rounded-xl text-slate-500 hover:text-slate-900 bg-white border border-slate-200/80 hover:border-slate-300 dark:text-slate-400 dark:hover:text-white dark:bg-white/5 dark:border-white/5 dark:hover:border-white/10 transition-all"
               >
                 {isDarkMode ? <Sun size={14} /> : <Moon size={14} />}
               </button>
               <button
                 onClick={logout}
                 title="Sign out"
-                className="flex-1 flex items-center justify-center py-2 rounded-xl text-slate-400 hover:text-rose-400 bg-white/5 border border-white/5 hover:border-rose-400/20 transition-all group"
+                className="flex-1 flex items-center justify-center py-2 rounded-xl text-slate-500 hover:text-rose-600 bg-white border border-slate-200/80 hover:border-rose-200 dark:text-slate-400 dark:hover:text-rose-400 dark:bg-white/5 dark:border-white/5 dark:hover:border-rose-400/20 transition-all group"
               >
                 <LogOut size={14} className="group-hover:-translate-x-0.5 transition-transform" />
               </button>
@@ -397,6 +435,8 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notificationFilter, setNotificationFilter] = useState("all");
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const profileMenuRef = useRef(null);
 
   const [backendStatus, setBackendStatus] = useState(getBackendStatus);
 
@@ -427,6 +467,25 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
     localStorage.setItem("themeAccent", accentTheme);
   }, [accentTheme]);
 
+  /* Close profile menu on outside click or Escape */
+  useEffect(() => {
+    if (!showProfileMenu) return;
+    const handleOutside = (e) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target)) {
+        setShowProfileMenu(false);
+      }
+    };
+    const handleKey = (e) => {
+      if (e.key === "Escape") setShowProfileMenu(false);
+    };
+    document.addEventListener("mousedown", handleOutside);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleOutside);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [showProfileMenu]);
+
 
   /* Browser Notification Permissions */
   useEffect(() => {
@@ -449,6 +508,21 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
     document.body.style.overflow = mobileOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [mobileOpen]);
+
+  /* Auto-collapse left sidebar only when opening Chats tab or selecting a chat session */
+  const prevChatStateRef = useRef({ isChats: false, sessionId: "" });
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const isChats = params.get("tab") === "chats";
+    const sessionId = params.get("sessionId") || "";
+    const prev = prevChatStateRef.current;
+
+    if (isChats && (!prev.isChats || (sessionId && sessionId !== prev.sessionId))) {
+      setIsCollapsed(true);
+    }
+
+    prevChatStateRef.current = { isChats, sessionId };
+  }, [location.pathname, location.search]);
 
   /* Notifications */
   const fetchNotifications = useCallback(async () => {
@@ -489,7 +563,7 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
   const fallback = [];
 
   // Dashboard is always first, route depends on role
-  const dashboardHref = role === "admin" ? "/admin" : role === "manager" ? "/manager" : role === "client" ? "/client" : role === "supplier" ? "/supplier?tab=dashboard" : role === "accounts" ? "/accounts" : "/agent";
+  const dashboardHref = role === "admin" ? "/admin" : role === "manager" ? "/manager" : role === "client" ? "/client" : role === "sales" ? "/sales" : role === "purchase" ? "/purchase" : role === "supplier" ? "/supplier?tab=dashboard" : role === "accounts" ? "/accounts" : "/agent";
   fallback.push({ label: "Dashboard", href: dashboardHref });
 
   // Dynamically add items based on permissions
@@ -534,33 +608,36 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
   if (role === "accounts") {
     fallback.length = 0;
     fallback.push({ label: "Dashboard", href: "/accounts" });
-    fallback.push({ label: "Invoices", href: "/accounts?tab=invoices" });
-    fallback.push({ label: "Ledger", href: "/accounts?tab=ledger" });
-    fallback.push({ label: "Billing", href: "/accounts?tab=billing" });
-    fallback.push({ label: "Reports", href: "/accounts?tab=reports" });
+    if (hasPermission(user, PERMISSIONS.INVOICE_VIEW) || hasPermission(user, PERMISSIONS.INVOICE_MANAGE)) {
+      fallback.push({ label: "Invoices", href: "/accounts?tab=invoices" });
+    }
+    if (hasPermission(user, PERMISSIONS.ACCOUNTS_VIEW)) {
+      fallback.push({ label: "Ledger", href: "/accounts?tab=ledger" });
+    }
+    if (hasPermission(user, PERMISSIONS.BILLING_VIEW)) {
+      fallback.push({ label: "Billing", href: "/accounts?tab=billing" });
+    }
+    if (hasPermission(user, PERMISSIONS.CHAT_VIEW)) {
+      fallback.push({ label: "Live Chat", href: "/accounts?tab=chats" });
+    }
+    if (hasPermission(user, PERMISSIONS.CRM_VIEW)) {
+      fallback.push({ label: "CRM", href: "/accounts?tab=crm" });
+    }
+    if (hasPermission(user, PERMISSIONS.TICKET_VIEW)) {
+      fallback.push({ label: "Tickets", href: "/accounts?tab=tickets" });
+    }
+    if (hasPermission(user, PERMISSIONS.INVENTORY_VIEW)) {
+      fallback.push({ label: "Inventory", href: "/accounts?tab=inventory" });
+    }
+    if (hasPermission(user, PERMISSIONS.REPORTS_VIEW)) {
+      fallback.push({ label: "Reports", href: "/accounts?tab=reports" });
+    }
   }
 
   // Dynamic Tax & Compliance Sidebar Menu Links
   if (role === "tax_consultant" || hasPermission(user, "tax.view") || hasPermission(user, "tax.vat")) {
     if (role === "tax_consultant") {
       fallback.length = 0;
-      fallback.push({ label: "Dashboard", href: "/tax-consultant?tab=tax-consultant-dashboard" });
-    }
-
-    if (role === "tax_consultant" || role === "admin" || hasPermission(user, "tax.vat") || hasPermission(user, "tax.view")) {
-      fallback.push({ label: "VAT Compliance", href: role === "tax_consultant" ? "/tax-consultant?tab=vat-compliance" : `${dashboardHref}?tab=vat-compliance` });
-    }
-    if (role === "tax_consultant" || role === "admin" || hasPermission(user, "tax.corporate_tax") || hasPermission(user, "tax.view")) {
-      fallback.push({ label: "Corporate Tax", href: role === "tax_consultant" ? "/tax-consultant?tab=corporate-tax" : `${dashboardHref}?tab=corporate-tax` });
-    }
-    if (role === "tax_consultant" || role === "admin" || hasPermission(user, "tax.trade_license") || hasPermission(user, "tax.view")) {
-      fallback.push({ label: "Trade License", href: role === "tax_consultant" ? "/tax-consultant?tab=trade-license" : `${dashboardHref}?tab=trade-license` });
-    }
-    if (role === "tax_consultant" || role === "admin" || hasPermission(user, "tax.reports") || hasPermission(user, "tax.view")) {
-      fallback.push({ label: "Compliance Reports", href: role === "tax_consultant" ? "/tax-consultant?tab=compliance-reports" : `${dashboardHref}?tab=compliance-reports` });
-    }
-
-    if (role === "tax_consultant") {
       fallback.push({ label: "CRM", href: "/tax-consultant?tab=crm" });
       fallback.push({ label: "Customer Master", href: "/tax-consultant?tab=inventory-customer" });
     }
@@ -575,27 +652,12 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
     { label: "Tickets", href: "/admin?tab=tickets" },
     { label: "CRM", href: "/admin?tab=crm" },
     { label: "Customer Master", href: "/admin?tab=inventory-customer" },
-    { label: "VAT Compliance", href: "/admin?tab=vat-compliance" },
-    { label: "Corporate Tax", href: "/admin?tab=corporate-tax" },
-    { label: "Trade License", href: "/admin?tab=trade-license" },
-    { label: "Compliance Reports", href: "/admin?tab=compliance-reports" },
     { label: "Risk Register", href: "/admin?tab=risk-register" },
     { label: "SLA & SLO Center", href: "/admin?tab=sla-center" },
     { label: "Observability Center", href: "/admin?tab=observability" },
-    { label: "Load & Capacity Center", href: "/admin?tab=load-testing" },
-    { label: "Release Center", href: "/admin?tab=release-management" },
     { label: "Developer Portal", href: "/admin?tab=developer-portal" },
-    { label: "Product & Roadmap", href: "/admin?tab=product-management" },
-    { label: "AI & Automation Center", href: "/admin?tab=ai-automation" },
-    { label: "Compliance Governance", href: "/admin?tab=compliance-governance" },
-    { label: "Mobile Center", href: "/admin?tab=mobile-readiness" },
     { label: "Integration Hub", href: "/admin?tab=enterprise-integrations" },
-    { label: "Workflow Builder", href: "/admin?tab=workflow-builder" },
-    { label: "App Marketplace", href: "/admin?tab=app-marketplace" },
     { label: "Low-Code Studio", href: "/admin?tab=lowcode-studio" },
-    { label: "Custom Modules", href: "/admin?tab=custom-crm-modules" },
-    { label: "Enterprise BI", href: "/admin?tab=enterprise-bi" },
-    { label: "Multi-Org Center", href: "/admin?tab=multi-organization" },
     { label: "Mission Control", href: "/admin?tab=mission-control" },
     { label: "Financial Center", href: "/admin?tab=financial-analytics" },
     {
@@ -609,7 +671,7 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
         { label: "Color Master", href: "/admin?tab=inventory-color" },
         { label: "Unit Master", href: "/admin?tab=inventory-unit" },
         { label: "Supplier Master", href: "/admin?tab=inventory-supplier" },
-        { label: "VAT Master", href: "/admin?tab=inventory-vat" },
+        { label: "Tax Master", href: "/admin?tab=inventory-tax" },
         { label: "Stock In", href: "/admin?tab=inventory-stock-in" },
         { label: "Stock Out", href: "/admin?tab=inventory-stock-out" },
         { label: "Adjustment", href: "/admin?tab=inventory-adjustment" }
@@ -641,7 +703,6 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
     { label: "Categories", href: "/admin?tab=categories" },
     { label: "Shortcuts", href: "/admin?tab=shortcuts" },
     { label: "Reports", href: "/admin?tab=reports" },
-    { label: "Flow Analytics", href: "/admin?tab=flow-analytics" },
     { label: "Historical Archive", href: "/admin?tab=history" },
     { label: "Security", href: "/admin?tab=security" },
     { label: "Help Center", href: "/admin?tab=help-center" },
@@ -682,14 +743,19 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
 
   const isComplianceEnabled = !selectedWebsite || !Array.isArray(selectedWebsite.enabledModules) || selectedWebsite.enabledModules.includes("compliance");
 
-  const isComplianceLink = (href = "", label = "") => {
+  const isDeprecatedCompliance = (href = "", label = "") => {
     const text = `${href} ${label}`.toLowerCase();
     return (
       text.includes("vat-compliance") ||
       text.includes("corporate-tax") ||
       text.includes("trade-license") ||
-      text.includes("compliance-reports") ||
-      text.includes("compliance-governance") ||
+      text.includes("compliance-reports")
+    );
+  };
+
+  const isComplianceLink = (href = "", label = "") => {
+    const text = `${href} ${label}`.toLowerCase();
+    return (
       text.includes("inventory-vat") ||
       text.includes("inventory-tax") ||
       text.includes("vat master") ||
@@ -701,6 +767,9 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
 
   const links = rawLinks
     .filter(item => {
+      if (isDeprecatedCompliance(item.href, item.label)) {
+        return false;
+      }
       if (!isComplianceEnabled && isComplianceLink(item.href, item.label)) {
         return false;
       }
@@ -749,19 +818,19 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
           ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
         `}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200/80 dark:border-white/5 shrink-0">
           <div>
             <div className="flex items-center gap-2 mb-0.5">
-              <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
+              <div className="w-2 h-2 bg-indigo-600 rounded-full animate-pulse" />
               <span className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">Command Center</span>
             </div>
-            <h1 className="text-lg font-black text-white tracking-tight leading-none">
-              JTS <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-cyan-400 italic">Support</span>
+            <h1 className="text-lg font-black text-slate-900 dark:text-white tracking-tight leading-none">
+              JTS <span className="text-indigo-600 dark:text-indigo-400 italic">Support</span>
             </h1>
           </div>
           <button
             onClick={() => setMobileOpen(false)}
-            className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-white/5 transition-all"
+            className="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
             aria-label="Close menu"
           >
             <X size={18} />
@@ -780,14 +849,14 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
           </div>)}</nav>
         </div>
         {/* user panel in mobile */}
-        <div className="mx-3 mb-4 shrink-0 rounded-2xl border border-white/5 bg-white/5 p-4">
+        <div className="mx-3 mb-4 shrink-0 rounded-2xl border border-slate-200/80 bg-slate-50/80 dark:border-white/5 dark:bg-white/5 p-4">
           <div className="flex items-center gap-3 mb-4">
             <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${getAvatarColor(user?.name || "")} flex items-center justify-center text-white font-black text-xs select-none shrink-0 border border-white/10`}>
               {getInitials(user?.name || "")}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[12px] font-black text-white truncate">{user?.name}</p>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest truncate">
+              <p className="text-[12px] font-black text-slate-900 dark:text-white truncate">{user?.name}</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest truncate">
                 {role === "admin" ? "Global Admin" : role}
               </p>
             </div>
@@ -795,13 +864,13 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
           <div className="flex gap-2">
             <button
               onClick={() => setIsDarkMode(d => !d)}
-              className="flex-1 flex items-center justify-center py-2 rounded-xl text-slate-400 hover:text-white bg-white/5 border border-white/5 hover:border-white/10 transition-all"
+              className="flex-1 flex items-center justify-center py-2 rounded-xl text-slate-500 hover:text-slate-900 bg-white border border-slate-200/80 hover:border-slate-300 dark:text-slate-400 dark:hover:text-white dark:bg-white/5 dark:border-white/5 dark:hover:border-white/10 transition-all"
             >
               {isDarkMode ? <Sun size={14} /> : <Moon size={14} />}
             </button>
             <button
               onClick={logout}
-              className="flex-1 flex items-center justify-center py-2 rounded-xl text-slate-400 hover:text-rose-400 bg-white/5 border border-white/5 hover:border-rose-400/20 transition-all group"
+              className="flex-1 flex items-center justify-center py-2 rounded-xl text-slate-500 hover:text-rose-600 bg-white border border-slate-200/80 hover:border-rose-200 dark:text-slate-400 dark:hover:text-rose-400 dark:bg-white/5 dark:border-white/5 dark:hover:border-rose-400/20 transition-all group"
             >
               <LogOut size={14} className="group-hover:-translate-x-0.5 transition-transform" />
             </button>
@@ -911,15 +980,20 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
               {showAccentPicker && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowAccentPicker(false)} />
-                  <div className="absolute right-0 mt-3 z-50 w-48 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-100 dark:border-white/10 p-3 space-y-2 animate-scale-in">
+                  <div className="absolute right-0 mt-3 z-50 w-56 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-100 dark:border-white/10 p-3 space-y-2 animate-scale-in">
                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-1">Theme Accent</p>
                     <div className="grid grid-cols-2 gap-1.5">
                       {[
-                        { id: "indigo", label: "Indigo", bg: "bg-indigo-500" },
-                        { id: "emerald", label: "Emerald", bg: "bg-emerald-500" },
-                        { id: "cyberpunk", label: "Cyan", bg: "bg-cyan-500" },
-                        { id: "rose", label: "Rose", bg: "bg-rose-500" },
-                        { id: "violet", label: "Violet", bg: "bg-violet-500" },
+                        { id: "indigo", label: "Indigo", hex: "#6366f1" },
+                        { id: "blue", label: "Blue", hex: "#3b82f6" },
+                        { id: "emerald", label: "Emerald", hex: "#10b981" },
+                        { id: "teal", label: "Teal", hex: "#14b8a6" },
+                        { id: "cyberpunk", label: "Cyan", hex: "#06b6d4" },
+                        { id: "violet", label: "Violet", hex: "#8b5cf6" },
+                        { id: "fuchsia", label: "Fuchsia", hex: "#d946ef" },
+                        { id: "rose", label: "Rose", hex: "#f43f5e" },
+                        { id: "amber", label: "Amber", hex: "#f59e0b" },
+                        { id: "slate", label: "Slate", hex: "#475569" },
                       ].map(t => (
                         <button
                           key={t.id}
@@ -927,11 +1001,17 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
                             setAccentTheme(t.id);
                             setShowAccentPicker(false);
                           }}
-                          className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${accentTheme === t.id ? "border-slate-900 dark:border-white bg-slate-50 dark:bg-slate-800" : "border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                            }`}
+                          className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border whitespace-nowrap ${
+                            accentTheme === t.id
+                              ? "border-slate-900 dark:border-white bg-slate-50 dark:bg-slate-800 shadow-xs"
+                              : "border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                          }`}
                         >
-                          <span className={`w-2.5 h-2.5 rounded-full ${t.bg}`} />
-                          <span className="text-slate-700 dark:text-slate-200">{t.label}</span>
+                          <span
+                            className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-black/10"
+                            style={{ backgroundColor: t.hex }}
+                          />
+                          <span className="text-slate-700 dark:text-slate-200 truncate">{t.label}</span>
                         </button>
                       ))}
                     </div>
@@ -997,7 +1077,7 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
 
                     {/* Filter pills */}
                     <div className="px-5 py-3 flex flex-wrap gap-1.5 border-b border-slate-50 dark:border-white/5">
-                      {["all", "missed_call", "unattended_client_alert", ...(isComplianceEnabled ? ["vat_filing_due", "corporate_tax_due", "trade_license_expiring"] : []), "crm_follow_up_due"].map(type => (
+                      {["all", "missed_call", "unattended_client_alert", "crm_follow_up_due"].map(type => (
                         <button
                           key={type}
                           onClick={() => setNotificationFilter(type)}
@@ -1007,7 +1087,11 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
                               : "bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10"
                             }`}
                         >
-                          {type === "all" ? "All" : type === "missed_call" ? "📞 Missed Calls" : type.replaceAll("_", " ")}
+                          {type === "all" ? "All" : type === "missed_call" ? (
+                            <span className="inline-flex items-center gap-1">
+                              <PhoneMissed size={10} /> Missed Calls
+                            </span>
+                          ) : type.replaceAll("_", " ")}
                         </button>
                       ))}
                     </div>
@@ -1062,12 +1146,136 @@ export default function Layout({ title, subtitle, children, menuItems = [] }) {
               )}
             </div>
 
-            {/* Avatar */}
-            <div
-              className={`w-9 h-9 rounded-xl bg-gradient-to-br ${getAvatarColor(user?.name || "")} flex items-center justify-center text-white font-black text-xs select-none border-2 border-white dark:border-slate-800 shadow-md transition-transform hover:scale-105 active:scale-95 cursor-default`}
-              title={user?.name}
-            >
-              {getInitials(user?.name || "")}
+            {/* Avatar & Account Menu */}
+            <div className="relative" ref={profileMenuRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowProfileMenu((prev) => !prev);
+                  setShowNotifications(false);
+                  setShowAccentPicker(false);
+                }}
+                aria-expanded={showProfileMenu}
+                aria-haspopup="menu"
+                className={`w-9 h-9 rounded-xl bg-gradient-to-br ${getAvatarColor(user?.name || "")} flex items-center justify-center text-white font-black text-xs select-none border-2 border-white dark:border-slate-800 shadow-md transition-transform hover:scale-105 active:scale-95 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/40`}
+                title={user?.name || "Account Menu"}
+              >
+                {getInitials(user?.name || "")}
+              </button>
+
+              {showProfileMenu && (
+                <div
+                  role="menu"
+                  className="absolute right-0 mt-2 w-72 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/90 dark:border-white/10 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150"
+                >
+                  {/* User Identity Header */}
+                  <div className="p-4 bg-slate-50/80 dark:bg-white/5 border-b border-slate-100 dark:border-white/10 flex items-center gap-3">
+                    <div
+                      className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getAvatarColor(user?.name || "")} flex items-center justify-center text-white font-black text-sm shrink-0 shadow-sm`}
+                    >
+                      {getInitials(user?.name || "")}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-black text-slate-900 dark:text-white truncate">
+                        {user?.name || "User"}
+                      </p>
+                      <p className="text-[10.5px] font-semibold text-slate-400 truncate">
+                        {user?.email || "No email"}
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        <span className="px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 text-[8.5px] font-black uppercase tracking-wider">
+                          {role || "user"}
+                        </span>
+                        {user?.subscription?.plan && (
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[8.5px] font-black uppercase tracking-wider">
+                            {user.subscription.plan}
+                          </span>
+                        )}
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase tracking-wider ${
+                            user?.twoFactorEnabled
+                              ? "bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300"
+                              : "bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-slate-400"
+                          }`}
+                        >
+                          {user?.twoFactorEnabled ? "2FA On" : "2FA Off"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick Navigation & Settings */}
+                  <div className="p-1.5 space-y-0.5">
+                    {(role === "client" || role === "admin") && (
+                      <>
+                        <NavLink
+                          to={`/${role}?tab=security`}
+                          onClick={() => setShowProfileMenu(false)}
+                          className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-[11px] font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                        >
+                          <ShieldCheck size={14} className="text-indigo-500 shrink-0" />
+                          <span>Security & 2FA Settings</span>
+                        </NavLink>
+                        <NavLink
+                          to={`/${role}?tab=billing`}
+                          onClick={() => setShowProfileMenu(false)}
+                          className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-[11px] font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                        >
+                          <CreditCard size={14} className="text-emerald-500 shrink-0" />
+                          <span>Billing & Subscription</span>
+                        </NavLink>
+                      </>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setIsDarkMode((prev) => !prev)}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-[11px] font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2.5">
+                        {isDarkMode ? (
+                          <Sun size={14} className="text-amber-500 shrink-0" />
+                        ) : (
+                          <Moon size={14} className="text-indigo-500 shrink-0" />
+                        )}
+                        <span>{isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}</span>
+                      </span>
+                      <span className="text-[9px] font-black uppercase text-slate-400">
+                        {isDarkMode ? "Dark" : "Light"}
+                      </span>
+                    </button>
+
+                    <div className="flex items-center justify-between px-3 py-2 rounded-xl text-[10px] font-bold text-slate-400">
+                      <span className="flex items-center gap-2">
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            backendStatus?.isLocal ? "bg-emerald-500" : "bg-indigo-500"
+                          }`}
+                        />
+                        <span>API Environment</span>
+                      </span>
+                      <span className="text-[9px] font-black uppercase text-slate-500 dark:text-slate-300">
+                        {backendStatus?.isLocal ? "Local" : "Cloud"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Logout */}
+                  <div className="p-1.5 border-t border-slate-100 dark:border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowProfileMenu(false);
+                        logout();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[11px] font-black text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer"
+                    >
+                      <LogOut size={14} className="shrink-0" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </header>

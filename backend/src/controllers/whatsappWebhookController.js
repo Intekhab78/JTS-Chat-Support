@@ -13,7 +13,7 @@ export async function verifyWebhook(req, res) {
     const token = req.query["hub.verify_token"];
     const challenge = req.query["hub.challenge"];
 
-    const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || "jts_crm_whatsapp_verify_token_2026";
+    const verifyToken = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || process.env.WHATSAPP_VERIFY_TOKEN || "jts_crm_whatsapp_verify_token_2026";
 
     if (mode === "subscribe" && token === verifyToken) {
       console.log("[WhatsApp Webhook] Verification successful.");

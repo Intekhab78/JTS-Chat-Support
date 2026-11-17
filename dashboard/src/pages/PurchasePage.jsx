@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { FileSpreadsheet, ShieldCheck, Ticket, Clock3, RefreshCw, Building2, ReceiptText, TrendingUp, Zap, Package, PhoneCall, X, IndianRupee } from "lucide-react";
+import { FileSpreadsheet, ShieldCheck, Ticket, Clock3, RefreshCw, Building2, ReceiptText, TrendingUp, Zap, Package, PhoneCall, X, IndianRupee, Search, Eye, EyeOff } from "lucide-react";
 import Layout from "../components/Layout.jsx";
 import StatCard from "../components/StatCard.jsx";
 import PaginationControls from "../components/PaginationControls.jsx";
@@ -9,10 +9,16 @@ import CRMInvoiceTab from "../components/CrmSystem/CrmInvoiceTab.jsx";
 import PurchaseProcurementTab from "../components/PurchaseProcurementTab.jsx";
 import InventoryManager from "../components/InventoryManager.jsx";
 import CustomerManager from "../components/CustomerManager.jsx";
+import ConversationHub from "../components/ConversationHub.jsx";
+import CrmInvoicesView from "../components/CrmSystem/CrmInvoicesView.jsx";
+import EnterpriseReportsCenter from "../components/EnterpriseReportsCenter.jsx";
 import ActivityTimeline from "../components/ActivityTimeline.jsx";
 import { getPaginationMeta } from "../utils/pagination.js";
 import { api } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
+import { useSocket } from "../context/SocketContext.jsx";
+import { hasPermission } from "../utils/permissions.js";
+import { PERMISSIONS } from "../constants/domain.js";
 
 import { formatCurrency } from "../utils/currencyFormatter.js";
 
@@ -399,27 +405,25 @@ function PurchaseOverview({ sessions, tickets, loading, onRefresh, user, custome
     .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt))
     .slice(0, 5);
 
-  const formatLocalCurrency = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
-
   return (
-    <div className="space-y-10">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-500">Purchase Control</p>
-          <h3 className="text-2xl font-black text-slate-900 tracking-tight">Procurement operations at a glance</h3>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Dedicated workspace for financial review, follow-up, and request handling.</p>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm">
+        <div className="space-y-0.5">
+          <p className="text-[9px] font-black uppercase tracking-widest text-indigo-500">Purchase Control</p>
+          <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Procurement operations at a glance</h3>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dedicated workspace for financial review, follow-up, and request handling.</p>
         </div>
         <button
           type="button"
           onClick={onRefresh}
-          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-white transition-all hover:bg-black"
+          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-[10px] font-black uppercase tracking-wider text-white transition-all hover:bg-black"
         >
-          <RefreshCw size={14} />
+          <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
           Refresh Desk
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard
           label="Assigned Requests"
           value={activeRequests.length}
@@ -460,7 +464,7 @@ function PurchaseOverview({ sessions, tickets, loading, onRefresh, user, custome
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard
           label="In Review"
           value={workflowStats.in_review || 0}
@@ -494,7 +498,7 @@ function PurchaseOverview({ sessions, tickets, loading, onRefresh, user, custome
         <StatCard
           label="Completed"
           value={workflowStats.completed || 0}
-          trend={`${completedThisMonth} this month, avg ${averageCompletionDays || "-"} days`}
+          trend={averageCompletionDays > 0 ? `${completedThisMonth} this month · avg ${averageCompletionDays}d` : `${completedThisMonth} completed this month`}
           color="rose"
           onClick={() => {
             if (setWorkflowFilter) setWorkflowFilter("completed");
@@ -504,81 +508,86 @@ function PurchaseOverview({ sessions, tickets, loading, onRefresh, user, custome
       </div>
 
       {procurementStats && (
-        <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-slate-900 rounded-[40px] p-10 text-white shadow-2xl relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-12 opacity-10 group-hover:rotate-12 transition-transform duration-1000">
-            <Zap size={120} />
-          </div>
-          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-12 items-center">
-            <div className="space-y-4">
-              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-300">Procurement Intelligence</p>
-              <h4 className="text-3xl font-black tracking-tight">Active Supply Chain <span className="text-indigo-400 italic">Pulse</span></h4>
-              <div className="flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-lg w-fit">
-                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-[9px] font-black uppercase tracking-widest">Real-time Monitoring Active</span>
+        <div className="bg-white rounded-2xl p-4 text-slate-900 border border-slate-200/80 shadow-sm">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-center">
+            <div className="space-y-1.5">
+              <p className="text-[9px] font-black uppercase tracking-widest text-indigo-600">Procurement Intelligence</p>
+              <h4 className="text-base font-black tracking-tight text-slate-900">Active Supply Chain <span className="text-indigo-600">Pulse</span></h4>
+              <div className="flex items-center gap-1.5 px-2.5 py-0.5 bg-emerald-50 border border-emerald-200/70 rounded-lg w-fit">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[9px] font-black uppercase tracking-wider text-emerald-700">Real-time Monitoring Active</span>
               </div>
-            </div>
-            
-            <div className="flex flex-col gap-2">
-              <span className="text-[10px] font-black uppercase tracking-widest text-indigo-300">Total Purchase Value</span>
-              <span className="text-4xl font-black tracking-tighter">{formatLocalCurrency(procurementStats.totalSpend)}</span>
-              <div className="h-1 w-20 bg-emerald-400 rounded-full mt-2" />
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
-              <div className="bg-white/5 backdrop-blur-md border border-white/10 p-5 rounded-2xl">
-                <p className="text-[9px] font-black uppercase tracking-widest text-indigo-200 mb-1">Low Stock</p>
-                <p className={`text-2xl font-black ${procurementStats.lowStockCount > 0 ? 'text-orange-400' : 'text-emerald-400'}`}>
-                  {procurementStats.lowStockCount}
+            <div className="flex flex-col gap-1">
+              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Total Purchase Value</span>
+              <span className="text-2xl font-black tracking-tight text-slate-900">{formatCurrency(procurementStats.totalSpend || 0)}</span>
+              <div className="h-1 w-14 bg-indigo-600 rounded-full mt-1" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setSearchParams && setSearchParams({ tab: "inventory" })}
+                className="bg-slate-50 hover:bg-indigo-50/60 border border-slate-200/80 p-3 rounded-xl text-left transition-colors cursor-pointer"
+              >
+                <p className="text-[9px] font-black uppercase tracking-wider text-slate-400 mb-0.5">Low Stock Alerts</p>
+                <p className={`text-lg font-black ${procurementStats.lowStockCount > 0 ? "text-amber-600" : "text-emerald-600"}`}>
+                  {procurementStats.lowStockCount || 0}
                 </p>
-              </div>
-              <div className="bg-white/5 backdrop-blur-md border border-white/10 p-5 rounded-2xl">
-                <p className="text-[9px] font-black uppercase tracking-widest text-indigo-200 mb-1">Active POs</p>
-                <p className="text-2xl font-black">
-                  {procurementStats.statusDistribution?.reduce((acc, s) => acc + s.count, 0) || 0}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSearchParams && setSearchParams({ tab: "procurement" })}
+                className="bg-slate-50 hover:bg-indigo-50/60 border border-slate-200/80 p-3 rounded-xl text-left transition-colors cursor-pointer"
+              >
+                <p className="text-[9px] font-black uppercase tracking-wider text-slate-400 mb-0.5">Active POs</p>
+                <p className="text-lg font-black text-slate-900">
+                  {procurementStats.totalOrders ?? (procurementStats.statusDistribution?.reduce((acc, s) => acc + s.count, 0) || 0)}
                 </p>
-              </div>
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_1fr] gap-8">
-        <section className="premium-card p-8 bg-white border border-slate-200/60 shadow-sm rounded-[36px]">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center">
-              <FileSpreadsheet size={20} />
+      <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_1fr] gap-4">
+        <section className="premium-card p-4 bg-white border border-slate-200/80 shadow-sm rounded-2xl">
+          <div className="flex items-center gap-2.5 mb-3">
+            <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center">
+              <FileSpreadsheet size={16} />
             </div>
             <div>
-              <h4 className="text-sm font-black uppercase tracking-tight text-slate-900">Recent assigned requests</h4>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Conversation and request stream for purchase operations</p>
+              <h4 className="text-xs font-black uppercase tracking-tight text-slate-900">Recent assigned requests</h4>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Conversation and request stream for purchase operations</p>
             </div>
           </div>
 
           {loading ? (
-            <div className="py-16 text-center text-[10px] font-black uppercase tracking-widest text-slate-300 animate-pulse">Loading procurement stream…</div>
+            <div className="py-8 text-center text-[10px] font-black uppercase tracking-widest text-slate-300 animate-pulse">Loading procurement stream…</div>
           ) : recentActivity.length === 0 ? (
-            <div className="py-16 text-center border-2 border-dashed border-slate-100 rounded-3xl">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">No active procurement requests</p>
+            <div className="py-8 text-center border border-dashed border-slate-200 rounded-xl">
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">No active procurement requests</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {recentActivity.map((session) => (
-                <article key={session._id} className="rounded-3xl border border-slate-100 bg-slate-50/70 p-5">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div className="space-y-1 min-w-0">
-                      <p className="text-[11px] font-black uppercase tracking-tight text-slate-900 truncate">
+                <article key={session._id} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                    <div className="space-y-0.5 min-w-0">
+                      <p className="text-xs font-black uppercase tracking-tight text-slate-900 truncate">
                         {session.visitorId?.name || session.visitorId?.visitorId || "Anonymous requester"}
                       </p>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 truncate">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">
                         {session.websiteId?.websiteName || "Unknown website"}
                       </p>
-                      <p className="text-[11px] font-bold text-slate-500 truncate">
+                      <p className="text-[11px] font-semibold text-slate-500 truncate">
                         {session.lastMessagePreview || "Waiting for request details"}
                       </p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
                       <StatusBadge status={session.status} />
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">
                         {formatDate(session.updatedAt || session.createdAt)}
                       </span>
                     </div>
@@ -589,41 +598,74 @@ function PurchaseOverview({ sessions, tickets, loading, onRefresh, user, custome
           )}
         </section>
 
-        <section className="premium-card p-8 bg-[linear-gradient(145deg,#0f172a,#1e1b4b)] text-white rounded-[36px] border border-slate-900/30 shadow-[0_25px_80px_-35px_rgba(15,23,42,0.9)]">
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-200">Operational Rules</p>
-              <h4 className="text-2xl font-black tracking-tight">Purchase workspace</h4>
-              <p className="text-sm font-bold text-slate-300 leading-relaxed">
-                This dashboard is separate from the agent workspace. It keeps procurement users focused on requests, approvals, tickets, and account coordination.
-              </p>
+        <section className="premium-card p-4 bg-white text-slate-900 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between space-y-3">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-widest text-indigo-600">Inventory &amp; PO Watch</p>
+                <h4 className="text-sm font-black tracking-tight text-slate-900">Reorder &amp; Quick Actions</h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSearchParams && setSearchParams({ tab: "procurement" })}
+                className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 text-[10px] font-black uppercase transition-colors cursor-pointer"
+              >
+                Open POs &rarr;
+              </button>
             </div>
 
-            <div className="space-y-4">
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                <div className="flex items-center gap-3 mb-3">
-                  <ShieldCheck size={18} className="text-cyan-300" />
-                  <p className="text-[10px] font-black uppercase tracking-widest text-cyan-200">Role identity</p>
+            {/* Dynamic Low Stock Items */}
+            <div className="space-y-1.5">
+              <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Low Stock Items</p>
+              {procurementStats?.lowStockItems?.length > 0 ? (
+                procurementStats.lowStockItems.slice(0, 3).map((item) => (
+                  <div key={item._id} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-900 truncate">{item.name}</p>
+                      <p className="text-[10px] text-slate-400 font-medium">{item.sku || "SKU"}</p>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200/70 text-[10px] font-black shrink-0">
+                      {item.stock ?? 0} left
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3 text-center text-[11px] font-semibold text-slate-500">
+                  All inventory stock levels are healthy.
                 </div>
-                <p className="text-sm font-black text-white">You are logged in as <span className="italic text-cyan-200">{user?.role}</span>, not as an agent.</p>
-              </div>
-
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                <div className="flex items-center gap-3 mb-3">
-                  <Ticket size={18} className="text-emerald-300" />
-                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-200">Main focus</p>
-                </div>
-                <p className="text-sm font-bold text-slate-200">Track purchase-related requests, follow operational tickets, and manage your own account settings from one lane.</p>
-              </div>
-
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                <div className="flex items-center gap-3 mb-3">
-                  <Clock3 size={18} className="text-amber-300" />
-                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-200">Next action</p>
-                </div>
-                <p className="text-sm font-bold text-slate-200">Use the Requests tab for assigned conversations and the Settings tab to update your purchase account profile.</p>
-              </div>
+              )}
             </div>
+
+            {/* Dynamic PO Status Distribution */}
+            {procurementStats?.statusDistribution?.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">PO Status Breakdown</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {procurementStats.statusDistribution.map((st) => (
+                    <span key={st._id} className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200/80 text-[10px] font-bold text-slate-700 capitalize">
+                      {String(st._id || "draft").replaceAll("_", " ")}: <strong className="text-slate-900">{st.count}</strong>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="pt-2.5 border-t border-slate-100 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setSearchParams && setSearchParams({ tab: "requests" })}
+              className="px-3 py-2 rounded-xl bg-slate-50 hover:bg-indigo-50 border border-slate-200/80 text-[10px] font-black uppercase text-slate-700 hover:text-indigo-600 transition-colors cursor-pointer"
+            >
+              View Requests
+            </button>
+            <button
+              type="button"
+              onClick={() => setSearchParams && setSearchParams({ tab: "inventory" })}
+              className="px-3 py-2 rounded-xl bg-slate-50 hover:bg-indigo-50 border border-slate-200/80 text-[10px] font-black uppercase text-slate-700 hover:text-indigo-600 transition-colors cursor-pointer"
+            >
+              Stock Master
+            </button>
           </div>
         </section>
       </div>
@@ -634,9 +676,34 @@ function PurchaseOverview({ sessions, tickets, loading, onRefresh, user, custome
 function PurchaseRequests({ sessions, tickets, customers, page, setPage, loading, onRefresh, onSelectCustomer, workflowFilter, setWorkflowFilter, updatingWorkflowId, onAdvanceWorkflow, inventoryWebsites, selectedInventoryWebsiteId }) {
   const [convertingId, setConvertingId] = useState("");
   const [createPODeal, setCreatePODeal] = useState(null); // customer to create PO for
+  const [previewItem, setPreviewItem] = useState(null);
+  const [updatingTicketId, setUpdatingTicketId] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [actionNotice, setActionNotice] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [kindFilter, setKindFilter] = useState("all");
+
+  const handleUpdateTicketStatus = async (ticketId, status) => {
+    setUpdatingTicketId(ticketId);
+    setActionError("");
+    try {
+      await api(`/api/tickets/${ticketId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status })
+      });
+      setActionNotice(`Ticket marked as ${status.replaceAll("_", " ")}.`);
+      setPreviewItem(null);
+      if (onRefresh) onRefresh();
+    } catch (error) {
+      setActionError("Failed to update ticket: " + (error?.message || "Unknown error"));
+    } finally {
+      setUpdatingTicketId("");
+    }
+  };
 
   const handleConvert = async (item) => {
     setConvertingId(item.id);
+    setActionError("");
     try {
       if (item.kind === "Conversation" || item.kind === "Ticket") {
         await api("/api/crm/promote", {
@@ -655,7 +722,7 @@ function PurchaseRequests({ sessions, tickets, customers, page, setPage, loading
         if (onSelectCustomer) onSelectCustomer(item.original._id);
       }
     } catch (error) {
-      alert("Conversion failed: " + error.message);
+      setActionError("Conversion failed: " + (error?.message || "Unknown error"));
     } finally {
       setConvertingId("");
     }
@@ -703,11 +770,18 @@ function PurchaseRequests({ sessions, tickets, customers, page, setPage, loading
       original: customer
     }));
 
+    const q = searchQuery.trim().toLowerCase();
     return [...crmRows, ...requestRows, ...ticketRows]
-      .filter((row) => workflowFilter === "all" || row.kind !== "Deal Request" || row.workflowStatus === workflowFilter)
+      .filter((row) => workflowFilter === "all" || (row.kind === "Deal Request" && row.workflowStatus === workflowFilter))
+      .filter((row) => kindFilter === "all" || row.kind === kindFilter)
+      .filter((row) => {
+        if (!q) return true;
+        return `${row.title || ""} ${row.subtitle || ""} ${row.detail || ""} ${row.requirement || ""}`.toLowerCase().includes(q);
+      })
       .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-  }, [customers, sessions, tickets, workflowFilter]);
+  }, [customers, sessions, tickets, workflowFilter, kindFilter, searchQuery]);
 
+  const totalQueueCount = customers.length + sessions.length + tickets.length;
   const paginated = getPaginationMeta(combined, page);
   const workflowCounts = useMemo(() => {
     return customers.reduce((acc, customer) => {
@@ -719,10 +793,10 @@ function PurchaseRequests({ sessions, tickets, customers, page, setPage, loading
 
   useEffect(() => {
     setPage(1);
-  }, [customers.length, sessions.length, tickets.length, workflowFilter, setPage]);
+  }, [customers.length, sessions.length, tickets.length, workflowFilter, kindFilter, searchQuery, setPage]);
 
   return (
-    <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
+    <section className="space-y-4">
       {/* Create PO from Deal Modal */}
       {createPODeal && (
         <CreatePOFromDealModal
@@ -731,88 +805,135 @@ function PurchaseRequests({ sessions, tickets, customers, page, setPage, loading
           websiteId={selectedInventoryWebsiteId}
           onClose={(created) => {
             setCreatePODeal(null);
-            if (created) alert("Draft PO created! View it in the Procurement tab.");
+            if (created) {
+              setActionNotice("Draft PO created! View it in the Procurement tab.");
+              setTimeout(() => setActionNotice(""), 4000);
+            }
           }}
         />
       )}
 
-      <div className="space-y-1">
-        <h3 className="text-xl font-black text-slate-900 tracking-tight">Purchase Request Queue</h3>
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Combined view of locked won deals, assigned conversations, and tickets</p>
-      </div>
+      {actionError && (
+        <div className="flex items-center justify-between gap-2 px-3.5 py-2 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-700">
+          <span>{actionError}</span>
+          <button type="button" onClick={() => setActionError("")} className="text-rose-500 hover:text-rose-800">
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => setWorkflowFilter("all")}
-          className={`rounded-2xl border px-4 py-2 text-[9px] font-black uppercase tracking-widest transition-all ${
-            workflowFilter === "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-500 hover:border-indigo-200 hover:text-indigo-600"
-          }`}
-        >
-          All ({customers.length})
-        </button>
-        {PURCHASE_WORKFLOW_STEPS.map((step) => (
+      {actionNotice && (
+        <div className="flex items-center justify-between gap-2 px-3.5 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-700">
+          <span>{actionNotice}</span>
+          <button type="button" onClick={() => setActionNotice("")} className="text-emerald-500 hover:text-emerald-800">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Purchase Request Queue</h3>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Combined view of locked won deals, assigned conversations, and tickets</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative min-w-[200px]">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search visitor, website, ticket..."
+                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-indigo-500"
+              />
+            </div>
+            <select
+              value={kindFilter}
+              onChange={(e) => setKindFilter(e.target.value)}
+              className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-[11px] font-bold text-slate-700 outline-none"
+            >
+              <option value="all">All Types ({totalQueueCount})</option>
+              <option value="Deal Request">Deal Requests ({customers.length})</option>
+              <option value="Conversation">Conversations ({sessions.length})</option>
+              <option value="Ticket">Tickets ({tickets.length})</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100">
           <button
-            key={step.key}
             type="button"
-            onClick={() => setWorkflowFilter(step.key)}
-            className={`rounded-2xl border px-4 py-2 text-[9px] font-black uppercase tracking-widest transition-all ${
-              workflowFilter === step.key ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-200 bg-white text-slate-500 hover:border-indigo-200 hover:text-indigo-600"
+            onClick={() => setWorkflowFilter("all")}
+            className={`rounded-xl border px-3 py-1.5 text-[9px] font-black uppercase tracking-wider transition-all ${
+              workflowFilter === "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-500 hover:border-indigo-200 hover:text-indigo-600"
             }`}
           >
-            {step.label} ({workflowCounts[step.key] || 0})
+            All ({totalQueueCount})
           </button>
-        ))}
+          {PURCHASE_WORKFLOW_STEPS.map((step) => (
+            <button
+              key={step.key}
+              type="button"
+              onClick={() => setWorkflowFilter(step.key)}
+              className={`rounded-xl border px-3 py-1.5 text-[9px] font-black uppercase tracking-wider transition-all ${
+                workflowFilter === step.key ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-200 bg-white text-slate-500 hover:border-indigo-200 hover:text-indigo-600"
+              }`}
+            >
+              {step.label} ({workflowCounts[step.key] || 0})
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="premium-card p-6 bg-white rounded-[36px] border border-slate-200/60 shadow-sm">
+      <div className="premium-card p-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm">
         {loading ? (
-          <div className="py-16 text-center text-[10px] font-black uppercase tracking-widest text-slate-300 animate-pulse">Loading assigned requests…</div>
+          <div className="py-10 text-center text-[10px] font-black uppercase tracking-widest text-slate-300 animate-pulse">Loading assigned requests…</div>
         ) : paginated.totalItems === 0 ? (
-          <div className="py-20 text-center border-2 border-dashed border-slate-100 rounded-3xl">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">No locked deals, conversations, or tickets available for this purchase account</p>
+          <div className="py-10 text-center border border-dashed border-slate-200 rounded-xl">
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">No matching deals, conversations, or tickets</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-2.5">
             {paginated.pageItems.map((item) => (
-              <article key={item.id} className="rounded-3xl border border-slate-100 bg-slate-50/70 p-5 transition-all hover:border-indigo-200 hover:bg-white">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="flex flex-col gap-3 flex-1 min-w-0">
+              <article key={item.id} className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-3 transition-all hover:border-indigo-200 hover:bg-white">
+                <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex flex-col gap-1.5 flex-1 min-w-0">
                     {/* Header row */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="rounded-lg bg-slate-900 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-white">{item.kind}</span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="rounded-md bg-slate-900 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-white">{item.kind}</span>
                       <StatusBadge status={item.status} />
                       {item.kind === "Deal Request" ? <WorkflowBadge status={item.workflowStatus} /> : null}
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 ml-1">{item.subtitle}</span>
                     </div>
 
                     {/* Client name */}
-                    <h4 className="text-sm font-black uppercase tracking-tight text-slate-900 truncate">{item.title}</h4>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 truncate">{item.subtitle}</p>
+                    <h4 className="text-xs font-black uppercase tracking-tight text-slate-900 truncate">{item.title}</h4>
 
                     {/* Deal Request Extra Info */}
                     {item.kind === "Deal Request" && (
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-1">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-0.5">
                         {/* Requirement */}
-                        <div className="flex items-start gap-2 p-3 rounded-xl bg-indigo-50 border border-indigo-100 col-span-2">
-                          <Package size={13} className="text-indigo-400 mt-0.5 shrink-0" />
-                          <div>
-                            <p className="text-[8px] font-black uppercase tracking-widest text-indigo-400">Requirement / Product</p>
-                            <p className="text-xs font-bold text-indigo-900 mt-0.5">{item.requirement || "Not specified"}</p>
+                        <div className="flex items-start gap-2 p-2 rounded-lg bg-indigo-50 border border-indigo-100 md:col-span-2">
+                          <Package size={12} className="text-indigo-400 mt-0.5 shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-[8px] font-black uppercase tracking-wider text-indigo-400">Requirement / Product</p>
+                            <p className="text-[11px] font-bold text-indigo-900 truncate">{item.requirement || "Not specified"}</p>
                           </div>
                         </div>
                         {/* Lead Value */}
-                        <div className="flex items-start gap-2 p-3 rounded-xl bg-emerald-50 border border-emerald-100">
-                          <IndianRupee size={13} className="text-emerald-500 mt-0.5 shrink-0" />
+                        <div className="flex items-start gap-2 p-2 rounded-lg bg-emerald-50 border border-emerald-100">
+                          <IndianRupee size={12} className="text-emerald-500 mt-0.5 shrink-0" />
                           <div>
-                            <p className="text-[8px] font-black uppercase tracking-widest text-emerald-400">Deal Value</p>
-                            <p className="text-xs font-black text-emerald-800 mt-0.5">{item.leadValue ? `₹${Number(item.leadValue).toLocaleString()}` : "—"}</p>
+                            <p className="text-[8px] font-black uppercase tracking-wider text-emerald-400">Deal Value</p>
+                            <p className="text-[11px] font-black text-emerald-800">{item.leadValue ? formatCurrency(item.leadValue) : "—"}</p>
                           </div>
                         </div>
                         {/* Phone & Code */}
                         {(item.phone || item.detail) && (
-                          <div className="flex items-start gap-2 p-3 rounded-xl bg-slate-100 border border-slate-200 col-span-3">
-                            {item.phone && <><PhoneCall size={11} className="text-slate-400 mt-0.5 shrink-0" /><span className="text-[10px] font-bold text-slate-600 mr-4">{item.phone}</span></>}
-                            <span className="text-[10px] font-bold text-slate-400 truncate">{item.detail}</span>
+                          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-100 border border-slate-200 md:col-span-3">
+                            {item.phone && <><PhoneCall size={11} className="text-slate-400 shrink-0" /><span className="text-[10px] font-bold text-slate-600 mr-2">{item.phone}</span></>}
+                            <span className="text-[10px] font-bold text-slate-500 truncate">{item.detail}</span>
                           </div>
                         )}
                       </div>
@@ -820,14 +941,14 @@ function PurchaseRequests({ sessions, tickets, customers, page, setPage, loading
 
                     {/* Non-deal detail */}
                     {item.kind !== "Deal Request" && (
-                      <p className="text-xs font-bold text-slate-500 truncate">{item.detail}</p>
+                      <p className="text-[11px] font-semibold text-slate-500 truncate">{item.detail}</p>
                     )}
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex flex-col items-end gap-2 shrink-0">
+                  <div className="flex flex-wrap lg:flex-col items-center lg:items-end gap-1.5 shrink-0">
                     {item.kind === "Deal Request" ? (
-                      <>
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <WorkflowActionButton
                           customer={item.original}
                           busy={updatingWorkflowId === item.original._id}
@@ -837,32 +958,58 @@ function PurchaseRequests({ sessions, tickets, customers, page, setPage, loading
                           type="button"
                           disabled={convertingId === item.id}
                           onClick={(e) => { e.stopPropagation(); handleConvert(item); }}
-                          className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-[9px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-100 disabled:opacity-50"
+                          className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[9px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-100 disabled:opacity-50"
                         >
-                          {convertingId === item.id ? <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <Zap size={14} />}
+                          {convertingId === item.id ? <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <Zap size={12} />}
                           Manage Sale
                         </button>
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setCreatePODeal(item.original); }}
-                          className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-[9px] font-black uppercase tracking-widest bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
+                          className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[9px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
                         >
-                          <Package size={14} />
+                          <Package size={12} />
                           Create PO
                         </button>
-                      </>
+                      </div>
                     ) : (
-                      <button
-                        type="button"
-                        disabled={convertingId === item.id}
-                        onClick={() => handleConvert(item)}
-                        className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100 shadow-sm shadow-emerald-500/10 disabled:opacity-50"
-                      >
-                        {convertingId === item.id ? <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <TrendingUp size={14} />}
-                        Convert to Sales
-                      </button>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setPreviewItem(item); }}
+                          className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[9px] font-black uppercase tracking-wider bg-white text-slate-700 border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 cursor-pointer"
+                        >
+                          View Details
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCreatePODeal({
+                              requirement: item.title,
+                              companyName: item.subtitle,
+                              websiteId: item.original?.websiteId?._id || item.original?.websiteId || ""
+                            });
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[9px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 cursor-pointer"
+                        >
+                          <Package size={12} />
+                          Create PO
+                        </button>
+                        {(item.original?.visitorId?._id || item.original?.visitorId) && (
+                          <button
+                            type="button"
+                            disabled={convertingId === item.id}
+                            onClick={(e) => { e.stopPropagation(); handleConvert(item); }}
+                            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100 disabled:opacity-50 cursor-pointer"
+                          >
+                            {convertingId === item.id ? <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <TrendingUp size={12} />}
+                            Promote
+                          </button>
+                        )}
+                      </div>
                     )}
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">{formatDate(item.updatedAt)}</span>
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">{formatDate(item.updatedAt)}</span>
                   </div>
                 </div>
               </article>
@@ -878,6 +1025,85 @@ function PurchaseRequests({ sessions, tickets, customers, page, setPage, loading
         itemLabel="requests"
         onPageChange={setPage}
       />
+
+      {previewItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-xs p-4" onClick={() => setPreviewItem(null)}>
+          <div className="w-full max-w-lg rounded-2xl bg-white border border-slate-200 shadow-xl p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="rounded-md bg-slate-900 px-2 py-0.5 text-[9px] font-black uppercase text-white">{previewItem.kind}</span>
+                  <StatusBadge status={previewItem.status} />
+                </div>
+                <h3 className="text-sm font-black text-slate-900 uppercase">{previewItem.title}</h3>
+                <p className="text-[11px] font-semibold text-slate-400">{previewItem.subtitle} &middot; {previewItem.detail}</p>
+              </div>
+              <button type="button" onClick={() => setPreviewItem(null)} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-2.5 text-xs">
+              {(previewItem.original?.visitorName || previewItem.original?.visitorEmail) && (
+                <div className="rounded-xl bg-slate-50 border border-slate-200/70 p-3 flex flex-wrap gap-3">
+                  {previewItem.original?.visitorName && <span><strong>Visitor:</strong> {previewItem.original.visitorName}</span>}
+                  {previewItem.original?.visitorEmail && <span><strong>Email:</strong> {previewItem.original.visitorEmail}</span>}
+                </div>
+              )}
+              <div className="rounded-xl bg-slate-50 border border-slate-200/70 p-3 max-h-56 overflow-y-auto space-y-2">
+                {Array.isArray(previewItem.original?.messages) && previewItem.original.messages.length > 0 ? (
+                  previewItem.original.messages.map((m, idx) => (
+                    <div key={idx} className="text-[11px] leading-relaxed">
+                      <span className="font-black uppercase text-[9px] text-indigo-600 mr-1.5">{m.sender || "note"}:</span>
+                      <span className="text-slate-700">{m.content}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-[11px] text-slate-500">{previewItem.original?.description || previewItem.detail || "No additional details recorded."}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              {previewItem.kind === "Ticket" && previewItem.status !== "resolved" && (
+                <>
+                  <button
+                    type="button"
+                    disabled={updatingTicketId === previewItem.original?._id}
+                    onClick={() => handleUpdateTicketStatus(previewItem.original._id, "in_progress")}
+                    className="px-3 py-1.5 rounded-xl bg-sky-50 text-sky-700 border border-sky-200 text-[10px] font-black uppercase hover:bg-sky-100 cursor-pointer"
+                  >
+                    Mark In Progress
+                  </button>
+                  <button
+                    type="button"
+                    disabled={updatingTicketId === previewItem.original?._id}
+                    onClick={() => handleUpdateTicketStatus(previewItem.original._id, "resolved")}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase hover:bg-emerald-700 cursor-pointer"
+                  >
+                    Resolve Ticket
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  const target = previewItem;
+                  setPreviewItem(null);
+                  setCreatePODeal({
+                    requirement: target.title,
+                    companyName: target.subtitle,
+                    websiteId: target.original?.websiteId?._id || target.original?.websiteId || ""
+                  });
+                }}
+                className="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-black uppercase hover:bg-amber-100 cursor-pointer"
+              >
+                Create PO
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -1041,44 +1267,30 @@ function PurchaseActivityPanel({ customer, activity, loading, onRefresh }) {
 
 
 function PurchaseWebsiteSelector({ websites, websiteId, setWebsiteId, label }) {
+  const activeName = websites.find((website) => website._id === websiteId)?.websiteName || "No website selected";
   return (
-    <div className="premium-card overflow-hidden rounded-[32px] border border-slate-200/60 bg-[linear-gradient(135deg,#ffffff_0%,#eef2ff_55%,#ecfeff_100%)] shadow-[0_28px_80px_-50px_rgba(15,23,42,0.45)]">
-      <div className="flex flex-col gap-5 p-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="space-y-1">
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-500">{label}</p>
-            <h3 className="text-xl font-black text-slate-900 tracking-tight">Select website scope</h3>
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Choose the active website to manage stock, item master, and inventory actions.</p>
-          </div>
-          <div className="rounded-[26px] border border-white/80 bg-white/90 px-4 py-3 shadow-sm">
-            <p className="text-[9px] font-black uppercase tracking-[0.24em] text-slate-300">Active Scope</p>
-            <p className="mt-2 text-sm font-black uppercase tracking-tight text-slate-900">
-              {websites.find((website) => website._id === websiteId)?.websiteName || "No website selected"}
-            </p>
-          </div>
+    <div className="bg-white border border-slate-200/80 rounded-2xl px-4 py-3 shadow-sm flex flex-wrap items-center justify-between gap-3">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-[9px] font-black uppercase tracking-widest text-indigo-500">{label}</span>
+          <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[9px] font-black uppercase">{activeName}</span>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4">
-          <div className="rounded-[26px] border border-white/80 bg-white/90 px-5 py-4 shadow-sm">
-            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-300">Available Websites</p>
-            <p className="mt-2 text-sm font-bold text-slate-500">Switch the inventory scope without leaving the purchase workspace.</p>
-          </div>
-          <div className="rounded-[26px] border border-indigo-200 bg-white px-4 py-3 shadow-[0_18px_40px_-30px_rgba(79,70,229,0.65)]">
-            <select
-              value={websiteId}
-              onChange={(event) => setWebsiteId(event.target.value)}
-              className="min-w-[280px] rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-slate-700 outline-none focus:border-indigo-400"
-            >
-              <option value="">Select website</option>
-              {websites.map((website) => (
-                <option key={website._id} value={website._id}>
-                  {website.websiteName}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
+          Switch active website scope for stock, item master, and procurement actions.
+        </p>
       </div>
+      <select
+        value={websiteId}
+        onChange={(event) => setWebsiteId(event.target.value)}
+        className="min-w-[220px] rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-slate-700 outline-none focus:border-indigo-400"
+      >
+        <option value="">Select website</option>
+        {websites.map((website) => (
+          <option key={website._id} value={website._id}>
+            {website.websiteName}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }
@@ -1089,7 +1301,8 @@ function PurchaseSettings({ user, setUser }) {
     email: user?.email || "",
     password: ""
   });
-  const [statusMessage, setStatusMessage] = useState("");
+  const [statusBanner, setStatusBanner] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingAvailability, setSavingAvailability] = useState(false);
 
@@ -1104,17 +1317,22 @@ function PurchaseSettings({ user, setUser }) {
   async function saveProfile(event) {
     event.preventDefault();
     setSavingProfile(true);
-    setStatusMessage("");
+    setStatusBanner(null);
     try {
+      const payload = {
+        name: profileForm.name.trim(),
+        email: profileForm.email.trim(),
+        ...(profileForm.password ? { password: profileForm.password } : {})
+      };
       const updatedUser = await api("/api/users/profile", {
         method: "PATCH",
-        body: JSON.stringify(profileForm)
+        body: JSON.stringify(payload)
       });
       setUser(updatedUser);
       setProfileForm((current) => ({ ...current, password: "" }));
-      setStatusMessage("Purchase profile updated successfully.");
+      setStatusBanner({ type: "success", text: "Purchase profile updated successfully." });
     } catch (error) {
-      setStatusMessage(error.message || "Failed to update profile.");
+      setStatusBanner({ type: "error", text: error?.message || "Failed to update profile." });
     } finally {
       setSavingProfile(false);
     }
@@ -1122,103 +1340,137 @@ function PurchaseSettings({ user, setUser }) {
 
   async function toggleAvailability() {
     setSavingAvailability(true);
-    setStatusMessage("");
+    setStatusBanner(null);
     try {
       const updated = await api("/api/users/availability", {
         method: "PATCH",
         body: JSON.stringify({ isAvailable: !user?.isAvailable })
       });
       setUser(updated);
-      setStatusMessage(`Purchase desk is now ${updated.isAvailable ? "ready" : "standby"}.`);
+      setStatusBanner({
+        type: "success",
+        text: `Purchase desk is now ${updated.isAvailable ? "ready" : "standby"}.`
+      });
     } catch (error) {
-      setStatusMessage(error.message || "Failed to update desk status.");
+      setStatusBanner({ type: "error", text: error?.message || "Failed to update desk status." });
     } finally {
       setSavingAvailability(false);
     }
   }
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-8 animate-in slide-in-from-bottom-4 duration-700">
-      <form onSubmit={saveProfile} className="premium-card p-8 bg-white rounded-[36px] border border-slate-200/60 shadow-sm space-y-6">
-        <div className="space-y-1">
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-500">Account Settings</p>
-          <h3 className="text-xl font-black text-slate-900 tracking-tight">Update purchase profile</h3>
+    <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-4">
+      <form onSubmit={saveProfile} className="premium-card p-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm space-y-3.5">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-widest text-indigo-500">Account Settings</p>
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Update purchase profile</h3>
+          </div>
+          {user?.role && (
+            <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[9px] font-black uppercase">
+              {user.role}
+            </span>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <label className="space-y-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Name</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <label className="space-y-1">
+            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Name</span>
             <input
               value={profileForm.name}
               onChange={(event) => setProfileForm((current) => ({ ...current, name: event.target.value }))}
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none transition-all focus:border-indigo-400 focus:bg-white"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold outline-none transition-all focus:border-indigo-400 focus:bg-white"
               required
             />
           </label>
-          <label className="space-y-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Email</span>
+          <label className="space-y-1">
+            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Email</span>
             <input
               type="email"
               value={profileForm.email}
               onChange={(event) => setProfileForm((current) => ({ ...current, email: event.target.value }))}
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none transition-all focus:border-indigo-400 focus:bg-white"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold outline-none transition-all focus:border-indigo-400 focus:bg-white"
               required
             />
           </label>
         </div>
 
-        <label className="space-y-2 block">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Password</span>
-          <input
-            type="password"
-            placeholder="Leave blank to keep current password"
-            value={profileForm.password}
-            onChange={(event) => setProfileForm((current) => ({ ...current, password: event.target.value }))}
-            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none transition-all focus:border-indigo-400 focus:bg-white"
-          />
+        <label className="space-y-1 block">
+          <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Password</span>
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              autoComplete="new-password"
+              placeholder="Leave blank to keep current password"
+              value={profileForm.password}
+              onChange={(event) => setProfileForm((current) => ({ ...current, password: event.target.value }))}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-3 pr-9 py-2 text-xs font-bold outline-none transition-all focus:border-indigo-400 focus:bg-white"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+              title={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+          </div>
         </label>
 
-        {statusMessage ? (
-          <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-[11px] font-bold text-slate-600">
-            {statusMessage}
+        {statusBanner ? (
+          <div
+            className={`rounded-xl border px-3 py-2 text-[11px] font-bold ${
+              statusBanner.type === "error"
+                ? "border-rose-200 bg-rose-50 text-rose-700"
+                : "border-emerald-200 bg-emerald-50 text-emerald-700"
+            }`}
+          >
+            {statusBanner.text}
           </div>
         ) : null}
 
         <button
           type="submit"
           disabled={savingProfile}
-          className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-6 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-white transition-all hover:bg-black disabled:opacity-60"
+          className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-[10px] font-black uppercase tracking-wider text-white transition-all hover:bg-black disabled:opacity-60"
         >
           {savingProfile ? "Saving…" : "Save Profile"}
         </button>
       </form>
 
-      <div className="premium-card p-8 bg-[linear-gradient(145deg,#ffffff,#eef2ff)] rounded-[36px] border border-indigo-100/70 shadow-sm space-y-6">
-        <div className="space-y-1">
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-500">Desk Control</p>
-          <h3 className="text-xl font-black text-slate-900 tracking-tight">Purchase availability</h3>
+      <div className="premium-card p-4 bg-[linear-gradient(145deg,#ffffff,#eef2ff)] rounded-2xl border border-indigo-100/80 shadow-sm space-y-3.5 flex flex-col justify-between">
+        <div className="space-y-3">
+          <div className="border-b border-indigo-100/80 pb-2.5">
+            <p className="text-[9px] font-black uppercase tracking-widest text-indigo-500">Desk Control</p>
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Purchase availability</h3>
+          </div>
+
+          <div className="rounded-xl border border-white/80 bg-white/90 p-3.5 space-y-1.5">
+            <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Current status</p>
+            <div className="flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${user?.isAvailable ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
+              <p className="text-lg font-black tracking-tight text-slate-900">
+                {user?.isAvailable ? "Ready" : "Standby"}
+              </p>
+            </div>
+            <p className="text-[11px] font-semibold text-slate-500 leading-snug">
+              Toggle this when the purchase desk is available for new assigned work.
+            </p>
+          </div>
         </div>
 
-        <div className="rounded-3xl border border-white/70 bg-white/80 p-6">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Current status</p>
-          <p className="mt-3 text-3xl font-black tracking-tight text-slate-900">
-            {user?.isAvailable ? "Ready" : "Standby"}
-          </p>
-          <p className="mt-2 text-sm font-bold text-slate-500">
-            Toggle this when the purchase desk is available for new assigned work.
-          </p>
+        <div>
+          <button
+            type="button"
+            onClick={toggleAvailability}
+            disabled={savingAvailability}
+            className={`inline-flex items-center justify-center rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-wider text-white transition-all disabled:opacity-60 ${
+              user?.isAvailable ? "bg-rose-600 hover:bg-rose-700" : "bg-emerald-600 hover:bg-emerald-700"
+            }`}
+          >
+            {savingAvailability ? "Updating…" : user?.isAvailable ? "Set Standby" : "Set Ready"}
+          </button>
         </div>
-
-        <button
-          type="button"
-          onClick={toggleAvailability}
-          disabled={savingAvailability}
-          className={`inline-flex items-center justify-center rounded-2xl px-6 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-white transition-all disabled:opacity-60 ${
-            user?.isAvailable ? "bg-rose-600 hover:bg-rose-700" : "bg-emerald-600 hover:bg-emerald-700"
-          }`}
-        >
-          {savingAvailability ? "Updating…" : user?.isAvailable ? "Set Standby" : "Set Ready"}
-        </button>
       </div>
     </div>
   );
@@ -1226,6 +1478,7 @@ function PurchaseSettings({ user, setUser }) {
 
 export default function PurchasePage() {
   const { user, setUser } = useAuth();
+  const socket = useSocket();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get("tab") || "dashboard";
   const [sessions, setSessions] = useState([]);
@@ -1254,25 +1507,42 @@ export default function PurchasePage() {
 
   const menuItems = [
     { label: "Dashboard", href: "/purchase" },
-    { label: "Requests", href: "/purchase?tab=requests" },
-    { label: "Procurement", href: "/purchase?tab=procurement" },
-    {
-      label: "Inventory",
-      children: [
-        { label: "Item Master", href: "/purchase?tab=inventory-master" },
-        { label: "Category Master", href: "/purchase?tab=inventory-category" },
-        { label: "Subcategory Master", href: "/purchase?tab=inventory-subcategory" },
-        { label: "Brand Master", href: "/purchase?tab=inventory-brand" },
-        { label: "Size Master", href: "/purchase?tab=inventory-size" },
-        { label: "Color Master", href: "/purchase?tab=inventory-color" },
-        { label: "Unit Master", href: "/purchase?tab=inventory-unit" },
-        { label: "Supplier Master", href: "/purchase?tab=inventory-supplier" },
-        { label: "Stock In", href: "/purchase?tab=inventory-stock-in" },
-        { label: "Stock Out", href: "/purchase?tab=inventory-stock-out" },
-        { label: "Adjustment", href: "/purchase?tab=inventory-adjustment" }
-      ]
-    },
-    { label: "Customer Master", href: "/purchase?tab=inventory-customer" },
+    ...(hasPermission(user, PERMISSIONS.TICKET_VIEW) || hasPermission(user, PERMISSIONS.PURCHASE_MANAGE)
+      ? [{ label: "Requests", href: "/purchase?tab=requests" }]
+      : []),
+    ...(hasPermission(user, PERMISSIONS.PURCHASE_MANAGE)
+      ? [{ label: "Procurement", href: "/purchase?tab=procurement" }]
+      : []),
+    ...(hasPermission(user, PERMISSIONS.INVENTORY_VIEW)
+      ? [{
+          label: "Inventory",
+          children: [
+            { label: "Item Master", href: "/purchase?tab=inventory-master" },
+            { label: "Category Master", href: "/purchase?tab=inventory-category" },
+            { label: "Subcategory Master", href: "/purchase?tab=inventory-subcategory" },
+            { label: "Brand Master", href: "/purchase?tab=inventory-brand" },
+            { label: "Size Master", href: "/purchase?tab=inventory-size" },
+            { label: "Color Master", href: "/purchase?tab=inventory-color" },
+            { label: "Unit Master", href: "/purchase?tab=inventory-unit" },
+            { label: "Supplier Master", href: "/purchase?tab=inventory-supplier" },
+            { label: "Stock In", href: "/purchase?tab=inventory-stock-in" },
+            { label: "Stock Out", href: "/purchase?tab=inventory-stock-out" },
+            { label: "Adjustment", href: "/purchase?tab=inventory-adjustment" }
+          ]
+        }]
+      : []),
+    ...(hasPermission(user, PERMISSIONS.CRM_VIEW)
+      ? [{ label: "Customer Master", href: "/purchase?tab=inventory-customer" }]
+      : []),
+    ...(hasPermission(user, PERMISSIONS.CHAT_VIEW)
+      ? [{ label: "Live Chat", href: "/purchase?tab=chats" }]
+      : []),
+    ...(hasPermission(user, PERMISSIONS.INVOICE_VIEW) || hasPermission(user, PERMISSIONS.INVOICE_MANAGE)
+      ? [{ label: "Invoices", href: "/purchase?tab=invoices" }]
+      : []),
+    ...(hasPermission(user, PERMISSIONS.REPORTS_VIEW)
+      ? [{ label: "Reports", href: "/purchase?tab=reports" }]
+      : []),
     { label: "Settings", href: "/purchase?tab=settings" }
   ];
 
@@ -1796,6 +2066,32 @@ export default function PurchasePage() {
         <InventoryManager websiteId={selectedInventoryWebsiteId} activeTab="history" />
       </div>
     );
+  }
+
+  if (tab === "chats") {
+    title = "Live Conversation Hub";
+    subtitle = "Real-time visitor chats and support";
+    content = (
+      <ConversationHub
+        socket={socket}
+        initialSessions={sessions}
+        websiteId={selectedInventoryWebsiteId}
+        userRole={user?.role || "purchase"}
+        currentUser={user}
+      />
+    );
+  }
+
+  if (tab === "invoices") {
+    title = "Invoice Management";
+    subtitle = "Create, edit, delete and manage customer invoices";
+    content = <CrmInvoicesView websiteId={selectedInventoryWebsiteId} />;
+  }
+
+  if (tab === "reports") {
+    title = "Business Reports";
+    subtitle = "Procurement & revenue analytics";
+    content = <EnterpriseReportsCenter />;
   }
 
   if (tab === "settings") {

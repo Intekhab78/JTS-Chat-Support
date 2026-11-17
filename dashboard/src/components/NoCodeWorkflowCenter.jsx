@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Zap, Play, Plus, RefreshCw, X, CheckCircle2, AlertTriangle, Layers, Trash2,
   Clock, ArrowRight, ShieldCheck, ChevronRight, Filter, Settings, FileText, ArrowUpRight
@@ -8,9 +9,9 @@ import { api } from "../api/client.js";
 const TRIGGER_OPTIONS = [
   { value: "customer_created", label: "Customer Created" },
   { value: "customer_updated", label: "Customer Updated" },
-  { value: "vat_due", label: "VAT Filing Due Date" },
-  { value: "corporate_tax_due", label: "Corporate Tax Filing Due Date" },
-  { value: "trade_license_expiry", label: "Trade License Expiry (15 Days)" },
+  { value: "lead_assigned", label: "Lead Assigned to Agent" },
+  { value: "ticket_opened", label: "Urgent Support Ticket Opened" },
+  { value: "invoice_overdue", label: "Invoice Overdue Reminder" },
   { value: "document_uploaded", label: "Document Uploaded" },
   { value: "payment_received", label: "Invoice Payment Received" },
   { value: "risk_created", label: "Risk Item Logged" },
@@ -54,12 +55,12 @@ export default function NoCodeWorkflowCenter() {
     },
     {
       _id: "wf-3",
-      workflowName: "DED Trade License Expiry 15-Day Auto-Reminder",
-      triggerType: "trade_license_expiry",
+      workflowName: "Invoice Overdue 7-Day Auto-Reminder",
+      triggerType: "invoice_overdue",
       nodes: [
-        { nodeType: "trigger", label: "Trigger: TRADE LICENSE EXPIRY DATE <= 15 DAYS" },
-        { nodeType: "condition", label: "Check: Renewal Status is Pending" },
-        { nodeType: "action", label: "Action: Auto-Generate Renewal Quotation & Email Client PDF Invoice" }
+        { nodeType: "trigger", label: "Trigger: INVOICE PAYMENT OVERDUE >= 7 DAYS" },
+        { nodeType: "condition", label: "Check: Invoice Status == UNPAID" },
+        { nodeType: "action", label: "Action: Dispatch WhatsApp Alert & Resend Payment Link" }
       ]
     },
     {
@@ -91,7 +92,7 @@ export default function NoCodeWorkflowCenter() {
           workflows: DEFAULT_WORKFLOWS,
           history: [
             { _id: "hist-1", workflowName: "VIP High-Value Lead WhatsApp", status: "SUCCESS", durationMs: 98, createdAt: new Date().toISOString() },
-            { _id: "hist-2", workflowName: "DED Trade License Expiry", status: "SUCCESS", durationMs: 145, createdAt: new Date(Date.now() - 3600000).toISOString() },
+            { _id: "hist-2", workflowName: "Invoice Overdue Reminder", status: "SUCCESS", durationMs: 145, createdAt: new Date(Date.now() - 3600000).toISOString() },
             { _id: "hist-3", workflowName: "AI Voice Call Completed", status: "SUCCESS", durationMs: 82, createdAt: new Date(Date.now() - 7200000).toISOString() }
           ]
         });
@@ -107,7 +108,7 @@ export default function NoCodeWorkflowCenter() {
         workflows: DEFAULT_WORKFLOWS,
         history: [
           { _id: "hist-1", workflowName: "VIP High-Value Lead WhatsApp", status: "SUCCESS", durationMs: 98, createdAt: new Date().toISOString() },
-          { _id: "hist-2", workflowName: "DED Trade License Expiry", status: "SUCCESS", durationMs: 145, createdAt: new Date(Date.now() - 3600000).toISOString() }
+          { _id: "hist-2", workflowName: "Invoice Overdue Reminder", status: "SUCCESS", durationMs: 145, createdAt: new Date(Date.now() - 3600000).toISOString() }
         ]
       });
     } finally {
@@ -394,8 +395,8 @@ export default function NoCodeWorkflowCenter() {
       )}
 
       {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {showModal && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowModal(false)} />
           <div className="relative w-full max-w-xl bg-white rounded-3xl p-8 border border-slate-200 shadow-2xl space-y-6 animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b pb-4 border-slate-100">
@@ -414,7 +415,7 @@ export default function NoCodeWorkflowCenter() {
                   required
                   value={form.workflowName}
                   onChange={(e) => setForm({ ...form, workflowName: e.target.value })}
-                  placeholder="e.g. Auto VAT Due Alert & Email Dispatch"
+                  placeholder="e.g. Urgent Ticket Escalation & Alert Dispatch"
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-indigo-500 font-black"
                 />
               </div>
@@ -452,7 +453,8 @@ export default function NoCodeWorkflowCenter() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

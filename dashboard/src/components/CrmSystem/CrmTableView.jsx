@@ -25,9 +25,9 @@ export default function CrmTableView({
 
   return (
     <div className="relative">
-      <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-          <div className="flex items-center gap-4">
+      <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+        <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+          <div className="flex items-center gap-3">
             <input
               type="checkbox"
               checked={allSelected}
@@ -40,56 +40,56 @@ export default function CrmTableView({
                   }
                 });
               }}
-              className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
             />
             <div>
-              <h3 className="text-sm font-black uppercase tracking-[0.18em] text-slate-900">Lead Register</h3>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.18em] mt-0.5">{pagination.total || customers.length} records in scope</p>
+              <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-900">Lead Register</h3>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{pagination.total || customers.length} records in scope</p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2.5">
             {selectedIds.length > 0 && (
-              <p className="text-[10px] font-black uppercase text-indigo-600 animate-pulse">
-                {selectedIds.length} Records Selected
+              <p className="text-[10px] font-extrabold uppercase text-indigo-600">
+                {selectedIds.length} Selected
               </p>
             )}
-            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+            <div className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-wider text-slate-600">
               {leadView.replaceAll("_", " ")}
             </div>
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left table-fixed">
+          <table className="w-full text-left table-fixed min-w-[820px]">
             <thead>
-              <tr className="bg-white border-b border-slate-200">
-                <th className="w-12 px-6 py-4" />
-                <th className="px-6 py-4 small-label w-[20%]">Opportunity</th>
-                <th className="px-6 py-4 small-label w-[15%]">Stage & Status</th>
-                <th className="px-6 py-4 small-label w-[15%]">Owner</th>
-                <th className="px-6 py-4 small-label w-[15%]">Timeline</th>
-                <th className="px-6 py-4 small-label w-[15%]">Financials</th>
-                <th className="px-6 py-4 small-label w-[15%]">Updated</th>
-                <th className="w-12 px-6 py-4 small-label" />
+              <tr className="bg-slate-50/40 border-b border-slate-100">
+                <th className="w-10 px-3 py-2.5" />
+                <th className="px-3 py-2.5 text-[9px] font-extrabold uppercase tracking-wider text-slate-400 w-[26%]">Opportunity</th>
+                <th className="px-3 py-2.5 text-[9px] font-extrabold uppercase tracking-wider text-slate-400 w-[14%]">Stage & Status</th>
+                <th className="px-3 py-2.5 text-[9px] font-extrabold uppercase tracking-wider text-slate-400 w-[14%]">Owner</th>
+                <th className="px-3 py-2.5 text-[9px] font-extrabold uppercase tracking-wider text-slate-400 w-[13%]">Timeline</th>
+                <th className="px-3 py-2.5 text-[9px] font-extrabold uppercase tracking-wider text-slate-400 w-[16%]">Financials</th>
+                <th className="px-3 py-2.5 text-[9px] font-extrabold uppercase tracking-wider text-slate-400 w-[9%]">Updated</th>
+                <th className="w-24 px-3 py-2.5" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-slate-100">
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="animate-pulse">
-                    <td colSpan={8} className="px-6 py-6">
-                      <div className="h-4 bg-slate-100 rounded-lg w-1/2" />
+                    <td colSpan={8} className="px-3 py-3.5">
+                      <div className="h-3.5 bg-slate-100 rounded w-1/2" />
                     </td>
                   </tr>
                 ))
               ) : customers.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-8 py-20 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center">
-                        <User size={20} className="text-slate-300" />
+                  <td colSpan={8} className="px-6 py-14 text-center">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center">
+                        <User size={18} className="text-slate-300" />
                       </div>
-                      <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">No customers found</p>
+                      <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">No customers found</p>
                     </div>
                   </td>
                 </tr>
@@ -98,59 +98,61 @@ export default function CrmTableView({
                 return (
                   <tr
                     key={c._id}
-                    className={`hover:bg-slate-50/60 transition-colors cursor-pointer group ${isSelected ? "bg-indigo-50/30" : ""}`}
+                    className={`hover:bg-slate-50/70 transition-colors cursor-pointer group ${isSelected ? "bg-indigo-50/30" : ""}`}
                   >
-                    <td className="px-6 py-5" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => toggleSelection(c._id)}
-                        className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                       />
                     </td>
-                    <td className="px-6 py-5" onClick={() => openCustomer(c)}>
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-linear-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center font-black text-sm shadow-lg shadow-indigo-200 shrink-0">
+                    <td className="px-3 py-2.5" onClick={() => openCustomer(c)}>
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-extrabold text-[11px] shrink-0">
                           {c.name?.[0]?.toUpperCase() || "U"}
                         </div>
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="text-xs font-black text-slate-900 uppercase tracking-tight truncate">{c.name}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-[11px] font-extrabold text-slate-900 uppercase tracking-tight truncate">{c.name}</p>
                             {isStaleLead(c) && (
-                              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-500 text-white text-[7px] font-black uppercase tracking-widest rounded shadow-sm">
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 text-[8px] font-extrabold uppercase tracking-wider rounded shrink-0">
                                 <AlertTriangle size={8} />
                                 Stale
-                              </div>
-                            )}
-                          </div>
-                          <p className="text-[10px] text-slate-400 font-bold truncate">{c.email} {c.companyName ? `• ${c.companyName}` : ""}</p>
-                          <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                            {c.trn && (
-                              <span className="text-[8px] font-mono font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                                TRN: {c.trn}
-                              </span>
-                            )}
-                            {c.serviceType && (
-                              <span className="text-[8px] font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
-                                {c.serviceType}
                               </span>
                             )}
                           </div>
+                          <p className="text-[9.5px] text-slate-400 font-medium truncate">{c.email}{c.companyName ? ` • ${c.companyName}` : ""}</p>
+                          {(c.trn || c.serviceType) && (
+                            <div className="flex items-center gap-1 flex-wrap mt-1">
+                              {c.trn && (
+                                <span className="text-[8.5px] font-mono font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                  TRN: {c.trn}
+                                </span>
+                              )}
+                              {c.serviceType && (
+                                <span className="text-[8.5px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 truncate max-w-[160px]">
+                                  {c.serviceType}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-5" onClick={() => openCustomer(c)}>
+                    <td className="px-3 py-2.5" onClick={() => openCustomer(c)}>
                       <div>
-                        <p className="text-[11px] font-black text-slate-900 uppercase tracking-widest">{c.pipelineStage}</p>
-                        <div className="flex items-center gap-1 mt-1">
-                          <span className={`px-2 py-0.5 inline-block rounded text-[8px] font-black uppercase tracking-widest border ${c.status === "customer" ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
-                            c.status === "lead" ? "bg-sky-50 text-sky-600 border-sky-100" :
-                              c.status === "prospect" ? "bg-indigo-50 text-indigo-600 border-indigo-100" :
-                                "bg-slate-100 text-slate-400 border-slate-200"
+                        <p className="text-[10.5px] font-extrabold text-slate-900 uppercase tracking-wider">{c.pipelineStage}</p>
+                        <div className="flex items-center gap-1 flex-wrap mt-1">
+                          <span className={`px-1.5 py-0.5 inline-block rounded text-[8.5px] font-bold uppercase tracking-wider border ${c.status === "customer" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                            c.status === "lead" ? "bg-sky-50 text-sky-700 border-sky-200" :
+                              c.status === "prospect" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
+                                "bg-slate-100 text-slate-500 border-slate-200"
                             }`}>
                             {c.status}
                           </span>
-                          <span className={`px-1.5 py-0.5 inline-block rounded text-[8px] font-black uppercase tracking-widest border ${
+                          <span className={`px-1.5 py-0.5 inline-block rounded text-[8.5px] font-bold uppercase tracking-wider border ${
                             c.workStatus === "Completed" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
                             c.workStatus === "In Progress" ? "bg-sky-50 text-sky-700 border-sky-200" :
                             "bg-amber-50 text-amber-700 border-amber-200"
@@ -160,63 +162,68 @@ export default function CrmTableView({
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-5" onClick={() => openCustomer(c)}>
+                    <td className="px-3 py-2.5" onClick={() => openCustomer(c)}>
                       <div>
-                        <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest truncate">
+                        <p className="text-[10.5px] font-bold text-slate-800 uppercase tracking-wide truncate">
                           {c.ownerId?.name || "Unassigned"}
                         </p>
-                        <p className="text-[9px] text-slate-400 font-bold truncate">
+                        <p className="text-[9px] text-slate-400 font-medium truncate mt-0.5">
                           {c.decisionMaker || "No DM defined"}
                         </p>
                       </div>
                     </td>
-                    <td className="px-6 py-5" onClick={() => openCustomer(c)}>
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-black text-slate-900 uppercase tracking-tight">{c.timeline || "TBD"}</p>
-                        <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">
+                    <td className="px-3 py-2.5" onClick={() => openCustomer(c)}>
+                      <div className="space-y-0.5">
+                        <p className="text-[10.5px] font-bold text-slate-800 uppercase tracking-tight truncate">{c.timeline || "TBD"}</p>
+                        <p className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide whitespace-nowrap">
                           Close: {c.expectedCloseDate ? new Date(c.expectedCloseDate).toLocaleDateString() : "TBA"}
                         </p>
                       </div>
                     </td>
-                    <td className="px-6 py-5" onClick={() => openCustomer(c)}>
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                          Bud: {c.budget ? formatCurrency(c.budget) : "TBD"}
+                    <td className="px-3 py-2.5" onClick={() => openCustomer(c)}>
+                      <div className="space-y-0.5">
+                        <div className="text-[10.5px] font-bold text-slate-900 uppercase tracking-tight flex items-center gap-1.5 whitespace-nowrap">
+                          <span>Bud: {c.budget ? formatCurrency(c.budget) : "TBD"}</span>
                           {isHighValueLead(c) && (
-                            <span className="flex items-center gap-1 text-[8px] text-emerald-500 font-black">
-                              <TrendingUp size={10} />
+                            <span className="inline-flex items-center gap-0.5 text-[8px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1 py-0.5 rounded font-extrabold shrink-0">
+                              <TrendingUp size={9} />
                               HIGH CAP
                             </span>
                           )}
+                        </div>
+                        <p className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide whitespace-nowrap">
+                          Est: {c.leadValue ? formatCurrency(c.leadValue) : "TBD"}
                         </p>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Est: {c.leadValue ? formatCurrency(c.leadValue) : "TBD"}</p>
                       </div>
                     </td>
-                    <td className="px-6 py-5" onClick={() => openCustomer(c)}>
-                      <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest truncate">
+                    <td className="px-3 py-2.5" onClick={() => openCustomer(c)}>
+                      <p className="text-[10px] font-semibold text-slate-600 tabular-nums whitespace-nowrap">
                         {new Date(c.lastInteraction).toLocaleDateString()}
                       </p>
                     </td>
-                    <td className="px-6 py-5 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+                    <td className="px-3 py-2.5 text-right">
+                      <div className="flex items-center justify-end gap-1">
                         {onOpen360 && (
                           <button
                             onClick={(e) => { e.stopPropagation(); onOpen360(c._id); }}
-                            className="w-8 h-8 rounded-full hover:bg-indigo-50 flex items-center justify-center text-slate-300 hover:text-indigo-500 transition-all"
+                            className="w-6 h-6 rounded-md hover:bg-indigo-50 flex items-center justify-center text-slate-400 hover:text-indigo-600 transition-colors"
                             title="Open Full 360° Customer Profile"
                           >
-                            <Eye size={15} />
+                            <Eye size={13} />
                           </button>
                         )}
                         <button
                           onClick={(e) => { e.stopPropagation(); openCustomer(c, 'actions'); }}
-                          className="w-8 h-8 rounded-full hover:bg-amber-50 flex items-center justify-center text-slate-300 hover:text-amber-500 transition-all"
+                          className="w-6 h-6 rounded-md hover:bg-amber-50 flex items-center justify-center text-slate-400 hover:text-amber-600 transition-colors"
                           title="Quick Actions / Drawer"
                         >
-                          <Clock size={16} />
+                          <Clock size={13} />
                         </button>
-                        <div className="w-8 h-8 rounded-full hover:bg-indigo-50 flex items-center justify-center text-slate-300 group-hover:text-indigo-500 transition-all ml-auto">
-                          <ChevronRight size={18} />
+                        <div
+                          onClick={() => openCustomer(c)}
+                          className="w-6 h-6 rounded-md hover:bg-indigo-50 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 transition-colors"
+                        >
+                          <ChevronRight size={14} />
                         </div>
                       </div>
                     </td>

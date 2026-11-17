@@ -25,7 +25,10 @@ const MATRIX = {
     PERMISSIONS.SETTINGS_MANAGE,
     PERMISSIONS.AUDIT_VIEW,
     PERMISSIONS.REPORTS_VIEW,
-    PERMISSIONS.TEAM_VIEW
+    PERMISSIONS.TEAM_VIEW,
+    PERMISSIONS.INVENTORY_VIEW,
+    PERMISSIONS.INVENTORY_MANAGE,
+    PERMISSIONS.PURCHASE_MANAGE
   ]),
 
   // Manager: full CRM control + monitoring + delete + Chat assignment/transfer + Ticket assignment
@@ -50,7 +53,10 @@ const MATRIX = {
     PERMISSIONS.NOTIFICATION_VIEW,
     PERMISSIONS.AUDIT_VIEW,
     PERMISSIONS.REPORTS_VIEW,
-    PERMISSIONS.TEAM_VIEW
+    PERMISSIONS.TEAM_VIEW,
+    PERMISSIONS.INVENTORY_VIEW,
+    PERMISSIONS.INVENTORY_MANAGE,
+    PERMISSIONS.PURCHASE_MANAGE
   ]),
 
   // Sales: Full CRM control + Chat access + Ticket access
@@ -73,7 +79,8 @@ const MATRIX = {
     PERMISSIONS.CHAT_NOTE,
     PERMISSIONS.ACTIVITY_VIEW,
     PERMISSIONS.NOTIFICATION_VIEW,
-    PERMISSIONS.REPORTS_VIEW
+    PERMISSIONS.REPORTS_VIEW,
+    PERMISSIONS.INVENTORY_VIEW
   ]),
 
   // Agent: Tickets access + CRM access (view, create, update)
@@ -110,7 +117,8 @@ const MATRIX = {
     PERMISSIONS.CHAT_VIEW,
     PERMISSIONS.ACTIVITY_VIEW,
     PERMISSIONS.NOTIFICATION_VIEW,
-    PERMISSIONS.REPORTS_VIEW
+    PERMISSIONS.REPORTS_VIEW,
+    PERMISSIONS.INVENTORY_VIEW
   ]),
 
   [ROLES.MANAGEMENT]: new Set([
@@ -134,10 +142,18 @@ const MATRIX = {
     PERMISSIONS.NOTIFICATION_VIEW,
     PERMISSIONS.AUDIT_VIEW,
     PERMISSIONS.REPORTS_VIEW,
-    PERMISSIONS.TEAM_VIEW
+    PERMISSIONS.TEAM_VIEW,
+    PERMISSIONS.INVENTORY_VIEW,
+    PERMISSIONS.INVENTORY_MANAGE,
+    PERMISSIONS.PURCHASE_MANAGE
   ]),
 
   [ROLES.PURCHASE]: new Set([
+    PERMISSIONS.INVENTORY_VIEW,
+    PERMISSIONS.INVENTORY_MANAGE,
+    PERMISSIONS.PURCHASE_MANAGE,
+    PERMISSIONS.CRM_VIEW,
+    PERMISSIONS.TICKET_VIEW,
     PERMISSIONS.NOTIFICATION_VIEW,
     PERMISSIONS.ACTIVITY_VIEW,
     PERMISSIONS.REPORTS_VIEW
@@ -160,9 +176,40 @@ export function hasPermission(user, permission) {
   const normalizedRole = String(user.role).trim().toLowerCase();
   if (normalizedRole === "admin" || normalizedRole === "client") return true;
 
-  // 1. Dynamic DB permissions override from Role Master if non-empty
-  if (Array.isArray(user.permissions) && user.permissions.length > 0) {
-    return user.permissions.includes(permission);
+  // 1. Dynamic DB permissions override from Role Master when present
+  if (Array.isArray(user.permissions)) {
+    if (user.permissions.includes(permission)) return true;
+    // Legacy coarse-permission fallback ONLY when no granular sub-permissions of that family exist in user.permissions
+    const hasGranularInvoice = user.permissions.some((p) =>
+      p === PERMISSIONS.INVOICE_VIEW ||
+      p === PERMISSIONS.INVOICE_CREATE ||
+      p === PERMISSIONS.INVOICE_UPDATE ||
+      p === PERMISSIONS.INVOICE_DELETE
+    );
+    if (!hasGranularInvoice && permission.startsWith("invoice.") && user.permissions.includes(PERMISSIONS.INVOICE_MANAGE)) {
+      return true;
+    }
+
+    const hasGranularInventory = user.permissions.some((p) =>
+      p === PERMISSIONS.INVENTORY_VIEW ||
+      p === PERMISSIONS.INVENTORY_CREATE ||
+      p === PERMISSIONS.INVENTORY_UPDATE ||
+      p === PERMISSIONS.INVENTORY_DELETE
+    );
+    if (!hasGranularInventory && permission.startsWith("inventory.") && user.permissions.includes(PERMISSIONS.INVENTORY_MANAGE)) {
+      return true;
+    }
+
+    const hasGranularPurchase = user.permissions.some((p) =>
+      p === PERMISSIONS.PURCHASE_VIEW ||
+      p === PERMISSIONS.PURCHASE_CREATE ||
+      p === PERMISSIONS.PURCHASE_UPDATE ||
+      p === PERMISSIONS.PURCHASE_DELETE
+    );
+    if (!hasGranularPurchase && permission.startsWith("purchase.") && user.permissions.includes(PERMISSIONS.PURCHASE_MANAGE)) {
+      return true;
+    }
+    return false;
   }
 
   // 2. Fallback to static matrix for built-in roles

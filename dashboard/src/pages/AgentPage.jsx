@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { io } from "socket.io-client";
 import { useSearchParams } from "react-router-dom";
-import { Ticket, Link, Copy, CheckCheck, X, History, AlertCircle, Archive, RotateCcw, Trash2, ShieldCheck, User, Lock, CheckCircle, Activity } from "lucide-react";
+import { Ticket, Link, Copy, CheckCheck, X, History, AlertCircle, Archive, RotateCcw, Trash2, ShieldCheck, User, Lock, CheckCircle, Activity, Eye, EyeOff } from "lucide-react";
 import Layout from "../components/Layout.jsx";
 import ChatPanel from "../components/ChatPanel.jsx";
 import CannedResponseManager from "../components/CannedResponseManager.jsx";
@@ -12,6 +12,9 @@ import TicketManager from "../components/TicketManager.jsx";
 import AgentPerformanceView from "../components/AgentPerformanceView.jsx";
 import CRMManager from "../components/CRMManager.jsx";
 import CustomerManager from "../components/CustomerManager.jsx";
+import CrmInvoicesView from "../components/CrmSystem/CrmInvoicesView.jsx";
+import InventoryManager from "../components/InventoryManager.jsx";
+import EnterpriseReportsCenter from "../components/EnterpriseReportsCenter.jsx";
 import { api } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useWebsite } from "../context/WebsiteContext.jsx";
@@ -417,6 +420,19 @@ export default function AgentPage() {
     }
   }
 
+  async function acceptChat(sessionId = selectedSessionId) {
+    if (!sessionId) return;
+    try {
+      const updated = await api(`/api/chat/sessions/${sessionId}/accept`, {
+        method: "PATCH"
+      });
+      setSessions(prev => prev.map(s => (s.sessionId === sessionId ? { ...s, ...updated } : s)));
+      setToast({ show: true, message: "Chat accepted and assigned to you!", type: "info" });
+    } catch (err) {
+      setToast({ show: true, message: err.message || "Failed to accept chat", type: "error" });
+    }
+  }
+
   async function generateTicket(e) {
     e.preventDefault();
     if (!selectedSession) return;
@@ -471,19 +487,28 @@ export default function AgentPage() {
 
   const menuItems = [
     { label: "Performance", href: "/agent" },
-    { label: "Active Queue", href: "/agent?tab=chats" },
+    ...(hasPermission(user, PERMISSIONS.CHAT_VIEW) ? [{ label: "Active Queue", href: "/agent?tab=chats" }] : []),
   ];
 
-  if (hasPermission(user, PERMISSIONS.TICKET_VIEW)) {
+  if (canUseTickets && hasPermission(user, PERMISSIONS.TICKET_VIEW)) {
     menuItems.push({ label: "Tickets", href: "/agent?tab=tickets" });
   }
 
-  if (hasPermission(user, PERMISSIONS.CRM_VIEW)) {
+  if (hasModule(user, "crm") && hasPermission(user, PERMISSIONS.CRM_VIEW)) {
     menuItems.push({ label: "CRM", href: "/agent?tab=crm" });
+    menuItems.push({ label: "Customer Master", href: "/agent?tab=customer-master" });
   }
 
-  if (hasPermission(user, PERMISSIONS.CRM_VIEW)) {
-    menuItems.push({ label: "Customer Master", href: "/agent?tab=customer-master" });
+  if (hasPermission(user, PERMISSIONS.INVOICE_VIEW) || hasPermission(user, PERMISSIONS.INVOICE_MANAGE)) {
+    menuItems.push({ label: "Invoices", href: "/agent?tab=invoices" });
+  }
+
+  if (hasPermission(user, PERMISSIONS.INVENTORY_VIEW)) {
+    menuItems.push({ label: "Inventory", href: "/agent?tab=inventory" });
+  }
+
+  if (hasPermission(user, PERMISSIONS.REPORTS_VIEW)) {
+    menuItems.push({ label: "Reports", href: "/agent?tab=reports" });
   }
 
   if (!isBasicUser && canUseShortcuts) {
@@ -517,7 +542,14 @@ export default function AgentPage() {
     session.status === "closed" &&
     (Date.now() - new Date(session.closedAt || session.updatedAt).getTime()) > LEGACY_TRASH_AGE_MS;
 
-  // Group unique visitors for clean presentation
+  // Group unique visitors for clean presentation (Active Online > Active > Closed > Trash, then latest timestamp)
+  const getSessionBucketRank = (s) => {
+    if (s.archivedAt || isLegacyTrashSession(s)) return 0;
+    if (s.status === "closed") return 1;
+    if (s.visitorId?.isOnline || s.isOnline) return 3;
+    return 2;
+  };
+
   const groupUniqueVisitors = (list) => {
     const map = new Map();
     list.forEach(session => {
@@ -526,12 +558,12 @@ export default function AgentPage() {
       const siteId = session.websiteId?._id || session.websiteId || "site";
       const isNamed = rawName && rawName !== "visitor" && !rawName.startsWith("visitor_");
 
-      const visitorKey = 
-        session.crn ||
+      const visitorKey =
         rawEmail ||
         (isNamed ? `${rawName}_${siteId}` : null) ||
-        session.visitorId?._id || 
-        session.visitorId?.visitorId || 
+        session.visitorId?._id ||
+        session.visitorId?.visitorId ||
+        session.crn ||
         session.sessionId;
 
       if (!map.has(visitorKey)) {
@@ -539,27 +571,40 @@ export default function AgentPage() {
       } else {
         const existing = map.get(visitorKey);
         existing.allSessions.push(session);
+        const existingRank = getSessionBucketRank(existing);
+        const currentRank = getSessionBucketRank(session);
         const existingTime = new Date(existing.updatedAt || existing.createdAt).getTime();
         const currentTime = new Date(session.updatedAt || session.createdAt).getTime();
-        if (currentTime > existingTime) {
+        if (currentRank > existingRank || (currentRank === existingRank && currentTime > existingTime)) {
           map.set(visitorKey, { ...session, allSessions: existing.allSessions });
         }
       }
     });
     return Array.from(map.values()).sort((a, b) => {
+      const onlineA = a.status !== "closed" && !a.archivedAt && (a.visitorId?.isOnline || a.isOnline) ? 1 : 0;
+      const onlineB = b.status !== "closed" && !b.archivedAt && (b.visitorId?.isOnline || b.isOnline) ? 1 : 0;
+      if (onlineA !== onlineB) return onlineB - onlineA;
+
       const timeA = new Date(a.updatedAt || a.createdAt).getTime();
       const timeB = new Date(b.updatedAt || b.createdAt).getTime();
       return timeB - timeA;
     });
   };
 
-  const rawActive = searchedSessions.filter(s => !s.archivedAt && s.status !== "closed" && (s.status === "active" || s.status === "queued"));
-  const rawClosed = searchedSessions.filter(s => !s.archivedAt && s.status === "closed" && !isLegacyTrashSession(s));
-  const rawTrash = searchedSessions.filter(s => !!s.archivedAt || isLegacyTrashSession(s));
+  const allGroupedVisitors = useMemo(() => groupUniqueVisitors(searchedSessions), [searchedSessions]);
 
-  const activeSessions = useMemo(() => groupUniqueVisitors(rawActive), [rawActive]);
-  const closedSessions = useMemo(() => groupUniqueVisitors(rawClosed), [rawClosed]);
-  const trashSessions = useMemo(() => groupUniqueVisitors(rawTrash), [rawTrash]);
+  const activeSessions = useMemo(
+    () => allGroupedVisitors.filter(s => !s.archivedAt && s.status !== "closed" && (s.status === "active" || s.status === "queued")),
+    [allGroupedVisitors]
+  );
+  const closedSessions = useMemo(
+    () => allGroupedVisitors.filter(s => !s.archivedAt && s.status === "closed" && !isLegacyTrashSession(s)),
+    [allGroupedVisitors]
+  );
+  const trashSessions = useMemo(
+    () => allGroupedVisitors.filter(s => !!s.archivedAt || isLegacyTrashSession(s)),
+    [allGroupedVisitors]
+  );
 
   const sessionTabMap = { active: activeSessions, closed: closedSessions, trash: trashSessions };
   const visibleSessions = sessionTabMap[sessionTab] ?? activeSessions;
@@ -592,83 +637,124 @@ export default function AgentPage() {
   ];
 
   const [mobileView, setMobileView] = useState("queue");
+  const [showProfilePassword, setShowProfilePassword] = useState(false);
+  const splitContainerRef = useRef(null);
+  const [listWidth, setListWidth] = useState(() => {
+    const saved = Number(localStorage.getItem("agent_chat_list_width"));
+    return Number.isFinite(saved) && saved >= 250 && saved <= 620 ? saved : 340;
+  });
+  const [isResizing, setIsResizing] = useState(false);
+
+  useEffect(() => {
+    if (!isResizing) return;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    const handleMouseMove = (e) => {
+      const container = splitContainerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const maxW = Math.min(620, Math.floor(rect.width * 0.58));
+      const next = Math.max(250, Math.min(maxW, Math.round(e.clientX - rect.left)));
+      setListWidth(next);
+      localStorage.setItem("agent_chat_list_width", String(next));
+    };
+
+    const handleMouseUp = () => setIsResizing(false);
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizing]);
+
   const content = tab === "chats" ? (
-      <section className="grid grid-cols-1 lg:grid-cols-12 gap-3 h-full min-h-0 flex-1 overflow-hidden animate-fade-in">
-        {/* Left Column: My Chats Session List */}
-        <div className={`lg:col-span-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm overflow-hidden flex flex-col h-full min-h-0 ${mobileView === "chat" ? "hidden lg:flex" : "flex"}`}>
-          {/* Header */}
-          <div className="p-3.5 border-b border-slate-100 dark:border-white/10 space-y-2.5 bg-slate-50/50 dark:bg-slate-800/40">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Operation Chats</h3>
-                <span 
-                  title={`${sessions.length} total database chat sessions across ${activeSessions.length + closedSessions.length + trashSessions.length} unique visitor conversations`}
-                  className="text-xs font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1 cursor-help"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  {activeSessions.length + closedSessions.length + trashSessions.length} Total
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={toggleAvailability}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1 ${user?.isAvailable
-                  ? "bg-slate-900 text-white hover:bg-slate-800"
-                  : "bg-indigo-600 text-white hover:bg-indigo-700"
-                  }`}
+    <section
+      ref={splitContainerRef}
+      className="flex flex-col lg:flex-row gap-3 lg:gap-0 h-full min-h-0 flex-1 overflow-hidden animate-fade-in"
+    >
+      {/* Left Column: My Chats Session List */}
+      <div
+        style={{ "--agent-list-width": `${listWidth}px` }}
+        className={`w-full lg:w-[var(--agent-list-width)] lg:shrink-0 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm overflow-hidden flex flex-col h-full min-h-0 ${mobileView === "chat" ? "hidden lg:flex" : "flex"}`}
+      >
+        {/* Header */}
+        <div className="p-3.5 border-b border-slate-100 dark:border-white/10 space-y-2.5 bg-slate-50/50 dark:bg-slate-800/40">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Operation Chats</h3>
+              <span
+                title={`${sessions.length} total database chat sessions across ${activeSessions.length + closedSessions.length + trashSessions.length} unique visitor conversations`}
+                className="text-xs font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1 cursor-help"
               >
-                <span className={`w-2 h-2 rounded-full ${user?.isAvailable ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
-                <span>{user?.isAvailable ? "Online" : "Go Online"}</span>
-              </button>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                {activeSessions.length + closedSessions.length + trashSessions.length} Total
+              </span>
             </div>
-
-            {/* Search Input */}
-            <div className="relative">
-              <input
-                value={sessionSearch}
-                onChange={e => setSessionSearch(e.target.value)}
-                placeholder="Search visitor, CRN, or website..."
-                className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs font-medium text-slate-800 dark:text-white placeholder:text-slate-400 outline-none focus:border-indigo-500 transition-all"
-              />
-            </div>
-
-            {/* Status Tabs */}
-            <div className="flex items-center gap-1">
-              {SESSION_TABS.map(t => (
-                <button
-                  key={t.key}
-                  onClick={() => setSessionTab(t.key)}
-                  className={`flex-1 py-1 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${sessionTab === t.key
-                    ? "bg-indigo-600 text-white shadow-sm"
-                    : "bg-white dark:bg-slate-800 text-slate-500 hover:bg-slate-100 border border-slate-200 dark:border-white/5"
-                    }`}
-                >
-                  <span>{t.label}</span>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${sessionTab === t.key ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"}`}>
-                    {t.count}
-                  </span>
-                </button>
-              ))}
-            </div>
+            <button
+              type="button"
+              onClick={toggleAvailability}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1 ${user?.isAvailable
+                ? "bg-slate-900 text-white hover:bg-slate-800"
+                : "bg-indigo-600 text-white hover:bg-indigo-700"
+                }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${user?.isAvailable ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
+              <span>{user?.isAvailable ? "Online" : "Go Online"}</span>
+            </button>
           </div>
 
-          {/* Sessions Scrollable List */}
-          <div className="flex-1 overflow-y-auto p-2 space-y-1.5 custom-scrollbar">
-            {loadingSessions ? (
-              Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="p-3 rounded-xl border border-slate-100 bg-slate-50/50 animate-pulse space-y-2">
-                  <div className="h-3 bg-slate-200 rounded w-3/4" />
-                  <div className="h-2 bg-slate-200 rounded w-1/2" />
-                </div>
-              ))
-            ) : paginatedVisibleSessions.pageItems.length === 0 ? (
-              <div className="py-12 text-center text-xs text-slate-400 font-medium">
-                No conversations found under this filter.
+          {/* Search Input */}
+          <div className="relative">
+            <input
+              value={sessionSearch}
+              onChange={e => setSessionSearch(e.target.value)}
+              placeholder="Search visitor, CRN, or website..."
+              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs font-medium text-slate-800 dark:text-white placeholder:text-slate-400 outline-none focus:border-indigo-500 transition-all"
+            />
+          </div>
+
+          {/* Status Tabs */}
+          <div className="flex items-center gap-1">
+            {SESSION_TABS.map(t => (
+              <button
+                key={t.key}
+                onClick={() => setSessionTab(t.key)}
+                className={`flex-1 py-1 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${sessionTab === t.key
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "bg-white dark:bg-slate-800 text-slate-500 hover:bg-slate-100 border border-slate-200 dark:border-white/5"
+                  }`}
+              >
+                <span>{t.label}</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${sessionTab === t.key ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"}`}>
+                  {t.count}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Sessions Scrollable List */}
+        <div className="flex-1 overflow-y-auto p-2 space-y-1.5 custom-scrollbar">
+          {loadingSessions ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="p-3 rounded-xl border border-slate-100 bg-slate-50/50 animate-pulse space-y-2">
+                <div className="h-3 bg-slate-200 rounded w-3/4" />
+                <div className="h-2 bg-slate-200 rounded w-1/2" />
               </div>
-            ) : (
-              paginatedVisibleSessions.pageItems.map((session) => {
-                const isSelected = selectedSessionId === session.sessionId || (session.allSessions && session.allSessions.some(as => as.sessionId === selectedSessionId));
-                return (
+            ))
+          ) : paginatedVisibleSessions.pageItems.length === 0 ? (
+            <div className="py-12 text-center text-xs text-slate-400 font-medium">
+              No conversations found under this filter.
+            </div>
+          ) : (
+            paginatedVisibleSessions.pageItems.map((session) => {
+              const isSelected = selectedSessionId === session.sessionId || (session.allSessions && session.allSessions.some(as => as.sessionId === selectedSessionId));
+              return (
                 <div
                   key={session._id}
                   onClick={() => { setSelectedSessionId(session.sessionId); setMobileView("chat"); }}
@@ -681,16 +767,15 @@ export default function AgentPage() {
                     <span className={`text-xs font-bold truncate ${isSelected ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-900 dark:text-white'}`}>
                       {session.visitorId?.name || session.visitorId?.visitorId || "Visitor"}
                     </span>
-                    
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                      session.status === 'queued'
-                        ? 'bg-amber-50 text-amber-700 border-amber-200'
-                        : session.status === 'closed'
-                          ? 'bg-slate-100 text-slate-500 border-slate-200'
-                          : (session.visitorId?.isOnline || session.isOnline)
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center gap-1'
-                            : 'bg-slate-100 text-slate-500 border-slate-200 flex items-center gap-1'
-                    }`}>
+
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${session.status === 'queued'
+                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                      : session.status === 'closed'
+                        ? 'bg-slate-100 text-slate-500 border-slate-200'
+                        : (session.visitorId?.isOnline || session.isOnline)
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center gap-1'
+                          : 'bg-slate-100 text-slate-500 border-slate-200 flex items-center gap-1'
+                      }`}>
                       {session.status === 'queued' ? (
                         "Queued"
                       ) : session.status === 'closed' ? (
@@ -732,79 +817,110 @@ export default function AgentPage() {
                   {typingSessions[session.sessionId] && (
                     <p className="text-xs text-indigo-600 font-bold animate-pulse mt-0.5">Visitor is typing...</p>
                   )}
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          {/* Pagination */}
-          {!loadingSessions && paginatedVisibleSessions.totalPages > 1 && (
-            <div className="p-2 border-t border-slate-100 dark:border-white/5">
-              <PaginationControls
-                currentPage={paginatedVisibleSessions.currentPage}
-                totalPages={paginatedVisibleSessions.totalPages}
-                totalItems={paginatedVisibleSessions.totalItems}
-                itemLabel="chats"
-                onPageChange={setChatPage}
-              />
-            </div>
+                </div>
+              );
+            })
           )}
         </div>
 
-        {/* Right Column: Chat Panel */}
-        <div className={`lg:col-span-8 h-full min-h-0 flex flex-col overflow-hidden relative ${mobileView === "queue" ? "hidden lg:flex" : "flex"}`}>
-          <div className="lg:hidden flex items-center justify-between bg-white border border-slate-100 rounded-xl px-3 py-2 shadow-sm mb-2">
-            <button
-              type="button"
-              onClick={() => setMobileView("queue")}
-              className="px-3 py-1 rounded-lg bg-indigo-600 text-white text-xs font-bold"
-            >
-              ← Back to Chats
-            </button>
-            <span className="text-xs font-bold text-slate-700">
-              {selectedSession?.websiteId?.websiteName || "Chat Panel"}
-            </span>
+        {/* Pagination */}
+        {!loadingSessions && paginatedVisibleSessions.totalPages > 1 && (
+          <div className="p-2 border-t border-slate-100 dark:border-white/5">
+            <PaginationControls
+              currentPage={paginatedVisibleSessions.currentPage}
+              totalPages={paginatedVisibleSessions.totalPages}
+              totalItems={paginatedVisibleSessions.totalItems}
+              itemLabel="chats"
+              onPageChange={setChatPage}
+            />
           </div>
+        )}
+      </div>
 
-          <ChatPanel
-            session={selectedSession}
-            messages={messages}
-            onSend={sendMessage}
-            onTyping={sendTyping}
-            isTyping={typingSessions[selectedSessionId]}
-            viewers={sessionViewers[selectedSessionId] || []}
-            typingAgent={typingAgents[selectedSessionId]}
-            currentUser={user}
-            onConvertToTicket={isBasicUser || !canUseTickets ? null : () => {
-              const existingName = (selectedSession?.visitorId?.name && selectedSession?.visitorId?.name !== "Anonymous" && !selectedSession?.visitorId?.name.startsWith("visitor_")) ? selectedSession?.visitorId?.name : "";
-              const existingEmail = selectedSession?.visitorId?.email || "";
-              setTicketForm({
-                subject: `Support – ${selectedSession?.websiteId?.websiteName || 'Chat Session'}`,
-                priority: "medium",
-                crmStage: "none",
-                visitorName: existingName,
-                visitorEmail: existingEmail
-              });
-              setTicketModal(true);
-              setTicketResult(null);
-            }}
-            canUseShortcuts={!isBasicUser && canUseShortcuts}
-            onTakeOver={() => socket.emit("agent:take-over-chat", { sessionId: selectedSessionId })}
-            onRelease={() => socket.emit("agent:release-chat", { sessionId: selectedSessionId })}
-            onRequestControl={() => socket.emit("agent:request-control", { sessionId: selectedSessionId })}
-            onClose={closeChat}
-            onMoveToTrash={moveChatToTrash}
-            onRestore={restoreChat}
-            onDeletePermanent={deleteChatPermanently}
-          />
+      {/* Draggable Splitter Bar */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize operation chats panel"
+        title="Drag to resize · Double-click to reset"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          setIsResizing(true);
+        }}
+        onDoubleClick={() => {
+          setListWidth(340);
+          localStorage.setItem("agent_chat_list_width", "340");
+        }}
+        className="hidden lg:flex w-3 shrink-0 cursor-col-resize select-none items-center justify-center group relative z-10"
+      >
+        <div
+          className={`w-[2px] h-full rounded-full transition-colors duration-150 ${
+            isResizing
+              ? "bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]"
+              : "bg-transparent group-hover:bg-indigo-500"
+          }`}
+        />
+      </div>
+
+      {/* Right Column: Chat Panel */}
+      <div className={`flex-1 min-w-0 h-full min-h-0 flex flex-col overflow-hidden relative ${mobileView === "queue" ? "hidden lg:flex" : "flex"}`}>
+        <div className="lg:hidden flex items-center justify-between bg-white border border-slate-100 rounded-xl px-3 py-2 shadow-sm mb-2">
+          <button
+            type="button"
+            onClick={() => setMobileView("queue")}
+            className="px-3 py-1 rounded-lg bg-indigo-600 text-white text-xs font-bold"
+          >
+            ← Back to Chats
+          </button>
+          <span className="text-xs font-bold text-slate-700">
+            {selectedSession?.websiteId?.websiteName || "Chat Panel"}
+          </span>
         </div>
-      </section>
-    ) : tab === "settings" ? (
+
+        <ChatPanel
+          session={selectedSession}
+          messages={messages}
+          onSend={sendMessage}
+          onTyping={sendTyping}
+          isTyping={typingSessions[selectedSessionId]}
+          viewers={sessionViewers[selectedSessionId] || []}
+          typingAgent={typingAgents[selectedSessionId]}
+          currentUser={user}
+          onConvertToTicket={isBasicUser || !canUseTickets ? null : () => {
+            const existingName = (selectedSession?.visitorId?.name && selectedSession?.visitorId?.name !== "Anonymous" && !selectedSession?.visitorId?.name.startsWith("visitor_")) ? selectedSession?.visitorId?.name : "";
+            const existingEmail = selectedSession?.visitorId?.email || "";
+            setTicketForm({
+              subject: `Support – ${selectedSession?.websiteId?.websiteName || 'Chat Session'}`,
+              priority: "medium",
+              crmStage: "none",
+              visitorName: existingName,
+              visitorEmail: existingEmail
+            });
+            setTicketModal(true);
+            setTicketResult(null);
+          }}
+          canUseShortcuts={!isBasicUser && canUseShortcuts}
+          onTakeOver={() => socket.emit("agent:take-over-chat", { sessionId: selectedSessionId })}
+          onRelease={() => socket.emit("agent:release-chat", { sessionId: selectedSessionId })}
+          onRequestControl={() => socket.emit("agent:request-control", { sessionId: selectedSessionId })}
+          allSessions={sessions}
+          onAcceptChat={acceptChat}
+          onTransferChat={(targetAgentId, targetDepartment) => {
+            socket?.emit("agent:transfer-chat", { sessionId: selectedSessionId, targetAgentId, targetDepartment });
+            setToast({ show: true, message: "Chat transferred successfully!", type: "info" });
+          }}
+          onClose={closeChat}
+          onMoveToTrash={moveChatToTrash}
+          onRestore={restoreChat}
+          onDeletePermanent={deleteChatPermanently}
+        />
+      </div>
+    </section>
+  ) : tab === "settings" ? (
     <section className="w-full space-y-3 animate-in fade-in duration-500">
       {/* ── Main Unified Settings Console Card ── */}
       <div className="w-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-xs overflow-hidden">
-        
+
         {/* Top Profile Summary Header */}
         <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-slate-800/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
@@ -826,11 +942,10 @@ export default function AgentPage() {
             <button
               type="button"
               onClick={toggleAvailability}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-xs ${
-                user?.isAvailable
-                  ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100/70"
-                  : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/10 hover:bg-slate-200"
-              }`}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-xs ${user?.isAvailable
+                ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100/70"
+                : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/10 hover:bg-slate-200"
+                }`}
             >
               <span className={`w-2 h-2 rounded-full ${user?.isAvailable ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
               <span>{user?.isAvailable ? "Online & Ready" : "Standby Mode"}</span>
@@ -840,7 +955,7 @@ export default function AgentPage() {
 
         {/* 2-Column Content Grid */}
         <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-          
+
           {/* Left Form: Profile Credentials */}
           <form className="space-y-4" onSubmit={updateProfile}>
             <div className="pb-2.5 border-b border-slate-100 dark:border-white/5">
@@ -881,19 +996,29 @@ export default function AgentPage() {
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
                   Update Password <span className="font-normal text-slate-400">(Optional — leave blank if unchanged)</span>
                 </label>
-                <input
-                  value={profileForm.password}
-                  onChange={(e) => setProfileForm({ ...profileForm, password: e.target.value })}
-                  type="password"
-                  className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200/90 dark:border-white/10 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-sky-500 focus:bg-white transition-all"
-                  placeholder="••••••••••••"
-                />
+                <div className="relative">
+                  <input
+                    value={profileForm.password}
+                    onChange={(e) => setProfileForm({ ...profileForm, password: e.target.value })}
+                    type={showProfilePassword ? "text" : "password"}
+                    className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200/90 dark:border-white/10 rounded-xl pl-3.5 pr-9 py-2 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-sky-500 focus:bg-white transition-all"
+                    placeholder="••••••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowProfilePassword((prev) => !prev)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer"
+                    title={showProfilePassword ? "Hide password" : "Show password"}
+                  >
+                    {showProfilePassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
               </div>
             </div>
 
             <div className="pt-2">
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs uppercase tracking-wider py-2.5 px-5 rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5"
               >
                 <CheckCircle size={14} />
@@ -946,17 +1071,29 @@ export default function AgentPage() {
         <p className="mt-3 text-sm font-bold text-indigo-700">This client package does not include the shortcuts module.</p>
       </div>
     </section>
-  ) : tab === "tickets" ? (
+  ) : tab === "tickets" && canUseTickets && hasPermission(user, PERMISSIONS.TICKET_VIEW) ? (
     <section className="animate-in fade-in duration-500">
       <TicketManager websiteId={selectedWebsiteId} />
     </section>
-  ) : tab === "crm" ? (
+  ) : tab === "crm" && hasModule(user, "crm") && hasPermission(user, PERMISSIONS.CRM_VIEW) ? (
     <section className="animate-in fade-in duration-500">
       <CRMManager websiteId={selectedWebsiteId} />
     </section>
-  ) : tab === "customer-master" ? (
+  ) : tab === "customer-master" && hasModule(user, "crm") && hasPermission(user, PERMISSIONS.CRM_VIEW) ? (
     <section className="animate-in slide-in-from-bottom-4 duration-700">
       <CustomerManager websiteId={selectedWebsiteId} />
+    </section>
+  ) : tab === "invoices" && (hasPermission(user, PERMISSIONS.INVOICE_VIEW) || hasPermission(user, PERMISSIONS.INVOICE_MANAGE)) ? (
+    <section className="animate-in fade-in duration-500">
+      <CrmInvoicesView websiteId={selectedWebsiteId} />
+    </section>
+  ) : tab === "inventory" && hasPermission(user, PERMISSIONS.INVENTORY_VIEW) ? (
+    <section className="animate-in fade-in duration-500">
+      <InventoryManager websiteId={selectedWebsiteId} />
+    </section>
+  ) : tab === "reports" && hasPermission(user, PERMISSIONS.REPORTS_VIEW) ? (
+    <section className="animate-in fade-in duration-500">
+      <EnterpriseReportsCenter />
     </section>
   ) : (
     <AgentPerformanceView />

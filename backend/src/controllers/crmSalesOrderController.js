@@ -1,6 +1,7 @@
 import { SalesOrder } from "../models/SalesOrder.js";
 import { Quotation } from "../models/Quotation.js";
 import { Invoice } from "../models/Invoice.js";
+import { InventoryItem } from "../models/InventoryItem.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
@@ -50,9 +51,18 @@ export const createSalesOrder = asyncHandler(async (req, res) => {
     throw new AppError("Unauthorized access to this website's data", 403);
   }
 
+  const items = Array.isArray(req.body.items) ? req.body.items : [];
+  const computedTotals = items.length > 0 ? calculateTotals(items, Number(req.body.discountAmount) || 0, Number(req.body.shippingCharges) || 0) : null;
   const orderNumber = `SO-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
   const order = await SalesOrder.create({
     ...req.body,
+    ...(computedTotals ? {
+      items: computedTotals.items,
+      subtotal: computedTotals.subtotal,
+      tax: computedTotals.tax,
+      total: computedTotals.total,
+      totalAmount: computedTotals.total
+    } : {}),
     websiteId: resolvedWebsiteId,
     orderNumber,
     ownerId: req.user._id
@@ -228,15 +238,43 @@ export const convertQuotationToOrder = asyncHandler(async (req, res) => {
   quotation.invoiceNumber = invoiceId;
   await quotation.save();
 
+  // Deduct matching inventory stock for order items with SKU
+  let reservedSkuCount = 0;
+  for (const item of quotation.items || []) {
+    const qty = Math.max(0, Number(item.quantity || 0));
+    if (item.sku && item.sku !== "CUSTOM" && qty > 0) {
+      const updatedInv = await InventoryItem.findOneAndUpdate(
+        { websiteId: quotation.websiteId, sku: item.sku, isDeleted: { $ne: true }, quantity: { $gte: qty } },
+        { $inc: { quantity: -qty } },
+        { new: true }
+      );
+      if (updatedInv) reservedSkuCount += 1;
+    }
+  }
+
   // Log to Activity Timeline
   await logCrmActivity({
     websiteId: quotation.websiteId,
     type: "sales_order",
     title: `Quotation Converted: ${orderNumber}`,
-    description: `Quotation ${quotation.quotationId} successfully converted to confirmed Sales Order ${orderNumber} and Invoice ${invoiceId}. Inventory reserved (placeholder).`,
+    description: `Quotation ${quotation.quotationId} converted to confirmed Sales Order ${orderNumber} and Invoice ${invoiceId}. Inventory updated for ${reservedSkuCount} SKU(s).`,
     customerId: quotation.customerId,
     ownerId: req.user._id
   });
 
   res.status(201).json(order);
+});
+
+export const deleteSalesOrder = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_DELETE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const order = await SalesOrder.findById(req.params.id);
+
+  if (!order) throw new AppError("Sales Order not found", 404);
+  if (!ownedWebsiteIds.map((id) => id.toString()).includes(order.websiteId.toString())) {
+    throw new AppError("Unauthorized access", 403);
+  }
+
+  await order.deleteOne();
+  res.json({ message: "Sales Order deleted successfully" });
 });

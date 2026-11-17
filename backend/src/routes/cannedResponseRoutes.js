@@ -1,11 +1,15 @@
 import { Router } from "express";
-import { listCannedResponses, createCannedResponse, deleteCannedResponse } from "../controllers/cannedResponseController.js";
+import { listCannedResponses, createCannedResponse, updateCannedResponse, deleteCannedResponse } from "../controllers/cannedResponseController.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { attachTenantSubscription, requirePlanFeature } from "../middleware/planAccess.js";
 
 const router = Router();
 
-router.get("/", requireAuth, requireRole("admin", "client", "manager", "agent", "sales", "user"), listCannedResponses);
-router.post("/", requireAuth, requireRole("admin", "client", "manager", "agent"), createCannedResponse);
-router.delete("/:id", requireAuth, requireRole("admin", "client", "manager", "agent"), deleteCannedResponse);
+router.use(requireAuth, attachTenantSubscription, requirePlanFeature("service"));
+
+router.get("/", requireRole("admin", "client", "manager", "agent", "sales", "user"), listCannedResponses);
+router.post("/", requireRole("admin", "client", "manager", "agent"), createCannedResponse);
+router.patch("/:id", requireRole("admin", "client", "manager", "agent"), updateCannedResponse);
+router.delete("/:id", requireRole("admin", "client", "manager", "agent"), deleteCannedResponse);
 
 export default router;

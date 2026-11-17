@@ -6,6 +6,15 @@ import { Visitor } from "../models/Visitor.js";
 import { Website } from "../models/Website.js";
 import { AnalyticsSnapshot } from "../models/AnalyticsSnapshot.js";
 import { Ticket } from "../models/Ticket.js";
+import { Customer } from "../models/Customer.js";
+import { Quotation } from "../models/Quotation.js";
+import { escapeRegex } from "../utils/regexUtils.js";
+import { ChatFlow } from "../models/ChatFlow.js";
+import { Article } from "../models/Article.js";
+import { Department } from "../models/Department.js";
+import { Role } from "../models/Role.js";
+import { EnterpriseIntegration } from "../models/EnterpriseIntegration.js";
+import { AuditLog } from "../models/AuditLog.js";
 import { normalizeRole, getOwnedWebsiteIds } from "../utils/roleUtils.js";
 
 
@@ -82,23 +91,46 @@ export async function getManagerAnalytics(req, res) {
     ? { role: { $in: ["agent", "manager", "user", "sales"] } } 
     : { role: { $in: ["agent", "manager", "user", "sales"] }, managerId: managerIdForAgents };
 
+  const activeWindow = new Date(Date.now() - 30 * 60 * 1000); // last 30 mins for live visitor pulse
   const [
-    agentCount, liveSessions, todaySessions, 
+    agentCount, onlineAgentCount, liveVisitorsCount, queuedChatsCount, totalChatsAllTime, todaySessions, aiHandledSessions,
     rangeVisitors, totalVisitors, 
     satisfiedChats, unsatisfiedChats, 
-    dailyChatVolume, monthlyVisitors, topCountries,
-    slaMetrics, leaderboard, analyticsSnapshots,
-    resolvedTicketsCount
+    dailyChatVolume, dailyVisitorVolume, monthlyVisitors, topCountries,
+    slaMetrics, leaderboard, analyticsSnapshots, dailyResolvedTickets,
+    resolvedTicketsCount, totalTicketsCount, openTicketsCount,
+    crmNewInquiries, crmInQualification, crmProposalsSent, crmDealsWon,
+    activeFlowsCount, totalFlowsCount, kbArticlesCount, departmentsCount,
+    customRolesCount, connectedIntegrationsCount, auditLogsCount
   ] = await Promise.all([
     User.countDocuments(agentFilter),
-    ChatSession.countDocuments({ websiteId: { $in: websiteIds }, status: { $in: ["active", "queued"] } }),
+    User.countDocuments({ ...agentFilter, $or: [{ isOnline: true }, { availability: "available" }] }),
+    Visitor.countDocuments({
+      websiteId: { $in: websiteIds },
+      $or: [{ isOnline: true }, { lastVisitTime: { $gte: activeWindow } }, { updatedAt: { $gte: activeWindow } }]
+    }),
+    ChatSession.countDocuments({
+      websiteId: { $in: websiteIds },
+      status: "queued",
+      archivedAt: null
+    }),
+    ChatSession.countDocuments({ websiteId: { $in: websiteIds } }),
     ChatSession.countDocuments({
       websiteId: { $in: websiteIds },
       createdAt: { $gte: start, $lte: end }
     }),
+    ChatSession.countDocuments({
+      websiteId: { $in: websiteIds },
+      assignedAgent: null,
+      createdAt: { $gte: start, $lte: end }
+    }),
     Visitor.countDocuments({
       websiteId: { $in: websiteIds },
-      firstVisitTime: { $gte: start, $lte: end }
+      $or: [
+        { lastVisitTime: { $gte: start, $lte: end } },
+        { firstVisitTime: { $gte: start, $lte: end } },
+        { createdAt: { $gte: start, $lte: end } }
+      ]
     }),
     Visitor.countDocuments({ websiteId: { $in: websiteIds } }),
     ChatSession.countDocuments({ websiteId: { $in: websiteIds }, satisfactionStatus: "satisfied", createdAt: { $gte: start, $lte: end } }),
@@ -109,8 +141,15 @@ export async function getManagerAnalytics(req, res) {
       { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } }
     ]),
     Visitor.aggregate([
-      { $match: { websiteId: { $in: websiteIds }, firstVisitTime: { $gte: start, $lte: end } } },
-      { $group: { _id: { year: { $year: "$firstVisitTime" }, month: { $month: "$firstVisitTime" } }, count: { $sum: 1 } } },
+      { $match: { websiteId: { $in: websiteIds }, $or: [{ lastVisitTime: { $gte: start, $lte: end } }, { firstVisitTime: { $gte: start, $lte: end } }, { createdAt: { $gte: start, $lte: end } }] } },
+      { $project: { visitDate: { $ifNull: ["$lastVisitTime", { $ifNull: ["$firstVisitTime", "$createdAt"] }] } } },
+      { $group: { _id: { year: { $year: "$visitDate" }, month: { $month: "$visitDate" }, day: { $dayOfMonth: "$visitDate" } }, count: { $sum: 1 } } },
+      { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } }
+    ]),
+    Visitor.aggregate([
+      { $match: { websiteId: { $in: websiteIds }, $or: [{ lastVisitTime: { $gte: start, $lte: end } }, { firstVisitTime: { $gte: start, $lte: end } }] } },
+      { $project: { visitDate: { $ifNull: ["$lastVisitTime", "$firstVisitTime"] } } },
+      { $group: { _id: { year: { $year: "$visitDate" }, month: { $month: "$visitDate" } }, count: { $sum: 1 } } },
       { $sort: { "_id.year": 1, "_id.month": 1 } }
     ]),
     Visitor.aggregate([
@@ -159,20 +198,98 @@ export async function getManagerAnalytics(req, res) {
       websiteId: { $in: websiteIds }, 
       hour: { $gte: start, $lte: end } 
     }).sort({ hour: 1 }),
-    Ticket.countDocuments({ websiteId: { $in: websiteIds }, status: "resolved", createdAt: { $gte: start, $lte: end } })
+    Ticket.aggregate([
+      { $match: { websiteId: { $in: websiteIds }, status: { $in: ["resolved", "closed"] }, createdAt: { $gte: start, $lte: end } } },
+      { $group: { _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" }, day: { $dayOfMonth: "$createdAt" } }, count: { $sum: 1 } } },
+      { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } }
+    ]),
+    Ticket.countDocuments({ websiteId: { $in: websiteIds }, status: "resolved", createdAt: { $gte: start, $lte: end } }),
+    Ticket.countDocuments({ websiteId: { $in: websiteIds } }),
+    Ticket.countDocuments({ websiteId: { $in: websiteIds }, status: { $in: ["open", "pending", "in_progress"] } }),
+    Customer.countDocuments({ websiteId: { $in: websiteIds }, archivedAt: null, $or: [{ pipelineStage: "new" }, { status: "lead" }, { recordType: "lead" }] }),
+    Customer.countDocuments({ websiteId: { $in: websiteIds }, archivedAt: null, pipelineStage: { $in: ["contacted", "qualified", "in_progress"] } }),
+    Quotation.countDocuments({ websiteId: { $in: websiteIds } }),
+    Customer.countDocuments({ websiteId: { $in: websiteIds }, archivedAt: null, $or: [{ pipelineStage: { $in: ["won", "closed_won"] } }, { status: "won" }, { recordType: "customer" }] }),
+    ChatFlow.countDocuments({ websiteId: { $in: websiteIds }, isDeleted: { $ne: true }, isActive: { $ne: false } }),
+    ChatFlow.countDocuments({ websiteId: { $in: websiteIds }, isDeleted: { $ne: true } }),
+    Article.countDocuments({ websiteId: { $in: websiteIds } }),
+    Department.countDocuments({ websiteId: { $in: websiteIds } }),
+    Role.countDocuments(role === "admin" ? {} : { createdBy: managerIdForAgents }),
+    EnterpriseIntegration.countDocuments(role === "admin" ? { status: "connected" } : { createdBy: managerIdForAgents, status: "connected" }),
+    AuditLog.countDocuments({ websiteId: { $in: websiteIds } })
   ]);
 
   const totalFeedback = satisfiedChats + unsatisfiedChats;
+  const aiDeflectionRate = todaySessions > 0 ? Number(((aiHandledSessions / todaySessions) * 100).toFixed(1)) : 0;
+  const webhooksCount = websites.reduce((acc, w) => acc + (Array.isArray(w.webhooks) ? w.webhooks.filter(wh => wh.isActive !== false).length : 0), 0);
+
+  // Build continuous daily series from start to end so charts never render a single floating dot
+  const chatMap = new Map();
+  dailyChatVolume.forEach((entry) => {
+    const key = `${String(entry._id.day).padStart(2, "0")}/${String(entry._id.month).padStart(2, "0")}`;
+    chatMap.set(key, entry.count);
+  });
+  const visitorMap = new Map();
+  dailyVisitorVolume.forEach((entry) => {
+    const key = `${String(entry._id.day).padStart(2, "0")}/${String(entry._id.month).padStart(2, "0")}`;
+    visitorMap.set(key, entry.count);
+  });
+  const resolvedMap = new Map();
+  dailyResolvedTickets.forEach((entry) => {
+    const key = `${String(entry._id.day).padStart(2, "0")}/${String(entry._id.month).padStart(2, "0")}`;
+    resolvedMap.set(key, entry.count);
+  });
+
+  const filledDailyChats = [];
+  const filledDailyVisitors = [];
+  const filledTimeline = [];
+  const cursor = new Date(start);
+  let safety = 0;
+  while (cursor <= end && safety < 60) {
+    const label = `${String(cursor.getDate()).padStart(2, "0")}/${String(cursor.getMonth() + 1).padStart(2, "0")}`;
+    const chatsCount = chatMap.get(label) || 0;
+    const visitorsCount = visitorMap.get(label) || 0;
+    const resolvedCount = resolvedMap.get(label) || 0;
+    filledDailyChats.push({ label, count: chatsCount });
+    filledDailyVisitors.push({ label, count: visitorsCount });
+    filledTimeline.push({ time: label, visitors: visitorsCount, chats: chatsCount, resolved: resolvedCount });
+    cursor.setDate(cursor.getDate() + 1);
+    safety++;
+  }
 
   return res.json({
     totals: {
       websites: websites.length,
       agents: agentCount,
-      liveSessions,
+      onlineAgents: onlineAgentCount,
+      liveVisitors: liveVisitorsCount,
+      liveSessions: queuedChatsCount,
+      queuedChats: queuedChatsCount,
+      totalChatsAllTime,
       dailyChats: todaySessions,
+      aiHandledChats: aiHandledSessions,
+      aiDeflectionRate,
       totalMonthlyVisitors: rangeVisitors,
       totalVisitors,
-      resolvedTickets: resolvedTicketsCount
+      resolvedTickets: resolvedTicketsCount,
+      totalTickets: totalTicketsCount,
+      openTickets: openTicketsCount
+    },
+    crm: {
+      newInquiries: crmNewInquiries,
+      inQualification: crmInQualification,
+      proposalsSent: crmProposalsSent,
+      dealsWon: crmDealsWon
+    },
+    ecosystem: {
+      activeFlows: activeFlowsCount,
+      totalFlows: totalFlowsCount,
+      kbArticles: kbArticlesCount,
+      departmentsCount,
+      customRolesCount,
+      connectedIntegrations: connectedIntegrationsCount,
+      webhooksCount,
+      auditLogsCount
     },
     meta: {
       startDate: start.toISOString(),
@@ -191,14 +308,17 @@ export async function getManagerAnalytics(req, res) {
       avgHandleTimeMinutes: slaMetrics[0]?.avgHandleTimeMs ? Number((slaMetrics[0].avgHandleTimeMs / (1000 * 60)).toFixed(1)) : 0
     },
     trends: {
-      dailyChats: dailyChatVolume.map((entry) => ({ label: `${String(entry._id.day).padStart(2, "0")}/${String(entry._id.month).padStart(2, "0")}`, count: entry.count })),
+      dailyChats: filledDailyChats,
+      dailyVisitors: filledDailyVisitors,
       monthlyVisitors: monthlyVisitors.map((entry) => ({ label: `${String(entry._id.month).padStart(2, "0")}/${entry._id.year}`, count: entry.count })),
-      hourly: analyticsSnapshots.map(s => ({
-        time: s.hour.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        visitors: s.totalVisitors,
-        chats: s.activeChats,
-        resolved: s.resolvedChats
-      }))
+      hourly: analyticsSnapshots.length > 0
+        ? analyticsSnapshots.map(s => ({
+            time: s.hour.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            visitors: s.totalVisitors,
+            chats: s.activeChats,
+            resolved: s.resolvedChats
+          }))
+        : filledTimeline
     },
     leaderboard,
     websites
@@ -236,7 +356,7 @@ export async function exportAnalyticsCSV(req, res) {
   }
 
   if (req.query.searchTerm) {
-    const searchRegex = new RegExp(req.query.searchTerm, "i");
+    const searchRegex = new RegExp(escapeRegex(req.query.searchTerm), "i");
     const matchingVisitors = await Visitor.find({
       $or: [
         { name: searchRegex },
@@ -290,20 +410,37 @@ export async function getAgentAnalytics(req, res) {
     startDate: req.query.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
   });
 
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const leaderboardMatch = {
+    assignedAgent: { $ne: null },
+    createdAt: { $gte: start, $lte: end },
+    ...(normalizeRole(req.user.role) === "admin" ? {} : { websiteId: { $in: ownedWebsiteIds } })
+  };
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
   const [
-    totalChats, liveSessions,
-    satisfiedChats, unsatisfiedChats,
+    totalChats, liveSessions, todayChats,
+    satisfiedChats, unsatisfiedChats, ratingAgg,
     dailyChatVolume,
     slaMetrics,
-    resolvedTicketsCount,
+    resolvedTicketsCount, openTicketsCount,
     leaderboard,
     recentSessions,
-    recentTickets
+    recentTickets,
+    pendingTicketsList,
+    recentRatings
   ] = await Promise.all([
     ChatSession.countDocuments({ assignedAgent: agentId, createdAt: { $gte: start, $lte: end } }),
     ChatSession.countDocuments({ assignedAgent: agentId, status: "active" }),
+    ChatSession.countDocuments({ assignedAgent: agentId, createdAt: { $gte: todayStart } }),
     ChatSession.countDocuments({ assignedAgent: agentId, satisfactionStatus: "satisfied", createdAt: { $gte: start, $lte: end } }),
     ChatSession.countDocuments({ assignedAgent: agentId, satisfactionStatus: "unsatisfied", createdAt: { $gte: start, $lte: end } }),
+    ChatSession.aggregate([
+      { $match: { assignedAgent: agentId, satisfactionRating: { $gt: 0 }, createdAt: { $gte: start, $lte: end } } },
+      { $group: { _id: null, avgRating: { $avg: "$satisfactionRating" }, ratingCount: { $sum: 1 } } }
+    ]),
     ChatSession.aggregate([
       { $match: { assignedAgent: agentId, createdAt: { $gte: start, $lte: end } } },
       { $group: { _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" }, day: { $dayOfMonth: "$createdAt" } }, count: { $sum: 1 } } },
@@ -328,8 +465,9 @@ export async function getAgentAnalytics(req, res) {
       }
     ]),
     Ticket.countDocuments({ assignedAgent: agentId, status: "resolved", createdAt: { $gte: start, $lte: end } }),
+    Ticket.countDocuments({ assignedAgent: agentId, status: { $in: ["open", "in_progress", "pending"] } }),
     ChatSession.aggregate([
-      { $match: { assignedAgent: { $ne: null }, createdAt: { $gte: start, $lte: end } } },
+      { $match: leaderboardMatch },
       { $group: { _id: "$assignedAgent", chatsHandled: { $sum: 1 } } },
       { $sort: { chatsHandled: -1 } }
     ]),
@@ -339,7 +477,16 @@ export async function getAgentAnalytics(req, res) {
       .populate("visitorId", "visitorId"),
     Ticket.find({ assignedAgent: agentId })
       .sort({ updatedAt: -1 })
+      .limit(5),
+    Ticket.find({ assignedAgent: agentId, status: { $in: ["open", "in_progress", "pending"] } })
+      .sort({ updatedAt: -1 })
       .limit(5)
+      .select("ticketId subject status priority visitorName updatedAt"),
+    ChatSession.find({ assignedAgent: agentId, satisfactionRating: { $gt: 0 } })
+      .sort({ updatedAt: -1 })
+      .limit(5)
+      .populate("visitorId", "name visitorId")
+      .select("sessionId satisfactionRating satisfactionFeedback satisfactionStatus updatedAt")
   ]);
 
   const totalFeedback = satisfiedChats + unsatisfiedChats;
@@ -367,7 +514,10 @@ export async function getAgentAnalytics(req, res) {
     totals: {
       totalChats,
       liveSessions,
+      todayChats,
+      dailyTarget: Math.max(10, Number(req.user?.maxWorkload || 5) * 2),
       resolvedTickets: resolvedTicketsCount,
+      openTickets: openTicketsCount,
       rank: rank || "N/A",
       totalAgents: leaderboard.length
     },
@@ -379,7 +529,9 @@ export async function getAgentAnalytics(req, res) {
       satisfiedChats,
       unsatisfiedChats,
       totalFeedback,
-      satisfactionRate: totalFeedback ? Number(((satisfiedChats / totalFeedback) * 100).toFixed(1)) : 0
+      satisfactionRate: totalFeedback ? Number(((satisfiedChats / totalFeedback) * 100).toFixed(1)) : 0,
+      avgRating: ratingAgg[0]?.avgRating ? Number(ratingAgg[0].avgRating.toFixed(1)) : 0,
+      ratingCount: ratingAgg[0]?.ratingCount || 0
     },
     sla: {
       avgWaitTimeSeconds: slaMetrics[0]?.avgWaitTimeMs ? Math.round(slaMetrics[0].avgWaitTimeMs / 1000) : 0,
@@ -389,6 +541,23 @@ export async function getAgentAnalytics(req, res) {
     trends: {
       dailyChats: dailyChatVolume.map((entry) => ({ label: `${String(entry._id.day).padStart(2, "0")}/${String(entry._id.month).padStart(2, "0")}`, count: entry.count }))
     },
-    recentActivity
+    recentActivity,
+    pendingTickets: pendingTicketsList.map((t) => ({
+      _id: t._id,
+      ticketId: t.ticketId,
+      subject: t.subject,
+      status: t.status,
+      priority: t.priority || "medium",
+      visitorName: t.visitorName || "Visitor",
+      updatedAt: t.updatedAt
+    })),
+    recentFeedback: recentRatings.map((s) => ({
+      sessionId: s.sessionId,
+      visitorName: s.visitorId?.name || s.visitorId?.visitorId || "Visitor",
+      rating: s.satisfactionRating,
+      comment: s.satisfactionFeedback || "",
+      status: s.satisfactionStatus || "satisfied",
+      updatedAt: s.updatedAt
+    }))
   });
 }

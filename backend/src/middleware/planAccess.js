@@ -89,9 +89,10 @@ export function checkPlanLimit(resourceType) {
       let currentCount = 0;
       if (resourceType === "websites") {
         const { Website } = await import("../models/Website.js");
+        const tenantId = req.tenantUser?._id || req.user._id;
         currentCount = await Website.countDocuments({
           $or: [
-            { clientId: req.tenantUser?._id || req.user._id },
+            { managerId: tenantId },
             { _id: { $in: req.user.websiteIds || [] } }
           ]
         });
@@ -99,7 +100,7 @@ export function checkPlanLimit(resourceType) {
         const { User } = await import("../models/User.js");
         currentCount = await User.countDocuments({
           managerId: req.tenantUser?._id || req.user._id,
-          role: { $in: ["agent", "manager", "purchase", "accounts"] }
+          role: { $in: ["agent", "manager", "sales", "purchase", "accounts"] }
         });
       }
 

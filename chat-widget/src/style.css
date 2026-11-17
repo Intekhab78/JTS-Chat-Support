@@ -724,13 +724,16 @@
 }
 
 .csw-status {
-  font-size: 10px;
-  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.8);
   line-height: 1;
 }
 
 .csw-read {
-  color: #3b82f6;
+  color: #7dd3fc;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
 }
 
 .csw-ai-badge {

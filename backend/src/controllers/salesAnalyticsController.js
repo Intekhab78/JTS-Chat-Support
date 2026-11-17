@@ -2,15 +2,23 @@ import mongoose from "mongoose";
 import { Customer } from "../models/Customer.js";
 import { FollowUpTask } from "../models/FollowUpTask.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
+import AppError from "../utils/AppError.js";
+import { getOwnedWebsiteIds, normalizeRole } from "../utils/roleUtils.js";
 
 /**
  * Get sales-focused analytics for the current user (if sales) or team (if manager/admin)
  */
 export const getSalesPerformanceStats = asyncHandler(async (req, res) => {
-  const isSales = req.user.role === "sales";
+  const effectiveRole = normalizeRole(req.user.role);
+  const isSales = effectiveRole === "sales";
   const { websiteId } = req.query;
-  const rawWebsiteIds = websiteId ? [websiteId] : await getOwnedWebsiteIds(req.user);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+
+  if (websiteId && effectiveRole !== "admin" && !ownedWebsiteIds.some((id) => String(id) === String(websiteId))) {
+    throw new AppError("Access denied for this website", 403);
+  }
+
+  const rawWebsiteIds = websiteId ? [websiteId] : ownedWebsiteIds;
   
   // Build ObjectId + string list for Mongo matching
   const websiteFilterList = [];
@@ -41,7 +49,7 @@ export const getSalesPerformanceStats = asyncHandler(async (req, res) => {
   }
 
   // 1. Pipeline Breakdown & Total Value
-  let pipelineStats = await Customer.aggregate([
+  const pipelineStats = await Customer.aggregate([
     { $match: filter },
     { $group: {
         _id: "$pipelineStage",
@@ -50,20 +58,6 @@ export const getSalesPerformanceStats = asyncHandler(async (req, res) => {
       }
     }
   ]);
-
-  // Fallback: If sales filter produced 0 leads, load website-wide leads
-  if (isSales && pipelineStats.length === 0) {
-    delete filter.$or;
-    pipelineStats = await Customer.aggregate([
-      { $match: filter },
-      { $group: {
-          _id: "$pipelineStage",
-          count: { $sum: 1 },
-          totalValue: { $sum: "$leadValue" }
-        }
-      }
-    ]);
-  }
 
   // 2. Activity Volume (Last 30 days)
   const thirtyDaysAgo = new Date();

@@ -21,8 +21,10 @@ const observabilityAlertSchema = new mongoose.Schema(
       enum: ["in_app", "email", "webhook"],
       default: "in_app"
     },
+    webhookUrl: { type: String, default: "", trim: true },
     isTriggered: { type: Boolean, default: false, index: true },
     lastTriggeredAt: { type: Date, default: null },
+    triggerCount: { type: Number, default: 0 },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }
   },
   { timestamps: true }

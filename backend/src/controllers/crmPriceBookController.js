@@ -3,6 +3,7 @@ import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
+import { sanitizeUpdatePayload } from "../utils/regexUtils.js";
 
 export const listPriceBooks = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_VIEW);
@@ -56,7 +57,7 @@ export const updatePriceBook = asyncHandler(async (req, res) => {
     throw new AppError("Unauthorized access", 403);
   }
 
-  const updated = await PriceBook.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  const updated = await PriceBook.findByIdAndUpdate(req.params.id, sanitizeUpdatePayload(req.body), { new: true });
   res.json(updated);
 });
 

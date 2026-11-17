@@ -1,6 +1,17 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Search, ChevronRight, MessageSquare, Check, Smile, Meh, Frown, Users } from "lucide-react";
+import { Search, ChevronRight, MessageSquare, Check, Smile, Meh, Frown, Users, Clock } from "lucide-react";
 import { cleanString } from "../../utils/stringUtils.js";
+
+function formatWaitLabel(dateInput) {
+  if (!dateInput) return "";
+  const diffMs = Math.max(0, Date.now() - new Date(dateInput).getTime());
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m wait`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h wait`;
+  return `${Math.floor(hrs / 24)}d wait`;
+}
 
 export default function SessionList({ 
   sessions = [], 
@@ -58,6 +69,7 @@ export default function SessionList({
           allSessions: [session],
           totalSessionsCount: 1,
           hasActiveSession: session.status !== "closed" && !session.archivedAt,
+          hasUnassignedActive: session.status !== "closed" && !session.archivedAt && !session.assignedAgent,
           totalUnread: session.unreadCount || 0
         });
       } else {
@@ -66,20 +78,40 @@ export default function SessionList({
         existing.totalSessionsCount += 1;
         if (session.status !== "closed" && !session.archivedAt) {
           existing.hasActiveSession = true;
+          if (!session.assignedAgent) {
+            existing.hasUnassignedActive = true;
+          }
         }
         existing.totalUnread += (session.unreadCount || 0);
 
-        // Keep the latest active / recent session as primary representative
+        // Keep the highest-priority (Active Online > Active > Closed) & latest session as primary representative
+        const getRank = (s) => {
+          if (s.archivedAt) return 0;
+          if (s.status === "closed") return 1;
+          if (s.visitorId?.isOnline || s.isOnline) return 3;
+          return 2;
+        };
+        const existingRank = getRank(existing.primarySession);
+        const currentRank = getRank(session);
         const existingTime = new Date(existing.primarySession.updatedAt || existing.primarySession.createdAt).getTime();
         const currentTime = new Date(session.updatedAt || session.createdAt).getTime();
-        if (currentTime > existingTime) {
+        if (currentRank > existingRank || (currentRank === existingRank && currentTime > existingTime)) {
           existing.primarySession = session;
         }
+        existing.hasUnassignedActive = existing.hasActiveSession && !existing.primarySession.assignedAgent;
       }
     });
 
-    // Sort by latest message date descending
+    // Sort: Online first, then Active, then latest message date descending
     return Array.from(map.values()).sort((a, b) => {
+      const onlineA = a.primarySession.status !== "closed" && !a.primarySession.archivedAt && (a.primarySession.visitorId?.isOnline || a.primarySession.isOnline) ? 1 : 0;
+      const onlineB = b.primarySession.status !== "closed" && !b.primarySession.archivedAt && (b.primarySession.visitorId?.isOnline || b.primarySession.isOnline) ? 1 : 0;
+      if (onlineA !== onlineB) return onlineB - onlineA;
+
+      const activeA = a.hasActiveSession ? 1 : 0;
+      const activeB = b.hasActiveSession ? 1 : 0;
+      if (activeA !== activeB) return activeB - activeA;
+
       const timeA = new Date(a.primarySession.updatedAt || a.primarySession.createdAt).getTime();
       const timeB = new Date(b.primarySession.updatedAt || b.primarySession.createdAt).getTime();
       return timeB - timeA;
@@ -99,6 +131,7 @@ export default function SessionList({
   const displayedVisitors = useMemo(() => {
     return groupedVisitors.filter(group => {
       if (statusFilter === "active") return group.hasActiveSession;
+      if (statusFilter === "unassigned") return group.hasUnassignedActive;
       if (statusFilter === "closed") return !group.hasActiveSession;
       return true;
     }).filter(group => {
@@ -112,9 +145,10 @@ export default function SessionList({
   }, [groupedVisitors, statusFilter, searchTerm]);
 
   const activeVisitorsCount = useMemo(() => groupedVisitors.filter(g => g.hasActiveSession).length, [groupedVisitors]);
+  const unassignedVisitorsCount = useMemo(() => groupedVisitors.filter(g => g.hasUnassignedActive).length, [groupedVisitors]);
 
   return (
-    <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col h-full overflow-hidden">
+    <div className="w-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="p-3.5 border-b border-slate-100 dark:border-white/10 space-y-2.5 bg-slate-50/50 dark:bg-slate-800/40">
         <div className="flex items-center justify-between">
@@ -140,20 +174,23 @@ export default function SessionList({
         </div>
 
         {/* Status Filter Tabs */}
-        <div className="flex items-center gap-1.5 pt-0.5">
+        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
           {[
             { id: "all", label: `All (${groupedVisitors.length})` },
             { id: "active", label: `Active (${activeVisitorsCount})` },
+            { id: "unassigned", label: `Unassigned (${unassignedVisitorsCount})`, highlight: unassignedVisitorsCount > 0 },
             { id: "closed", label: `Closed (${groupedVisitors.length - activeVisitorsCount})` }
           ].map(tab => (
             <button
               key={tab.id}
               type="button"
               onClick={() => setStatusFilter(tab.id)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+              className={`px-2 py-1 rounded-lg text-[11px] font-semibold transition-all ${
                 statusFilter === tab.id
                   ? "bg-indigo-600 text-white shadow-sm"
-                  : "bg-white dark:bg-slate-800 text-slate-500 hover:bg-slate-100 border border-slate-200 dark:border-white/5"
+                  : tab.highlight
+                    ? "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-500/30 hover:bg-amber-100"
+                    : "bg-white dark:bg-slate-800 text-slate-500 hover:bg-slate-100 border border-slate-200 dark:border-white/5"
               }`}
             >
               {tab.label}
@@ -231,9 +268,15 @@ export default function SessionList({
                     </div>
 
                     <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mb-1">
-                      <span className="font-semibold text-slate-600 dark:text-slate-400 truncate max-w-[130px]">
+                      <span className="font-semibold text-slate-600 dark:text-slate-400 truncate max-w-[110px]">
                         {siteName}
                       </span>
+                      {group.hasUnassignedActive && (
+                        <span className="inline-flex items-center gap-0.5 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-500/30 text-[9px] font-bold px-1.5 py-0.5 rounded-md shrink-0">
+                          <Clock size={9} />
+                          {formatWaitLabel(session.createdAt || session.updatedAt)}
+                        </span>
+                      )}
                       {unreadCount > 0 && (
                         <span className="bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.2 rounded-full animate-in fade-in duration-200">
                           {unreadCount}

@@ -3,50 +3,30 @@ import { LowCodeStudioPage } from "../models/LowCodeStudioPage.js";
 import { FormSubmission } from "../models/FormSubmission.js";
 import { Customer } from "../models/Customer.js";
 import { Ticket } from "../models/Ticket.js";
+import { Invoice } from "../models/Invoice.js";
+import { Deal } from "../models/Deal.js";
+import { Risk } from "../models/Risk.js";
 import { Website } from "../models/Website.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import { escapeRegex } from "../utils/regexUtils.js";
 import AppError from "../utils/AppError.js";
 import { logAuditEvent } from "../services/auditService.js";
 import { getSocketServer } from "../sockets/index.js";
 import { generateCRN } from "../services/customerService.js";
 
-const DEFAULT_PAGES = [
-  {
-    pageName: "Enterprise Tax Filing & Document Intake Form",
-    slug: "tax-filing-intake",
-    pageType: "form",
-    targetEntity: "lead",
-    submitButtonText: "Submit Filing Intake",
-    successMessage: "Your corporate tax intake details have been submitted. A senior tax consultant has been assigned.",
-    layoutComponents: [
-      { componentType: "input", label: "Company Commercial Name", props: { name: "companyName", required: true, placeholder: "e.g. Al-Baraka Tech LLC" } },
-      { componentType: "input", label: "Contact Person Name", props: { name: "contactName", required: true, placeholder: "e.g. Ahmed Al-Mansoor" } },
-      { componentType: "input", label: "Business Email", props: { name: "email", required: true, type: "email", placeholder: "ahmed@albaraka.ae" } },
-      { componentType: "input", label: "Phone / WhatsApp", props: { name: "phone", required: true, placeholder: "+971 50 123 4567" } },
-      { componentType: "select", label: "Filing Period", props: { name: "filingPeriod", options: ["Q1-2026", "Q2-2026", "Annual 2025"] } },
-      { componentType: "checkbox", label: "I confirm all VAT records are accurate under UAE Tax Law", props: { name: "taxComplianceAgreed", checked: true } }
-    ]
-  },
-  {
-    pageName: "Executive Financial & Revenue Overview Dashboard",
-    slug: "executive-financial-dashboard",
-    pageType: "dashboard",
-    layoutComponents: [
-      { componentType: "chart", label: "Monthly Revenue (MRR Trend)", props: { chartType: "area", height: 280 } },
-      { componentType: "table", label: "High-Priority Client Tax Deadlines", props: { columns: ["Client", "TRN", "Status", "Due Date"] } },
-      { componentType: "kanban", label: "Audit Resolution Pipeline", props: { stages: ["Pending", "In Review", "Filed"] } }
-    ]
-  }
-];
-
 export const getStudioOverview = asyncHandler(async (req, res) => {
-  let count = await LowCodeStudioPage.countDocuments({});
-
-  if (count === 0) {
-    await LowCodeStudioPage.insertMany(DEFAULT_PAGES.map(p => ({ ...p, createdBy: req.user._id })));
+  const { search, pageType, status } = req.query;
+  const query = {};
+  if (pageType && pageType !== "all") query.pageType = pageType;
+  if (status === "published") query.isPublished = true;
+  if (status === "draft") query.isPublished = false;
+  if (search && search.trim()) {
+    const rx = new RegExp(escapeRegex(search.trim()), "i");
+    query.$or = [{ pageName: rx }, { slug: rx }, { pageType: rx }];
   }
 
-  const pages = await LowCodeStudioPage.find({}).sort({ createdAt: -1 });
+  const allPages = await LowCodeStudioPage.find({}).sort({ createdAt: -1 });
+  const pages = await LowCodeStudioPage.find(query).sort({ createdAt: -1 });
 
   // Compute submission counts per page
   const submissionCounts = await FormSubmission.aggregate([
@@ -62,10 +42,11 @@ export const getStudioOverview = asyncHandler(async (req, res) => {
 
   return res.json({
     summary: {
-      totalPages: pages.length,
-      publishedPages: pages.filter(p => p.isPublished).length,
+      totalPages: allPages.length,
+      publishedPages: allPages.filter(p => p.isPublished).length,
+      draftPages: allPages.filter(p => !p.isPublished).length,
       totalSubmissionsReceived: Object.values(submissionMap).reduce((a, b) => a + b, 0),
-      availableDragDropComponents: 12,
+      availableDragDropComponents: 9,
       sdkStatus: "LOW_CODE_ENGINE_READY"
     },
     pages: enrichedPages
@@ -73,9 +54,19 @@ export const getStudioOverview = asyncHandler(async (req, res) => {
 });
 
 export const createStudioPage = asyncHandler(async (req, res) => {
-  const { pageName, pageType, slug, targetEntity, submitButtonText, successMessage, layoutComponents, themeConfig } = req.body;
+  const {
+    pageName,
+    pageType,
+    slug,
+    targetEntity,
+    submitButtonText,
+    successMessage,
+    layoutComponents,
+    themeConfig,
+    isPublished
+  } = req.body;
 
-  if (!pageName) throw new AppError("Page name is required", 400);
+  if (!pageName || !pageName.trim()) throw new AppError("Page name is required", 400);
 
   const cleanSlug = (slug || pageName)
     .toLowerCase()
@@ -86,18 +77,15 @@ export const createStudioPage = asyncHandler(async (req, res) => {
   const finalSlug = existing ? `${cleanSlug}-${Date.now().toString().slice(-4)}` : cleanSlug;
 
   const newPage = await LowCodeStudioPage.create({
-    pageName,
+    pageName: pageName.trim(),
     pageType: pageType || "form",
     slug: finalSlug,
     targetEntity: targetEntity || "lead",
     submitButtonText: submitButtonText || "Submit",
     successMessage: successMessage || "Thank you! Your information has been received.",
-    layoutComponents: Array.isArray(layoutComponents) && layoutComponents.length > 0 ? layoutComponents : [
-      { componentType: "input", label: "Full Name", props: { name: "name", required: true } },
-      { componentType: "input", label: "Email Address", props: { name: "email", required: true } },
-      { componentType: "input", label: "Phone Number", props: { name: "phone" } }
-    ],
+    layoutComponents: Array.isArray(layoutComponents) ? layoutComponents : [],
     themeConfig: themeConfig || {},
+    isPublished: typeof isPublished === "boolean" ? isPublished : true,
     createdBy: req.user._id
   });
 
@@ -113,6 +101,45 @@ export const createStudioPage = asyncHandler(async (req, res) => {
   });
 
   return res.status(201).json(newPage);
+});
+
+export const updateStudioPage = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const page = await LowCodeStudioPage.findById(id);
+  if (!page) throw new AppError("Low-code page not found", 404);
+
+  const allowedFields = [
+    "pageName",
+    "pageType",
+    "slug",
+    "targetEntity",
+    "submitButtonText",
+    "successMessage",
+    "layoutComponents",
+    "themeConfig",
+    "isPublished"
+  ];
+
+  for (const field of allowedFields) {
+    if (req.body[field] !== undefined) {
+      page[field] = req.body[field];
+    }
+  }
+
+  await page.save();
+
+  await logAuditEvent({
+    userId: req.user._id,
+    websiteId: null,
+    action: "LOWCODE_STUDIO_PAGE_UPDATED",
+    resource: "LowCodeStudioPage",
+    resourceId: page._id,
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+    changes: { pageName: page.pageName, isPublished: page.isPublished, componentCount: page.layoutComponents?.length || 0 }
+  });
+
+  return res.json(page);
 });
 
 export const exportPageJson = asyncHandler(async (req, res) => {
@@ -329,6 +356,164 @@ export const getFormSubmissions = asyncHandler(async (req, res) => {
     pageName: page.pageName,
     totalSubmissions: submissions.length,
     submissions
+  });
+});
+
+/**
+ * Delete a form submission record
+ */
+export const deleteFormSubmission = asyncHandler(async (req, res) => {
+  const { submissionId } = req.params;
+  const sub = await FormSubmission.findByIdAndDelete(submissionId);
+  if (!sub) throw new AppError("Submission not found", 404);
+  return res.json({ message: "Submission deleted" });
+});
+
+/**
+ * Live Data Binding Engine for Chart, Table, and Kanban components
+ */
+export const getLiveComponentData = asyncHandler(async (req, res) => {
+  const source = String(req.query.source || "all").toLowerCase();
+
+  const [customers, tickets, invoices, deals, risks, submissions] = await Promise.all([
+    Customer.find({}).sort({ createdAt: -1 }).limit(15).select("crn name email companyName status pipelineStage createdAt").lean(),
+    Ticket.find({}).sort({ createdAt: -1 }).limit(15).select("ticketId subject status priority createdAt").lean(),
+    Invoice.find({}).sort({ createdAt: -1 }).limit(20).select("invoiceNumber total paidAmount status createdAt").lean(),
+    Deal.find({}).sort({ createdAt: -1 }).limit(15).select("title stage value createdAt").lean(),
+    Risk.find({}).sort({ createdAt: -1 }).limit(15).select("title status category inherentScore createdAt").lean(),
+    FormSubmission.find({}).sort({ createdAt: -1 }).limit(15).select("pageName answers conversionStatus createdAt").lean()
+  ]);
+
+  // Build real chart series based on source
+  let chartSeries = [];
+  if (source === "tickets") {
+    const counts = {};
+    tickets.forEach(t => {
+      const k = t.status || "open";
+      counts[k] = (counts[k] || 0) + 1;
+    });
+    chartSeries = Object.entries(counts).map(([label, value]) => ({ label: label.toUpperCase(), value }));
+  } else if (source === "customers") {
+    const counts = {};
+    customers.forEach(c => {
+      const k = c.pipelineStage || c.status || "new";
+      counts[k] = (counts[k] || 0) + 1;
+    });
+    chartSeries = Object.entries(counts).map(([label, value]) => ({ label: label.toUpperCase(), value }));
+  } else if (source === "risks") {
+    const counts = {};
+    risks.forEach(r => {
+      const k = r.status || "open";
+      counts[k] = (counts[k] || 0) + 1;
+    });
+    chartSeries = Object.entries(counts).map(([label, value]) => ({ label: label.toUpperCase(), value }));
+  } else {
+    // Default / revenue / invoices: aggregate invoices by status or month, fallback to customers+tickets activity
+    if (invoices.length > 0) {
+      const byMonth = {};
+      invoices.forEach(inv => {
+        const d = new Date(inv.createdAt);
+        const key = d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+        byMonth[key] = (byMonth[key] || 0) + (Number(inv.total) || 0);
+      });
+      chartSeries = Object.entries(byMonth).map(([label, value]) => ({ label, value }));
+    } else {
+      chartSeries = [
+        { label: "Customers", value: customers.length },
+        { label: "Tickets", value: tickets.length },
+        { label: "Deals", value: deals.length },
+        { label: "Risks", value: risks.length },
+        { label: "Submissions", value: submissions.length }
+      ];
+    }
+  }
+
+  // Build real table rows based on source
+  let tableColumns = ["ID", "Name / Title", "Category / Stage", "Status"];
+  let tableRows = [];
+  if (source === "tickets") {
+    tableColumns = ["Ticket ID", "Subject", "Priority", "Status"];
+    tableRows = tickets.slice(0, 6).map(t => ({
+      id: t.ticketId || String(t._id).slice(-6),
+      col2: t.subject || "Untitled Ticket",
+      col3: t.priority || "medium",
+      col4: t.status || "open"
+    }));
+  } else if (source === "risks") {
+    tableColumns = ["Risk", "Category", "Score", "Status"];
+    tableRows = risks.slice(0, 6).map(r => ({
+      id: r.title,
+      col2: r.category || "operational",
+      col3: String(r.inherentScore || 0),
+      col4: r.status || "open"
+    }));
+  } else if (source === "submissions") {
+    tableColumns = ["Page", "Submitter", "Status", "Submitted"];
+    tableRows = submissions.slice(0, 6).map(s => ({
+      id: s.pageName,
+      col2: s.answers?.contactName || s.answers?.name || s.answers?.email || "Anonymous",
+      col3: s.conversionStatus || "saved",
+      col4: new Date(s.createdAt).toLocaleDateString()
+    }));
+  } else {
+    // Default / customers
+    tableColumns = ["CRN", "Customer / Company", "Stage", "Status"];
+    tableRows = customers.slice(0, 6).map(c => ({
+      id: c.crn || String(c._id).slice(-6),
+      col2: c.companyName || c.name || c.email || "Record",
+      col3: c.pipelineStage || "new",
+      col4: c.status || "lead"
+    }));
+  }
+
+  // Build real Kanban columns
+  let kanbanColumns = [];
+  if (source === "deals" && deals.length > 0) {
+    const stages = ["qualified", "proposal", "negotiation", "won"];
+    kanbanColumns = stages.map(st => ({
+      stage: st,
+      items: deals.filter(d => (d.stage || "").toLowerCase() === st).slice(0, 4).map(d => ({
+        id: d._id,
+        title: d.title,
+        meta: `$${Number(d.value || 0).toLocaleString()}`
+      }))
+    }));
+  } else if (source === "customers" && customers.length > 0) {
+    const stages = ["new", "contacted", "qualified", "converted"];
+    kanbanColumns = stages.map(st => ({
+      stage: st,
+      items: customers.filter(c => (c.pipelineStage || "new").toLowerCase() === st).slice(0, 4).map(c => ({
+        id: c._id,
+        title: c.companyName || c.name,
+        meta: c.email || c.status
+      }))
+    }));
+  } else {
+    const stages = ["open", "in_progress", "resolved"];
+    kanbanColumns = stages.map(st => ({
+      stage: st.replace("_", " "),
+      items: tickets.filter(t => (t.status || "open").toLowerCase() === st).slice(0, 4).map(t => ({
+        id: t._id,
+        title: t.subject,
+        meta: `${t.ticketId || ""} · ${t.priority || "medium"}`
+      }))
+    }));
+  }
+
+  return res.json({
+    source,
+    chartSeries,
+    tableColumns,
+    tableRows,
+    kanbanColumns,
+    totals: {
+      customers: customers.length,
+      tickets: tickets.length,
+      invoices: invoices.length,
+      deals: deals.length,
+      risks: risks.length,
+      submissions: submissions.length
+    }
   });
 });
 

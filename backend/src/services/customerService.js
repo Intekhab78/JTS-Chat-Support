@@ -27,21 +27,32 @@ export const generateCRN = async () => {
  * @returns {Promise<Object>} The Customer document
  */
 export const getOrCreateCustomer = async (data) => {
-  const { name, email, phone, websiteId, visitorId } = data;
+  const { name, email, phone, websiteId } = data;
 
-  // Resolve the email — use real email, or a placeholder for anonymous visitors
-  const resolvedEmail = email || (visitorId ? `anon-${visitorId}@visitor.local` : null);
+  const rawName = String(name || "").trim();
+  const cleanName = ["anonymous visitor", "visitor", "anonymous", "unknown"].includes(rawName.toLowerCase())
+    ? ""
+    : rawName;
 
-  // We need at least some unique identifier
-  if (!resolvedEmail && !phone) return null;
+  const rawEmail = String(email || "").trim().toLowerCase();
+  const cleanEmail = (!rawEmail || rawEmail.endsWith("@visitor.local") || rawEmail.endsWith("@anonymous.local") || rawEmail.startsWith("anon-"))
+    ? ""
+    : rawEmail;
+
+  const cleanPhone = String(phone || "").trim();
+
+  // Do not create anonymous CRM customer records when neither email nor phone is provided
+  if (!cleanEmail && !cleanPhone) return null;
+
+  const resolvedEmail = cleanEmail || "";
 
   const query = { websiteId };
-  if (resolvedEmail && phone) {
-    query.$or = [{ email: resolvedEmail }, { phone }];
+  if (resolvedEmail && cleanPhone) {
+    query.$or = [{ email: resolvedEmail }, { phone: cleanPhone }];
   } else if (resolvedEmail) {
     query.email = resolvedEmail;
   } else {
-    query.phone = phone;
+    query.phone = cleanPhone;
   }
 
   let customer = await Customer.findOne(query);
@@ -50,9 +61,9 @@ export const getOrCreateCustomer = async (data) => {
     const crn = await generateCRN();
     customer = new Customer({
       crn,
-      name: name || "Anonymous Visitor",
+      name: cleanName || (cleanPhone ? `Visitor (${cleanPhone})` : cleanEmail),
       email: resolvedEmail,
-      phone: phone || null,
+      phone: cleanPhone || null,
       websiteId,
       leadSource: data.leadSource || "Manual",
       ownerId: toObjectId(data.ownerId),   // always ObjectId, never string

@@ -7,6 +7,7 @@ import { connectDatabase } from "./config/database.js";
 import { createSocketServer } from "./sockets/index.js";
 import { startSlaMonitor } from "./services/slaService.js";
 import { startCronJobs } from "./services/cronService.js";
+import { startObservabilityMonitor } from "./services/observabilityTelemetryService.js";
 
 // Safety handlers to prevent process crashes on transient connection errors
 process.on("unhandledRejection", (reason, promise) => {
@@ -42,6 +43,9 @@ async function bootstrap() {
 
     startCronJobs();
     logger.log("Cron jobs scheduled");
+
+    startObservabilityMonitor();
+    logger.log("Observability monitor initialized");
 
     server.on("error", (error) => {
       if (error.code === "EADDRINUSE") {

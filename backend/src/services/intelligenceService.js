@@ -39,13 +39,17 @@ export function calculateWinProbability(customer) {
   let prob = stageWeights[customer.pipelineStage] || 5;
 
   // Adjust by heat score (normalized to +/- 10%)
-  const heatAdjustment = (customer.heatScore - 50) / 5; 
+  const heatScore = Number.isFinite(Number(customer.heatScore)) ? Number(customer.heatScore) : 50;
+  const heatAdjustment = (heatScore - 50) / 5;
   prob += heatAdjustment;
 
   // Adjust by activity velocity (last touch within 24 hours = +5%)
-  const hoursSinceInteraction = (new Date() - new Date(customer.lastInteraction)) / (1000 * 60 * 60);
-  if (hoursSinceInteraction < 24) prob += 5;
-  if (hoursSinceInteraction > 168) prob -= 15; // Unattended for a week
+  const lastTouch = customer.lastInteraction || customer.updatedAt;
+  if (lastTouch) {
+    const hoursSinceInteraction = (new Date() - new Date(lastTouch)) / (1000 * 60 * 60);
+    if (hoursSinceInteraction < 24) prob += 5;
+    if (hoursSinceInteraction > 168) prob -= 15; // Unattended for a week
+  }
 
   return Math.max(0, Math.min(99, Math.round(prob)));
 }
@@ -302,13 +306,43 @@ export async function processChatIntelligence(sessionId) {
     if (normalizedScore > 0.2) label = "positive";
     if (normalizedScore < -0.2) label = "negative";
 
-    // 2. Automated Summarization (High-Fidelity Simulation)
-    // In production: const summary = await callLLM(messages);
+    // 2. Automated Summarization (Real Gemini LLM when configured, status-aware fallback otherwise)
     let summary = "";
     if (visitorMessages.length > 0) {
-      const firstMsg = visitorMessages[0].message?.substring(0, 50);
-      const lastMsg = visitorMessages[visitorMessages.length - 1].message?.substring(0, 50);
-      summary = `Visitor initiated chat about "${firstMsg}...". Interaction concluded with "${lastMsg}...". Sentiment is ${label}.`;
+      const apiKey = process.env.GEMINI_API_KEY?.trim();
+      if (apiKey && messages.length >= 2) {
+        try {
+          const transcript = messages
+            .slice(-12)
+            .map((m) => `${m.sender === "visitor" ? "Visitor" : "Agent"}: ${String(m.message || "").slice(0, 200)}`)
+            .join("\n");
+          const resp = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: `Summarize this support chat in 1 concise sentence (max 25 words) with customer intent and outcome:\n${transcript}` }] }],
+                generationConfig: { maxOutputTokens: 80, temperature: 0.2 }
+              })
+            }
+          );
+          if (resp.ok) {
+            const data = await resp.json();
+            summary = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+          }
+        } catch {
+          // Graceful fallback below
+        }
+      }
+
+      if (!summary) {
+        const firstMsg = visitorMessages[0].message?.substring(0, 50) || "";
+        const lastMsg = visitorMessages[visitorMessages.length - 1].message?.substring(0, 50) || "";
+        summary = session.status === "closed"
+          ? `Closed chat about "${firstMsg}". Last message: "${lastMsg}". Sentiment: ${label}.`
+          : `Active chat (${visitorMessages.length} visitor msgs) • Topic: "${firstMsg}". Sentiment: ${label}.`;
+      }
     }
 
     // Update session

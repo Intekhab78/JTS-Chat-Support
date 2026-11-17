@@ -94,7 +94,6 @@ router.use("/creditnotes", creditNoteRoutes);
 router.use("/debitnotes", debitNoteRoutes);
 router.use("/omnichannel", omnichannelRoutes);
 router.use("/communication", communicationRoutes);
-router.use("/customer-portal", customerPortalRoutes);
 router.use("/canned-responses", cannedResponseRoutes);
 router.use("/customersuccess", customerSuccessRoutes);
 router.use("/assets", assetRoutes);
@@ -110,12 +109,12 @@ router.use("/meetings", meetingRoutes);
 router.use("/calls", callRoutes);
 router.use("/emails", emailRoutes);
 router.use("/documents", documentRoutes);
-router.use("/reminders", reminderRoutes);
 router.use("/meeting-platforms", meetingPlatformRoutes);
 router.use("/sales-targets", salesTargetRoutes);
 router.use("/compliance", complianceRoutes);
 
 // Analytics & Reports (Move above /:id to avoid shadowing)
+router.get("/summary", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), analyticsController.getCrmSummary);
 router.get("/reports", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), analyticsController.getCrmReports);
 router.get("/reports/won-timeseries", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), analyticsController.getWonRevenueTimeseries);
 
@@ -132,6 +131,7 @@ router.post("/invoices", requireRole("admin", "client", "manager", "sales", "pur
 router.put("/invoices/:id", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), invoiceController.updateInvoice);
 router.delete("/invoices/:id", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), invoiceController.deleteInvoice);
 router.post("/invoices/:id/pdf", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant", "customer"), invoiceController.generateInvoicePdf);
+router.post("/invoices/:id/remind", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), invoiceController.sendInvoiceReminder);
 router.post("/invoices/:id/razorpay-order", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), invoiceController.createRazorpayOrder);
 router.post("/invoices/:id/razorpay-verify", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), invoiceController.verifyRazorpayPayment);
 
@@ -162,11 +162,11 @@ router.post("/quotations/:id/deny", requireRole("admin", "client", "manager", "t
 router.patch("/quotations/:id/deny", requireRole("admin", "client", "manager", "tax_consultant"), quotationController.denyQuotation);
 router.patch("/quotations/deny/:id", requireRole("admin", "client", "manager", "tax_consultant"), quotationController.denyQuotation);
 router.post("/quotations/deny/:id", requireRole("admin", "client", "manager", "tax_consultant"), quotationController.denyQuotation);
-router.post("/quotations/:id/pdf", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant", "customer"), quotationController.generateQuotationPdf);
 
 // Interactions & Activity
 router.get("/:id/activity", interactionController.getCustomerActivity);
 router.post("/:id/notes", requireRole("admin", "client", "manager", "sales", "agent", "accounts", "purchase", "tax_consultant"), interactionController.addCustomerNote);
+router.delete("/:id/notes/:noteId", requireRole("admin", "client", "manager", "sales", "agent", "accounts", "purchase", "tax_consultant"), interactionController.deleteCustomerNote);
 router.post("/:id/send-email", requireRole("admin", "client", "manager", "sales", "tax_consultant"), upload.single("attachment"), interactionController.sendCustomerEmail);
 router.get("/:id/invoices", requireRole("admin", "client", "manager", "sales", "purchase", "accounts", "tax_consultant"), invoiceController.getCustomerInvoices);
 

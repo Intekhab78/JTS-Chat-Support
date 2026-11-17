@@ -3,6 +3,7 @@ import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
+import { escapeRegex } from "../utils/regexUtils.js";
 
 export const listCompanies = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_VIEW);
@@ -21,7 +22,7 @@ export const listCompanies = asyncHandler(async (req, res) => {
   }
 
   if (search) {
-    query.companyName = new RegExp(search, "i");
+    query.companyName = new RegExp(escapeRegex(search), "i");
   }
 
   const result = await companyService.getCompaniesList(query, {

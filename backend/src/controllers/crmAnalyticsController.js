@@ -18,6 +18,50 @@ function resolveScopedWebsiteMatch(ownedWebsiteIds, websiteId) {
   return new mongoose.Types.ObjectId(websiteId);
 }
 
+export const getCrmSummary = asyncHandler(async (req, res) => {
+  const ownedWebsiteIds = req.ownedWebsiteIds?.length
+    ? req.ownedWebsiteIds
+    : await getOwnedWebsiteIds(req.user);
+  const { websiteId } = req.query;
+  const scopedWebsite = resolveScopedWebsiteMatch(ownedWebsiteIds, websiteId);
+
+  const [agg] = await Customer.aggregate([
+    {
+      $match: {
+        websiteId: scopedWebsite,
+        isAnonymous: { $ne: true },
+        name: { $nin: ["Anonymous Visitor", "Anonymous", "Visitor"] }
+      }
+    },
+    {
+      $group: {
+        _id: null,
+        totalLeads: { $sum: 1 },
+        pipelineValue: {
+          $sum: {
+            $cond: [{ $ne: ["$pipelineStage", "lost"] }, { $ifNull: ["$leadValue", 0] }, 0]
+          }
+        },
+        wonDeals: {
+          $sum: { $cond: [{ $eq: ["$pipelineStage", "won"] }, 1, 0] }
+        },
+        wonValue: {
+          $sum: {
+            $cond: [{ $eq: ["$pipelineStage", "won"] }, { $ifNull: ["$leadValue", 0] }, 0]
+          }
+        }
+      }
+    }
+  ]);
+
+  res.json({
+    pipelineValue: agg?.pipelineValue || 0,
+    totalLeads: agg?.totalLeads || 0,
+    wonDeals: agg?.wonDeals || 0,
+    wonValue: agg?.wonValue || 0
+  });
+});
+
 export const getCrmReports = asyncHandler(async (req, res) => {
   const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
   const { websiteId, startDate, endDate } = req.query;

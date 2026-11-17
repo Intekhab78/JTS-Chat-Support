@@ -8,6 +8,7 @@ import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
 import { incrementCustomers, addWonRevenue, recordConversionTime } from "../services/analyticsService.js";
 import { sendCrmLifecycleEmail, sendCrmStageChangeEmail, autoAssignLeadOwner } from "../services/automationService.js";
+import { sanitizeUpdatePayload } from "../utils/regexUtils.js";
 import { executeWorkflowBackground } from "../services/workflowExecutor.js";
 import {
   createAndEmitCrmNotification,
@@ -228,7 +229,7 @@ export const updateWorkflow = asyncHandler(async (req, res) => {
     throw new AppError("Unauthorized access", 403);
   }
 
-  const updated = await Workflow.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  const updated = await Workflow.findByIdAndUpdate(req.params.id, sanitizeUpdatePayload(req.body), { new: true });
   res.json(updated);
 });
 

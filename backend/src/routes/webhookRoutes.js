@@ -4,7 +4,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 
 const router = Router();
 
-router.get("/deliveries", requireAuth, requireRole("admin", "client"), listWebhookDeliveries);
+router.get("/deliveries", requireAuth, requireRole("admin", "client", "manager", "management"), listWebhookDeliveries);
 
 // JTS Meet Inbound Webhook Endpoints (both POST and health check)
 router.post("/jts-meet", handleJtsMeetWebhook);

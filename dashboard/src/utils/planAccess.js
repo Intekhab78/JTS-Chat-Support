@@ -18,20 +18,15 @@ export const MODULE_CATEGORIES = {
     "billing", "invoices", "quotations", "payments", "ledger",
     "sales-orders", "subscriptions", "finance"
   ],
-  compliance: [
-    "vat", "vat-compliance", "corporate-tax", "trade-license",
-    "compliance-reports", "risk-register", "compliance"
-  ],
   automation: [
-    "flows", "flow-builder", "flow-analytics", "ai-automation",
+    "flows", "flow-builder", "flow-analytics",
     "voice-calls", "voice-logs", "lowcode-studio", "workflow-builder",
-    "custom-crm-modules", "automation"
+    "automation"
   ],
   enterprise: [
-    "multi-organization", "enterprise-bi", "enterprise-integrations", "enterprise-integration",
-    "mission-control", "sla-center", "observability", "load-testing",
-    "release-management", "developer-portal", "product-management",
-    "compliance-governance", "mobile-readiness", "enterprise"
+    "enterprise-integrations", "enterprise-integration",
+    "mission-control", "sla-center", "risk-register", "observability",
+    "developer-portal", "enterprise"
   ],
   reports: [
     "reports", "analytics", "financial-analytics"
@@ -45,7 +40,7 @@ export function getSubscription(user) {
   return user?.subscription || {
     plan: "pro",
     status: "active",
-    enabledModules: ["service", "crm", "operations", "finance", "compliance", "automation", "reports", "security"],
+    enabledModules: ["service", "crm", "operations", "finance", "automation", "reports", "security"],
     limits: { agents: 10, websites: 10 }
   };
 }

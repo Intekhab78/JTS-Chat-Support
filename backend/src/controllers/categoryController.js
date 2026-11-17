@@ -67,7 +67,7 @@ export const updateCategory = async (req, res) => {
     if (!category) return res.status(404).json({ message: "Category not found" });
 
     // Verify ownership
-    if (req.user.role === "client" && category.managerId.toString() !== req.user._id.toString()) {
+    if (req.user.role === "client" && category.managerId?.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "Access denied" });
     }
 
@@ -91,7 +91,7 @@ export const deleteCategory = async (req, res) => {
     if (!category) return res.status(404).json({ message: "Category not found" });
 
     // Verify ownership
-    if (req.user.role === "client" && category.managerId.toString() !== req.user._id.toString()) {
+    if (req.user.role === "client" && category.managerId?.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "Access denied" });
     }
 

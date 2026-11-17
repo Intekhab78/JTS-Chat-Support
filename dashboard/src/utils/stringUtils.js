@@ -9,6 +9,16 @@ export const cleanString = (val, fallback = "") => {
   if (val === null || val === undefined) return fallback;
   const str = String(val).trim();
   const lower = str.toLowerCase();
-  if (lower === "undefined" || lower === "null" || lower === "") return fallback;
+  if (
+    lower === "undefined" ||
+    lower === "null" ||
+    lower === "" ||
+    lower === "anonymous visitor" ||
+    lower.endsWith("@visitor.local") ||
+    lower.endsWith("@anonymous.local") ||
+    lower.startsWith("anon-visitor_")
+  ) {
+    return fallback;
+  }
   return str;
 };

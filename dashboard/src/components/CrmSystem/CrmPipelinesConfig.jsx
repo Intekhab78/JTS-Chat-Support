@@ -1,24 +1,44 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Plus, Trash2, Edit3, Check, X, MoveUp, MoveDown, Layout, ShieldAlert, Download, Printer } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Edit3,
+  Check,
+  X,
+  MoveUp,
+  MoveDown,
+  ShieldAlert,
+  Download,
+  Printer,
+  RefreshCw
+} from "lucide-react";
 import { api } from "../../api/client.js";
 import { useWebsite } from "../../context/WebsiteContext.jsx";
-import { exportToCSV, exportToPDF, exportSingleRecordPDF } from "../../utils/exportUtils.js";
+import { useToast } from "../../context/ToastContext.jsx";
+import { exportToCSV, exportToPDF } from "../../utils/exportUtils.js";
+import ConfirmModal from "../ConfirmModal.jsx";
 
 const DEFAULT_STAGES = [
-  { key: "new", label: "New Lead", probability: 10, order: 0, color: "bg-violet-50 text-violet-600 border-violet-100" },
-  { key: "contacted", label: "Contacted", probability: 25, order: 1, color: "bg-sky-50 text-sky-600 border-sky-100" },
-  { key: "qualified", label: "Qualified", probability: 50, order: 2, color: "bg-indigo-50 text-indigo-600 border-indigo-100" },
-  { key: "proposal", label: "Proposal Sent", probability: 75, order: 3, color: "bg-amber-50 text-amber-600 border-amber-100" },
-  { key: "negotiation", label: "Negotiation", probability: 90, order: 4, color: "bg-orange-50 text-orange-600 border-orange-100" },
-  { key: "won", label: "Closed Won", probability: 100, order: 5, color: "bg-emerald-50 text-emerald-600 border-emerald-100" },
-  { key: "lost", label: "Closed Lost", probability: 0, order: 6, color: "bg-red-50 text-red-500 border-red-100" }
+  { key: "new", label: "New Lead", probability: 10, order: 0 },
+  { key: "contacted", label: "Contacted", probability: 25, order: 1 },
+  { key: "qualified", label: "Qualified", probability: 50, order: 2 },
+  { key: "proposal", label: "Proposal Sent", probability: 75, order: 3 },
+  { key: "negotiation", label: "Negotiation", probability: 90, order: 4 },
+  { key: "won", label: "Closed Won", probability: 100, order: 5 },
+  { key: "lost", label: "Closed Lost", probability: 0, order: 6 }
 ];
 
+const DEFAULT_ENABLED_MODULES = ["crm", "operations", "finance", "service", "automation"];
+
+const isValidWebsiteId = (id) =>
+  Boolean(id && id !== "all" && id !== "undefined" && id !== "null");
+
 export default function CrmPipelinesConfig({ websiteId }) {
+  const toast = useToast();
   const { selectedWebsite, setWebsites } = useWebsite();
-  const activeWebsiteId = websiteId || selectedWebsite?._id;
-  const DEFAULT_ENABLED_MODULES = ["crm", "operations", "finance", "service", "automation"];
+  const activeWebsiteId = isValidWebsiteId(websiteId) ? websiteId : selectedWebsite?._id;
+
   const [enabledModules, setEnabledModules] = useState(() =>
     Array.isArray(selectedWebsite?.enabledModules) && selectedWebsite.enabledModules.length > 0
       ? selectedWebsite.enabledModules
@@ -36,57 +56,95 @@ export default function CrmPipelinesConfig({ websiteId }) {
       ? enabledModules.filter((m) => m !== modId)
       : [...enabledModules, modId];
     setEnabledModules(nextModules);
-    if (!activeWebsiteId) return;
+    if (!isValidWebsiteId(activeWebsiteId)) return;
     try {
       const updated = await api(`/api/websites/${activeWebsiteId}`, {
         method: "PATCH",
         body: JSON.stringify({ enabledModules: nextModules })
       });
       if (setWebsites && updated?._id) {
-        setWebsites((prev) => Array.isArray(prev) ? prev.map((w) => (w._id === updated._id ? { ...w, enabledModules: nextModules } : w)) : prev);
+        setWebsites((prev) =>
+          Array.isArray(prev)
+            ? prev.map((w) => (w._id === updated._id ? { ...w, enabledModules: nextModules } : w))
+            : prev
+        );
       }
+      toast?.success?.("Module entitlement updated");
     } catch (err) {
       console.error("Failed to save module entitlements:", err);
+      toast?.error?.(err?.message || "Failed to update module entitlement");
     }
   };
+
   const [pipelines, setPipelines] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [selectedPipeline, setSelectedPipeline] = useState(null);
+  const [editingPipeline, setEditingPipeline] = useState(null);
   const [pipelineForm, setPipelineForm] = useState({ name: "", isDefault: false, stages: [] });
   const [showModal, setShowModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchPipelines = async () => {
     setLoading(true);
     try {
-      const res = await api(`/api/crm/pipelines?websiteId=${websiteId}`);
-      setPipelines(res || []);
-      if (res && res.length > 0) {
-        setSelectedPipeline(res[0]);
-      } else {
-        setSelectedPipeline(null);
-      }
+      const qs = isValidWebsiteId(websiteId) ? `?websiteId=${encodeURIComponent(websiteId)}` : "";
+      const res = await api(`/api/crm/pipelines${qs}`);
+      const list = Array.isArray(res) ? res : res?.pipelines || res?.data || [];
+      setPipelines(list);
+      setSelectedPipeline((prev) => {
+        if (!list.length) return null;
+        if (prev?._id) {
+          const refreshed = list.find((p) => p._id === prev._id);
+          if (refreshed) return refreshed;
+        }
+        return list[0];
+      });
     } catch (err) {
       console.error(err);
+      toast?.error?.(err?.message || "Failed to load pipelines");
+      setPipelines([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (websiteId) fetchPipelines();
+    fetchPipelines();
   }, [websiteId]);
 
   useEffect(() => {
     if (showModal) document.body.style.overflow = "hidden";
     else document.body.style.overflow = "";
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [showModal]);
 
   const handleOpenCreate = () => {
+    setEditingPipeline(null);
     setPipelineForm({
       name: "",
       isDefault: pipelines.length === 0,
-      stages: [...DEFAULT_STAGES]
+      stages: DEFAULT_STAGES.map((s) => ({ ...s }))
+    });
+    setShowModal(true);
+  };
+
+  const handleOpenEdit = (pipeline) => {
+    setEditingPipeline(pipeline);
+    setPipelineForm({
+      name: pipeline.name || "",
+      isDefault: Boolean(pipeline.isDefault),
+      stages: Array.isArray(pipeline.stages)
+        ? pipeline.stages.map((s, idx) => ({
+            key: s.key || `stage_${idx}`,
+            label: s.label || s.name || `Stage ${idx + 1}`,
+            probability: s.probability ?? 50,
+            order: s.order ?? idx
+          }))
+        : []
     });
     setShowModal(true);
   };
@@ -96,8 +154,7 @@ export default function CrmPipelinesConfig({ websiteId }) {
       key: `custom_${Date.now()}`,
       label: "New Stage",
       probability: 50,
-      order: pipelineForm.stages.length,
-      color: "bg-slate-50 text-slate-600 border-slate-100"
+      order: pipelineForm.stages.length
     };
     setPipelineForm({
       ...pipelineForm,
@@ -106,7 +163,9 @@ export default function CrmPipelinesConfig({ websiteId }) {
   };
 
   const handleRemoveStage = (index) => {
-    const nextStages = pipelineForm.stages.filter((_, i) => i !== index);
+    const nextStages = pipelineForm.stages
+      .filter((_, i) => i !== index)
+      .map((s, idx) => ({ ...s, order: idx }));
     setPipelineForm({ ...pipelineForm, stages: nextStages });
   };
 
@@ -120,13 +179,10 @@ export default function CrmPipelinesConfig({ websiteId }) {
     const nextStages = [...pipelineForm.stages];
     const targetIndex = index + direction;
     if (targetIndex < 0 || targetIndex >= nextStages.length) return;
-    
-    // Swap
+
     const temp = nextStages[index];
     nextStages[index] = nextStages[targetIndex];
     nextStages[targetIndex] = temp;
-
-    // Recalculate orders
     nextStages.forEach((s, idx) => {
       s.order = idx;
     });
@@ -136,23 +192,46 @@ export default function CrmPipelinesConfig({ websiteId }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (saving) return;
     if (!pipelineForm.stages.length) {
-      alert("At least one stage is required.");
+      toast?.error?.("At least one stage is required");
       return;
     }
 
+    setSaving(true);
+    const payload = {
+      name: pipelineForm.name.trim(),
+      isDefault: Boolean(pipelineForm.isDefault),
+      stages: pipelineForm.stages.map((s, idx) => ({
+        ...s,
+        order: idx,
+        probability: Math.min(100, Math.max(0, Number(s.probability) || 0))
+      }))
+    };
+    if (isValidWebsiteId(activeWebsiteId)) {
+      payload.websiteId = activeWebsiteId;
+    }
+
     try {
-      await api("/api/crm/pipelines", {
-        method: "POST",
-        body: JSON.stringify({
-          ...pipelineForm,
-          websiteId
-        })
-      });
+      if (editingPipeline?._id) {
+        await api(`/api/crm/pipelines/${editingPipeline._id}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload)
+        });
+        toast?.success?.("Pipeline updated");
+      } else {
+        await api("/api/crm/pipelines", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        toast?.success?.("Pipeline created");
+      }
       setShowModal(false);
-      fetchPipelines();
+      await fetchPipelines();
     } catch (err) {
-      alert(err.message);
+      toast?.error?.(err?.message || "Failed to save pipeline");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -162,157 +241,252 @@ export default function CrmPipelinesConfig({ websiteId }) {
         method: "PATCH",
         body: JSON.stringify({ isDefault: true })
       });
-      fetchPipelines();
+      toast?.success?.("Default pipeline updated");
+      await fetchPipelines();
     } catch (err) {
-      alert(err.message);
+      toast?.error?.(err?.message || "Failed to set default pipeline");
     }
   };
 
-  const handleDeletePipeline = async (pId) => {
-    if (!confirm("Are you sure you want to delete this pipeline?")) return;
+  const executeDeletePipeline = async () => {
+    if (!deleteTarget?._id) return;
+    setDeleting(true);
     try {
-      await api(`/api/crm/pipelines/${pId}`, { method: "DELETE" });
-      fetchPipelines();
+      await api(`/api/crm/pipelines/${deleteTarget._id}`, { method: "DELETE" });
+      toast?.success?.("Pipeline deleted");
+      setDeleteTarget(null);
+      await fetchPipelines();
     } catch (err) {
-      alert(err.message);
+      toast?.error?.(err?.message || "Failed to delete pipeline");
+    } finally {
+      setDeleting(false);
     }
   };
 
   const handleExportCSV = () => {
-    const data = (selectedPipeline?.stages || DEFAULT_STAGES).map(s => ({
-      "Pipeline Name": selectedPipeline?.name || "Standard Sales Pipeline",
+    if (!selectedPipeline?.stages?.length) return;
+    const data = selectedPipeline.stages.map((s, idx) => ({
+      "Pipeline Name": selectedPipeline.name || "Pipeline",
       "Stage Key": s.key,
       "Stage Label": s.label,
-      "Win Probability (%)": `${s.probability}%`,
-      "Order Index": s.order
+      "Win Probability (%)": `${s.probability ?? 0}%`,
+      "Order Index": s.order ?? idx
     }));
-    exportToCSV(data, `Pipeline_Config_${(selectedPipeline?.name || "Default").replace(/\s+/g, '_')}`);
+    exportToCSV(data, `Pipeline_Config_${(selectedPipeline.name || "Pipeline").replace(/\s+/g, "_")}`);
   };
 
   const handleExportPDF = () => {
-    const data = (selectedPipeline?.stages || DEFAULT_STAGES).map(s => ({
+    if (!selectedPipeline?.stages?.length) return;
+    const data = selectedPipeline.stages.map((s, idx) => ({
       "Stage Key": s.key,
       "Stage Label": s.label,
-      "Win Probability (%)": `${s.probability}%`,
-      "Order": String(s.order)
+      "Win Probability (%)": `${s.probability ?? 0}%`,
+      Order: String(s.order ?? idx)
     }));
-    exportToPDF(data, `Pipeline_Config_${(selectedPipeline?.name || "Default").replace(/\s+/g, '_')}`, `PIPELINE STAGE CONFIGURATION - ${(selectedPipeline?.name || "STANDARD PIPELINE").toUpperCase()}`);
+    exportToPDF(
+      data,
+      `Pipeline_Config_${(selectedPipeline.name || "Pipeline").replace(/\s+/g, "_")}`,
+      `PIPELINE STAGE CONFIGURATION - ${(selectedPipeline.name || "PIPELINE").toUpperCase()}`
+    );
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header section */}
-      <div className="flex justify-between items-center bg-white border border-slate-200/80 p-5 rounded-[24px] shadow-sm">
+    <div className="space-y-3 bg-white">
+      {/* Compact Header */}
+      <div className="flex flex-wrap justify-between items-center gap-2 border-b pb-2.5 border-slate-100">
         <div>
-          <h4 className="text-sm font-black text-slate-900 uppercase tracking-wider">Configure Pipelines</h4>
-          <p className="text-[10px] font-bold text-slate-400 mt-1">Manage custom stages and sales progression sequences.</p>
+          <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+            Configure Pipelines
+          </h4>
+          <p className="text-[10px] font-medium text-slate-500 mt-0.5">
+            Manage custom stages, win probabilities, and sales progression sequences
+          </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            disabled={!selectedPipeline?.stages?.length}
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 border border-emerald-200 text-emerald-700 text-[9.5px] font-black uppercase tracking-wider rounded-lg transition-all"
             title="Export Pipeline Config to CSV"
           >
-            <Download size={13} /> Export CSV
+            <Download size={12} /> Export CSV
           </button>
           <button
             onClick={handleExportPDF}
-            className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+            disabled={!selectedPipeline?.stages?.length}
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 border border-indigo-200 text-indigo-700 text-[9.5px] font-black uppercase tracking-wider rounded-lg transition-all"
             title="Export Pipeline Config to PDF"
           >
-            <Printer size={13} /> Export PDF
+            <Printer size={12} /> Export PDF
           </button>
-          <button onClick={handleOpenCreate} className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-2 transition-all">
-            <Plus size={14} /> New Pipeline
+          <button
+            onClick={fetchPipelines}
+            className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-all"
+            title="Refresh pipelines"
+          >
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+          </button>
+          <button
+            onClick={handleOpenCreate}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-[9.5px] font-black uppercase tracking-wider flex items-center gap-1 transition-all"
+          >
+            <Plus size={12} /> New Pipeline
           </button>
         </div>
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-20">
-          <div className="w-10 h-10 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
+        <div className="space-y-2">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className="h-14 bg-slate-50 border border-slate-100 rounded-xl animate-pulse" />
+          ))}
         </div>
       ) : pipelines.length === 0 ? (
-        <div className="text-center py-20 border-2 border-dashed border-slate-200 rounded-[32px] text-slate-400 font-bold text-xs uppercase tracking-widest">No custom pipelines setup yet.</div>
+        <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl text-slate-400 font-bold text-[10px] uppercase tracking-wider">
+          No custom pipelines configured yet
+        </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Pipelines list */}
-          <div className="space-y-4">
-            <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Available Pipelines</h5>
-            <div className="space-y-3">
-              {pipelines.map((p) => (
-                <div
-                  key={p._id}
-                  onClick={() => setSelectedPipeline(p)}
-                  className={`p-5 rounded-[24px] border transition-all cursor-pointer flex justify-between items-center ${selectedPipeline?._id === p._id ? "bg-indigo-50/20 border-indigo-200 shadow-sm" : "bg-white border-slate-100 hover:border-slate-200"}`}
-                >
-                  <div>
-                    <h6 className="text-xs font-black text-slate-900">{p.name}</h6>
-                    <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-widest">{p.stages?.length || 0} Stages</p>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          {/* Pipelines List */}
+          <div className="space-y-2">
+            <h5 className="text-[9.5px] font-black text-slate-400 uppercase tracking-wider">
+              Available Pipelines ({pipelines.length})
+            </h5>
+            <div className="space-y-2 max-h-[420px] overflow-y-auto pr-0.5">
+              {pipelines.map((p) => {
+                const isSelected = selectedPipeline?._id === p._id;
+                return (
+                  <div
+                    key={p._id}
+                    onClick={() => setSelectedPipeline(p)}
+                    className={`p-3 rounded-xl border transition-all cursor-pointer flex justify-between items-center gap-2 ${
+                      isSelected
+                        ? "bg-indigo-50/20 border-indigo-400 shadow-xs"
+                        : "bg-white border-slate-200/80 hover:border-slate-300"
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <h6 className="text-[11px] font-black text-slate-900 truncate">{p.name}</h6>
+                      <p className="text-[9px] font-bold text-slate-400 mt-0.5 uppercase tracking-wider">
+                        {p.stages?.length || 0} Stages
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {p.isDefault ? (
+                        <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">
+                          Default
+                        </span>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSetDefault(p._id);
+                          }}
+                          className="text-[8.5px] font-black text-slate-500 hover:text-slate-800 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded uppercase"
+                        >
+                          Set Default
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenEdit(p);
+                        }}
+                        className="p-1 text-slate-400 hover:text-indigo-600 rounded-md hover:bg-indigo-50 transition-colors"
+                        title="Edit pipeline"
+                      >
+                        <Edit3 size={12} />
+                      </button>
+                      {!p.isDefault && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteTarget(p);
+                          }}
+                          className="p-1 text-slate-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors"
+                          title="Delete pipeline"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {p.isDefault ? (
-                      <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">Default</span>
-                    ) : (
-                      <button onClick={(e) => { e.stopPropagation(); handleSetDefault(p._id); }} className="text-[9px] font-black text-slate-400 hover:text-slate-700 bg-slate-50 border px-2 py-0.5 rounded uppercase">Set Default</button>
-                    )}
-                    {!p.isDefault && (
-                      <button onClick={(e) => { e.stopPropagation(); handleDeletePipeline(p._id); }} className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors"><Trash2 size={13} /></button>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
           {/* Selected Pipeline Stages Details */}
-          <div className="lg:col-span-2 bg-white border border-slate-250/60 rounded-[30px] p-6 space-y-6">
+          <div className="lg:col-span-2 bg-white border border-slate-200/80 rounded-2xl p-3.5 shadow-xs space-y-2.5">
             {selectedPipeline ? (
               <>
-                <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+                <div className="flex justify-between items-center pb-2 border-b border-slate-100">
                   <div>
-                    <h5 className="text-sm font-black text-slate-900">{selectedPipeline.name}</h5>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Configure Stage Flow</p>
+                    <h5 className="text-xs font-black text-slate-900">{selectedPipeline.name}</h5>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
+                      Stage Flow Sequence ({selectedPipeline.stages?.length || 0} Stages)
+                    </p>
                   </div>
+                  <button
+                    onClick={() => handleOpenEdit(selectedPipeline)}
+                    className="flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[9.5px] font-black uppercase rounded-lg transition-all"
+                  >
+                    <Edit3 size={11} /> Edit Stages
+                  </button>
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-1.5 max-h-[360px] overflow-y-auto pr-0.5">
                   {selectedPipeline.stages?.map((stage, index) => (
-                    <div key={stage.key} className="flex items-center justify-between p-4 bg-slate-50/50 border border-slate-100 rounded-2xl">
-                      <div className="flex items-center gap-3">
-                        <span className="w-6 h-6 flex items-center justify-center bg-slate-200/50 rounded-lg text-xs font-black text-slate-700">{index + 1}</span>
+                    <div
+                      key={stage.key || index}
+                      className="flex items-center justify-between px-3 py-2 bg-slate-50/70 border border-slate-100 rounded-xl"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-5 h-5 flex items-center justify-center bg-white border border-slate-200 rounded-md text-[10px] font-black text-slate-700">
+                          {index + 1}
+                        </span>
                         <div>
-                          <p className="text-xs font-black text-slate-800">{stage.label}</p>
-                          <p className="text-[9px] font-bold text-indigo-600 uppercase tracking-wider mt-0.5">Win Probability: {stage.probability}%</p>
+                          <p className="text-[11px] font-black text-slate-800">{stage.label}</p>
+                          <p className="text-[8.5px] font-bold text-indigo-600 uppercase tracking-wider">
+                            Win Probability: {stage.probability ?? 0}%
+                          </p>
                         </div>
                       </div>
-                      <span className="text-[9px] font-black uppercase bg-white border border-slate-200/60 px-2.5 py-1 rounded-xl text-slate-500">{stage.key}</span>
+                      <span className="text-[8.5px] font-black uppercase bg-white border border-slate-200 px-2 py-0.5 rounded-lg text-slate-500">
+                        {stage.key}
+                      </span>
                     </div>
                   ))}
                 </div>
               </>
             ) : (
-              <div className="flex flex-col items-center justify-center py-20 text-slate-400 font-bold text-xs uppercase tracking-widest gap-2">
-                <ShieldAlert size={24} /> Select a pipeline to configure
+              <div className="flex flex-col items-center justify-center py-14 text-slate-400 font-bold text-[10px] uppercase tracking-wider gap-1.5">
+                <ShieldAlert size={20} /> Select a pipeline to configure
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* ── CLIENT MODULE & FEATURE ENTITLEMENTS (METHOD 1) ─────────────── */}
-      <div className="bg-white border border-slate-200/80 rounded-[32px] p-6 md:p-8 shadow-sm space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-100 pb-4 gap-3">
+      {/* CLIENT MODULE & FEATURE ENTITLEMENTS */}
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-3.5 shadow-xs space-y-3">
+        <div className="flex flex-wrap justify-between items-center border-b border-slate-100 pb-2.5 gap-2">
           <div>
-            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-indigo-600">Client Customization</span>
-            <h4 className="text-sm font-black text-slate-900 uppercase tracking-wider mt-0.5">Website Module & Feature Entitlements</h4>
-            <p className="text-[10px] font-bold text-slate-400 mt-0.5">Toggle enabled modules for this client (Hide VAT Compliance or Finance if client only needs Sales CRM)</p>
+            <span className="text-[8.5px] font-black uppercase tracking-widest text-indigo-600">
+              Client Customization
+            </span>
+            <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider mt-0.5">
+              Website Module &amp; Feature Entitlements
+            </h4>
+            <p className="text-[9.5px] font-medium text-slate-500 mt-0.5">
+              Toggle enabled modules for the active website workspace
+            </p>
           </div>
-          <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
+          <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[8.5px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
             Feature Flag Manager
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
           <ModuleToggleCard
             id="crm"
             title="CRM & Sales"
@@ -335,14 +509,6 @@ export default function CrmPipelinesConfig({ websiteId }) {
             onToggle={() => handleToggleModule("finance")}
           />
           <ModuleToggleCard
-            id="compliance"
-            title="UAE Compliance Suite"
-            desc="VAT Filing Audit, Corporate Tax, Trade License Expiry Reports"
-            enabled={enabledModules.includes("compliance")}
-            onToggle={() => handleToggleModule("compliance")}
-            badgeText="Optional / VAT Clients Only"
-          />
-          <ModuleToggleCard
             id="service"
             title="Service & Customer Care"
             desc="Unified Omnichannel Inbox, Canned Replies, Helpdesk, CSAT"
@@ -359,69 +525,131 @@ export default function CrmPipelinesConfig({ websiteId }) {
         </div>
       </div>
 
-      {/* Create Pipeline Modal */}
-      {showModal && createPortal(
-        <div className="fixed inset-0 z-[9999] p-4 sm:p-6 flex items-center justify-center pointer-events-none">
-          <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm pointer-events-auto" onClick={() => setShowModal(false)} />
-          <div className="relative z-10 pointer-events-auto w-full max-w-lg bg-white rounded-[32px] shadow-2xl border border-slate-100 flex flex-col max-h-[90vh] overflow-hidden">
-            <div className="flex justify-between items-center px-6 sm:px-8 py-5 border-b border-slate-100 shrink-0">
-              <h3 className="text-base font-black text-slate-900">Create Sales Pipeline</h3>
-              <button type="button" onClick={() => setShowModal(false)} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-all"><X size={18} /></button>
-            </div>
-            
-            <form onSubmit={handleSubmit} className="px-6 sm:px-8 py-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Pipeline Name</label>
-                <input
-                  required
-                  value={pipelineForm.name}
-                  onChange={(e) => setPipelineForm({ ...pipelineForm, name: e.target.value })}
-                  className="w-full bg-slate-50 rounded-xl border border-slate-200/50 px-4 py-2.5 text-xs font-bold"
-                />
+      {/* Create / Edit Pipeline Modal */}
+      {showModal &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] p-4 flex items-center justify-center pointer-events-none">
+            <div
+              className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs pointer-events-auto"
+              onClick={() => setShowModal(false)}
+            />
+            <div className="relative z-10 pointer-events-auto w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-100 flex flex-col max-h-[90vh] overflow-hidden">
+              <div className="flex justify-between items-center px-4 py-3 border-b border-slate-100 shrink-0">
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                  {editingPipeline ? "Edit Sales Pipeline" : "Create Sales Pipeline"}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-all"
+                >
+                  <X size={16} />
+                </button>
               </div>
 
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Stages Setup</label>
-                  <button type="button" onClick={handleAddStage} className="text-[9px] font-black uppercase text-indigo-600 hover:underline">Add Custom Stage</button>
+              <form onSubmit={handleSubmit} className="p-4 space-y-3 overflow-y-auto flex-1">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-wider">
+                    Pipeline Name *
+                  </label>
+                  <input
+                    required
+                    value={pipelineForm.name}
+                    onChange={(e) => setPipelineForm({ ...pipelineForm, name: e.target.value })}
+                    className="w-full bg-slate-50 rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-bold text-slate-800 outline-none focus:bg-white focus:border-indigo-500"
+                  />
                 </div>
 
-                <div className="space-y-2 max-h-[260px] overflow-y-auto custom-scrollbar pr-2">
-                  {pipelineForm.stages.map((stage, idx) => (
-                    <div key={idx} className="flex gap-2 items-center bg-slate-50/50 p-3 rounded-xl border border-slate-100">
-                      <div className="flex flex-col gap-1">
-                        <button type="button" onClick={() => moveStage(idx, -1)} className="p-1 hover:bg-slate-200 rounded text-slate-500"><MoveUp size={11} /></button>
-                        <button type="button" onClick={() => moveStage(idx, 1)} className="p-1 hover:bg-slate-200 rounded text-slate-500"><MoveDown size={11} /></button>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-wider">
+                      Stages Setup ({pipelineForm.stages.length})
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleAddStage}
+                      className="text-[9px] font-black uppercase text-indigo-600 hover:underline"
+                    >
+                      + Add Custom Stage
+                    </button>
+                  </div>
+
+                  <div className="space-y-1.5 max-h-[240px] overflow-y-auto pr-1">
+                    {pipelineForm.stages.map((stage, idx) => (
+                      <div
+                        key={stage.key || idx}
+                        className="flex gap-1.5 items-center bg-slate-50/70 p-2 rounded-xl border border-slate-200/70"
+                      >
+                        <div className="flex flex-col gap-0.5">
+                          <button
+                            type="button"
+                            onClick={() => moveStage(idx, -1)}
+                            className="p-0.5 hover:bg-slate-200 rounded text-slate-500"
+                          >
+                            <MoveUp size={10} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveStage(idx, 1)}
+                            className="p-0.5 hover:bg-slate-200 rounded text-slate-500"
+                          >
+                            <MoveDown size={10} />
+                          </button>
+                        </div>
+                        <input
+                          required
+                          placeholder="Stage Label"
+                          value={stage.label}
+                          onChange={(e) => handleStageFieldChange(idx, "label", e.target.value)}
+                          className="flex-1 bg-white rounded-lg border border-slate-200 px-2.5 py-1.5 text-[10.5px] font-bold text-slate-800"
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          placeholder="%"
+                          required
+                          value={stage.probability}
+                          onChange={(e) =>
+                            handleStageFieldChange(idx, "probability", Number(e.target.value))
+                          }
+                          className="w-14 bg-white rounded-lg border border-slate-200 px-2 py-1.5 text-[10.5px] font-bold text-center"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveStage(idx)}
+                          className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"
+                        >
+                          <Trash2 size={12} />
+                        </button>
                       </div>
-                      <input
-                        required
-                        placeholder="Stage Label"
-                        value={stage.label}
-                        onChange={(e) => handleStageFieldChange(idx, "label", e.target.value)}
-                        className="flex-1 bg-white rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold"
-                      />
-                      <input
-                        type="number"
-                        placeholder="%"
-                        required
-                        value={stage.probability}
-                        onChange={(e) => handleStageFieldChange(idx, "probability", Number(e.target.value))}
-                        className="w-16 bg-white rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-center"
-                      />
-                      <button type="button" onClick={() => handleRemoveStage(idx)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={13} /></button>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              <button type="submit" className="w-full py-4 bg-slate-950 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 mt-2">
-                <Check size={16} /> Save Pipeline Configuration
-              </button>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="w-full py-2.5 bg-slate-950 hover:bg-slate-900 disabled:opacity-50 text-white rounded-xl text-[10.5px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5"
+                >
+                  <Check size={14} /> {saving ? "Saving…" : "Save Pipeline Configuration"}
+                </button>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      <ConfirmModal
+        open={Boolean(deleteTarget)}
+        title="Delete Pipeline"
+        message={`Are you sure you want to delete "${deleteTarget?.name || "this pipeline"}"?`}
+        confirmLabel="Delete"
+        variant="danger"
+        loading={deleting}
+        onConfirm={executeDeletePipeline}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }
@@ -431,20 +659,29 @@ function ModuleToggleCard({ id, title, desc, enabled: initialEnabled, locked = f
   const enabled = onToggle ? initialEnabled : localEnabled;
 
   return (
-    <div className={`p-5 rounded-[24px] border transition-all flex flex-col justify-between space-y-3 ${enabled ? "bg-slate-50/50 border-slate-200" : "bg-slate-100/40 border-slate-200/50 opacity-60"}`}>
-      <div className="flex items-start justify-between">
-        <div>
-          <h5 className="text-xs font-black text-slate-900">{title}</h5>
-          <p className="text-[9px] font-bold text-slate-400 mt-1 leading-relaxed">{desc}</p>
+    <div
+      className={`p-3 rounded-xl border transition-all flex flex-col justify-between space-y-2 ${
+        enabled ? "bg-white border-slate-200" : "bg-slate-50 border-slate-200/60 opacity-65"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h5 className="text-[11px] font-black text-slate-900">{title}</h5>
+          <p className="text-[9px] font-medium text-slate-500 mt-0.5 leading-snug">{desc}</p>
         </div>
         {locked ? (
-          <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-slate-200 text-slate-600 rounded-md">Required</span>
+          <span className="text-[8px] font-black uppercase px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded shrink-0">
+            Required
+          </span>
         ) : (
           <button
+            type="button"
             onClick={() => (onToggle ? onToggle(id) : setLocalEnabled(!localEnabled))}
-            className={`w-10 h-5 flex items-center rounded-full p-1 transition-colors ${enabled ? "bg-indigo-600 justify-end" : "bg-slate-300 justify-start"}`}
+            className={`w-9 h-4.5 flex items-center rounded-full p-0.5 transition-colors shrink-0 ${
+              enabled ? "bg-indigo-600 justify-end" : "bg-slate-300 justify-start"
+            }`}
           >
-            <span className="w-3.5 h-3.5 bg-white rounded-full shadow-md" />
+            <span className="w-3.5 h-3.5 bg-white rounded-full shadow-xs" />
           </button>
         )}
       </div>

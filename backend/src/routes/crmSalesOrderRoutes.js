@@ -7,5 +7,6 @@ router.get("/", salesOrderController.listSalesOrders);
 router.post("/", salesOrderController.createSalesOrder);
 router.patch("/:id/status", salesOrderController.updateSalesOrderStatus);
 router.post("/convert/:quoteId", salesOrderController.convertQuotationToOrder);
+router.delete("/:id", salesOrderController.deleteSalesOrder);
 
 export default router;

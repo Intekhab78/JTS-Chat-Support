@@ -16,17 +16,40 @@ export const PERMISSIONS = Object.freeze({
   CRM_MANAGE_TASKS: "crm.manage_tasks",
   CRM_AUTO_ASSIGN: "crm.auto_assign",
   TICKET_VIEW: "ticket.view",
+  TICKET_CREATE: "ticket.create",
   TICKET_UPDATE: "ticket.update",
   TICKET_ASSIGN: "ticket.assign",
+  TICKET_COMMENT: "ticket.comment",
+  TICKET_DELETE: "ticket.delete",
   CHAT_VIEW: "chat.view",
   CHAT_TRANSFER: "chat.transfer",
   CHAT_NOTE: "chat.note",
+  CHAT_HISTORY: "chat.history",
+  CHAT_ARCHIVE: "chat.archive",
   ACTIVITY_VIEW: "activity.view",
   NOTIFICATION_VIEW: "notification.view",
   SETTINGS_MANAGE: "settings.manage",
   AUDIT_VIEW: "audit.view",
   REPORTS_VIEW: "reports.view",
-  TEAM_VIEW: "team.view"
+  TEAM_VIEW: "team.view",
+  ACCOUNTS_VIEW: "accounts.view",
+  BILLING_VIEW: "billing.view",
+  INVOICE_VIEW: "invoice.view",
+  INVOICE_CREATE: "invoice.create",
+  INVOICE_UPDATE: "invoice.update",
+  INVOICE_DELETE: "invoice.delete",
+  INVOICE_MANAGE: "invoice.manage",
+  INVENTORY_VIEW: "inventory.view",
+  INVENTORY_CREATE: "inventory.create",
+  INVENTORY_UPDATE: "inventory.update",
+  INVENTORY_DELETE: "inventory.delete",
+  INVENTORY_MANAGE: "inventory.manage",
+  PURCHASE_VIEW: "purchase.view",
+  PURCHASE_CREATE: "purchase.create",
+  PURCHASE_UPDATE: "purchase.update",
+  PURCHASE_DELETE: "purchase.delete",
+  PURCHASE_MANAGE: "purchase.manage",
+  ROLE_MANAGE: "role.manage"
 });
 
 const MATRIX = Object.freeze({
@@ -80,7 +103,18 @@ const MATRIX = Object.freeze({
     PERMISSIONS.NOTIFICATION_VIEW,
     PERMISSIONS.AUDIT_VIEW,
     PERMISSIONS.REPORTS_VIEW,
-    PERMISSIONS.TEAM_VIEW
+    PERMISSIONS.TEAM_VIEW,
+    PERMISSIONS.ACCOUNTS_VIEW,
+    PERMISSIONS.BILLING_VIEW,
+    PERMISSIONS.INVOICE_VIEW,
+    PERMISSIONS.INVENTORY_VIEW,
+    PERMISSIONS.INVENTORY_CREATE,
+    PERMISSIONS.INVENTORY_UPDATE,
+    PERMISSIONS.INVENTORY_MANAGE,
+    PERMISSIONS.PURCHASE_VIEW,
+    PERMISSIONS.PURCHASE_CREATE,
+    PERMISSIONS.PURCHASE_UPDATE,
+    PERMISSIONS.PURCHASE_MANAGE
   ]),
 
   // Sales: can only work their own assigned leads, no delete/assign/archive
@@ -96,7 +130,11 @@ const MATRIX = Object.freeze({
     PERMISSIONS.CHAT_NOTE,
     PERMISSIONS.ACTIVITY_VIEW,
     PERMISSIONS.NOTIFICATION_VIEW,
-    PERMISSIONS.REPORTS_VIEW  // own performance only
+    PERMISSIONS.REPORTS_VIEW, // own performance only
+    PERMISSIONS.INVENTORY_VIEW,
+    PERMISSIONS.INVOICE_VIEW,
+    PERMISSIONS.INVOICE_CREATE,
+    PERMISSIONS.INVOICE_UPDATE
   ]),
 
   [ROLES.PURCHASE]: new Set([
@@ -106,7 +144,14 @@ const MATRIX = Object.freeze({
     PERMISSIONS.TICKET_VIEW,
     PERMISSIONS.CHAT_VIEW,
     PERMISSIONS.ACTIVITY_VIEW,
-    PERMISSIONS.NOTIFICATION_VIEW
+    PERMISSIONS.NOTIFICATION_VIEW,
+    PERMISSIONS.INVENTORY_VIEW,
+    PERMISSIONS.INVENTORY_CREATE,
+    PERMISSIONS.INVENTORY_UPDATE,
+    PERMISSIONS.PURCHASE_VIEW,
+    PERMISSIONS.PURCHASE_CREATE,
+    PERMISSIONS.PURCHASE_UPDATE,
+    PERMISSIONS.PURCHASE_MANAGE
   ]),
 
   [ROLES.ACCOUNTS]: new Set([
@@ -116,7 +161,15 @@ const MATRIX = Object.freeze({
     PERMISSIONS.TICKET_VIEW,
     PERMISSIONS.REPORTS_VIEW,
     PERMISSIONS.ACTIVITY_VIEW,
-    PERMISSIONS.NOTIFICATION_VIEW
+    PERMISSIONS.NOTIFICATION_VIEW,
+    PERMISSIONS.ACCOUNTS_VIEW,
+    PERMISSIONS.BILLING_VIEW,
+    PERMISSIONS.INVOICE_VIEW,
+    PERMISSIONS.INVOICE_CREATE,
+    PERMISSIONS.INVOICE_UPDATE,
+    PERMISSIONS.INVOICE_MANAGE,
+    PERMISSIONS.INVENTORY_VIEW,
+    PERMISSIONS.PURCHASE_VIEW
   ]),
 
   // Agent: read-only CRM, can handle chats/tickets
@@ -148,20 +201,16 @@ const MATRIX = Object.freeze({
 export function hasPermission(user, permission) {
   if (!user?.role || !permission) return false;
   const role = normalizeRole(user.role);
-  if (role === "admin" || user.role === "admin") return true;
-  if (role === "client" || user.role === "client") {
-    if (Array.isArray(user.permissions) && user.permissions.length > 0) {
-      return user.permissions.includes(permission);
-    }
-    return true; // Client Organization Owner gets full access by default
-  }
-
-  // 1. Check dynamic DB permission list if explicitly granted
-  if (Array.isArray(user.permissions) && user.permissions.includes(permission)) {
+  if (role === "admin" || user.role === "admin" || role === "client" || user.role === "client") {
     return true;
   }
 
-  // 2. Fallback to static role MATRIX
+  // 1. Dynamic DB permission list from Role Master overrides static matrix when present
+  if (Array.isArray(user.permissions)) {
+    return user.permissions.includes(permission);
+  }
+
+  // 2. Fallback to static role MATRIX when no Role Master document exists
   return MATRIX[user.role]?.has(permission) || MATRIX[role]?.has(permission) || false;
 }
 
@@ -177,4 +226,31 @@ export function requirePermission(user, permission, message = "Access denied: In
     });
     throw new AppError(message, 403);
   }
+}
+
+export function requireAnyPermission(...permissions) {
+  const flat = permissions.flat().filter(Boolean);
+  return (req, res, next) => {
+    if (flat.some((permission) => hasPermission(req.user, permission))) {
+      return next();
+    }
+    const primary = flat[0] || "unknown";
+    console.warn(
+      `[Security Alert] Permission denied for user ${req.user?.name || req.user?._id} (${req.user?.role}) attempting ${flat.join(" | ")}`
+    );
+    logAuditEvent({
+      actor: req.user,
+      action: "PERMISSION_DENIED",
+      entityType: "Security",
+      entityId: String(req.user?._id || "anonymous"),
+      metadata: {
+        permission: primary,
+        requiredAny: flat,
+        role: req.user?.role,
+        path: req.originalUrl,
+        severity: "Security"
+      }
+    });
+    return next(new AppError("Access denied: Insufficient privileges", 403));
+  };
 }

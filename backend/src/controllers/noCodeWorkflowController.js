@@ -5,58 +5,25 @@ import AppError from "../utils/AppError.js";
 import { logAuditEvent } from "../services/auditService.js";
 import { sendEmail } from "../services/emailService.js";
 
-const DEFAULT_WORKFLOWS = [
-  {
-    workflowName: "Auto Trade License Expiry Alert & Follow-Up Task",
-    triggerType: "trade_license_expiry",
-    status: "active",
-    nodes: [
-      { nodeType: "trigger", label: "Trade License Expiry (15 Days Remaining)", config: { thresholdDays: 15 } },
-      { nodeType: "condition", label: "Check Customer Tier == Enterprise", config: { field: "tier", operator: "equals", value: "Enterprise" } },
-      { nodeType: "action", label: "Send Automated WhatsApp & Email Alert", config: { channel: "email_whatsapp" } },
-      { nodeType: "action", label: "Create Task for Account Consultant", config: { taskName: "Collect License Renewal Docs" } }
-    ],
-    analytics: { totalRuns: 120, successCount: 119, failureCount: 1, avgDurationMs: 140 },
-    executionHistory: [
-      { runId: "RUN-90812", status: "success", durationMs: 135, executedAt: new Date(Date.now() - 3600000), logs: ["Trigger evaluated", "Condition passed", "Email sent to client", "Task created"] }
-    ]
-  },
-  {
-    workflowName: "VAT Filing Reminder & Invoice Summary Email",
-    triggerType: "vat_due",
-    status: "active",
-    nodes: [
-      { nodeType: "trigger", label: "VAT Filing Period Quarter End", config: { period: "Q2-2026" } },
-      { nodeType: "action", label: "Generate Tax Calculation Summary", config: { type: "vat_summary" } },
-      { nodeType: "action", label: "Emit Outbound Webhook to Accounting ERP", config: { endpoint: "https://erp.enterprise.ae/hooks" } }
-    ],
-    analytics: { totalRuns: 85, successCount: 85, failureCount: 0, avgDurationMs: 110 },
-    executionHistory: [
-      { runId: "RUN-90813", status: "success", durationMs: 105, executedAt: new Date(Date.now() - 7200000), logs: ["Trigger evaluated", "VAT Summary compiled", "Webhook emitted to SAP ERP"] }
-    ]
-  }
-];
-
 export const getWorkflowOverview = asyncHandler(async (req, res) => {
-  let count = await NoCodeWorkflow.countDocuments({});
-
-  if (count === 0) {
-    await NoCodeWorkflow.insertMany(DEFAULT_WORKFLOWS.map(w => ({ ...w, createdBy: req.user._id })));
-  }
-
   const workflows = await NoCodeWorkflow.find({}).sort({ createdAt: -1 });
 
   let totalRuns = 0;
   let totalSuccess = 0;
-  let totalFailure = 0;
+  let durationSum = 0;
+  let durationCount = 0;
 
   workflows.forEach(w => {
     totalRuns += w.analytics?.totalRuns || 0;
     totalSuccess += w.analytics?.successCount || 0;
-    totalFailure += w.analytics?.failureCount || 0;
+    if (typeof w.analytics?.avgDurationMs === "number" && w.analytics.avgDurationMs > 0) {
+      durationSum += w.analytics.avgDurationMs;
+      durationCount += 1;
+    }
   });
 
-  const successRate = totalRuns > 0 ? (((totalSuccess) / totalRuns) * 100).toFixed(1) : 99.4;
+  const successRate = totalRuns > 0 ? ((totalSuccess / totalRuns) * 100).toFixed(1) : "0.0";
+  const avgExecutionTimeMs = durationCount > 0 ? Math.round(durationSum / durationCount) : 0;
 
   return res.json({
     summary: {
@@ -64,7 +31,7 @@ export const getWorkflowOverview = asyncHandler(async (req, res) => {
       activeWorkflows: workflows.filter(w => w.status === "active").length,
       totalExecutions: totalRuns,
       successRate: `${successRate}%`,
-      avgExecutionTimeMs: 125
+      avgExecutionTimeMs
     },
     workflows
   });

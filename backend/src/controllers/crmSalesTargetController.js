@@ -3,14 +3,19 @@ import { Customer } from "../models/Customer.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
+import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 
 // List all sales targets for a website (overall & individual agent ones) with calculated actual progress
 export const listTargets = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_VIEW);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
   const { websiteId, year = new Date().getFullYear(), month = new Date().getMonth() + 1 } = req.query;
 
   if (!websiteId) {
     throw new AppError("websiteId query parameter is required", 400);
+  }
+  if (!ownedWebsiteIds.map(id => id.toString()).includes(String(websiteId))) {
+    throw new AppError("Unauthorized access to this website's targets", 403);
   }
 
   // Fetch targets for this website, year, and month
@@ -22,6 +27,12 @@ export const listTargets = asyncHandler(async (req, res) => {
 
   const startOfMonth = new Date(Number(year), Number(month) - 1, 1, 0, 0, 0, 0);
   const endOfMonth = new Date(Number(year), Number(month), 0, 23, 59, 59, 999);
+  const wonDateFilter = {
+    $or: [
+      { stageEnteredAt: { $gte: startOfMonth, $lte: endOfMonth } },
+      { stageEnteredAt: null, updatedAt: { $gte: startOfMonth, $lte: endOfMonth } }
+    ]
+  };
 
   // Compute live achievements for each target
   const enrichedTargets = await Promise.all(
@@ -29,8 +40,8 @@ export const listTargets = asyncHandler(async (req, res) => {
       const matchQuery = {
         websiteId,
         pipelineStage: "won",
-        updatedAt: { $gte: startOfMonth, $lte: endOfMonth },
-        archivedAt: null
+        archivedAt: null,
+        ...wonDateFilter
       };
 
       if (target.ownerId) {
@@ -52,8 +63,8 @@ export const listTargets = asyncHandler(async (req, res) => {
   const websiteMatchQuery = {
     websiteId,
     pipelineStage: "won",
-    updatedAt: { $gte: startOfMonth, $lte: endOfMonth },
-    archivedAt: null
+    archivedAt: null,
+    ...wonDateFilter
   };
   const allWonCustomers = await Customer.find(websiteMatchQuery).select("leadValue");
   const overallAchievedValue = allWonCustomers.reduce((sum, c) => sum + (c.leadValue || 0), 0);
@@ -71,11 +82,15 @@ export const listTargets = asyncHandler(async (req, res) => {
 // Create or update a sales target (admin/manager restriction can be enforced)
 export const saveTarget = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
-  
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+
   const { websiteId, ownerId = null, targetValue, targetCount = 0, period = "monthly", month, year } = req.body;
 
   if (!websiteId || !month || !year || targetValue === undefined) {
     throw new AppError("websiteId, month, year, and targetValue are required fields", 400);
+  }
+  if (!ownedWebsiteIds.map(id => id.toString()).includes(String(websiteId))) {
+    throw new AppError("Unauthorized access to this website's targets", 403);
   }
 
   // Find or create sales target
@@ -108,12 +123,18 @@ export const saveTarget = asyncHandler(async (req, res) => {
 // Delete a sales target configuration
 export const deleteTarget = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
   const { id } = req.params;
 
-  const target = await SalesTarget.findByIdAndDelete(id);
-  if (!target) {
+  const existing = await SalesTarget.findById(id);
+  if (!existing) {
     throw new AppError("Sales target configuration not found", 404);
   }
+  if (!ownedWebsiteIds.map(id => id.toString()).includes(String(existing.websiteId))) {
+    throw new AppError("Unauthorized access to this target", 403);
+  }
+
+  await SalesTarget.findByIdAndDelete(id);
 
   res.json({
     success: true,

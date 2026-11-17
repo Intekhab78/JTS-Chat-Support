@@ -9,32 +9,27 @@ import { api, apiUrl } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 
 import { useCurrency } from "../../context/CurrencyContext.jsx";
+import { formatCurrency as formatGlobalCurrency, getCurrencySymbol } from "../../utils/currencyFormatter.js";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 const PROFILE_TABS = [
   { id: "overview", label: "Overview" },
   { id: "services", label: "Services" },
-  { id: "corporate_tax", label: "Corporate Tax" },
-  { id: "vat_compliance", label: "VAT Compliance" },
-  { id: "trade_license", label: "Trade License" },
   { id: "whatsapp", label: "WhatsApp" },
   { id: "telegram", label: "Telegram Bot" },
   { id: "timeline", label: "Timeline" },
   { id: "deals", label: "Deals" },
   { id: "tasks", label: "Tasks" },
   { id: "meetings", label: "Meetings" },
-  { id: "calls", label: "Calls" },
   { id: "emails", label: "Emails" },
   { id: "documents", label: "Documents" },
   { id: "invoices", label: "Invoices" },
-  { id: "payments", label: "Payments" },
-  { id: "subscriptions", label: "Subscriptions" },
-  { id: "notes", label: "Notes" }
+  { id: "payments", label: "Payments" }
 ];
 
 function formatServiceScope(val) {
-  if (!val) return "Web & Cloud Services";
+  if (!val) return "Not Specified";
   if (typeof val === "object") {
     const candidate = val.serviceName || val.serviceType || val.service || val.inquiryType || val.plan || val.topic || val.subject;
     if (candidate && typeof candidate === "string" && !candidate.trim().startsWith("{")) return candidate;
@@ -101,14 +96,14 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
     {
       id: "w1",
       sender: "agent",
-      text: "Hello Mohit Kumar Maurya, your Corporate Tax Return Filing due date is approaching. Please submit your required financial documents.",
+      text: "Hello Mohit Kumar Maurya, your support subscription renewal date is approaching. Please verify your invoice details.",
       time: "10:30 AM",
       status: "Delivered ✓✓"
     },
     {
       id: "w2",
       sender: "customer",
-      text: "Thank you! We have received the reminder and will share the audit reports shortly.",
+      text: "Thank you! We have received the update and will review the subscription shortly.",
       time: "10:45 AM",
       status: "Received"
     }
@@ -133,15 +128,22 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
   const [taskForm, setTaskForm] = useState({ title: "", dueAt: "", notes: "", priority: "medium" });
 
   const [showMeetingForm, setShowMeetingForm] = useState(false);
-  const [meetingForm, setMeetingForm] = useState({ title: "", startAt: "", endAt: "", agenda: "", location: "" });
+  const [meetingPlatforms, setMeetingPlatforms] = useState([]);
+  const [meetingForm, setMeetingForm] = useState({ title: "", startAt: "", endAt: "", agenda: "", location: "", meetingType: "", meetingLink: "" });
+  const [savingMeeting, setSavingMeeting] = useState(false);
+  const [meetingError, setMeetingError] = useState("");
 
   const [showDocForm, setShowDocForm] = useState(false);
-  const [docForm, setDocForm] = useState({ name: "", category: "Trade License", fileUrl: "" });
+  const [docForm, setDocForm] = useState({ name: "", category: "Service Agreement", fileUrl: "" });
 
   const [showServiceModal, setShowServiceModal] = useState(false);
+  const [catalogServices, setCatalogServices] = useState([]);
+  const [customServiceName, setCustomServiceName] = useState("");
+  const [serviceSearchResults, setServiceSearchResults] = useState([]);
+  const [savingService, setSavingService] = useState(false);
   const [serviceForm, setServiceForm] = useState({
-    serviceName: "E-Invoicing & Billing Suite",
-    serviceCategory: "Software & Digital Services",
+    serviceName: "",
+    serviceCategory: "General",
     workStatus: "Pending",
     priority: "Medium",
     dueDate: "",
@@ -150,18 +152,44 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
   });
 
   const handleOpenServiceModal = () => {
+    setCustomServiceName("");
     setShowServiceModal(true);
   };
 
   const handleAddServiceSubmit = async (e) => {
     e.preventDefault();
+    const resolvedName = serviceForm.serviceName === "__custom__"
+      ? customServiceName.trim()
+      : serviceForm.serviceName;
+    if (!resolvedName) return;
+    setSavingService(true);
     try {
       await api(`/api/crm/${customerId}/services`, {
         method: "POST",
-        body: JSON.stringify(serviceForm)
+        body: JSON.stringify({ ...serviceForm, serviceName: resolvedName })
       });
       setShowServiceModal(false);
+      setCustomServiceName("");
+      setServiceForm(prev => ({ ...prev, dueDate: "", remarks: "" }));
       fetchProfile();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSavingService(false);
+    }
+  };
+
+  const handleUpdateServiceStatus = async (srv, newStatus) => {
+    try {
+      if (String(srv._id).startsWith("derived-primary-")) {
+        await handleUpdateCustomerFields({ workStatus: newStatus });
+      } else {
+        await api(`/api/crm/${customerId}/services/${srv._id}`, {
+          method: "PUT",
+          body: JSON.stringify({ workStatus: newStatus })
+        });
+        fetchProfile();
+      }
     } catch (err) {
       console.error(err);
     }
@@ -179,20 +207,9 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
     (customer?.vatFilingPeriod && !["None", "", "Pending"].includes(customer.vatFilingPeriod))
   );
 
-  const visibleTabs = useMemo(() => {
-    return PROFILE_TABS.filter(tab => {
-      if (["corporate_tax", "vat_compliance", "trade_license"].includes(tab.id)) {
-        return isTaxEnabled;
-      }
-      return true;
-    });
-  }, [isTaxEnabled]);
-
-  useEffect(() => {
-    if (!isTaxEnabled && ["corporate_tax", "vat_compliance", "trade_license"].includes(activeTab)) {
-      setActiveTab("overview");
-    }
-  }, [isTaxEnabled, activeTab]);
+  const visibleTabs = subscriptions.length > 0
+    ? [...PROFILE_TABS, { id: "subscriptions", label: `Subscriptions (${subscriptions.length})` }]
+    : PROFILE_TABS;
 
   const profileScore = [
     Boolean(customer?.name),
@@ -347,7 +364,7 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
       setTimeout(() => {
         setIsProcessingVoice(false);
         setTranscribedText(
-          `"Met with ${customer?.companyName || "client"} operations team. Discussed ${customer?.serviceType || "UAE Corporate Tax registration"} scope and budget. Action items: Send revised quotation by Thursday and schedule technical onboarding call next Monday."`
+          `"Met with ${customer?.companyName || "client"} operations team. Discussed ${customer?.serviceType || "Enterprise Customer Support"} scope and budget. Action items: Send revised quotation by Thursday and schedule technical onboarding call next Monday."`
         );
       }, 1800);
     }
@@ -356,12 +373,86 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
   useEffect(() => {
     const fetchAgents = async () => {
       try {
-        const res = await api(`/api/users?role=all`);
-        setTeamMembers(Array.isArray(res) ? res : (res.users || []));
+        const effectiveSiteId = websiteId || customer?.websiteId?._id || customer?.websiteId;
+        const params = new URLSearchParams({ role: "all" });
+        if (effectiveSiteId) params.set("websiteId", effectiveSiteId);
+        const res = await api(`/api/users?${params.toString()}`);
+        const list = Array.isArray(res) ? res : (res.users || []);
+        setTeamMembers(list.filter(u => u.role !== "user"));
+      } catch { /* silent */ }
+    };
+    const fetchPlatforms = async () => {
+      try {
+        const effectiveSiteId = websiteId || customer?.websiteId?._id || customer?.websiteId;
+        const query = effectiveSiteId ? `?websiteId=${effectiveSiteId}` : "";
+        const res = await api(`/api/crm/meeting-platforms${query}`);
+        const plats = res?.platforms || [];
+        setMeetingPlatforms(plats);
+        const def = plats.find(p => p.isDefault) || plats[0];
+        if (def) {
+          setMeetingForm(prev => (prev.meetingType ? prev : { ...prev, meetingType: def.key }));
+        }
+      } catch { /* silent */ }
+    };
+    const fetchCatalogServices = async () => {
+      try {
+        const effectiveSiteId = websiteId || customer?.websiteId?._id || customer?.websiteId;
+        const query = effectiveSiteId ? `?websiteId=${effectiveSiteId}&limit=100` : "?limit=100";
+        const res = await api(`/api/inventory/items${query}`);
+        const items = Array.isArray(res) ? res : (res?.items || []);
+        const mapped = items
+          .filter(it => it?.name)
+          .map(it => ({ name: it.name, category: it.category || "Inventory Item" }));
+        setCatalogServices(mapped);
+        if (mapped.length > 0) {
+          setServiceForm(prev => (prev.serviceName ? prev : { ...prev, serviceName: mapped[0].name, serviceCategory: mapped[0].category }));
+        } else {
+          setServiceForm(prev => (prev.serviceName ? prev : { ...prev, serviceName: "__custom__", serviceCategory: "General" }));
+        }
+      } catch {
+        setServiceForm(prev => (prev.serviceName ? prev : { ...prev, serviceName: "__custom__", serviceCategory: "General" }));
+      }
+    };
+    const fetchCustomerSubscriptions = async () => {
+      if (!customerId) return;
+      try {
+        const effectiveSiteId = websiteId || customer?.websiteId?._id || customer?.websiteId || "";
+        const params = new URLSearchParams({ customerId });
+        if (effectiveSiteId) params.set("websiteId", effectiveSiteId);
+        const res = await api(`/api/crm/subscriptions?${params.toString()}`);
+        setSubscriptions(Array.isArray(res) ? res : (res?.subscriptions || []));
       } catch { /* silent */ }
     };
     fetchAgents();
-  }, []);
+    fetchPlatforms();
+    fetchCatalogServices();
+    fetchCustomerSubscriptions();
+  }, [websiteId, customer?.websiteId]);
+
+  useEffect(() => {
+    if (!showServiceModal || serviceForm.serviceName !== "__custom__") {
+      setServiceSearchResults([]);
+      return;
+    }
+    const q = customServiceName.trim();
+    if (q.length < 2) {
+      setServiceSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const effectiveSiteId = websiteId || customer?.websiteId?._id || customer?.websiteId || "";
+        const params = new URLSearchParams({ q });
+        if (effectiveSiteId) params.set("websiteId", effectiveSiteId);
+        const res = await api(`/api/inventory/search?${params.toString()}`);
+        const list = Array.isArray(res) ? res : (res?.items || res?.results || []);
+        setServiceSearchResults(list.slice(0, 8));
+      } catch {
+        setServiceSearchResults([]);
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [showServiceModal, serviceForm.serviceName, customServiceName, websiteId, customer?.websiteId]);
 
 
   const handleUpdateCustomerFields = async (fields) => {
@@ -404,35 +495,37 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
 
   const fetchTabData = async () => {
     try {
+      const safeWebsiteId = (websiteId && websiteId !== "undefined" && websiteId !== "null") ? websiteId : "";
+      const wsParam = safeWebsiteId ? `&websiteId=${safeWebsiteId}` : "";
       if (activeTab === "timeline") {
         const res = await api(`/api/crm/${customerId}/activity`);
         setTimeline(Array.isArray(res) ? res : (res?.activities || res?.timeline || []));
       } else if (activeTab === "deals") {
-        const res = await api(`/api/crm/deals?customerId=${customerId}&websiteId=${websiteId}`);
+        const res = await api(`/api/crm/deals?customerId=${customerId}${wsParam}`);
         setDeals(Array.isArray(res) ? res : (res?.deals || []));
       } else if (activeTab === "tasks") {
         const res = await api(`/api/crm/tasks/my?customerId=${customerId}`); // standard fallback
         setTasks(Array.isArray(res) ? res : (res?.tasks || []));
       } else if (activeTab === "meetings") {
-        const res = await api(`/api/crm/meetings?customerId=${customerId}&websiteId=${websiteId}`);
+        const res = await api(`/api/crm/meetings?customerId=${customerId}${wsParam}`);
         setMeetings(Array.isArray(res) ? res : (res?.meetings || []));
       } else if (activeTab === "calls") {
-        const res = await api(`/api/crm/calls?customerId=${customerId}&websiteId=${websiteId}`);
+        const res = await api(`/api/crm/calls?customerId=${customerId}${wsParam}`);
         setCalls(Array.isArray(res) ? res : (res?.calls || []));
       } else if (activeTab === "emails") {
-        const res = await api(`/api/crm/emails?customerId=${customerId}&websiteId=${websiteId}`);
+        const res = await api(`/api/crm/emails?customerId=${customerId}${wsParam}`);
         setEmails(Array.isArray(res) ? res : (res?.emails || []));
       } else if (activeTab === "documents") {
-        const res = await api(`/api/crm/documents?customerId=${customerId}&websiteId=${websiteId}`);
+        const res = await api(`/api/crm/documents?customerId=${customerId}${wsParam}`);
         setDocuments(Array.isArray(res) ? res : (res?.documents || []));
       } else if (activeTab === "invoices") {
         const res = await api(`/api/crm/${customerId}/invoices`);
         setInvoices(Array.isArray(res) ? res : (res?.invoices || []));
       } else if (activeTab === "payments") {
-        const res = await api(`/api/crm/payments?customerId=${customerId}&websiteId=${websiteId}`);
+        const res = await api(`/api/crm/payments?customerId=${customerId}${wsParam}`);
         setPayments(Array.isArray(res) ? res : (res?.payments || []));
       } else if (activeTab === "subscriptions") {
-        const res = await api(`/api/crm/subscriptions?customerId=${customerId}&websiteId=${websiteId}`);
+        const res = await api(`/api/crm/subscriptions?customerId=${customerId}${wsParam}`);
         setSubscriptions(Array.isArray(res) ? res : (res?.subscriptions || []));
       } else if (activeTab === "notes") {
         // Fallback to internal notes on Customer
@@ -447,9 +540,10 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
     if (!customerId) return;
     try {
       const qWebsite = (websiteId && websiteId !== "undefined" && websiteId !== "null") ? websiteId : "";
-      
+      const wsParam = qWebsite ? `&websiteId=${qWebsite}` : "";
+
       const [dealsRes, invRes, tasksRes] = await Promise.allSettled([
-        api(`/api/crm/deals?customerId=${customerId}&websiteId=${qWebsite}`),
+        api(`/api/crm/deals?customerId=${customerId}${wsParam}`),
         api(`/api/crm/${customerId}/invoices`),
         api(`/api/crm/tasks/my?customerId=${customerId}`)
       ]);
@@ -510,15 +604,25 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
 
   const handleCreateMeeting = async (e) => {
     e.preventDefault();
+    setMeetingError("");
+    if (meetingForm.startAt && meetingForm.endAt && new Date(meetingForm.endAt) <= new Date(meetingForm.startAt)) {
+      setMeetingError("End time must be after start time.");
+      return;
+    }
+    setSavingMeeting(true);
     try {
       await api(`/api/crm/meetings`, {
         method: "POST",
         body: JSON.stringify({ ...meetingForm, customerId, websiteId })
       });
+      const defKey = (meetingPlatforms.find(p => p.isDefault) || meetingPlatforms[0])?.key || "";
+      setMeetingForm({ title: "", startAt: "", endAt: "", agenda: "", location: "", meetingType: defKey, meetingLink: "" });
       setShowMeetingForm(false);
       fetchTabData();
     } catch (err) {
-      alert(err.message);
+      setMeetingError(err.message || "Failed to schedule meeting.");
+    } finally {
+      setSavingMeeting(false);
     }
   };
 
@@ -579,7 +683,7 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
     );
   }
 
-  
+
   const handleGenerateProfessionalPDF = () => {
     try {
       const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -641,7 +745,7 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
       doc.setTextColor(16, 185, 129);
       doc.text(`STATUS: ${(customer?.status || "LEAD").toUpperCase()}`, 70, currentY + 26);
       doc.setTextColor(71, 85, 105);
-      doc.text(`LEAD VALUE: $${(customer?.leadValue || 0).toLocaleString()}`, 130, currentY + 26);
+      doc.text(`LEAD VALUE: ${formatGlobalCurrency(customer?.leadValue || 0)}`, 130, currentY + 26);
 
       currentY += 40;
 
@@ -649,34 +753,34 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
       const activeServices = (customer?.services && customer.services.length > 0)
         ? customer.services
         : (customer?.serviceType ? [{
-            serviceName: customer.serviceType,
-            serviceCategory: customer.serviceCategory || "Compliance & Operations",
-            workStatus: customer.workStatus || "Pending",
-            paymentStatus: customer.paymentStatus || "Pending"
-          }] : [{
-            serviceName: "E-Invoicing & Digital Billing Suite",
-            serviceCategory: "Digital Operations",
-            workStatus: customer?.workStatus || "In Progress",
-            paymentStatus: customer?.paymentStatus || "Pending"
-          }]);
+          serviceName: customer.serviceType,
+          serviceCategory: customer.serviceCategory || "Compliance & Operations",
+          workStatus: customer.workStatus || "Pending",
+          paymentStatus: customer.paymentStatus || "Pending"
+        }] : [{
+          serviceName: "E-Invoicing & Digital Billing Suite",
+          serviceCategory: "Digital Operations",
+          workStatus: customer?.workStatus || "In Progress",
+          paymentStatus: customer?.paymentStatus || "Pending"
+        }]);
 
       const activeDeals = deals.length > 0
         ? deals
         : [{
-            title: `${companyName !== "N/A" ? companyName : clientName} Enterprise Opportunity`,
-            stage: customer?.pipelineStage || "NEW",
-            value: customer?.leadValue || customer?.budget || 0,
-            expectedCloseDate: customer?.expectedCloseDate || customer?.vatFilingDueDate || "-"
-          }];
+          title: `${companyName !== "N/A" ? companyName : clientName} Enterprise Opportunity`,
+          stage: customer?.pipelineStage || "NEW",
+          value: customer?.leadValue || customer?.budget || 0,
+          expectedCloseDate: customer?.expectedCloseDate || customer?.vatFilingDueDate || "-"
+        }];
 
       const activeInvoices = invoices.length > 0
         ? invoices
         : [{
-            invoiceNumber: `INV-${(customer?._id || "001").slice(-6).toUpperCase()}`,
-            status: customer?.paymentStatus || "Pending",
-            total: customer?.leadValue || customer?.budget || 0,
-            dueDate: customer?.vatFilingDueDate || "-"
-          }];
+          invoiceNumber: `INV-${(customer?._id || "001").slice(-6).toUpperCase()}`,
+          status: customer?.paymentStatus || "Pending",
+          total: customer?.leadValue || customer?.budget || 0,
+          dueDate: customer?.vatFilingDueDate || "-"
+        }];
 
       // Section 1: Compliance & Licensing
       doc.setFontSize(10);
@@ -689,10 +793,10 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
         margin: { left: 14, right: 14 },
         head: [["PROPERTY / ITEM", "STATUS / REGISTRATION NO", "DUE DATE / EXPIRY"]],
         body: [
-          ["VAT Filing Status", customer?.workStatus || "Pending", `${customer?.vatFilingPeriod || "Q4 2026"} (Due: ${formatDate(customer?.vatFilingDueDate)})`],
-          ["Corporate Tax Registration", customer?.corporateTaxStatus || "Registered", `Due: ${formatDate(customer?.corporateTaxDueDate)}`],
-          ["TRN / Tax Registration No", customer?.trn || "Not Registered", "-"],
-          ["Trade License", customer?.tradeLicenseNumber || "N/A", `Expiry: ${formatDate(customer?.tradeLicenseExpiryDate)}`]
+          ["Support Plan", customer?.workStatus || "Active", "Enterprise Live Chat & Ticketing"],
+          ["Account Status", customer?.pipelineStage || "Active Customer", "Standard SLA Tier 1"],
+          ["Assigned Owner", customer?.ownerId?.name || "Support Team", "-"],
+          ["Primary Website", websiteId || "Primary Domain", "-"]
         ],
         theme: "grid",
         styles: { fontSize: 8.5, cellPadding: 2.5 },
@@ -737,14 +841,14 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
       const dealsRows = activeDeals.map(d => [
         d.title || d.name || "Deal",
         (d.stage || d.pipelineStage || "New").toUpperCase(),
-        `$${(d.value || d.amount || 0).toLocaleString()}`,
+        formatGlobalCurrency(d.value || d.amount || 0),
         formatDate(d.expectedCloseDate)
       ]);
 
       autoTable(doc, {
         startY: currentY + 3,
         margin: { left: 14, right: 14 },
-        head: [["DEAL TITLE", "PIPELINE STAGE", "VALUE ($)", "EXPECTED CLOSE"]],
+        head: [["DEAL TITLE", "PIPELINE STAGE", `VALUE (${getCurrencySymbol()})`, "EXPECTED CLOSE"]],
         body: dealsRows,
         theme: "grid",
         styles: { fontSize: 8.5, cellPadding: 2.5 },
@@ -763,14 +867,14 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
       const invoicesRows = activeInvoices.map(inv => [
         inv.invoiceNumber || inv.number || "INV-001",
         (inv.status || "Draft").toUpperCase(),
-        `$${(inv.total || inv.amount || 0).toLocaleString()}`,
+        formatGlobalCurrency(inv.total || inv.amount || 0),
         formatDate(inv.dueDate)
       ]);
 
       autoTable(doc, {
         startY: currentY + 3,
         margin: { left: 14, right: 14 },
-        head: [["INVOICE #", "STATUS", "TOTAL AMOUNT ($)", "DUE DATE"]],
+        head: [["INVOICE #", "STATUS", `TOTAL AMOUNT (${getCurrencySymbol()})`, "DUE DATE"]],
         body: invoicesRows,
         theme: "grid",
         styles: { fontSize: 8.5, cellPadding: 2.5 },
@@ -802,9 +906,9 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
       {/* Upper Navigation Header */}
       <header className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-6 py-2.5 flex items-center justify-between shadow-xs z-20">
         <div className="flex items-center gap-3 min-w-0">
-          <button 
-            onClick={onClose} 
-            aria-label="Go back to customer list" 
+          <button
+            onClick={onClose}
+            aria-label="Go back to customer list"
             className="p-2 hover:bg-slate-100 rounded-xl border border-slate-200 text-slate-700 transition-all cursor-pointer shrink-0"
             title="Back to Customer List"
           >
@@ -841,25 +945,23 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                 ["Company Name", customer?.companyName || "-"],
                 ["Email", customer?.email || "-"],
                 ["Phone", customer?.phone || "-"],
-                ["Lead Value ($)", customer?.leadValue || 0],
+                [`Lead Value (${getCurrencySymbol()})`, customer?.leadValue || 0],
                 ["Pipeline Stage", (customer?.pipelineStage || "-").toUpperCase()],
                 ["CRM Status", (customer?.status || "-").toUpperCase()],
-                ["TRN / Tax ID", customer?.trn || "Not Registered"],
-                ["VAT Filing Period", customer?.vatFilingPeriod || "-"],
-                ["VAT Filing Due Date", formatDate(customer?.vatFilingDueDate)],
-                ["Corporate Tax Status", customer?.corporateTaxStatus || "-"],
-                ["Trade License Expiry", formatDate(customer?.tradeLicenseExpiryDate)],
+                ["Service Plan", customer?.serviceType || "Live Chat & Ticketing"],
+                ["Work Status", customer?.workStatus || "Active"],
+                ["Account Status", (customer?.status || "Active").toUpperCase()],
                 [],
                 ["ACTIVE SERVICES & WORK STATUS"],
                 ["Service Name", "Category", "Work Status", "Payment Status"],
                 ...(activeServices.map(s => [s.serviceName, s.serviceCategory, s.workStatus, s.paymentStatus])),
                 [],
                 ["ASSOCIATED DEALS"],
-                ["Deal Title", "Stage", "Value ($)", "Close Date"],
+                ["Deal Title", "Stage", `Value (${getCurrencySymbol()})`, "Close Date"],
                 ...(activeDeals.map(d => [d.title || d.name, d.stage || d.pipelineStage, d.value || d.amount || 0, formatDate(d.expectedCloseDate)])),
                 [],
                 ["INVOICES & FINANCIALS"],
-                ["Invoice #", "Status", "Amount ($)", "Due Date"],
+                ["Invoice #", "Status", `Amount (${getCurrencySymbol()})`, "Due Date"],
                 ...(activeInvoices.map(inv => [inv.invoiceNumber || inv.number, inv.status, inv.total || inv.amount || 0, formatDate(inv.dueDate)]))
               ];
 
@@ -888,9 +990,9 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
             Export PDF / Print
           </button>
 
-          <button 
-            onClick={onClose} 
-            aria-label="Close modal" 
+          <button
+            onClick={onClose}
+            aria-label="Close modal"
             className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
           >
             <X size={18} />
@@ -952,11 +1054,10 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
           <div className="min-w-0 flex-1">
             <p className="text-[8px] font-black uppercase text-slate-400 tracking-wider truncate">AI Sentiment</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className={`px-1.5 py-0.2 rounded text-[8px] font-black uppercase border ${
-                customer?.priority === "urgent" || customer?.lostReason ? "bg-rose-50 text-rose-600 border-rose-200" :
+              <span className={`px-1.5 py-0.2 rounded text-[8px] font-black uppercase border ${customer?.priority === "urgent" || customer?.lostReason ? "bg-rose-50 text-rose-600 border-rose-200" :
                 customer?.pipelineStage === "won" || customer?.pipelineStage === "proposal" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
-                "bg-sky-50 text-sky-600 border-sky-200"
-              }`}>
+                  "bg-sky-50 text-sky-600 border-sky-200"
+                }`}>
                 {customer?.priority === "urgent" || customer?.lostReason ? "Urgent" : customer?.pipelineStage === "won" || customer?.pipelineStage === "proposal" ? "Positive" : "Neutral"}
               </span>
               <span className="text-xs font-black text-indigo-600">
@@ -990,11 +1091,10 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all shrink-0 whitespace-nowrap cursor-pointer ${
-                activeTab === tab.id
-                  ? "bg-indigo-600 text-white shadow-xs"
-                  : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
-              }`}
+              className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all shrink-0 whitespace-nowrap cursor-pointer ${activeTab === tab.id
+                ? "bg-indigo-600 text-white shadow-xs"
+                : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                }`}
             >
               {tab.label}
             </button>
@@ -1007,9 +1107,7 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
         {activeTab === "overview" && (
           <div className="space-y-3.5 animate-in fade-in duration-200">
             {/* Quick Action & Contact Banner - Ultra Clean & Inline */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-3.5 text-white shadow-sm flex flex-col xl:flex-row items-start xl:items-center justify-between gap-3 relative overflow-hidden">
-              <div className="absolute -right-10 -top-10 w-60 h-60 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
-              
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-3.5 text-slate-900 shadow-xs flex flex-col xl:flex-row items-start xl:items-center justify-between gap-3 relative overflow-hidden">
               {/* Left Side: Avatar + Customer Core Details Inline */}
               <div className="flex items-center gap-3 relative z-10 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center text-white font-black text-sm shadow-inner shrink-0">
@@ -1017,44 +1115,44 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-sm font-black tracking-tight text-white truncate max-w-[200px]">
+                    <h3 className="text-sm font-black tracking-tight text-slate-900 truncate max-w-[200px]">
                       {customer?.companyName || customer?.name}
                     </h3>
-                    
+
                     {/* Live Record Type Toggle */}
                     <select
                       value={customer?.recordType || "lead"}
                       onChange={(e) => handleUpdateCustomerFields({ recordType: e.target.value })}
-                      className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-lg px-2 py-0.5 text-[9px] font-black uppercase outline-none cursor-pointer hover:bg-indigo-500/30"
+                      className="bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg px-2 py-0.5 text-[9px] font-black uppercase outline-none cursor-pointer hover:bg-indigo-100"
                     >
-                      <option value="lead" className="bg-slate-900 text-white">LEAD</option>
-                      <option value="customer" className="bg-slate-900 text-white">CUSTOMER</option>
-                      <option value="deal" className="bg-slate-900 text-white">DEAL</option>
+                      <option value="lead" className="bg-white text-slate-900">LEAD</option>
+                      <option value="customer" className="bg-white text-slate-900">CUSTOMER</option>
+                      <option value="deal" className="bg-white text-slate-900">DEAL</option>
                     </select>
 
                     {/* Live Pipeline Stage Dropdown */}
                     <select
                       value={customer?.pipelineStage || "new"}
                       onChange={(e) => handleUpdateCustomerFields({ pipelineStage: e.target.value })}
-                      className="bg-slate-800 text-slate-200 border border-slate-700 rounded-lg px-2 py-0.5 text-[9px] font-black uppercase outline-none cursor-pointer hover:bg-slate-750"
+                      className="bg-slate-100 text-slate-800 border border-slate-200 rounded-lg px-2 py-0.5 text-[9px] font-black uppercase outline-none cursor-pointer hover:bg-slate-200/70"
                     >
-                      <option value="new" className="bg-slate-900 text-white">STAGE: NEW</option>
-                      <option value="contacted" className="bg-slate-900 text-white">STAGE: CONTACTED</option>
-                      <option value="proposal_sent" className="bg-slate-900 text-white">STAGE: PROPOSAL SENT</option>
-                      <option value="under_review" className="bg-slate-900 text-white">STAGE: UNDER REVIEW</option>
-                      <option value="won" className="bg-slate-900 text-emerald-400 font-bold">STAGE: WON / CLOSED</option>
-                      <option value="lost" className="bg-slate-900 text-rose-400 font-bold">STAGE: LOST</option>
+                      <option value="new" className="bg-white text-slate-900">STAGE: NEW</option>
+                      <option value="contacted" className="bg-white text-slate-900">STAGE: CONTACTED</option>
+                      <option value="proposal_sent" className="bg-white text-slate-900">STAGE: PROPOSAL SENT</option>
+                      <option value="under_review" className="bg-white text-slate-900">STAGE: UNDER REVIEW</option>
+                      <option value="won" className="bg-white text-emerald-700 font-bold">STAGE: WON / CLOSED</option>
+                      <option value="lost" className="bg-white text-rose-700 font-bold">STAGE: LOST</option>
                     </select>
                   </div>
 
-                  <div className="text-[10px] text-slate-400 font-medium flex items-center gap-2 mt-0.5 truncate">
+                  <div className="text-[10px] text-slate-500 font-medium flex items-center gap-2 mt-0.5 truncate">
                     {customer?.name && (
                       <span className="truncate">
-                        Contact: <strong className="text-slate-200 font-bold">{customer.name}</strong>
+                        Contact: <strong className="text-slate-800 font-bold">{customer.name}</strong>
                       </span>
                     )}
                     {customer?.crn && (
-                      <span className="font-mono text-indigo-300 font-semibold shrink-0">
+                      <span className="font-mono text-indigo-600 font-semibold shrink-0">
                         • CRN: {customer.crn}
                       </span>
                     )}
@@ -1087,27 +1185,27 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                     setShowGpsModal(true);
                     handleCaptureGps();
                   }}
-                  className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-cyan-700 border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
                 >
                   <MapPin size={12} /> GPS Check-in
                 </button>
                 <button
                   onClick={() => setShowVoiceModal(true)}
-                  className="px-2.5 py-1.5 bg-purple-600/80 hover:bg-purple-600 text-white border border-purple-400/20 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                  className="px-2.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
                 >
-                  <Mic size={12} className="text-amber-300" /> Voice Note
+                  <Mic size={12} className="text-amber-200" /> Voice Note
                 </button>
                 <button
                   onClick={() => setActiveTab("tasks")}
-                  className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
                 >
-                  <CheckCircle2 size={12} className="text-emerald-400" /> Add Task
+                  <CheckCircle2 size={12} className="text-emerald-600" /> Add Task
                 </button>
                 <button
                   onClick={() => setActiveTab("meetings")}
-                  className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
                 >
-                  <Calendar size={12} className="text-sky-400" /> Schedule
+                  <Calendar size={12} className="text-sky-600" /> Schedule
                 </button>
               </div>
             </div>
@@ -1150,18 +1248,17 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                   <span className="text-[9px] font-black uppercase tracking-wider">AI Lead Temperature</span>
                   <div className="p-1.5 bg-amber-50 text-amber-600 rounded-lg"><Star size={14} /></div>
                 </div>
-                
+
                 {/* Temperature Interactive Pill Selector */}
                 <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg">
                   {["hot", "warm", "cold"].map((temp) => (
                     <button
                       key={temp}
                       onClick={() => handleUpdateCustomerFields({ leadTemperature: temp })}
-                      className={`flex-1 py-0.5 text-[8px] font-black uppercase rounded transition-all cursor-pointer ${
-                        (customer?.leadTemperature || "warm") === temp
-                          ? temp === "hot" ? "bg-rose-600 text-white shadow-xs" : temp === "warm" ? "bg-amber-500 text-white shadow-xs" : "bg-slate-700 text-white shadow-xs"
-                          : "text-slate-500 hover:text-slate-900"
-                      }`}
+                      className={`flex-1 py-0.5 text-[8px] font-black uppercase rounded transition-all cursor-pointer ${(customer?.leadTemperature || "warm") === temp
+                        ? temp === "hot" ? "bg-rose-600 text-white shadow-xs" : temp === "warm" ? "bg-amber-500 text-white shadow-xs" : "bg-slate-700 text-white shadow-xs"
+                        : "text-slate-500 hover:text-slate-900"
+                        }`}
                     >
                       {temp}
                     </button>
@@ -1174,40 +1271,22 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                 </div>
               </div>
 
-              {/* Service Scope / Trade License Status */}
-              {isTaxEnabled ? (
-                <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-xs hover:border-indigo-200 transition-all space-y-1.5">
-                  <div className="flex items-center justify-between text-slate-400">
-                    <span className="text-[9px] font-black uppercase tracking-wider">Trade License</span>
-                    <div className="p-1.5 bg-sky-50 text-sky-600 rounded-lg"><Building2 size={14} /></div>
-                  </div>
-                  <div className="font-mono text-xs font-black text-slate-900 truncate">
-                    {customer?.tradeLicenseNumber || "N/A"}
-                  </div>
-                  <div className="text-[9px] font-bold flex items-center justify-between pt-0.5">
-                    <span className="text-slate-400">Expiry:</span>
-                    <span className={customer?.tradeLicenseExpiryDate && new Date(customer.tradeLicenseExpiryDate) < new Date() ? "text-rose-600 font-black" : "text-slate-700 font-bold"}>
-                      {customer?.tradeLicenseExpiryDate ? new Date(customer.tradeLicenseExpiryDate).toLocaleDateString() : "Not Registered"}
-                    </span>
-                  </div>
+              {/* Primary Service Scope */}
+              <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-xs hover:border-indigo-200 transition-all space-y-1.5">
+                <div className="flex items-center justify-between text-slate-400">
+                  <span className="text-[9px] font-black uppercase tracking-wider">Primary Service Scope</span>
+                  <div className="p-1.5 bg-sky-50 text-sky-600 rounded-lg"><Building2 size={14} /></div>
                 </div>
-              ) : (
-                <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-xs hover:border-indigo-200 transition-all space-y-1.5">
-                  <div className="flex items-center justify-between text-slate-400">
-                    <span className="text-[9px] font-black uppercase tracking-wider">Primary Service Scope</span>
-                    <div className="p-1.5 bg-sky-50 text-sky-600 rounded-lg"><Building2 size={14} /></div>
-                  </div>
-                  <div className="text-xs font-black text-slate-900 truncate" title={formatServiceScope(customer?.serviceType || customer?.requirement)}>
-                    {formatServiceScope(customer?.serviceType || customer?.requirement)}
-                  </div>
-                  <div className="text-[9px] font-bold flex items-center justify-between pt-0.5">
-                    <span className="text-slate-400">Status:</span>
-                    <span className="text-emerald-600 font-black uppercase">
-                      {customer?.workStatus || "Active"}
-                    </span>
-                  </div>
+                <div className="text-xs font-black text-slate-900 truncate" title={formatServiceScope(customer?.serviceType || customer?.requirement)}>
+                  {formatServiceScope(customer?.serviceType || customer?.requirement)}
                 </div>
-              )}
+                <div className="text-[9px] font-bold flex items-center justify-between pt-0.5">
+                  <span className="text-slate-400">Status:</span>
+                  <span className="text-emerald-600 font-black uppercase">
+                    {customer?.workStatus || "Active"}
+                  </span>
+                </div>
+              </div>
             </div>
 
             {/* Main Information Grid - Compact & Responsive */}
@@ -1232,12 +1311,11 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                       <select
                         value={customer?.workStatus || "Pending"}
                         onChange={(e) => handleUpdateWorkStatus(e.target.value)}
-                        className={`px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider outline-none cursor-pointer border transition-all shadow-xs ${
-                          customer?.workStatus === "Completed" || customer?.workStatus === "Approved" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
+                        className={`px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider outline-none cursor-pointer border transition-all shadow-xs ${customer?.workStatus === "Completed" || customer?.workStatus === "Approved" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
                           customer?.workStatus === "In Progress" ? "bg-sky-50 text-sky-600 border-sky-200" :
-                          customer?.workStatus === "Under Review" ? "bg-purple-50 text-purple-600 border-purple-200" :
-                          "bg-amber-50 text-amber-600 border-amber-200"
-                        }`}
+                            customer?.workStatus === "Under Review" ? "bg-purple-50 text-purple-600 border-purple-200" :
+                              "bg-amber-50 text-amber-600 border-amber-200"
+                          }`}
                       >
                         <option value="Pending">Pending</option>
                         <option value="In Progress">In Progress</option>
@@ -1264,11 +1342,10 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                       <select
                         value={customer?.paymentStatus || "Pending"}
                         onChange={(e) => handleUpdatePaymentStatus(e.target.value)}
-                        className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase outline-none cursor-pointer border transition-all ${
-                          customer?.paymentStatus === "Paid" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
+                        className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase outline-none cursor-pointer border transition-all ${customer?.paymentStatus === "Paid" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
                           customer?.paymentStatus === "Partial" ? "bg-sky-50 text-sky-600 border-sky-200" :
-                          customer?.paymentStatus === "Overdue" ? "bg-rose-50 text-rose-600 border-rose-200" : "bg-amber-50 text-amber-600 border-amber-200"
-                        }`}
+                            customer?.paymentStatus === "Overdue" ? "bg-rose-50 text-rose-600 border-rose-200" : "bg-amber-50 text-amber-600 border-amber-200"
+                          }`}
                       >
                         <option value="Pending">Pending</option>
                         <option value="Partial">Partial</option>
@@ -1344,7 +1421,7 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                     <span>Account Ownership</span>
                     <User size={13} className="text-indigo-600" />
                   </h4>
-                  
+
                   <div className="space-y-2.5">
                     <div className="flex items-center gap-2.5">
                       <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 font-black flex items-center justify-center text-xs shrink-0">
@@ -1440,45 +1517,7 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
             </div>
 
             {(() => {
-              const explicitServices = customer?.services || [];
-              const derivedServices = [];
-
-              if (customer?.serviceType) {
-                let cleanCategory = "Software & Digital Services";
-                let cleanRemarks = customer.vatFilingPeriod ? `Filing Period: ${customer.vatFilingPeriod}${customer.trn ? ` | TRN: ${customer.trn}` : ""}` : (customer.trn ? `TRN: ${customer.trn}` : "Primary Registered Service");
-                const isVat = typeof customer.serviceType === "string" && customer.serviceType.includes("VAT");
-                const isCt = typeof customer.serviceType === "string" && customer.serviceType.includes("Corporate");
-                const isTl = typeof customer.serviceType === "string" && customer.serviceType.includes("Trade");
-
-                if (isVat) cleanCategory = "VAT Compliance";
-                else if (isCt) cleanCategory = "Corporate Tax";
-                else if (isTl) cleanCategory = "Trade License";
-
-                if (typeof customer.serviceType === "string" && customer.serviceType.trim().startsWith("{")) {
-                  try {
-                    const parsed = JSON.parse(customer.serviceType.trim());
-                    if (parsed.preferred_date_time) {
-                      cleanRemarks = `Preferred Booking: ${parsed.preferred_date_time}`;
-                      cleanCategory = "Consultation & Booking";
-                    }
-                  } catch {}
-                }
-
-                const dueDate = customer.corporateTaxDueDate || customer.vatFilingDueDate || customer.tradeLicenseExpiryDate;
-
-                derivedServices.push({
-                  _id: `derived-primary-${customer._id}`,
-                  serviceName: formatServiceScope(customer.serviceType),
-                  serviceCategory: cleanCategory,
-                  workStatus: customer.workStatus || "Pending",
-                  paymentStatus: customer.paymentStatus || "Pending",
-                  priority: "High",
-                  dueDate: dueDate,
-                  remarks: cleanRemarks
-                });
-              }
-
-              const displayServices = explicitServices.length > 0 ? explicitServices : derivedServices;
+              const displayServices = customer?.services || [];
 
               if (displayServices.length === 0) {
                 return (
@@ -1511,30 +1550,34 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                               {formatServiceScope(srv.serviceName)}
                             </h5>
                           </div>
-                          <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase border shrink-0 ${
-                            srv.workStatus === "Completed" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
-                            srv.workStatus === "In Progress" ? "bg-sky-50 text-sky-600 border-sky-200" :
-                            srv.workStatus === "Under Review" ? "bg-purple-50 text-purple-600 border-purple-200" :
-                            "bg-amber-50 text-amber-600 border-amber-200"
-                          }`}>
-                            {srv.workStatus || "Pending"}
-                          </span>
+                          <select
+                            value={srv.workStatus || "Pending"}
+                            onChange={(e) => handleUpdateServiceStatus(srv, e.target.value)}
+                            disabled={isReadOnly}
+                            className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase border shrink-0 outline-none cursor-pointer ${srv.workStatus === "Completed" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
+                              srv.workStatus === "In Progress" ? "bg-sky-50 text-sky-600 border-sky-200" :
+                                srv.workStatus === "Under Review" ? "bg-purple-50 text-purple-600 border-purple-200" :
+                                  "bg-amber-50 text-amber-600 border-amber-200"
+                              }`}
+                          >
+                            {["Pending", "Waiting for Documents", "Documents Received", "In Progress", "Under Review", "Government Submitted", "Completed", "Cancelled"].map(st => (
+                              <option key={st} value={st}>{st}</option>
+                            ))}
+                          </select>
                         </div>
 
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-bold pt-2 border-t border-slate-100">
                           <div className="p-1.5 bg-slate-50/80 rounded-lg">
                             <span className="text-[8px] font-black uppercase text-slate-400 block">Priority</span>
-                            <span className={`text-[9px] uppercase font-black truncate block ${
-                              srv.priority === "Critical" ? "text-rose-600" :
+                            <span className={`text-[9px] uppercase font-black truncate block ${srv.priority === "Critical" ? "text-rose-600" :
                               srv.priority === "High" ? "text-amber-600" : "text-slate-700"
-                            }`}>{srv.priority || "Medium"}</span>
+                              }`}>{srv.priority || "Medium"}</span>
                           </div>
                           <div className="p-1.5 bg-slate-50/80 rounded-lg">
                             <span className="text-[8px] font-black uppercase text-slate-400 block">Payment</span>
-                            <span className={`text-[9px] uppercase font-black truncate block ${
-                              srv.paymentStatus === "Paid" ? "text-emerald-600" :
+                            <span className={`text-[9px] uppercase font-black truncate block ${srv.paymentStatus === "Paid" ? "text-emerald-600" :
                               srv.paymentStatus === "Overdue" ? "text-rose-600" : "text-amber-600"
-                            }`}>{srv.paymentStatus || "Pending"}</span>
+                              }`}>{srv.paymentStatus || "Pending"}</span>
                           </div>
                           <div className="p-1.5 bg-slate-50/80 rounded-lg">
                             <span className="text-[8px] font-black uppercase text-slate-400 block">Due Date</span>
@@ -1542,10 +1585,9 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                           </div>
                           <div className="p-1.5 bg-slate-50/80 rounded-lg">
                             <span className="text-[8px] font-black uppercase text-slate-400 block">Remaining</span>
-                            <span className={`text-[9px] font-black truncate block ${
-                              diffDays !== null && diffDays < 0 ? "text-rose-600" :
+                            <span className={`text-[9px] font-black truncate block ${diffDays !== null && diffDays < 0 ? "text-rose-600" :
                               diffDays !== null && diffDays <= 30 ? "text-amber-600" : "text-emerald-600"
-                            }`}>
+                              }`}>
                               {diffDays !== null ? (diffDays < 0 ? `${Math.abs(diffDays)}d Overdue` : `${diffDays}d left`) : "N/A"}
                             </span>
                           </div>
@@ -1560,128 +1602,6 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                 </div>
               );
             })()}
-          </div>
-        )}
-
-        {activeTab === "corporate_tax" && (
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-xs">
-            <div className="flex justify-between items-center border-b pb-3 border-slate-100">
-              <div>
-                <h4 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wide">Corporate Tax Compliance</h4>
-                <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Annual corporate tax return schedules & live countdown</p>
-              </div>
-              <span className={`px-2.5 py-1 rounded-xl text-[9px] font-black uppercase border ${
-                customer?.workStatus === "Completed" ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-amber-50 text-amber-600 border-amber-200"
-              }`}>
-                {customer?.workStatus || "Pending"}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-bold">
-              <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100 space-y-0.5">
-                <span className="text-[8px] font-black uppercase text-slate-400">TRN (Tax Reg No)</span>
-                <p className="text-slate-900 font-mono font-bold text-xs">{customer?.trn || "Not Registered"}</p>
-              </div>
-              <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100 space-y-0.5">
-                <span className="text-[8px] font-black uppercase text-slate-400">Corporate Tax Filing Due</span>
-                <p className="text-slate-900 font-bold text-xs">{customer?.corporateTaxDueDate ? new Date(customer.corporateTaxDueDate).toLocaleDateString() : "No Due Date Set"}</p>
-              </div>
-              <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100 space-y-0.5">
-                <span className="text-[8px] font-black uppercase text-slate-400">Days Remaining</span>
-                {(() => {
-                  const d = customer?.corporateTaxDueDate ? new Date(customer.corporateTaxDueDate) : null;
-                  const diff = d ? Math.ceil((d - new Date()) / (1000 * 60 * 60 * 24)) : null;
-                  return (
-                    <p className={`font-black text-xs ${diff !== null && diff < 0 ? "text-rose-600" : diff !== null && diff <= 30 ? "text-amber-600" : "text-emerald-600"}`}>
-                      {diff !== null ? (diff < 0 ? `${Math.abs(diff)} Days Overdue` : `${diff} Days Left`) : "N/A"}
-                    </p>
-                  );
-                })()}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "vat_compliance" && (
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-xs">
-            <div className="flex justify-between items-center border-b pb-3 border-slate-100">
-              <div>
-                <h4 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wide">VAT Compliance & Filing</h4>
-                <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Value Added Tax return schedules & filing status</p>
-              </div>
-              <span className={`px-2.5 py-1 rounded-xl text-[9px] font-black uppercase border ${
-                customer?.workStatus === "Completed" ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-amber-50 text-amber-600 border-amber-200"
-              }`}>
-                {customer?.workStatus || "Pending"}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-bold">
-              <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100 space-y-0.5">
-                <span className="text-[8px] font-black uppercase text-slate-400">VAT Registration No (TRN)</span>
-                <p className="text-slate-900 font-mono font-bold text-xs">{customer?.trn || "Not Registered"}</p>
-              </div>
-              <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100 space-y-0.5">
-                <span className="text-[8px] font-black uppercase text-slate-400">VAT Filing Due Date</span>
-                <p className="text-slate-900 font-bold text-xs">{customer?.vatFilingDueDate ? new Date(customer.vatFilingDueDate).toLocaleDateString() : "No Due Date Set"}</p>
-              </div>
-              <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100 space-y-0.5">
-                <span className="text-[8px] font-black uppercase text-slate-400">VAT Filing Period</span>
-                <p className="text-indigo-600 font-black text-xs">{customer?.vatFilingPeriod || "Quarterly"}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "trade_license" && (
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-xs">
-            <div className="flex justify-between items-center border-b pb-3 border-slate-100">
-              <div>
-                <h4 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wide">Trade License Management & Renewal</h4>
-                <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Commercial trade license details, authority & expiry countdown</p>
-              </div>
-              {(() => {
-                const exp = customer?.tradeLicenseExpiryDate ? new Date(customer.tradeLicenseExpiryDate) : null;
-                const diff = exp ? Math.ceil((exp - new Date()) / (1000 * 60 * 60 * 24)) : null;
-                return (
-                  <span className={`px-2.5 py-1 rounded-xl text-[9px] font-black uppercase border ${
-                    diff !== null && diff < 0 ? "bg-rose-50 text-rose-600 border-rose-200" :
-                    diff !== null && diff <= 30 ? "bg-amber-50 text-amber-600 border-amber-200" :
-                    diff !== null && diff <= 60 ? "bg-yellow-50 text-yellow-600 border-yellow-200" :
-                    "bg-emerald-50 text-emerald-600 border-emerald-200"
-                  }`}>
-                    {diff !== null ? (diff < 0 ? "Expired" : diff <= 30 ? "Expiring Soon" : "Active") : "No License Data"}
-                  </span>
-                );
-              })()}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-bold">
-              <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100 space-y-0.5">
-                <span className="text-[8px] font-black uppercase text-slate-400">License Number</span>
-                <p className="text-slate-900 font-mono font-bold text-xs">{customer?.tradeLicenseNumber || "N/A"}</p>
-              </div>
-              <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100 space-y-0.5">
-                <span className="text-[8px] font-black uppercase text-slate-400">License Expiry Date</span>
-                <p className="text-slate-900 font-bold text-xs">{customer?.tradeLicenseExpiryDate ? new Date(customer.tradeLicenseExpiryDate).toLocaleDateString() : "No Expiry Date Set"}</p>
-              </div>
-              <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100 space-y-0.5">
-                <span className="text-[8px] font-black uppercase text-slate-400">Days Remaining</span>
-                {(() => {
-                  const d = customer?.tradeLicenseExpiryDate ? new Date(customer.tradeLicenseExpiryDate) : null;
-                  const diff = d ? Math.ceil((d - new Date()) / (1000 * 60 * 60 * 24)) : null;
-                  return (
-                    <p className={`font-black text-xs ${
-                      diff !== null && diff < 0 ? "text-rose-600" :
-                      diff !== null && diff <= 30 ? "text-amber-600" :
-                      diff !== null && diff <= 60 ? "text-yellow-600" : "text-emerald-600"
-                    }`}>
-                      {diff !== null ? (diff < 0 ? `${Math.abs(diff)} Days Expired` : `${diff} Days Left`) : "N/A"}
-                    </p>
-                  );
-                })()}
-              </div>
-            </div>
           </div>
         )}
 
@@ -1704,11 +1624,10 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
               <span className="text-[8px] font-black uppercase text-slate-400 tracking-wider">Select Template to Pre-fill Message</span>
               <div className="flex flex-wrap gap-1.5">
                 {[
-                  { label: "Welcome to JTS", text: `Hello ${customer?.name || "Customer"}, welcome to JTS Enterprise Support! We are here to assist you with compliance and account services.` },
-                  { label: "VAT Return Reminder", text: `Hello ${customer?.name || "Customer"}, this is a reminder that your VAT Return Filing due date is approaching. Please submit your documents.` },
-                  { label: "Corporate Tax Reminder", text: `Hello ${customer?.name || "Customer"}, your Corporate Tax Return Filing due date is approaching. Please submit your required financial documents.` },
-                  { label: "Trade License Expiry Alert", text: `Urgent Notice: Dear ${customer?.name || "Customer"}, your Trade License renewal is approaching. Please verify and renew to ensure seamless business operations.` },
-                  { label: "Service Fee Invoice Reminder", text: `Dear ${customer?.name || "Customer"}, your service fee invoice has been generated. Please review and settle it at your convenience.` }
+                  { label: "Welcome to JTS", text: `Hello ${customer?.name || "Customer"}, welcome to JTS Enterprise Support! We are here to assist you with live chat, tickets, and customer success.` },
+                  { label: "Ticket Resolution Follow-up", text: `Hello ${customer?.name || "Customer"}, our support team has resolved your ticket. Please let us know if everything is working smoothly.` },
+                  { label: "Onboarding Review Call", text: `Hello ${customer?.name || "Customer"}, we would like to schedule a quick onboarding call for your live chat support widget setup.` },
+                  { label: "Service Invoice Reminder", text: `Dear ${customer?.name || "Customer"}, your service invoice has been generated. Please review and settle it at your convenience.` }
                 ].map((tmpl, idx) => (
                   <button
                     key={idx}
@@ -1743,9 +1662,8 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
               />
 
               {waNotice && (
-                <div className={`p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 ${
-                  waNotice.type === "success" ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-rose-50 text-rose-800 border border-rose-200"
-                }`}>
+                <div className={`p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 ${waNotice.type === "success" ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-rose-50 text-rose-800 border border-rose-200"
+                  }`}>
                   {waNotice.type === "success" ? <CheckCircle size={13} className="text-emerald-600" /> : <AlertTriangle size={13} className="text-rose-600" />}
                   <span>{waNotice.message}</span>
                 </div>
@@ -1850,18 +1768,16 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
               {whatsappTimeline.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`p-3 rounded-xl space-y-1 max-w-md shadow-xs border ${
-                    msg.sender === "agent"
-                      ? "bg-white border-slate-200 ml-auto"
-                      : "bg-emerald-50 border-emerald-200 mr-auto"
-                  }`}
+                  className={`p-3 rounded-xl space-y-1 max-w-md shadow-xs border ${msg.sender === "agent"
+                    ? "bg-white border-slate-200 ml-auto"
+                    : "bg-emerald-50 border-emerald-200 mr-auto"
+                    }`}
                 >
                   <p className={`text-xs font-bold ${msg.sender === "agent" ? "text-slate-800" : "text-emerald-950"}`}>
                     {msg.text}
                   </p>
-                  <div className={`flex justify-between items-center text-[8px] font-black pt-1 border-t ${
-                    msg.sender === "agent" ? "border-slate-100 text-slate-400" : "border-emerald-100 text-emerald-600"
-                  }`}>
+                  <div className={`flex justify-between items-center text-[8px] font-black pt-1 border-t ${msg.sender === "agent" ? "border-slate-100 text-slate-400" : "border-emerald-100 text-emerald-600"
+                    }`}>
                     <span>{msg.sender === "agent" ? "Consultant Dispatch" : "Client Message"} • {msg.time}</span>
                     <span className="text-emerald-600 uppercase font-black">{msg.status}</span>
                   </div>
@@ -1929,9 +1845,8 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
               />
 
               {tgNotice && (
-                <div className={`p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 ${
-                  tgNotice.type === "success" ? "bg-sky-50 text-sky-800 border border-sky-200" : "bg-rose-50 text-rose-800 border border-rose-200"
-                }`}>
+                <div className={`p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 ${tgNotice.type === "success" ? "bg-sky-50 text-sky-800 border border-sky-200" : "bg-rose-50 text-rose-800 border border-rose-200"
+                  }`}>
                   {tgNotice.type === "success" ? <CheckCircle size={13} className="text-sky-600" /> : <AlertTriangle size={13} className="text-rose-600" />}
                   <span>{tgNotice.message}</span>
                 </div>
@@ -2103,13 +2018,12 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
 
                     return (
                       <div key={act._id} className="relative space-y-1 bg-slate-50/60 p-3 rounded-xl border border-slate-100 hover:border-slate-200 transition-all">
-                        <span className={`absolute -left-[35px] top-3 w-6 h-6 rounded-full border-2 flex items-center justify-center text-[10px] font-black shadow-xs ${
-                          act.type === "work_status_changed" ? "bg-sky-50 text-sky-600 border-sky-400" :
+                        <span className={`absolute -left-[35px] top-3 w-6 h-6 rounded-full border-2 flex items-center justify-center text-[10px] font-black shadow-xs ${act.type === "work_status_changed" ? "bg-sky-50 text-sky-600 border-sky-400" :
                           act.type === "payment_status_changed" ? "bg-emerald-50 text-emerald-600 border-emerald-400" :
-                          act.type === "compliance_updated" ? "bg-purple-50 text-purple-600 border-purple-400" :
-                          act.type === "consultant_reassigned" ? "bg-amber-50 text-amber-600 border-amber-400" :
-                          "bg-indigo-50 text-indigo-600 border-indigo-400"
-                        }`}>
+                            act.type === "compliance_updated" ? "bg-purple-50 text-purple-600 border-purple-400" :
+                              act.type === "consultant_reassigned" ? "bg-amber-50 text-amber-600 border-amber-400" :
+                                "bg-indigo-50 text-indigo-600 border-indigo-400"
+                          }`}>
                           ✓
                         </span>
                         <div className="flex items-center justify-between">
@@ -2142,7 +2056,7 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                       <h5 className="text-xs font-black text-slate-800">{d.dealName}</h5>
                       <span className="text-[8px] font-bold uppercase bg-slate-100 px-2 py-0.5 rounded text-slate-600">{d.stage}</span>
                     </div>
-                    <span className="text-xs font-extrabold text-indigo-600">${d.dealValue}</span>
+                    <span className="text-xs font-extrabold text-indigo-600">{formatGlobalCurrency(d.dealValue || 0)}</span>
                   </div>
                 ))}
               </div>
@@ -2209,9 +2123,9 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                       </div>
 
                       <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-                        {m.googleMeetUrl && (
-                          <a href={m.googleMeetUrl} target="_blank" rel="noreferrer" className="text-[9px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg uppercase hover:bg-indigo-100 transition-all">
-                            Join Meet
+                        {(m.meetingLink || m.googleMeetUrl) && (
+                          <a href={m.meetingLink || m.googleMeetUrl} target="_blank" rel="noreferrer" className="text-[9px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg uppercase hover:bg-indigo-100 transition-all">
+                            Join Meeting ↗
                           </a>
                         )}
 
@@ -2286,12 +2200,11 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-2">
                         <h5 className="text-xs font-black text-slate-900">{e.subject || "No Subject"}</h5>
-                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
-                          e.status === "Delivered" || e.status === "Sent" ? "bg-emerald-50 text-emerald-600 border border-emerald-200" :
+                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${e.status === "Delivered" || e.status === "Sent" ? "bg-emerald-50 text-emerald-600 border border-emerald-200" :
                           e.status === "Opened" ? "bg-indigo-50 text-indigo-600 border border-indigo-200" :
-                          e.status === "Failed" ? "bg-rose-50 text-rose-600 border border-rose-200" :
-                          "bg-amber-50 text-amber-600 border border-amber-200"
-                        }`}>
+                            e.status === "Failed" ? "bg-rose-50 text-rose-600 border border-rose-200" :
+                              "bg-amber-50 text-amber-600 border border-amber-200"
+                          }`}>
                           {e.status || "Sent"}
                         </span>
                       </div>
@@ -2335,11 +2248,10 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                         <span className="text-[8px] font-black uppercase bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">
                           v{d.versionNumber || 1}.0
                         </span>
-                        <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${
-                          d.status === "Verified" ? "bg-emerald-50 text-emerald-600 border border-emerald-200" :
+                        <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${d.status === "Verified" ? "bg-emerald-50 text-emerald-600 border border-emerald-200" :
                           d.status === "Pending Verification" ? "bg-amber-50 text-amber-600 border border-amber-200" :
-                          "bg-slate-100 text-slate-600"
-                        }`}>
+                            "bg-slate-100 text-slate-600"
+                          }`}>
                           {d.status || "Verified"}
                         </span>
                       </div>
@@ -2451,9 +2363,9 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
       </main>
 
       {/* Task Modal Overlay */}
-      {showTaskForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowTaskForm(false)} />
+      {showTaskForm && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowTaskForm(false)} />
           <form onSubmit={handleCreateTask} className="relative w-full max-w-sm bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 border border-slate-100">
             <div className="flex justify-between items-center border-b pb-2.5 border-slate-100">
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Add Task</h3>
@@ -2479,92 +2391,129 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
             </div>
             <button type="submit" className="w-full py-2.5 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-black uppercase flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all"><Check size={14} /> Save Task</button>
           </form>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Meeting Modal Overlay */}
-      {showMeetingForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowMeetingForm(false)} />
-          <form onSubmit={handleCreateMeeting} className="relative w-full max-w-sm bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 border border-slate-100">
-            <div className="flex justify-between items-center border-b pb-2.5 border-slate-100">
-              <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Schedule Meeting</h3>
-              <button type="button" onClick={() => setShowMeetingForm(false)} className="p-1.5 text-slate-400 hover:bg-slate-50 rounded-lg cursor-pointer"><X size={15} /></button>
+      {showMeetingForm && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => { setShowMeetingForm(false); setMeetingError(""); }} />
+          <form onSubmit={handleCreateMeeting} className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 border border-slate-100 dark:border-white/10">
+            <div className="flex justify-between items-center border-b pb-2.5 border-slate-100 dark:border-white/10">
+              <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Schedule Meeting</h3>
+              <button type="button" onClick={() => { setShowMeetingForm(false); setMeetingError(""); }} className="p-1.5 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg cursor-pointer"><X size={15} /></button>
             </div>
+            {meetingError && (
+              <div className="px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-[11px] font-bold text-rose-600 dark:text-rose-400">
+                {meetingError}
+              </div>
+            )}
             <div className="space-y-1">
               <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Meeting Title</label>
-              <input required value={meetingForm.title} onChange={(e) => setMeetingForm({ ...meetingForm, title: e.target.value })} className="w-full bg-slate-50 rounded-xl border border-slate-200/70 px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
+              <input required placeholder="e.g. Onboarding & Requirement Call" value={meetingForm.title} onChange={(e) => setMeetingForm({ ...meetingForm, title: e.target.value })} className="w-full bg-slate-50 dark:bg-slate-800 dark:text-white rounded-xl border border-slate-200/70 dark:border-white/10 px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
             </div>
+            {meetingPlatforms.length > 0 && (() => {
+              const selectedPlat = meetingPlatforms.find(p => p.key === meetingForm.meetingType);
+              return (
+                <div className="space-y-2">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Meeting Platform</label>
+                    <select
+                      value={meetingForm.meetingType}
+                      onChange={(e) => setMeetingForm({ ...meetingForm, meetingType: e.target.value, meetingLink: "" })}
+                      className="w-full bg-slate-50 dark:bg-slate-800 dark:text-white rounded-xl border border-slate-200/70 dark:border-white/10 px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500"
+                    >
+                      {meetingPlatforms.map(p => (
+                        <option key={p._id || p.key} value={p.key}>
+                          {p.name}{p.isDefault ? " (Default)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {selectedPlat?.urlTemplate ? (
+                    <p className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 rounded-lg px-2.5 py-1.5">
+                      Auto-generates unique {selectedPlat.name} room link on save
+                    </p>
+                  ) : (
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Meeting Link / Location</label>
+                      <input
+                        placeholder="Paste meeting URL, phone number, or address"
+                        value={meetingForm.meetingLink || meetingForm.location}
+                        onChange={(e) => setMeetingForm({ ...meetingForm, meetingLink: e.target.value, location: e.target.value })}
+                        className="w-full bg-slate-50 dark:bg-slate-800 dark:text-white rounded-xl border border-slate-200/70 dark:border-white/10 px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Start Time</label>
-                <input type="datetime-local" required value={meetingForm.startAt} onChange={(e) => setMeetingForm({ ...meetingForm, startAt: e.target.value })} className="w-full bg-slate-50 rounded-xl border border-slate-200/70 px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
+                <input type="datetime-local" required value={meetingForm.startAt} onChange={(e) => setMeetingForm({ ...meetingForm, startAt: e.target.value })} className="w-full bg-slate-50 dark:bg-slate-800 dark:text-white rounded-xl border border-slate-200/70 dark:border-white/10 px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
               </div>
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider">End Time</label>
-                <input type="datetime-local" required value={meetingForm.endAt} onChange={(e) => setMeetingForm({ ...meetingForm, endAt: e.target.value })} className="w-full bg-slate-50 rounded-xl border border-slate-200/70 px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
+                <input type="datetime-local" required min={meetingForm.startAt || undefined} value={meetingForm.endAt} onChange={(e) => setMeetingForm({ ...meetingForm, endAt: e.target.value })} className="w-full bg-slate-50 dark:bg-slate-800 dark:text-white rounded-xl border border-slate-200/70 dark:border-white/10 px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
               </div>
             </div>
             <div className="space-y-1">
               <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Agenda</label>
-              <input value={meetingForm.agenda} onChange={(e) => setMeetingForm({ ...meetingForm, agenda: e.target.value })} className="w-full bg-slate-50 rounded-xl border border-slate-200/70 px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
+              <input placeholder="e.g. Discuss scope, timeline & pricing" value={meetingForm.agenda} onChange={(e) => setMeetingForm({ ...meetingForm, agenda: e.target.value })} className="w-full bg-slate-50 dark:bg-slate-800 dark:text-white rounded-xl border border-slate-200/70 dark:border-white/10 px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
             </div>
-            <button type="submit" className="w-full py-2.5 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-black uppercase flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all"><Check size={14} /> Save Meeting</button>
+            <button type="submit" disabled={savingMeeting} className="w-full py-2.5 bg-slate-950 hover:bg-slate-800 dark:bg-indigo-600 dark:hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-black uppercase flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all"><Check size={14} /> {savingMeeting ? "Saving..." : "Save Meeting"}</button>
           </form>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Document Modal Overlay */}
-      {showDocForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowDocForm(false)} />
+      {showDocForm && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowDocForm(false)} />
           <form onSubmit={handleUploadDoc} className="relative w-full max-w-md bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl space-y-3.5 border border-slate-100">
             <div className="flex justify-between items-center border-b pb-3 border-slate-100">
               <div>
-                <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Upload UAE Compliance Document</h3>
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Trade License, Emirates ID, VAT, Corporate Tax, Ejari, NDA etc.</p>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Upload Customer Document</h3>
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Service Agreement, SLA Contract, NDA, Purchase Order, Invoices etc.</p>
               </div>
               <button type="button" onClick={() => setShowDocForm(false)} className="p-1.5 text-slate-400 hover:bg-slate-50 rounded-lg cursor-pointer"><X size={15} /></button>
             </div>
-            
+
             <div className="space-y-1">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Document Category (UAE Standard)</label>
-              <select 
-                value={docForm.category} 
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Document Category</label>
+              <select
+                value={docForm.category}
                 onChange={(e) => {
                   const cat = e.target.value;
-                  setDocForm(prev => ({ 
-                    ...prev, 
+                  setDocForm(prev => ({
+                    ...prev,
                     category: cat,
                     name: prev.name || cat
                   }));
-                }} 
+                }}
                 className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-indigo-500"
               >
-                <option value="Trade License">Trade License</option>
-                <option value="Emirates ID">Emirates ID</option>
-                <option value="Passport Copy">Passport Copy</option>
-                <option value="VAT / TRN Certificate">VAT / TRN Certificate</option>
-                <option value="Corporate Tax Certificate">Corporate Tax Registration</option>
-                <option value="MOA / AOA">MOA / AOA (Company Memorandum)</option>
-                <option value="Establishment Card">Establishment / Computer Card</option>
-                <option value="Tenancy Contract / Ejari">Tenancy Contract / Ejari</option>
-                <option value="NDA / Non-Disclosure Agreement">NDA / Non-Disclosure Agreement</option>
-                <option value="Power of Attorney">Power of Attorney (POA)</option>
-                <option value="Financial Audit Report">Financial Audit Report</option>
-                <option value="Proposal / Contract">Proposal / Contract Agreement</option>
-                <option value="Other Compliance Document">Other Compliance Document</option>
+                <option value="Service Agreement">Service Agreement</option>
+                <option value="SLA Contract">SLA Contract</option>
+                <option value="NDA / Confidentiality Agreement">NDA / Confidentiality Agreement</option>
+                <option value="Purchase Order">Purchase Order</option>
+                <option value="Identity Document">Identity Document</option>
+                <option value="Proposal / Quotation">Proposal / Quotation</option>
+                <option value="General Attachment">General Attachment</option>
               </select>
             </div>
 
             <div className="space-y-1">
               <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Document Name / Title</label>
-              <input 
-                required 
-                placeholder="e.g. Trade License 2026 - Al Reza Global"
-                value={docForm.name} 
-                onChange={(e) => setDocForm({ ...docForm, name: e.target.value })} 
-                className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" 
+              <input
+                required
+                placeholder="e.g. Master Service Agreement 2026 - Acme Global"
+                value={docForm.name}
+                onChange={(e) => setDocForm({ ...docForm, name: e.target.value })}
+                className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500"
               />
             </div>
 
@@ -2590,12 +2539,12 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
 
             <div className="space-y-1">
               <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Or File URL / Storage Path</label>
-              <input 
-                required 
+              <input
+                required
                 placeholder="https://... or choose file above"
-                value={docForm.fileUrl} 
-                onChange={(e) => setDocForm({ ...docForm, fileUrl: e.target.value })} 
-                className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" 
+                value={docForm.fileUrl}
+                onChange={(e) => setDocForm({ ...docForm, fileUrl: e.target.value })}
+                className="w-full bg-slate-50 rounded-xl border border-slate-200/80 px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500"
               />
             </div>
 
@@ -2603,13 +2552,14 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
               <Check size={14} /> {uploadingDoc ? "Uploading..." : "Save Compliance Document"}
             </button>
           </form>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Compose Email Modal Overlay */}
-      {showEmailForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowEmailForm(false)} />
+      {showEmailForm && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowEmailForm(false)} />
           <form onSubmit={handleSendEmail} className="relative w-full max-w-md bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 border border-slate-100">
             <div className="flex justify-between items-center border-b pb-2.5 border-slate-100">
               <div>
@@ -2647,13 +2597,14 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
               <Send size={14} /> {sendingEmail ? "Sending..." : "Send Email"}
             </button>
           </form>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Provision Service Modal Overlay */}
-      {showServiceModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowServiceModal(false)} />
+      {showServiceModal && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowServiceModal(false)} />
           <form onSubmit={handleAddServiceSubmit} className="relative w-full max-w-md bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl space-y-3.5 border border-slate-100">
             <div className="flex justify-between items-center border-b pb-3 border-slate-100">
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Provision Client Service</h3>
@@ -2662,20 +2613,86 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
             <div className="space-y-3">
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Service Scope</label>
-                <select
-                  value={serviceForm.serviceName}
-                  onChange={(e) => setServiceForm({ ...serviceForm, serviceName: e.target.value })}
-                  className="w-full bg-slate-50 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500"
-                >
-                  <option value="E-Invoicing & Billing Suite">E-Invoicing & Billing Suite</option>
-                  <option value="Cloud ERP & Accounting Software">Cloud ERP & Accounting Software</option>
-                  <option value="Software API & Webhook Integration">Software API & Webhook Integration</option>
-                  <option value="Annual Maintenance Contract (AMC)">Annual Maintenance Contract (AMC)</option>
-                  <option value="Chat Support & Customer Care Suite">Chat Support & Customer Care Suite</option>
-                  <option value="Payment Gateway Integration">Payment Gateway Integration</option>
-                  <option value="Technical Consultation & Training">Technical Consultation & Training</option>
-                  <option value="Custom Business Service">Custom Business Service</option>
-                </select>
+                {(() => {
+                  const seen = new Set();
+                  const options = catalogServices.filter(opt => {
+                    const key = opt.name.toLowerCase();
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                  });
+                  return (
+                    <>
+                      <select
+                        value={serviceForm.serviceName}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const matched = options.find(o => o.name === val);
+                          setServiceForm({
+                            ...serviceForm,
+                            serviceName: val,
+                            serviceCategory: matched?.category || (val === "__custom__" ? "Custom Service" : "General")
+                          });
+                        }}
+                        className="w-full bg-slate-50 dark:bg-slate-800 dark:text-white rounded-xl border border-slate-200 dark:border-white/10 px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500"
+                      >
+                        {options.map(opt => (
+                          <option key={opt.name} value={opt.name}>
+                            {opt.name} ({opt.category})
+                          </option>
+                        ))}
+                        <option value="__custom__">+ Custom Service Name...</option>
+                      </select>
+                      {serviceForm.serviceName === "__custom__" && (
+                        <div className="mt-2 space-y-1.5">
+                          <input
+                            required
+                            placeholder="Search inventory or enter custom service name..."
+                            value={customServiceName}
+                            onChange={(e) => setCustomServiceName(e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-slate-800 dark:text-white rounded-xl border border-slate-200 dark:border-white/10 px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500"
+                          />
+                          {serviceSearchResults.length > 0 && (
+                            <div className="max-h-36 overflow-y-auto rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 divide-y divide-slate-100 dark:divide-white/5 shadow-sm">
+                              {serviceSearchResults.map((item, idx) => (
+                                <button
+                                  key={item._id || idx}
+                                  type="button"
+                                  onClick={() => {
+                                    const picked = { name: item.name, category: item.category || "Inventory Item" };
+                                    setCatalogServices(prev =>
+                                      prev.some(p => p.name.toLowerCase() === picked.name.toLowerCase())
+                                        ? prev
+                                        : [picked, ...prev]
+                                    );
+                                    setServiceForm(prev => ({
+                                      ...prev,
+                                      serviceName: picked.name,
+                                      serviceCategory: picked.category
+                                    }));
+                                    setCustomServiceName("");
+                                    setServiceSearchResults([]);
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 flex items-center justify-between cursor-pointer"
+                                >
+                                  <span className="truncate">{item.name}</span>
+                                  {item.category && (
+                                    <span className="text-[9px] font-black uppercase text-slate-400 ml-2 shrink-0">{item.category}</span>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {catalogServices.length === 0 && (
+                            <p className="text-[10px] font-medium text-slate-400">
+                              No inventory items found for this website — type any custom service name above.
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
@@ -2739,16 +2756,17 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                   rows={2}
                   value={serviceForm.remarks}
                   onChange={(e) => setServiceForm({ ...serviceForm, remarks: e.target.value })}
-                  placeholder="Optional compliance directives..."
+                  placeholder="Optional service notes or instructions..."
                   className="w-full bg-slate-50 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500"
                 />
               </div>
             </div>
-            <button type="submit" className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all">
-              <Plus size={14} /> Save Provisioned Service
+            <button type="submit" disabled={savingService} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all">
+              <Plus size={14} /> {savingService ? "Saving..." : "Save Provisioned Service"}
             </button>
           </form>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Field Sales GPS Visit Check-in Modal */}
@@ -2862,11 +2880,10 @@ export default function Customer360View({ customerId, websiteId, onClose }) {
                 <button
                   type="button"
                   onClick={handleToggleVoiceRecord}
-                  className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-md cursor-pointer ${
-                    isRecording
-                      ? "bg-rose-600 text-white animate-pulse shadow-rose-200 scale-105 ring-4 ring-rose-100"
-                      : "bg-purple-600 hover:bg-purple-700 text-white shadow-purple-200"
-                  }`}
+                  className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-md cursor-pointer ${isRecording
+                    ? "bg-rose-600 text-white animate-pulse shadow-rose-200 scale-105 ring-4 ring-rose-100"
+                    : "bg-purple-600 hover:bg-purple-700 text-white shadow-purple-200"
+                    }`}
                 >
                   {isRecording ? <MicOff size={24} /> : <Mic size={24} />}
                 </button>

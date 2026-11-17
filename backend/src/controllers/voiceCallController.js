@@ -7,11 +7,16 @@ import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 export const getCallLogs = asyncHandler(async (req, res) => {
   const { websiteId } = req.query;
   const query = {};
-  if (websiteId) {
-    query.websiteId = websiteId;
+  if (req.user?.role === "admin") {
+    if (websiteId) query.websiteId = websiteId;
   } else {
-    const ownedIds = await getOwnedWebsiteIds(req.user);
-    if (ownedIds && ownedIds.length > 0) {
+    const ownedIds = (await getOwnedWebsiteIds(req.user)) || [];
+    if (websiteId) {
+      if (!ownedIds.some((id) => String(id) === String(websiteId))) {
+        return res.status(403).json({ message: "Access denied to this website" });
+      }
+      query.websiteId = websiteId;
+    } else {
       query.websiteId = { $in: ownedIds };
     }
   }
@@ -27,11 +32,16 @@ export const getCallLogs = asyncHandler(async (req, res) => {
 export const getCallAnalytics = asyncHandler(async (req, res) => {
   const { websiteId } = req.query;
   const query = {};
-  if (websiteId) {
-    query.websiteId = websiteId;
+  if (req.user?.role === "admin") {
+    if (websiteId) query.websiteId = websiteId;
   } else {
-    const ownedIds = await getOwnedWebsiteIds(req.user);
-    if (ownedIds && ownedIds.length > 0) {
+    const ownedIds = (await getOwnedWebsiteIds(req.user)) || [];
+    if (websiteId) {
+      if (!ownedIds.some((id) => String(id) === String(websiteId))) {
+        return res.status(403).json({ message: "Access denied to this website" });
+      }
+      query.websiteId = websiteId;
+    } else {
       query.websiteId = { $in: ownedIds };
     }
   }

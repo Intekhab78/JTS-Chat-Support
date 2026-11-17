@@ -3,6 +3,7 @@ import { User } from "../models/User.js";
 import AppError from "../utils/AppError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { normalizeRole } from "../utils/roleUtils.js";
+import { authenticateWithDeveloperApiKey } from "../services/developerApiKeyAuthService.js";
 import jwt from "jsonwebtoken";
 
 export async function getUserFromToken(token) {
@@ -27,21 +28,33 @@ export async function getUserFromToken(token) {
 
   // Populate dynamic permissions from Role collection
   const { Role } = await import("../models/Role.js");
-  const roleDoc = await Role.findOne({ name: user.role, isActive: true });
-  if (roleDoc) {
-    user.permissions = roleDoc.permissions || [];
-  } else {
-    user.permissions = [];
-  }
+  user.permissions = await Role.resolvePermissionsForUser(user);
 
   return user;
 }
 
 export const requireAuth = asyncHandler(async (req, res, next) => {
+  const headerApiKey = req.headers["x-api-key"] || "";
+  const bearerPart = req.headers.authorization?.startsWith("Bearer ")
+    ? req.headers.authorization.split(" ")[1]
+    : "";
+  const candidateApiKey = headerApiKey.startsWith("jts_live_")
+    ? headerApiKey
+    : bearerPart.startsWith("jts_live_")
+      ? bearerPart
+      : "";
+
+  if (candidateApiKey) {
+    const { user, apiKeyDoc } = await authenticateWithDeveloperApiKey(candidateApiKey, req);
+    req.user = user;
+    req.apiKey = apiKeyDoc;
+    return next();
+  }
+
   let token = "";
 
-  if (req.headers.authorization?.startsWith("Bearer ")) {
-    token = req.headers.authorization.split(" ")[1];
+  if (bearerPart) {
+    token = bearerPart;
   } else if (req.cookies?.jwt) {
     token = req.cookies.jwt;
   } else if (req.query.token) {
@@ -68,9 +81,33 @@ export function requireRole(...roles) {
     }
 
     const effectiveRole = normalizeRole(req.user?.role);
-    if (!req.user || (!allowedRoles.includes(req.user.role) && !allowedRoles.includes(effectiveRole))) {
-      return res.status(403).json({ message: "Access denied" });
+    if (req.user && (allowedRoles.includes(req.user.role) || allowedRoles.includes(effectiveRole))) {
+      return next();
     }
-    next();
+
+    // Dynamic RBAC bridge: if this is not a Super-Admin-only route and the user was granted module permission via Role Master, allow access
+    const isAdminOnly = allowedRoles.length === 1 && allowedRoles[0] === "admin";
+    const perms = Array.isArray(req.user?.permissions) ? req.user.permissions : [];
+    if (req.user && !isAdminOnly && perms.length > 0) {
+      const url = `${req.baseUrl || ""}${req.path || ""}`.toLowerCase();
+      const hasAny = (...list) => list.some((p) => perms.includes(p));
+      const hasPrefix = (prefix) => perms.some((p) => p.startsWith(prefix));
+
+      if (
+        ((url.includes("/chat") || url.includes("/canned-responses")) && hasPrefix("chat.")) ||
+        (url.includes("/tickets") && hasPrefix("ticket.")) ||
+        (url.includes("/crm") && (hasPrefix("crm.") || hasPrefix("invoice.") || hasAny("accounts.view", "billing.view"))) ||
+        (url.includes("/inventory") && (hasPrefix("inventory.") || hasPrefix("purchase."))) ||
+        (url.includes("/procurement") && (hasPrefix("purchase.") || hasPrefix("inventory."))) ||
+        (url.includes("/analytics") && hasAny("reports.view", "accounts.view")) ||
+        (url.includes("/audit") && hasAny("audit.view")) ||
+        ((url.includes("/users") || url.includes("/departments")) && (hasAny("team.view", "chat.view", "settings.manage", "role.manage") || hasPrefix("crm.") || hasPrefix("ticket."))) ||
+        (url.includes("/roles") && hasAny("role.manage"))
+      ) {
+        return next();
+      }
+    }
+
+    return res.status(403).json({ message: "Access denied" });
   };
 }

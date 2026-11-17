@@ -35,6 +35,9 @@ const riskSchema = new mongoose.Schema(
     probability: { type: Number, min: 1, max: 5, default: 3 },
     impact: { type: Number, min: 1, max: 5, default: 3 },
     riskScore: { type: Number, default: 9, index: true },
+    residualProbability: { type: Number, min: 1, max: 5, default: null },
+    residualImpact: { type: Number, min: 1, max: 5, default: null },
+    residualRiskScore: { type: Number, default: null },
     mitigationPlan: { type: String, default: "" },
     ownerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
     status: {
@@ -44,6 +47,7 @@ const riskSchema = new mongoose.Schema(
       index: true
     },
     reviewDate: { type: Date, default: null },
+    lastReminderSentAt: { type: Date, default: null },
     resolutionDate: { type: Date, default: null },
     attachments: [riskAttachmentSchema],
     comments: [riskCommentSchema],
@@ -54,6 +58,11 @@ const riskSchema = new mongoose.Schema(
 
 riskSchema.pre("save", function (next) {
   this.riskScore = (this.probability || 3) * (this.impact || 3);
+  if (this.residualProbability != null && this.residualImpact != null) {
+    this.residualRiskScore = Number(this.residualProbability) * Number(this.residualImpact);
+  } else {
+    this.residualRiskScore = null;
+  }
   if (this.status === "closed" && !this.resolutionDate) {
     this.resolutionDate = new Date();
   }

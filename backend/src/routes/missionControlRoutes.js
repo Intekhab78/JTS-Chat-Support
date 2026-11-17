@@ -5,10 +5,11 @@ import {
   generateAiExecutiveSummary
 } from "../controllers/missionControlController.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { attachTenantSubscription, requirePlanFeature } from "../middleware/planAccess.js";
 
 const router = Router();
 
-router.use(requireAuth);
+router.use(requireAuth, attachTenantSubscription, requirePlanFeature("enterprise"));
 
 router.get("/telemetry", requireRole("admin", "client", "manager", "management"), getMissionControlTelemetry);
 router.post("/command-palette", requireRole("admin", "client", "manager"), executeCommandPaletteAction);

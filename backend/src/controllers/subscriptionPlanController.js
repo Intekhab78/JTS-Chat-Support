@@ -5,6 +5,19 @@ import { normalizeRole } from "../utils/roleUtils.js";
 
 const DEFAULT_PLANS = [
   {
+    name: "Free Starter",
+    code: "free",
+    description: "Free forever live chat and basic support widget for solo founders.",
+    monthlyPrice: 0,
+    annualPrice: 0,
+    currency: "USD",
+    currencySymbol: "$",
+    limits: { agents: 1, websites: 1 },
+    includedModules: ["service"],
+    isPopular: false,
+    isActive: true
+  },
+  {
     name: "Starter Basic Tier",
     code: "basic",
     description: "Essential live chat, help center, and basic lead capture for small businesses.",
@@ -13,7 +26,7 @@ const DEFAULT_PLANS = [
     currency: "USD",
     currencySymbol: "$",
     limits: { agents: 2, websites: 1 },
-    includedModules: ["crm", "service"],
+    includedModules: ["service", "crm", "security"],
     isPopular: false,
     isActive: true
   },
@@ -26,20 +39,20 @@ const DEFAULT_PLANS = [
     currency: "USD",
     currencySymbol: "$",
     limits: { agents: 5, websites: 3 },
-    includedModules: ["crm", "operations", "finance", "service"],
+    includedModules: ["service", "crm", "operations", "finance", "reports", "security"],
     isPopular: false,
     isActive: true
   },
   {
     name: "Pro Enterprise Tier",
     code: "pro",
-    description: "Full suite including UAE VAT Compliance, Corporate Tax, AI Workflows & BI Analytics.",
+    description: "Full suite including AI Workflows, BI Analytics, CRM & SLA Automation.",
     monthlyPrice: 349,
     annualPrice: 3490,
     currency: "USD",
     currencySymbol: "$",
     limits: { agents: 10, websites: 10 },
-    includedModules: ["crm", "operations", "finance", "compliance", "service", "automation"],
+    includedModules: ["service", "crm", "operations", "finance", "automation", "reports", "security"],
     isPopular: true,
     isActive: true
   },
@@ -52,7 +65,7 @@ const DEFAULT_PLANS = [
     currency: "USD",
     currencySymbol: "$",
     limits: { agents: 50, websites: 25 },
-    includedModules: ["crm", "operations", "finance", "compliance", "service", "automation"],
+    includedModules: ["service", "crm", "operations", "finance", "automation", "reports", "security", "enterprise"],
     isPopular: false,
     isActive: true
   }
@@ -94,7 +107,7 @@ export const createSubscriptionPlan = asyncHandler(async (req, res, next) => {
       agents: Number(agents) || 5,
       websites: Number(websites) || 2
     },
-    includedModules: Array.isArray(includedModules) ? includedModules : ["crm", "operations", "finance", "compliance", "service", "automation"],
+    includedModules: Array.isArray(includedModules) ? includedModules : ["service", "crm", "operations", "finance", "automation", "reports", "security"],
     isPopular: !!isPopular,
     isActive: true
   });

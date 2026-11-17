@@ -164,3 +164,61 @@ export const revokeSession = asyncHandler(async (req, res) => {
 
   res.json({ message: "Session revoked successfully" });
 });
+
+export const updateFeatureFlag = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const flag = await FeatureFlag.findById(req.params.id);
+  if (!flag) throw new AppError("Feature flag not found", 404);
+  if (!ownedWebsiteIds.map((id) => id.toString()).includes(String(flag.websiteId))) {
+    throw new AppError("Unauthorized access", 403);
+  }
+  const { name, description, targetType, isEnabled } = req.body;
+  if (name !== undefined) flag.name = name;
+  if (description !== undefined) flag.description = description;
+  if (targetType !== undefined) flag.targetType = targetType;
+  if (isEnabled !== undefined) flag.isEnabled = Boolean(isEnabled);
+  await flag.save();
+  res.json(flag);
+});
+
+export const deleteFeatureFlag = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_DELETE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const flag = await FeatureFlag.findById(req.params.id);
+  if (!flag) throw new AppError("Feature flag not found", 404);
+  if (!ownedWebsiteIds.map((id) => id.toString()).includes(String(flag.websiteId))) {
+    throw new AppError("Unauthorized access", 403);
+  }
+  await flag.deleteOne();
+  res.json({ message: "Feature flag deleted" });
+});
+
+export const updateCustomField = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const field = await CustomFieldDefinition.findById(req.params.id);
+  if (!field) throw new AppError("Custom field not found", 404);
+  if (!ownedWebsiteIds.map((id) => id.toString()).includes(String(field.websiteId))) {
+    throw new AppError("Unauthorized access", 403);
+  }
+  const { entityName, fieldName, fieldType, isRequired } = req.body;
+  if (entityName !== undefined) field.entityName = entityName;
+  if (fieldName !== undefined) field.fieldName = fieldName;
+  if (fieldType !== undefined) field.fieldType = fieldType;
+  if (isRequired !== undefined) field.isRequired = Boolean(isRequired);
+  await field.save();
+  res.json(field);
+});
+
+export const deleteCustomField = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_DELETE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const field = await CustomFieldDefinition.findById(req.params.id);
+  if (!field) throw new AppError("Custom field not found", 404);
+  if (!ownedWebsiteIds.map((id) => id.toString()).includes(String(field.websiteId))) {
+    throw new AppError("Unauthorized access", 403);
+  }
+  await field.deleteOne();
+  res.json({ message: "Custom field deleted" });
+});

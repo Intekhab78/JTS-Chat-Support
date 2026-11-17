@@ -6,6 +6,7 @@ import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import { createAndEmitCrmNotification } from "../utils/crmUtils.js";
 import { logCrmActivity } from "../services/activityLoggerService.js";
+import { escapeRegex } from "../utils/regexUtils.js";
 
 /**
  * 1. List Customer Documents API
@@ -24,6 +25,10 @@ export const getCustomerDocuments = asyncHandler(async (req, res) => {
   if (!customer) {
     throw new AppError("Customer not found", 404);
   }
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!ownedWebsiteIds.map(id => id.toString()).includes(String(customer.websiteId))) {
+    throw new AppError("Unauthorized access to this customer's documents", 403);
+  }
 
   const query = {
     customer: customerId,
@@ -34,9 +39,9 @@ export const getCustomerDocuments = asyncHandler(async (req, res) => {
   if (status) query.status = status;
   if (search) {
     query.$or = [
-      { documentName: new RegExp(search, "i") },
-      { filename: new RegExp(search, "i") },
-      { description: new RegExp(search, "i") }
+      { documentName: new RegExp(escapeRegex(search), "i") },
+      { filename: new RegExp(escapeRegex(search), "i") },
+      { description: new RegExp(escapeRegex(search), "i") }
     ];
   }
 
@@ -67,6 +72,10 @@ export const uploadCustomerDocument = asyncHandler(async (req, res) => {
   const customer = await Customer.findById(customerId);
   if (!customer) {
     throw new AppError("Customer not found", 404);
+  }
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!ownedWebsiteIds.map(id => id.toString()).includes(String(customer.websiteId))) {
+    throw new AppError("Unauthorized access to this customer's documents", 403);
   }
 
   const resolvedName = documentName || name || filename || "Untitled Document";
@@ -114,10 +123,10 @@ export const uploadCustomerDocument = asyncHandler(async (req, res) => {
   });
 
   await logCrmActivity({
-    customer: customer._id,
-    user: req.user._id,
-    userName: req.user.name,
-    eventType: "document_uploaded",
+    websiteId: customer.websiteId,
+    type: "note",
+    customerId: customer._id,
+    ownerId: req.user._id,
     title: `Document Uploaded: ${doc.documentName}`,
     description: `Category: ${doc.category}. Version 1.0 uploaded.`
   });
@@ -137,6 +146,11 @@ export const replaceDocumentVersion = asyncHandler(async (req, res) => {
   const doc = await CustomerDocument.findById(documentId);
   if (!doc) {
     throw new AppError("Document not found", 404);
+  }
+  const docWebsiteId = doc.websiteId || (await Customer.findById(doc.customer).select("websiteId"))?.websiteId;
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!docWebsiteId || !ownedWebsiteIds.map(id => id.toString()).includes(String(docWebsiteId))) {
+    throw new AppError("Unauthorized access to this document", 403);
   }
 
   // Preserve previous version in version history
@@ -175,6 +189,11 @@ export const updateDocumentMetadata = asyncHandler(async (req, res) => {
   if (!doc) {
     throw new AppError("Document not found", 404);
   }
+  const docWebsiteId = doc.websiteId || (await Customer.findById(doc.customer).select("websiteId"))?.websiteId;
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!docWebsiteId || !ownedWebsiteIds.map(id => id.toString()).includes(String(docWebsiteId))) {
+    throw new AppError("Unauthorized access to this document", 403);
+  }
 
   if (documentName) doc.documentName = documentName;
   if (category) doc.category = category;
@@ -196,6 +215,11 @@ export const deleteCustomerDocument = asyncHandler(async (req, res) => {
   const doc = await CustomerDocument.findById(documentId);
   if (!doc) {
     throw new AppError("Document not found", 404);
+  }
+  const docWebsiteId = doc.websiteId || (await Customer.findById(doc.customer).select("websiteId"))?.websiteId;
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!docWebsiteId || !ownedWebsiteIds.map(id => id.toString()).includes(String(docWebsiteId))) {
+    throw new AppError("Unauthorized access to this document", 403);
   }
 
   doc.archivedAt = new Date();

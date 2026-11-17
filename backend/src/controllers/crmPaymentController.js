@@ -9,6 +9,7 @@ import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
 import { logCrmActivity } from "../services/activityLoggerService.js";
 import { PaymentGatewayManager } from "../services/paymentGateway.js";
 import { advancePurchaseWorkflow } from "../services/purchaseWorkflowService.js";
+import { emitIntegrationEvent } from "../services/integrationWebhookService.js";
 
 export const listPayments = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_VIEW);
@@ -40,7 +41,7 @@ export const listPayments = asyncHandler(async (req, res) => {
 
 export const createPayment = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_CREATE);
-  const { websiteId, invoiceId, customerId, amount, gateway, paymentMethod, referenceNumber } = req.body;
+  const { websiteId, invoiceId, customerId, amount, gateway, paymentMethod, referenceNumber, transactionId, paymentDate, notes } = req.body;
 
   const numericAmount = Number(amount);
   if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
@@ -64,13 +65,17 @@ export const createPayment = asyncHandler(async (req, res) => {
     invoiceId,
     customerId: customerId || invoice.customerId,
     amount: numericAmount,
+    paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
     gateway: gateway || "cash",
     paymentMethod: paymentMethod || "cash",
-    referenceNumber,
+    referenceNumber: referenceNumber || transactionId || "",
+    transactionId: transactionId || referenceNumber || "",
+    notes: notes || "",
     status: "completed"
   });
 
   // Calculate allocation
+  const prevInvoiceStatus = invoice.status;
   invoice.paidAmount = Number(invoice.paidAmount || 0) + numericAmount;
   if (invoice.paidAmount >= Number(invoice.total || 0)) {
     invoice.status = "paid";
@@ -78,6 +83,22 @@ export const createPayment = asyncHandler(async (req, res) => {
     invoice.status = "partially_paid";
   }
   await invoice.save();
+
+  if (prevInvoiceStatus !== "paid" && invoice.status === "paid") {
+    void emitIntegrationEvent({
+      eventType: "invoice.paid",
+      websiteId: invoice.websiteId || null,
+      ownerId: req.user?._id || null,
+      payload: {
+        id: invoice._id,
+        invoiceId: invoice.invoiceId,
+        customerId: invoice.customerId,
+        total: invoice.total,
+        paidAmount: invoice.paidAmount,
+        status: "paid"
+      }
+    });
+  }
 
   if (invoice.status === "paid") {
     try {
@@ -180,4 +201,32 @@ export const refundPayment = asyncHandler(async (req, res) => {
   });
 
   res.json({ success: true, payment });
+});
+
+export const deletePayment = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_DELETE);
+  const payment = await Payment.findById(req.params.id);
+  if (!payment) throw new AppError("Payment log not found", 404);
+
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!ownedWebsiteIds.map((id) => id.toString()).includes(payment.websiteId.toString())) {
+    throw new AppError("Unauthorized access", 403);
+  }
+
+  if (payment.status !== "refunded" && payment.invoiceId) {
+    const invoice = await Invoice.findById(payment.invoiceId);
+    if (invoice) {
+      invoice.paidAmount = Math.max(0, Number(invoice.paidAmount || 0) - Number(payment.amount || 0));
+      invoice.status =
+        invoice.paidAmount >= Number(invoice.total || 0)
+          ? "paid"
+          : invoice.paidAmount > 0
+          ? "partially_paid"
+          : "pending";
+      await invoice.save();
+    }
+  }
+
+  await payment.deleteOne();
+  res.json({ success: true, message: "Payment voided and deleted" });
 });

@@ -24,16 +24,16 @@ const PRESET_STATEMENTS = [
     text: "Hello, I am calling regarding my PRO Express Visa Application for Dubai. Has the visa stamping completed?"
   },
   {
-    title: "VAT Invoice Query",
-    text: "Hi, I need assistance with our VAT invoice reconciliation for the current tax quarter."
+    title: "Billing & Subscription Query",
+    text: "Hi, I need assistance with our invoice reconciliation and upgrading our user plan for the next cycle."
   },
   {
     title: "Refund Status",
     text: "Can you please check the status of my refund ticket TCK-9021?"
   },
   {
-    title: "Trade License Renewal",
-    text: "Good day, what are the pending municipality approvals required for our Mainland Trade License renewal?"
+    title: "Technical Integration Support",
+    text: "Good day, what are the webhook configuration requirements for connecting the chat widget to our mobile app?"
   }
 ];
 
@@ -229,61 +229,58 @@ export default function VoiceCallLogsTab({ websiteId }) {
     <div className="space-y-2.5 animate-in fade-in duration-300">
       
       {/* ── Compact Executive Telephony Header ── */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 px-3.5 py-2.5 sm:px-4 sm:py-3 text-white border border-indigo-500/20 shadow-sm">
-        <div className="absolute top-0 right-0 -mt-6 -mr-6 w-36 h-36 rounded-full bg-indigo-500/10 blur-xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/4 -mb-6 w-44 h-44 rounded-full bg-violet-500/10 blur-xl pointer-events-none" />
-
+      <div className="relative overflow-hidden rounded-xl bg-white px-3.5 py-2.5 sm:px-4 sm:py-3 text-slate-900 border border-slate-200/80 shadow-xs">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
           <div className="space-y-0.5">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-300 text-[8px] font-black uppercase tracking-wider rounded border border-emerald-500/30 inline-flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live Telephony IVR
+              <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 text-[8px] font-black uppercase tracking-wider rounded border border-emerald-200/70 inline-flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live Telephony IVR
               </span>
-              <span className="px-1.5 py-0.5 bg-indigo-500/20 text-indigo-300 text-[8px] font-bold rounded border border-indigo-500/30 flex items-center gap-1">
+              <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-700 text-[8px] font-bold rounded border border-indigo-200/70 flex items-center gap-1">
                 <Radio size={9} /> SIP Routing
               </span>
-              <span className="text-[10px] text-slate-400 font-semibold hidden sm:inline">
-                Voice Persona: <strong className="text-white">{activeVoiceObj.name}</strong> ({activeVoiceObj.lang})
+              <span className="text-[10px] text-slate-500 font-semibold hidden sm:inline">
+                Voice Persona: <strong className="text-slate-900">{activeVoiceObj.name}</strong> ({activeVoiceObj.lang})
               </span>
             </div>
-            <h2 className="text-sm sm:text-base font-black tracking-tight text-white flex items-center gap-1.5">
+            <h2 className="text-sm sm:text-base font-black tracking-tight text-slate-900 flex items-center gap-1.5">
               <span>AI Telephone Voice Agent & Call Vault</span>
             </h2>
-            <p className="text-[10.5px] text-slate-300 font-normal leading-tight line-clamp-1">
+            <p className="text-[10.5px] text-slate-500 font-normal leading-tight line-clamp-1">
               Real-time speech synthesis, inbound SIP routing, caller intent comprehension & automatic CRM ticketing.
             </p>
           </div>
 
           <div className="flex items-center gap-2 shrink-0 flex-wrap">
             {/* Inline Quick KPI Pods */}
-            <div className="flex items-center gap-2 bg-white/5 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/10">
+            <div className="flex items-center gap-2 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200/70">
               <div className="text-center px-1">
                 <span className="text-[7.5px] font-black text-slate-400 uppercase tracking-wider block leading-none">Calls</span>
-                <span className="text-xs font-black text-white">{totalCalls}</span>
+                <span className="text-xs font-black text-slate-900">{totalCalls}</span>
               </div>
-              <div className="w-px h-3.5 bg-white/10" />
+              <div className="w-px h-3.5 bg-slate-200" />
               <div className="text-center px-1">
-                <span className="text-[7.5px] font-black text-emerald-400 uppercase tracking-wider block leading-none">Resolution</span>
-                <span className="text-xs font-black text-emerald-300">{resolutionRate}%</span>
+                <span className="text-[7.5px] font-black text-emerald-600 uppercase tracking-wider block leading-none">Resolution</span>
+                <span className="text-xs font-black text-emerald-600">{resolutionRate}%</span>
               </div>
-              <div className="w-px h-3.5 bg-white/10" />
+              <div className="w-px h-3.5 bg-slate-200" />
               <div className="text-center px-1">
-                <span className="text-[7.5px] font-black text-indigo-300 uppercase tracking-wider block leading-none">Tickets</span>
-                <span className="text-xs font-black text-white">{totalTicketsCreated}</span>
+                <span className="text-[7.5px] font-black text-indigo-600 uppercase tracking-wider block leading-none">Tickets</span>
+                <span className="text-xs font-black text-slate-900">{totalTicketsCreated}</span>
               </div>
-              <div className="w-px h-3.5 bg-white/10" />
+              <div className="w-px h-3.5 bg-slate-200" />
               <div className="text-center px-1">
-                <span className="text-[7.5px] font-black text-amber-300 uppercase tracking-wider block leading-none">Avg Time</span>
-                <span className="text-xs font-black text-white">{avgDuration}s</span>
+                <span className="text-[7.5px] font-black text-amber-600 uppercase tracking-wider block leading-none">Avg Time</span>
+                <span className="text-xs font-black text-slate-900">{avgDuration}s</span>
               </div>
             </div>
 
             <button
               onClick={() => setShowConfigModal(true)}
-              className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 text-white font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all flex items-center gap-1 shrink-0 border border-white/10"
+              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all flex items-center gap-1 shrink-0 border border-slate-200/70 cursor-pointer"
               title="Configure SIP Webhook and Voice Persona"
             >
-              <Settings size={11} className="text-indigo-400" />
+              <Settings size={11} className="text-indigo-600" />
               <span>Settings</span>
             </button>
 
@@ -292,7 +289,7 @@ export default function VoiceCallLogsTab({ websiteId }) {
                 loadCallLogs();
                 loadAnalytics();
               }}
-              className="p-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all border border-white/10"
+              className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-all border border-slate-200/70 cursor-pointer"
               title="Refresh voice logs"
             >
               <RefreshCw size={11} className={loading ? "animate-spin" : ""} />
@@ -302,19 +299,19 @@ export default function VoiceCallLogsTab({ websiteId }) {
       </div>
 
       {/* ── Compact Live Call Speech Simulator ── */}
-      <div className="bg-slate-950 text-white rounded-xl p-3 border border-slate-800/80 shadow-xs space-y-2">
-        <div className="flex items-center justify-between gap-2 border-b border-slate-800/80 pb-1.5">
+      <div className="bg-white text-slate-900 rounded-xl p-3 border border-slate-200/80 shadow-xs space-y-2">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-1.5">
           <div className="flex items-center gap-1.5">
-            <Mic size={13} className="text-indigo-400" />
-            <h4 className="text-[11px] font-black uppercase tracking-wider text-white">Live Call Speech Simulator</h4>
-            <span className="px-1.5 py-0.2 bg-indigo-500/20 text-indigo-300 text-[8px] font-bold rounded">Console</span>
+            <Mic size={13} className="text-indigo-600" />
+            <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-900">Live Call Speech Simulator</h4>
+            <span className="px-1.5 py-0.2 bg-indigo-50 text-indigo-700 border border-indigo-100 text-[8px] font-bold rounded">Console</span>
           </div>
-          <div className="flex items-center gap-1.5 text-[9px] text-slate-400">
+          <div className="flex items-center gap-1.5 text-[9px] text-slate-500">
             <span>Voice Engine:</span>
             <select
               value={selectedVoice}
               onChange={(e) => setSelectedVoice(e.target.value)}
-              className="bg-slate-900 border border-slate-800 rounded px-1.5 py-0.5 text-[9px] font-bold text-indigo-300 outline-none cursor-pointer"
+              className="bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5 text-[9px] font-bold text-indigo-700 outline-none cursor-pointer"
             >
               {AI_VOICES.map(v => (
                 <option key={v.id} value={v.id}>{v.name} ({v.lang})</option>
@@ -326,26 +323,26 @@ export default function VoiceCallLogsTab({ websiteId }) {
         {/* Input Row */}
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
           <div className="sm:col-span-3">
-            <label className="text-[8px] font-black uppercase tracking-wider text-slate-400 block mb-0.5">Caller Phone</label>
+            <label className="text-[8px] font-black uppercase tracking-wider text-slate-500 block mb-0.5">Caller Phone</label>
             <div className="relative">
-              <PhoneIncoming className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500" size={11} />
+              <PhoneIncoming className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={11} />
               <input
                 type="text"
                 value={callerNumber}
                 onChange={(e) => setCallerNumber(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-6 pr-2 py-1 text-xs font-bold text-white outline-none focus:border-indigo-500 transition-colors"
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-6 pr-2 py-1 text-xs font-bold text-slate-900 outline-none focus:border-indigo-500 focus:bg-white transition-colors"
                 placeholder="+971 50..."
               />
             </div>
           </div>
 
           <div className="sm:col-span-7">
-            <label className="text-[8px] font-black uppercase tracking-wider text-slate-400 block mb-0.5">Caller Spoken Statement</label>
+            <label className="text-[8px] font-black uppercase tracking-wider text-slate-500 block mb-0.5">Caller Spoken Statement</label>
             <input
               type="text"
               value={testTranscript}
               onChange={(e) => setTestTranscript(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs font-medium text-white outline-none focus:border-indigo-500 transition-colors"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-medium text-slate-900 outline-none focus:border-indigo-500 focus:bg-white transition-colors"
               placeholder="e.g. Has my UAE visa stamping completed?"
             />
           </div>
@@ -369,10 +366,10 @@ export default function VoiceCallLogsTab({ websiteId }) {
             <button
               key={idx}
               onClick={() => setTestTranscript(preset.text)}
-              className="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800/90 text-[9.5px] text-slate-300 transition-colors flex items-center gap-1"
+              className="px-2 py-0.5 rounded bg-slate-50 hover:bg-slate-100 border border-slate-200 text-[9.5px] text-slate-700 transition-colors flex items-center gap-1"
               title={preset.text}
             >
-              <Sparkles size={8} className="text-indigo-400 shrink-0" />
+              <Sparkles size={8} className="text-indigo-500 shrink-0" />
               <span className="font-semibold">{preset.title}</span>
             </button>
           ))}
@@ -380,22 +377,22 @@ export default function VoiceCallLogsTab({ websiteId }) {
 
         {/* Live Audio Feedback Card */}
         {aiSpokenResponse && (
-          <div className="p-2.5 rounded-lg bg-slate-900 border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2 animate-in fade-in">
+          <div className="p-2.5 rounded-lg bg-emerald-50/70 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 animate-in fade-in">
             <div className="space-y-0.5 min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                <span className="text-[8.5px] font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1">
+                <span className="text-[8.5px] font-black uppercase tracking-wider text-emerald-700 flex items-center gap-1">
                   <Volume2 size={11} /> AI Voice Audio Response:
                 </span>
                 {playingCallId === "simulated" && (
                   <div className="flex items-center gap-0.5 h-2.5">
-                    <span className="w-0.5 bg-emerald-400 rounded-full animate-[bounce_0.6s_infinite_100ms] h-full" />
-                    <span className="w-0.5 bg-emerald-300 rounded-full animate-[bounce_0.6s_infinite_200ms] h-1.5" />
-                    <span className="w-0.5 bg-emerald-400 rounded-full animate-[bounce_0.6s_infinite_300ms] h-2.5" />
-                    <span className="w-0.5 bg-emerald-500 rounded-full animate-[bounce_0.6s_infinite_150ms] h-2" />
+                    <span className="w-0.5 bg-emerald-500 rounded-full animate-[bounce_0.6s_infinite_100ms] h-full" />
+                    <span className="w-0.5 bg-emerald-400 rounded-full animate-[bounce_0.6s_infinite_200ms] h-1.5" />
+                    <span className="w-0.5 bg-emerald-500 rounded-full animate-[bounce_0.6s_infinite_300ms] h-2.5" />
+                    <span className="w-0.5 bg-emerald-600 rounded-full animate-[bounce_0.6s_infinite_150ms] h-2" />
                   </div>
                 )}
               </div>
-              <p className="text-[11px] text-slate-200 italic font-medium leading-snug">
+              <p className="text-[11px] text-slate-700 italic font-medium leading-snug">
                 "{aiSpokenResponse}"
               </p>
             </div>

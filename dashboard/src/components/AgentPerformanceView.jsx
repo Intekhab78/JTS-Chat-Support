@@ -1,4 +1,5 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { 
   ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, 
   AreaChart, Area, PieChart, Pie, Cell 
@@ -39,6 +40,7 @@ function AnimatedCounter({ value, duration = 800 }) {
 }
 
 export default function AgentPerformanceView() {
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -89,44 +91,54 @@ export default function AgentPerformanceView() {
     );
   }
 
-  const { totals = {}, feedback = {}, sla = {}, trends = {}, recentActivity = [] } = data || {};
-  const satisfactionRate = feedback.satisfactionRate || 100;
-  const grade = satisfactionRate >= 90 ? "A+ EXCELLENT" : satisfactionRate >= 75 ? "B+ GREAT" : "C AVERAGE";
+  const { totals = {}, feedback = {}, sla = {}, trends = {}, recentActivity = [], pendingTickets = [], recentFeedback = [] } = data || {};
+  const hasFeedback = (feedback.totalFeedback || 0) > 0;
+  const satisfactionRate = hasFeedback ? feedback.satisfactionRate : 0;
+  const grade = !hasFeedback
+    ? "NEW / PENDING"
+    : satisfactionRate >= 90
+      ? "A+ EXCELLENT"
+      : satisfactionRate >= 75
+        ? "B+ GREAT"
+        : "C NEEDS FOCUS";
 
-  const pieData = [
-    { name: 'Satisfied', value: feedback.satisfiedChats || 1 },
-    { name: 'Unsatisfied', value: feedback.unsatisfiedChats || 0 }
-  ].filter(d => d.value > 0);
+  const todayChats = totals.todayChats || 0;
+  const dailyTarget = totals.dailyTarget || 10;
+  const targetPercent = Math.min(100, Math.round((todayChats / Math.max(1, dailyTarget)) * 100));
+
+  const pieData = hasFeedback
+    ? [
+        { name: "Satisfied", value: feedback.satisfiedChats || 0 },
+        { name: "Unsatisfied", value: feedback.unsatisfiedChats || 0 }
+      ].filter((d) => d.value > 0)
+    : [{ name: "No Ratings", value: 1 }];
 
   return (
     <div className="space-y-3.5 animate-in fade-in duration-500">
       
       {/* ── Compact Executive Performance Header Banner ── */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 px-4 py-3.5 sm:px-5 sm:py-4 text-white border border-indigo-500/20 shadow-md">
-        <div className="absolute top-0 right-0 -mt-6 -mr-6 w-48 h-48 rounded-full bg-indigo-500/10 blur-2xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 -mb-8 w-60 h-60 rounded-full bg-violet-500/10 blur-2xl pointer-events-none" />
-
+      <div className="relative overflow-hidden rounded-2xl bg-white px-4 py-3.5 sm:px-5 sm:py-4 text-slate-900 border border-slate-200/80 shadow-xs">
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div className="space-y-1 max-w-xl">
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 text-[9px] font-black uppercase tracking-wider rounded-md border border-emerald-500/30 inline-flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live Telemetry
+              <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[9px] font-black uppercase tracking-wider rounded-md border border-emerald-200/70 inline-flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live Telemetry
               </span>
-              <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 text-[9px] font-black uppercase tracking-wider rounded-md border border-indigo-500/30">
+              <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[9px] font-black uppercase tracking-wider rounded-md border border-indigo-200/70">
                 Grade: {grade}
               </span>
             </div>
-            <h2 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
+            <h2 className="text-base sm:text-lg font-black tracking-tight text-slate-900 flex items-center gap-2">
               Agent Command Center & Performance Hub
             </h2>
-            <p className="text-[11px] text-slate-300 font-medium leading-normal">
+            <p className="text-[11px] text-slate-500 font-medium leading-normal">
               Global operational intelligence, CSAT rating, response speed benchmarks & real-time activity stream.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Range Toggle */}
-            <div className="flex bg-white/10 p-1 rounded-xl border border-white/10 text-xs">
+            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200/70 text-xs">
               {[
                 { label: "7D", value: "7" },
                 { label: "30D", value: "30" },
@@ -135,10 +147,10 @@ export default function AgentPerformanceView() {
                 <button
                   key={r.value}
                   onClick={() => setRange(r.value)}
-                  className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
+                  className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
                     range === r.value 
                       ? "bg-indigo-600 text-white shadow-xs" 
-                      : "text-slate-300 hover:text-white"
+                      : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
                   {r.label}
@@ -147,18 +159,18 @@ export default function AgentPerformanceView() {
             </div>
 
             {/* Team Rank Pill */}
-            <div className="flex items-center gap-1.5 bg-white/5 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10">
-              <Trophy size={13} className="text-amber-400" />
+            <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/70">
+              <Trophy size={13} className="text-amber-500" />
               <div className="px-1 text-center">
                 <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block leading-none mb-0.5">Team Rank</span>
-                <span className="text-xs font-black text-white">#{totals.rank || 1} of {totals.totalAgents || 1}</span>
+                <span className="text-xs font-black text-slate-900">#{totals.rank || 1} of {totals.totalAgents || 1}</span>
               </div>
             </div>
 
             <button
               onClick={() => fetchPerformance(true)}
               disabled={refreshing}
-              className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-all"
+              className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all cursor-pointer"
               title="Refresh telemetry"
             >
               <RefreshCcw size={13} className={refreshing ? "animate-spin" : ""} />
@@ -366,9 +378,11 @@ export default function AgentPerformanceView() {
         <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-xs space-y-3">
           <div className="flex items-center justify-between">
             <h5 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-              <Star size={13} className="text-amber-500" /> CSAT Satisfaction Distribution
+              <Star size={13} className="text-amber-500" /> CSAT &amp; Star Rating
             </h5>
-            <span className="text-[10px] font-black text-emerald-600">{satisfactionRate}% Positive</span>
+            <span className="text-[10px] font-black text-emerald-600">
+              {feedback.ratingCount > 0 ? `★ ${feedback.avgRating} (${feedback.ratingCount})` : hasFeedback ? `${satisfactionRate}% Positive` : "No Ratings Yet"}
+            </span>
           </div>
 
           <div className="flex items-center gap-3">
@@ -377,7 +391,7 @@ export default function AgentPerformanceView() {
                 <PieChart>
                   <Pie data={pieData} dataKey="value" innerRadius={18} outerRadius={28} paddingAngle={4}>
                     {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell key={`cell-${index}`} fill={hasFeedback ? COLORS[index % COLORS.length] : "#e2e8f0"} />
                     ))}
                   </Pie>
                 </PieChart>
@@ -386,7 +400,7 @@ export default function AgentPerformanceView() {
             <div className="space-y-1 text-[11px] font-bold text-slate-600 dark:text-slate-300">
               <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span>Satisfied Interactions ({feedback.satisfiedChats || 1})</span>
+                <span>Satisfied Interactions ({feedback.satisfiedChats || 0})</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-indigo-500" />
@@ -396,27 +410,135 @@ export default function AgentPerformanceView() {
           </div>
         </div>
 
-        {/* Shift Goal Completion */}
+        {/* Shift Goal Completion (Dynamic) */}
         <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-xs space-y-3">
           <div className="flex items-center justify-between">
             <h5 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-              <Target size={13} className="text-indigo-600" /> Active Shift Quota & Target
+              <Target size={13} className="text-indigo-600" /> Today&apos;s Shift Quota
             </h5>
-            <span className="text-[10px] font-black text-indigo-600">On Track</span>
+            <span className={`text-[10px] font-black ${targetPercent >= 100 ? "text-emerald-600" : "text-indigo-600"}`}>
+              {targetPercent >= 100 ? "Target Achieved" : `${targetPercent}% Done`}
+            </span>
           </div>
 
           <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-white/5 space-y-1.5">
             <div className="flex justify-between text-[10px] font-black text-slate-500">
-              <span>Shift Target Progress</span>
-              <span className="text-slate-900 dark:text-white">8 / 10 Sessions</span>
+              <span>Today&apos;s Sessions</span>
+              <span className="text-slate-900 dark:text-white">{todayChats} / {dailyTarget} Sessions</span>
             </div>
             <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-full" style={{ width: '80%' }} />
+              <div
+                className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-full transition-all duration-500"
+                style={{ width: `${targetPercent}%` }}
+              />
             </div>
-            <span className="text-[9px] text-slate-400 font-bold block pt-0.5">80% of daily target achieved</span>
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-[9px] text-slate-400 font-bold">
+                {totals.liveSessions || 0} live chats &middot; {totals.openTickets || 0} open tickets
+              </span>
+              <button
+                type="button"
+                onClick={() => navigate("/agent?tab=chats")}
+                className="text-[10px] font-black text-indigo-600 hover:underline cursor-pointer"
+              >
+                Open Queue &rarr;
+              </button>
+            </div>
           </div>
         </div>
 
+      </div>
+
+      {/* ── Pending Tickets & Recent Visitor Feedback ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+        {/* My Pending Tickets */}
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-xs space-y-3">
+          <div className="flex items-center justify-between">
+            <h5 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+              <CheckCircle2 size={13} className="text-indigo-600" /> My Pending Tickets
+            </h5>
+            <button
+              type="button"
+              onClick={() => navigate("/agent?tab=tickets")}
+              className="text-[10px] font-black text-indigo-600 hover:underline cursor-pointer"
+            >
+              View All &rarr;
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {pendingTickets.length > 0 ? (
+              pendingTickets.map((t) => (
+                <button
+                  key={t._id || t.ticketId}
+                  type="button"
+                  onClick={() => navigate("/agent?tab=tickets")}
+                  className="w-full text-left flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 hover:bg-indigo-50/60 dark:hover:bg-slate-800 border border-slate-100 dark:border-white/5 transition-colors cursor-pointer"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{t.subject}</p>
+                    <p className="text-[10px] text-slate-400 font-medium truncate">
+                      {t.ticketId} &middot; {t.visitorName}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+                      t.priority === "urgent" || t.priority === "high"
+                        ? "bg-rose-50 text-rose-600 border border-rose-200/70"
+                        : "bg-amber-50 text-amber-700 border border-amber-200/70"
+                    }`}>
+                      {t.priority}
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200 text-[9px] font-bold uppercase">
+                      {t.status}
+                    </span>
+                  </div>
+                </button>
+              ))
+            ) : (
+              <div className="py-6 text-center text-[11px] font-bold text-slate-400">
+                No pending tickets assigned right now.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Recent Visitor Feedback */}
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-xs space-y-3">
+          <div className="flex items-center justify-between">
+            <h5 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+              <Star size={13} className="text-amber-500" /> Recent Visitor Feedback
+            </h5>
+            <span className="text-[10px] font-bold text-slate-400">
+              {feedback.ratingCount > 0 ? `${feedback.ratingCount} total ratings` : "Latest CSAT"}
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            {recentFeedback.length > 0 ? (
+              recentFeedback.map((fb) => (
+                <div
+                  key={fb.sessionId}
+                  className="p-2.5 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-100 dark:border-white/5 space-y-1"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-900 dark:text-white truncate">{fb.visitorName}</span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200/70 text-[10px] font-black shrink-0">
+                      &#9733; {fb.rating}/5
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-300 line-clamp-2">
+                    {fb.comment || "Rated without written comment."}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <div className="py-6 text-center text-[11px] font-bold text-slate-400">
+                No visitor star ratings recorded yet.
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
     </div>

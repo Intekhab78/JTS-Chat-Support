@@ -16,6 +16,7 @@ import {
   awardRFQ
 } from "../controllers/rfqController.js";
 import { attachTenantSubscription, requirePlanFeature } from "../middleware/planAccess.js";
+import { PERMISSIONS, requireAnyPermission } from "../utils/permissions.js";
 
 const router = express.Router();
 
@@ -32,15 +33,19 @@ router.use(
   requirePlanFeature("procurement")
 );
 
-router.get("/stats", getProcurementStats);
-router.route("/suppliers").get(getSuppliers).post(createSupplier);
-router.get("/orders", getPurchaseOrders);
-router.get("/orders/:id/pdf", downloadPurchaseOrderPDF);
-router.post("/orders", createPurchaseOrder);
-router.patch("/orders/:id", updatePurchaseOrder);
+const requirePurchaseView = requireAnyPermission(PERMISSIONS.PURCHASE_VIEW, PERMISSIONS.PURCHASE_MANAGE, PERMISSIONS.ACCOUNTS_VIEW);
+const requirePurchaseCreate = requireAnyPermission(PERMISSIONS.PURCHASE_CREATE, PERMISSIONS.PURCHASE_MANAGE);
+const requirePurchaseUpdate = requireAnyPermission(PERMISSIONS.PURCHASE_UPDATE, PERMISSIONS.PURCHASE_MANAGE);
+
+router.get("/stats", requirePurchaseView, getProcurementStats);
+router.route("/suppliers").get(requirePurchaseView, getSuppliers).post(requirePurchaseCreate, createSupplier);
+router.get("/orders", requirePurchaseView, getPurchaseOrders);
+router.get("/orders/:id/pdf", requirePurchaseView, downloadPurchaseOrderPDF);
+router.post("/orders", requirePurchaseCreate, createPurchaseOrder);
+router.patch("/orders/:id", requirePurchaseUpdate, updatePurchaseOrder);
 
 // RFQ Management
-router.post("/rfqs", createRFQ);
-router.post("/rfqs/:id/award", awardRFQ);
+router.post("/rfqs", requirePurchaseCreate, createRFQ);
+router.post("/rfqs/:id/award", requirePurchaseUpdate, awardRFQ);
 
 export default router;

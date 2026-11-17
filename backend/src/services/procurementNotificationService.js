@@ -7,6 +7,7 @@ import { getSocketServer } from "../sockets/index.js";
 import { sendEmail, getEmailTemplate } from "./emailService.js";
 import { generatePurchaseOrderPDF } from "./pdfService.js";
 import { Supplier } from "../models/Supplier.js";
+import { env } from "../config/env.js";
 
 /**
  * Creates a notification and emits a socket event
@@ -35,7 +36,7 @@ async function notifyUser(recipientId, data, emailOptions = null) {
           emailOptions.title || data.title,
           emailOptions.message || data.message,
           emailOptions.buttonText || "View in Dashboard",
-          emailOptions.buttonUrl || `http://localhost:5173${data.link}` // Default frontend URL
+          emailOptions.buttonUrl || `${env.clientUrl}${data.link}` // Default frontend URL
         ),
         attachments: emailOptions.attachments || []
       });
@@ -43,6 +44,20 @@ async function notifyUser(recipientId, data, emailOptions = null) {
   }
 
   return notification;
+}
+
+/**
+ * Check if a notification of the same type for the same entity was already sent recently
+ */
+async function wasRecentlyNotified(recipientId, entityId, type, cooldownHours = 24) {
+  const cutoff = new Date(Date.now() - cooldownHours * 60 * 60 * 1000);
+  const existing = await Notification.exists({
+    recipient: recipientId,
+    type,
+    entityId: String(entityId),
+    createdAt: { $gte: cutoff }
+  });
+  return Boolean(existing);
 }
 
 /**
@@ -57,29 +72,35 @@ export async function checkAndNotifyLowStock(itemId) {
       const website = item.websiteId;
       const message = `Item "${item.name}" (SKU: ${item.sku}) has reached its reorder level (${item.reorderLevel}). Current quantity: ${item.quantity}.`;
       
-      // Notify the manager
+      // Notify the manager (max once per 24h per item)
       if (website.managerId) {
-        await notifyUser(website.managerId, {
-          type: "inventory_low_stock",
-          title: "Low Stock Alert",
-          message,
-          link: `/purchase?tab=procurement`,
-          entityType: "inventory_item",
-          entityId: item._id
-        });
+        const alreadySent = await wasRecentlyNotified(website.managerId, item._id, "inventory_low_stock", 24);
+        if (!alreadySent) {
+          await notifyUser(website.managerId, {
+            type: "inventory_low_stock",
+            title: "Low Stock Alert",
+            message,
+            link: `/purchase?tab=procurement`,
+            entityType: "inventory_item",
+            entityId: String(item._id)
+          });
+        }
       }
 
-      // Notify global admins
+      // Notify global admins (max once per 24h per item)
       const admins = await User.find({ role: "admin" }).select("_id");
       for (const admin of admins) {
-        await notifyUser(admin._id, {
-          type: "inventory_low_stock",
-          title: "Global Low Stock Alert",
-          message: `[${website.websiteName}] ${message}`,
-          link: `/admin?tab=crm`,
-          entityType: "inventory_item",
-          entityId: item._id
-        });
+        const alreadySent = await wasRecentlyNotified(admin._id, item._id, "inventory_low_stock", 24);
+        if (!alreadySent) {
+          await notifyUser(admin._id, {
+            type: "inventory_low_stock",
+            title: "Global Low Stock Alert",
+            message: `[${website.websiteName}] ${message}`,
+            link: `/admin?tab=crm`,
+            entityType: "inventory_item",
+            entityId: String(item._id)
+          });
+        }
       }
     }
   } catch (error) {
@@ -136,7 +157,7 @@ export async function notifyOrderStatusUpdate(order, updatedByRole) {
            subject: `New Purchase Order: #${order.poNumber}`,
            message: `A new purchase order has been issued to your company. Please find the attached PDF for details.`,
            buttonText: "Accept Order",
-           buttonUrl: `http://localhost:5173/supplier?tab=orders`,
+           buttonUrl: `${env.clientUrl}/supplier?tab=orders`,
            attachments
          });
        }

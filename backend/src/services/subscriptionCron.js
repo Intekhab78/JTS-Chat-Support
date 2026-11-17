@@ -39,7 +39,9 @@ export async function runSubscriptionBillingCron() {
           nextEnd.setMonth(nextEnd.getMonth() + 1);
         }
 
-        const price = sub.planId ? sub.planId.price : 0;
+        const seats = Math.max(1, Number(sub.seats || 1));
+        const unitPrice = sub.planId ? Number(sub.planId.price || 0) : 0;
+        const totalAmount = unitPrice * seats;
         const invoiceId = `INV-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
         const websiteDoc = sub.websiteId ? await Website.findById(sub.websiteId).select("managerId").lean() : null;
         let resolvedOwnerId = websiteDoc?.managerId || null;
@@ -48,7 +50,7 @@ export async function runSubscriptionBillingCron() {
           resolvedOwnerId = adminUser?._id || null;
         }
 
-        // Create Invoice
+        // Create pending renewal Invoice (do not mark subscription "renewed" until paid)
         if (resolvedOwnerId) {
           await Invoice.create({
             invoiceId,
@@ -57,31 +59,34 @@ export async function runSubscriptionBillingCron() {
             websiteId: sub.websiteId,
             ownerId: resolvedOwnerId,
             items: [{
-              description: `${sub.planId ? sub.planId.name : "SaaS"} Subscription - Renewal`,
-              quantity: 1,
-              price: price,
-              total: price
+              description: `${sub.planId ? sub.planId.name : "SaaS"} Subscription - Renewal (${seats} seat${seats > 1 ? "s" : ""})`,
+              quantity: seats,
+              price: unitPrice,
+              total: totalAmount
             }],
-            subtotal: price,
+            subtotal: totalAmount,
             tax: 0,
-            total: price,
-            status: "pending"
+            total: totalAmount,
+            status: "pending",
+            issuedAt: new Date()
           });
         }
 
-        // Renew subscription
+        // Advance billing window while keeping status active until renewal invoice is paid
         sub.startDate = nextStart;
         sub.endDate = nextEnd;
         sub.renewalDate = nextEnd;
-        sub.status = "renewed";
+        if (sub.status === "free_trial") {
+          sub.status = "active";
+        }
         await sub.save();
 
         // Log timeline activity
         await logCrmActivity({
           websiteId: sub.websiteId,
           type: "subscription_renewed",
-          title: `Subscription Renewed: ${sub.planId ? sub.planId.name : "SaaS"} Plan`,
-          description: `Auto-invoice ${invoiceId} generated for renewal price $${price}.`,
+          title: `Renewal Invoice Generated: ${sub.planId ? sub.planId.name : "SaaS"} Plan`,
+          description: `Auto-invoice ${invoiceId} generated for ${seats} seat(s) totaling ${totalAmount}.`,
           customerId: sub.customerId
         });
       } else {

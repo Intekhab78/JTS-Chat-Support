@@ -147,7 +147,17 @@ export const updateTicket = asyncHandler(async (req, res) => {
     }
   }
 
-  if (status) ticket.status = status;
+  if (status) {
+    ticket.status = status;
+    if ((status === "resolved" || status === "closed") && !ticket.resolvedAt) {
+      ticket.resolvedAt = new Date();
+    } else if (["open", "in_progress", "waiting", "pending"].includes(status)) {
+      ticket.resolvedAt = null;
+    }
+  }
+  if (!ticket.firstResponseAt && ((note && note.trim()) || (status && status !== "open" && prevStatus === "open"))) {
+    ticket.firstResponseAt = new Date();
+  }
   if (priority) {
     ticket.priority = priority;
     Object.assign(ticket, buildTicketSlaFields(priority, ticket.createdAt));

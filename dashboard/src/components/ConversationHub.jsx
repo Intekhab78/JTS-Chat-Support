@@ -58,6 +58,43 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [sessionToConvert, setSessionToConvert] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // -- Resizable Split Pane State --
+  const splitContainerRef = useRef(null);
+  const [listWidth, setListWidth] = useState(() => {
+    const saved = Number(localStorage.getItem("chat_list_width"));
+    return Number.isFinite(saved) && saved >= 230 && saved <= 620 ? saved : 340;
+  });
+  const [isResizing, setIsResizing] = useState(false);
+
+  useEffect(() => {
+    if (!isResizing) return;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    const handleMouseMove = (e) => {
+      const container = splitContainerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const maxW = Math.min(620, Math.floor(rect.width * 0.58));
+      const next = Math.max(230, Math.min(maxW, Math.round(e.clientX - rect.left)));
+      setListWidth(next);
+      localStorage.setItem("chat_list_width", String(next));
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizing]);
   
   // -- Bulk Selection State --
   const [selectedIds, setSelectedIds] = useState([]);
@@ -367,6 +404,16 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
     }
   };
 
+  const handleAcceptChat = async (sessionId) => {
+    try {
+      const updated = await api(`/api/chat/sessions/${sessionId}/accept`, { method: "PATCH" });
+      setSessions(prev => prev.map(s => (s.sessionId === sessionId ? { ...s, ...updated } : s)));
+      toast.success("Chat accepted and assigned to you!");
+    } catch (err) {
+      toast.error(err?.message || "Failed to accept chat");
+    }
+  };
+
   const toggleSelection = (sessionId) => {
     setSelectedIds(prev => 
       prev.includes(sessionId) ? prev.filter(id => id !== sessionId) : [...prev, sessionId]
@@ -386,28 +433,61 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
 
   return (
     <section className="relative h-full min-h-0 flex flex-col flex-1 overflow-hidden">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 h-full min-h-0 flex-1 overflow-hidden animate-in fade-in duration-300">
-        
+      <div
+        ref={splitContainerRef}
+        className="flex flex-col lg:flex-row gap-3 lg:gap-0 h-full min-h-0 flex-1 overflow-hidden animate-in fade-in duration-300"
+      >
         {/* Session List Component */}
-        <SessionList 
-          sessions={filteredSessions}
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-          selectedSessionId={selectedSessionId}
-          onSelectSession={(id) => {
-            const params = new URLSearchParams(searchParams);
-            params.set("sessionId", id);
-            setSearchParams(params);
+        <div
+          style={{ "--chat-list-w": `${listWidth}px` }}
+          className="w-full lg:w-[var(--chat-list-w)] lg:shrink-0 h-full min-h-0 flex flex-col overflow-hidden"
+        >
+          <SessionList 
+            sessions={filteredSessions}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            selectedSessionId={selectedSessionId}
+            onSelectSession={(id) => {
+              const params = new URLSearchParams(searchParams);
+              params.set("sessionId", id);
+              setSearchParams(params);
+            }}
+            selectedIds={selectedIds}
+            toggleSelection={toggleSelection}
+            extraHeader={extraHeader}
+          />
+        </div>
+
+        {/* Draggable Splitter Bar */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize conversations panel"
+          title="Drag to resize · Double-click to reset"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            setIsResizing(true);
           }}
-          selectedIds={selectedIds}
-          toggleSelection={toggleSelection}
-          extraHeader={extraHeader}
-        />
+          onDoubleClick={() => {
+            setListWidth(340);
+            localStorage.setItem("chat_list_width", "340");
+          }}
+          className="hidden lg:flex w-3 shrink-0 cursor-col-resize select-none items-center justify-center group relative z-10"
+        >
+          <div
+            className={`w-[2px] h-full rounded-full transition-colors duration-150 ${
+              isResizing
+                ? "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"
+                : "bg-transparent group-hover:bg-blue-500"
+            }`}
+          />
+        </div>
 
         {/* ChatPanel Component */}
-        <div className="lg:col-span-8 h-full min-h-0 flex flex-col overflow-hidden relative">
+        <div className="flex-1 min-w-0 h-full min-h-0 flex flex-col overflow-hidden relative">
           <ChatPanel
             session={selectedSession}
+            allSessions={sessions}
             messages={messages}
             onSend={handleSend}
             isTyping={Boolean(visitorTyping[selectedSessionId])}
@@ -421,6 +501,7 @@ export default function ConversationHub({ socket, initialSessions = [], websiteI
             viewers={sessionViewers[selectedSessionId] || []}
             typingAgent={typingAgents[selectedSessionId]}
             currentUser={currentUser}
+            onAcceptChat={handleAcceptChat}
             onTakeOver={() => socket.emit("agent:take-over-chat", { sessionId: selectedSessionId })}
             onRelease={() => socket.emit("agent:release-chat", { sessionId: selectedSessionId })}
             onRequestControl={() => socket.emit("agent:request-control", { sessionId: selectedSessionId })}

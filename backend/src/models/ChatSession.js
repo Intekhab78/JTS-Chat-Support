@@ -70,6 +70,8 @@ const chatSessionSchema = new mongoose.Schema(
     botStatus: { type: String, enum: ["idle", "in_progress", "resolved", "escalated"], default: "idle" },
     resolvedByBot: { type: Boolean, default: false },
     botMetadata: {
+      activeFlowId: { type: String, default: null },
+      currentNodeId: { type: String, default: null },
       path: [{ type: String }],
       selections: { type: mongoose.Schema.Types.Mixed, default: {} },
       formProgress: { type: mongoose.Schema.Types.Mixed, default: {} }, // { nodeId: 'started' | 'completed' }
@@ -91,5 +93,28 @@ const chatSessionSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+chatSessionSchema.pre("save", function (next) {
+  this._wasNew = this.isNew;
+  next();
+});
+
+chatSessionSchema.post("save", function (doc) {
+  if (!doc._wasNew) return;
+  import("../services/integrationWebhookService.js")
+    .then(({ emitIntegrationEvent }) =>
+      emitIntegrationEvent({
+        eventType: "chat.started",
+        websiteId: doc.websiteId || null,
+        payload: {
+          id: doc._id,
+          sessionId: doc.sessionId,
+          status: doc.status,
+          channel: doc.channel || "web"
+        }
+      })
+    )
+    .catch(() => {});
+});
 
 export const ChatSession = mongoose.model("ChatSession", chatSessionSchema);

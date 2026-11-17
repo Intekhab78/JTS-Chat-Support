@@ -1,25 +1,49 @@
 import { AuditLog } from "../models/AuditLog.js";
 import { getOwnedWebsiteIds, normalizeRole } from "../utils/roleUtils.js";
+import { escapeRegex } from "../utils/regexUtils.js";
 
 export async function listAuditLogs(req, res) {
   try {
     const filter = {};
-    const { websiteId, entityType, action, entityId } = req.query;
+    const { websiteId, entityType, action, entityId, search } = req.query;
     const role = normalizeRole(req.user.role);
 
-    if (role === "client") {
+    if (role !== "admin") {
       const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
-      filter.websiteId = { $in: ownedWebsiteIds };
-      if (websiteId && ownedWebsiteIds.some((id) => id.toString() === websiteId)) {
-        filter.websiteId = websiteId;
+      if (websiteId) {
+        const isOwned = ownedWebsiteIds.some((id) => id.toString() === String(websiteId));
+        if (!isOwned) {
+          return res.json([]);
+        }
+        filter.$or = [
+          { websiteId },
+          { websiteId: null, actorId: req.user._id },
+          { websiteId: null, userId: req.user._id }
+        ];
+      } else {
+        filter.$or = [
+          { websiteId: { $in: ownedWebsiteIds } },
+          { actorId: req.user._id },
+          { userId: req.user._id }
+        ];
       }
     } else if (websiteId) {
-      filter.websiteId = websiteId;
+      filter.$or = [
+        { websiteId },
+        { websiteId: null }
+      ];
     }
 
-    if (entityType) filter.entityType = entityType;
+    if (entityType && entityType !== "all") filter.entityType = entityType;
     if (action) filter.action = action;
     if (entityId) filter.entityId = entityId;
+    if (search && String(search).trim()) {
+      const rx = new RegExp(escapeRegex(String(search).trim()), "i");
+      filter.$and = filter.$and || [];
+      filter.$and.push({
+        $or: [{ action: rx }, { actorName: rx }, { entityType: rx }]
+      });
+    }
 
     const logs = await AuditLog.find(filter)
       .sort({ createdAt: -1 })
@@ -31,7 +55,6 @@ export async function listAuditLogs(req, res) {
       if (plainLog.metadata) {
         if (plainLog.metadata.email) plainLog.metadata.email = maskEmail(plainLog.metadata.email);
         if (plainLog.ipAddress) plainLog.ipAddress = maskIp(plainLog.ipAddress);
-        // mask other potential PII in nested fields if needed
       }
       return plainLog;
     });

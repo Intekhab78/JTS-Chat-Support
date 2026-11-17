@@ -10,7 +10,7 @@ const contactSchema = new mongoose.Schema(
     websiteId: { type: mongoose.Schema.Types.ObjectId, ref: "Website", required: true, index: true },
     companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company", default: null, index: true },
     firstName: { type: String, required: true, trim: true },
-    lastName: { type: String, required: true, trim: true },
+    lastName: { type: String, trim: true, default: "" },
     displayName: { type: String, trim: true, default: "" },
     email: { type: String, trim: true, lowercase: true, default: "", index: true },
     phones: [phoneSchema],

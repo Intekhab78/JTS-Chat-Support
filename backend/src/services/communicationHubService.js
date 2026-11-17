@@ -155,6 +155,9 @@ export const receiveIncomingMessage = async ({ websiteId, channel, from, text, p
   } else if (channel === "instagram") {
     query = { "metadata.instagramId": from };
   }
+  if (websiteId) {
+    query.websiteId = websiteId;
+  }
 
   let customer = await Customer.findOne(query);
   if (!customer) {

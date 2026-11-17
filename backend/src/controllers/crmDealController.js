@@ -95,6 +95,19 @@ export const createDeal = asyncHandler(async (req, res) => {
     req.user._id
   );
 
+  const stageLower = String(deal?.stage || "").toLowerCase();
+  if (stageLower === "closed_won" || stageLower === "won") {
+    import("../services/integrationWebhookService.js")
+      .then(({ emitIntegrationEvent }) =>
+        emitIntegrationEvent({
+          eventType: "deal.won",
+          websiteId: resolvedWebsiteId,
+          payload: { id: deal._id, title: deal.dealName, dealName: deal.dealName, dealValue: deal.dealValue, stage: deal.stage }
+        })
+      )
+      .catch(() => {});
+  }
+
   res.status(201).json(deal);
 });
 
@@ -108,6 +121,19 @@ export const updateDeal = asyncHandler(async (req, res) => {
   }
 
   const updated = await dealService.updateDeal(req.params.id, req.body, req.user._id);
+  const prevStage = String(deal?.stage || "").toLowerCase();
+  const nextStage = String(updated?.stage || "").toLowerCase();
+  if (prevStage !== nextStage && (nextStage === "closed_won" || nextStage === "won")) {
+    import("../services/integrationWebhookService.js")
+      .then(({ emitIntegrationEvent }) =>
+        emitIntegrationEvent({
+          eventType: "deal.won",
+          websiteId: updated.websiteId,
+          payload: { id: updated._id, title: updated.dealName, dealName: updated.dealName, dealValue: updated.dealValue, stage: updated.stage }
+        })
+      )
+      .catch(() => {});
+  }
   res.json(updated);
 });
 

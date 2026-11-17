@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Video, Plus, ToggleLeft, ToggleRight, Trash2, Edit2, Check, X, Link2, Star, Loader2 } from "lucide-react";
 import { api } from "../../api/client.js";
 import { useToast } from "../../context/ToastContext.jsx";
+import ConfirmModal from "../ConfirmModal.jsx";
 import { PLATFORM_ICON_OPTIONS, renderPlatformIcon } from "./platformIconHelper.jsx";
 
 export default function MeetingPlatformsManager({ websiteId }) {
@@ -11,6 +13,7 @@ export default function MeetingPlatformsManager({ websiteId }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState({ open: false, platform: null, loading: false });
 
   const emptyForm = { name: "", icon: "Video", color: "#6366f1", urlTemplate: "", description: "", isDefault: false };
   const [form, setForm] = useState(emptyForm);
@@ -18,7 +21,8 @@ export default function MeetingPlatformsManager({ websiteId }) {
   const fetchPlatforms = async () => {
     setLoading(true);
     try {
-      const res = await api(`/api/crm/meeting-platforms/all?websiteId=${websiteId}`).catch(() => ({}));
+      const qs = websiteId && websiteId !== "all" ? `?websiteId=${encodeURIComponent(websiteId)}` : "";
+      const res = await api(`/api/crm/meeting-platforms/all${qs}`).catch(() => ({}));
       setPlatforms(res.platforms || []);
     } catch (e) {
       console.error(e);
@@ -27,7 +31,7 @@ export default function MeetingPlatformsManager({ websiteId }) {
     }
   };
 
-  useEffect(() => { if (websiteId) fetchPlatforms(); }, [websiteId]);
+  useEffect(() => { fetchPlatforms(); }, [websiteId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -89,14 +93,21 @@ export default function MeetingPlatformsManager({ websiteId }) {
     }
   };
 
-  const handleDelete = async (p) => {
-    if (!window.confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
+  const handleDelete = (p) => {
+    setConfirmDelete({ open: true, platform: p, loading: false });
+  };
+
+  const executeDelete = async () => {
+    if (!confirmDelete.platform) return;
+    setConfirmDelete((prev) => ({ ...prev, loading: true }));
     try {
-      await api(`/api/crm/meeting-platforms/${p._id}`, { method: "DELETE" });
+      await api(`/api/crm/meeting-platforms/${confirmDelete.platform._id}`, { method: "DELETE" });
       toast.success("Platform deleted");
+      setConfirmDelete({ open: false, platform: null, loading: false });
       fetchPlatforms();
     } catch (err) {
       toast.error(err.message);
+      setConfirmDelete((prev) => ({ ...prev, loading: false }));
     }
   };
 
@@ -120,118 +131,187 @@ export default function MeetingPlatformsManager({ websiteId }) {
         </button>
       </div>
 
-      {/* Add / Edit Form */}
-      {showForm && (
-        <form onSubmit={handleSubmit} className="bg-indigo-50/40 border border-indigo-100 rounded-[24px] p-6 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-          <h4 className="text-[10px] font-black text-indigo-700 uppercase tracking-widest">
-            {editingId ? "✏️ Edit Platform" : "➕ New Platform"}
-          </h4>
+      {/* Add / Edit Platform Modal */}
+      {showForm &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowForm(false);
+                setEditingId(null);
+                setForm(emptyForm);
+              }
+            }}
+          >
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  <Video size={14} className="text-indigo-500" />
+                  {editingId ? "Edit Meeting Platform" : "New Meeting Platform"}
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForm(false);
+                    setEditingId(null);
+                    setForm(emptyForm);
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                >
+                  <X size={15} />
+                </button>
+              </div>
 
-          {/* Icon picker + Name */}
-          <div className="grid grid-cols-4 gap-3">
-            <div>
-              <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5">Platform Icon</label>
-              <div className="flex flex-wrap gap-1 bg-white border border-slate-200 rounded-xl p-2 max-h-24 overflow-y-auto custom-scrollbar">
-                {PLATFORM_ICON_OPTIONS.map(({ id, label, Icon }) => (
+              <form onSubmit={handleSubmit} className="p-5 space-y-3 overflow-y-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                  <div className="sm:col-span-5">
+                    <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                      Platform Icon
+                    </label>
+                    <div className="flex flex-wrap gap-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-1.5">
+                      {PLATFORM_ICON_OPTIONS.map(({ id, label, Icon }) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setForm({ ...form, icon: id })}
+                          title={label}
+                          className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
+                            form.icon === id
+                              ? "bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-300 dark:ring-indigo-700"
+                              : "hover:bg-white dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300"
+                          }`}
+                        >
+                          <Icon size={13} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="sm:col-span-7 space-y-3">
+                    <div>
+                      <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                        Platform Name *
+                      </label>
+                      <input
+                        required
+                        value={form.name}
+                        onChange={(e) => setForm({ ...form, name: e.target.value })}
+                        placeholder="e.g. JTS Meet, Microsoft Teams..."
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:border-indigo-500 outline-none"
+                      />
+                    </div>
+                    <div className="grid grid-cols-5 gap-2.5">
+                      <div className="col-span-2">
+                        <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                          Brand Color
+                        </label>
+                        <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5">
+                          <input
+                            type="color"
+                            value={form.color}
+                            onChange={(e) => setForm({ ...form, color: e.target.value })}
+                            className="w-5 h-5 border-0 bg-transparent cursor-pointer shrink-0"
+                          />
+                          <span className="text-[10px] font-mono text-slate-600 dark:text-slate-300 truncate">
+                            {form.color}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="col-span-3">
+                        <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                          Short Description
+                        </label>
+                        <input
+                          value={form.description}
+                          onChange={(e) => setForm({ ...form, description: e.target.value })}
+                          placeholder="e.g. Built-in video meetings"
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:border-indigo-500 outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                    Join URL Template{" "}
+                    <span className="normal-case font-semibold text-slate-400">(optional — auto room link)</span>
+                  </label>
+                  <div className="relative">
+                    <Link2 size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      value={form.urlTemplate}
+                      onChange={(e) => setForm({ ...form, urlTemplate: e.target.value })}
+                      placeholder="https://meet.jts.com/{roomId}"
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-3 py-2 text-xs font-mono text-slate-800 dark:text-slate-100 focus:border-indigo-500 outline-none"
+                    />
+                  </div>
+                  <p className="text-[10px] font-semibold text-slate-400 mt-1">
+                    Use <code className="bg-slate-100 dark:bg-slate-800 border dark:border-slate-700 px-1 py-0.5 rounded font-mono text-indigo-600 dark:text-indigo-400">{'{roomId}'}</code> for unique meeting links.
+                    {form.urlTemplate.includes("{roomId}") && (
+                      <span className="text-emerald-600 dark:text-emerald-400 ml-2">Room ID placeholder detected</span>
+                    )}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.isDefault}
+                      onChange={(e) => setForm({ ...form, isDefault: e.target.checked })}
+                      className="w-4 h-4 rounded accent-indigo-600"
+                    />
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Set as default platform
+                    </span>
+                  </label>
+
+                  {form.name && (
+                    <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5">
+                      <div
+                        className="w-7 h-7 rounded-lg flex items-center justify-center"
+                        style={{ background: form.color + "22" }}
+                      >
+                        {renderPlatformIcon(form.icon, form.color, 14)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-slate-800 dark:text-white leading-tight">{form.name}</p>
+                        <p className="text-[10px] font-semibold leading-tight" style={{ color: form.color }}>
+                          {form.description || "Meeting Platform"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
                   <button
-                    key={id}
                     type="button"
-                    onClick={() => setForm({ ...form, icon: id })}
-                    title={label}
-                    className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
-                      form.icon === id
-                        ? "bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-300"
-                        : "hover:bg-slate-100 text-slate-600"
-                    }`}
+                    onClick={() => {
+                      setShowForm(false);
+                      setEditingId(null);
+                      setForm(emptyForm);
+                    }}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[10px] font-black uppercase rounded-xl transition-colors"
                   >
-                    <Icon size={14} />
+                    Cancel
                   </button>
-                ))}
-              </div>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="flex items-center gap-1.5 px-5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-[10px] font-black uppercase rounded-xl shadow-sm transition-colors"
+                  >
+                    {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                    {saving ? "Saving..." : editingId ? "Update Platform" : "Create Platform"}
+                  </button>
+                </div>
+              </form>
             </div>
-            <div className="col-span-3">
-              <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5">Platform Name *</label>
-              <input
-                required value={form.name}
-                onChange={e => setForm({...form, name: e.target.value})}
-                placeholder="e.g. JTS Meet, Microsoft Teams..."
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none"
-              />
-            </div>
-          </div>
-
-          {/* Color + Description */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5">Brand Color</label>
-              <div className="flex items-center gap-2 bg-white border rounded-xl px-3 py-2">
-                <input type="color" value={form.color} onChange={e => setForm({...form, color: e.target.value})}
-                  className="w-6 h-6 border-0 bg-transparent cursor-pointer" />
-                <span className="text-[10px] font-mono text-slate-500">{form.color}</span>
-              </div>
-            </div>
-            <div className="col-span-2">
-              <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5">Short Description</label>
-              <input value={form.description} onChange={e => setForm({...form, description: e.target.value})}
-                placeholder="e.g. JTS built-in video meetings"
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none" />
-            </div>
-          </div>
-
-          {/* URL Template */}
-          <div>
-            <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5">
-              Join URL Template <span className="normal-case font-bold text-slate-400">(optional — for auto room link generation)</span>
-            </label>
-            <div className="relative">
-              <Link2 size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input value={form.urlTemplate} onChange={e => setForm({...form, urlTemplate: e.target.value})}
-                placeholder="https://meet.jts.com/{roomId}"
-                className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 text-xs font-mono focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none" />
-            </div>
-            <p className="text-[9px] font-bold text-slate-400 mt-1.5">
-              Use <code className="bg-white border px-1 py-0.5 rounded font-mono text-indigo-600">{'{roomId}'}</code> — replaced with a unique ID when meeting is created.
-              {form.urlTemplate.includes("{roomId}") && (
-                <span className="text-emerald-600 ml-2">✅ Room ID placeholder detected</span>
-              )}
-            </p>
-          </div>
-
-          {/* Set as Default */}
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={form.isDefault} onChange={e => setForm({...form, isDefault: e.target.checked})}
-              className="w-4 h-4 rounded accent-indigo-600" />
-            <span className="text-xs font-bold text-slate-600">Set as default platform</span>
-          </label>
-
-          {/* Preview */}
-          {form.name && (
-            <div className="flex items-center gap-3 bg-white border rounded-2xl px-4 py-3">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg" style={{ background: form.color + "22" }}>
-                {renderPlatformIcon(form.icon, form.color, 18)}
-              </div>
-              <div>
-                <p className="text-xs font-black text-slate-800">{form.name}</p>
-                <p className="text-[10px] font-bold" style={{ color: form.color }}>{form.description || "Meeting Platform"}</p>
-              </div>
-              {form.isDefault && <span className="ml-auto text-[9px] font-black bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-lg">Default</span>}
-            </div>
-          )}
-
-          <div className="flex gap-2 pt-1">
-            <button type="submit" disabled={saving}
-              className="flex-1 flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black uppercase rounded-2xl transition-all">
-              {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-              {saving ? "Saving..." : editingId ? "Update Platform" : "Create Platform"}
-            </button>
-            <button type="button"
-              onClick={() => { setShowForm(false); setEditingId(null); setForm(emptyForm); }}
-              className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-black uppercase rounded-2xl transition-all">
-              <X size={12} />
-            </button>
-          </div>
-        </form>
-      )}
+          </div>,
+          document.body
+        )}
 
       {/* Platform Grid */}
       {loading ? (
@@ -337,6 +417,15 @@ export default function MeetingPlatformsManager({ websiteId }) {
           )}
         </div>
       )}
+
+      <ConfirmModal
+        open={confirmDelete.open}
+        title="Delete Platform"
+        message={`Are you sure you want to delete "${confirmDelete.platform?.name || "this platform"}"? This action cannot be undone.`}
+        loading={confirmDelete.loading}
+        onConfirm={executeDelete}
+        onCancel={() => setConfirmDelete({ open: false, platform: null, loading: false })}
+      />
     </div>
   );
 }

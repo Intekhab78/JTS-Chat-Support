@@ -1,9 +1,12 @@
 import { Meeting } from "../models/Meeting.js";
+import { MeetingPlatform } from "../models/MeetingPlatform.js";
+import { generateRoomId, buildMeetingLink } from "./meetingPlatformController.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
 import { logCrmActivity } from "../services/activityLoggerService.js";
+import { sanitizeUpdatePayload } from "../utils/regexUtils.js";
 
 export const listMeetings = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_VIEW);
@@ -52,8 +55,25 @@ export const createMeeting = asyncHandler(async (req, res) => {
     throw new AppError("Unauthorized access to this website's data", 403);
   }
 
+  let meetingLink = req.body.meetingLink || "";
+  let meetingRoomId = req.body.meetingRoomId || "";
+  if (!meetingLink && req.body.meetingType && resolvedWebsiteId) {
+    const platform = await MeetingPlatform.findOne({
+      key: req.body.meetingType,
+      websiteId: resolvedWebsiteId,
+      isActive: true
+    });
+    if (platform?.urlTemplate) {
+      meetingRoomId = generateRoomId(req.body.meetingType);
+      meetingLink = buildMeetingLink(platform, meetingRoomId) || "";
+    }
+  }
+
   const meeting = await Meeting.create({
     ...req.body,
+    meetingLink,
+    meetingRoomId,
+    location: req.body.location || meetingLink || "",
     websiteId: resolvedWebsiteId,
     organizerId: req.user._id
   });
@@ -81,7 +101,7 @@ export const updateMeeting = asyncHandler(async (req, res) => {
     throw new AppError("Unauthorized access", 403);
   }
 
-  const updated = await Meeting.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  const updated = await Meeting.findByIdAndUpdate(req.params.id, sanitizeUpdatePayload(req.body), { new: true });
   res.json(updated);
 });
 

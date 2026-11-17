@@ -4,6 +4,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
 import { Reminder } from "../models/Reminder.js";
+import { escapeRegex } from "../utils/regexUtils.js";
 
 export const listActivities = asyncHandler(async (req, res) => {
   requirePermission(req.user, PERMISSIONS.CRM_VIEW);
@@ -40,17 +41,19 @@ export const listActivities = asyncHandler(async (req, res) => {
 
   if (search) {
     query.$or = [
-      { title: new RegExp(search, "i") },
-      { description: new RegExp(search, "i") }
+      { title: new RegExp(escapeRegex(search), "i") },
+      { description: new RegExp(escapeRegex(search), "i") }
     ];
   }
 
   // Support querying Reminders directly mapped as calendar items
   if (type === "reminder") {
-    const reminders = await Reminder.find({
-      ...query,
-      remindAt: query.dueDate // map range query key to remindAt
-    }).populate("ownerId", "name email");
+    const { dueDate: dateRange, ...restQuery } = query;
+    const reminderQuery = {
+      ...restQuery,
+      ...(dateRange ? { remindAt: dateRange } : {})
+    };
+    const reminders = await Reminder.find(reminderQuery).populate("ownerId", "name email");
 
     const mappedReminders = reminders.map(r => ({
       _id: r._id,

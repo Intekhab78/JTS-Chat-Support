@@ -47,7 +47,7 @@ export const createQuotation = asyncHandler(async (req, res) => {
   // Revision/Version assignment
   let resolvedQuoteNumber = quotationNumber;
   let nextVersion = 1;
-  
+
   if (resolvedQuoteNumber) {
     const highestVerQuote = await Quotation.findOne({ websiteId, quotationNumber: resolvedQuoteNumber }).sort({ version: -1 });
     if (highestVerQuote) {
@@ -154,7 +154,7 @@ export const updateQuotationStatus = asyncHandler(async (req, res) => {
       const { CustomerSuccess } = await import("../models/CustomerSuccess.js");
       await CustomerSuccess.findOneAndUpdate(
         { websiteId: customer.websiteId, customerId: customer._id },
-        { 
+        {
           websiteId: customer.websiteId,
           customerId: customer._id,
           onboardingStatus: "pending",
@@ -170,6 +170,43 @@ export const updateQuotationStatus = asyncHandler(async (req, res) => {
         },
         { upsert: true, new: true }
       );
+
+      // Auto-generate corresponding Invoice if one does not already exist
+      let invoice = await Invoice.findOne({ quotationId: quotation.quotationId });
+      if (!invoice) {
+        const invoiceId = `INV-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
+        const invoiceItems = (quotation.items || []).map(item => ({
+          productId: item.productId || null,
+          sku: item.sku || "CUSTOM",
+          description: item.description,
+          quantity: item.quantity,
+          price: item.price,
+          discount: item.discount,
+          taxRate: item.taxRate,
+          taxAmount: item.taxAmount,
+          subtotal: item.subtotal,
+          total: item.total
+        }));
+
+        invoice = await Invoice.create({
+          invoiceId,
+          invoiceNumber: invoiceId,
+          customerId: quotation.customerId,
+          websiteId: quotation.websiteId,
+          ownerId: quotation.ownerId || req.user._id,
+          quotationId: quotation.quotationId,
+          items: invoiceItems,
+          subtotal: quotation.subtotal,
+          discountAmount: quotation.discountAmount,
+          tax: quotation.tax,
+          shippingCharges: quotation.shippingCharges,
+          total: quotation.total,
+          currency: quotation.currency || "INR",
+          status: "pending",
+          notes: quotation.notes,
+          issuedAt: new Date()
+        });
+      }
 
       // Notify purchase team
       const purchaseRecipients = await getPurchaseRecipientsForWebsite(customer.websiteId, req.user.managerId);
@@ -192,7 +229,7 @@ export const sendQuotation = asyncHandler(async (req, res) => {
     const pdf = await generateQuotationPDF(quotation);
     if (pdf) quotation.pdfUrl = pdf.path;
   } catch (err) { console.error(err); }
-  
+
   await quotation.save();
   res.json(quotation);
 });
@@ -294,9 +331,9 @@ export const updateQuotation = asyncHandler(async (req, res) => {
     return res.json(updated);
   } else {
     // Create new version revision
-    const highestVerQuote = await Quotation.findOne({ 
-      websiteId: quotation.websiteId, 
-      quotationNumber: quotation.quotationNumber 
+    const highestVerQuote = await Quotation.findOne({
+      websiteId: quotation.websiteId,
+      quotationNumber: quotation.quotationNumber
     }).sort({ version: -1 });
 
     const nextVersion = (highestVerQuote ? highestVerQuote.version : quotation.version) + 1;
@@ -362,7 +399,7 @@ export const approveQuotation = asyncHandler(async (req, res) => {
   assertWebsiteAccess(req.user, req.ownedWebsiteIds, quotation.websiteId);
 
   const totalDiscountPct = (quotation.discountAmount / (quotation.subtotal || 1)) * 100;
-  
+
   // Resolve role checks
   let nextStatus = "approved";
   let nextApprovalStatus = "approved";
@@ -377,7 +414,7 @@ export const approveQuotation = asyncHandler(async (req, res) => {
 
   quotation.status = nextStatus === "approved" ? "sent" : "pending_approval";
   quotation.approvalStatus = nextApprovalStatus;
-  
+
   quotation.approvalHistory.push({
     approverId: req.user._id,
     action: "approved",
@@ -409,7 +446,7 @@ export const denyQuotation = asyncHandler(async (req, res) => {
 
   quotation.status = "rejected";
   quotation.approvalStatus = "rejected";
-  
+
   quotation.approvalHistory.push({
     approverId: req.user._id,
     action: "rejected",
@@ -424,7 +461,13 @@ export const denyQuotation = asyncHandler(async (req, res) => {
 export const generateQuotationPdf = asyncHandler(async (req, res) => {
   const quotation = await Quotation.findById(req.params.id);
   if (!quotation) throw new AppError("Quotation not found.", 404);
-  assertWebsiteAccess(req.user, req.ownedWebsiteIds, quotation.websiteId);
+  if (req.user.role === "customer") {
+    if (String(quotation.customerId?._id || quotation.customerId) !== String(req.user.customerId)) {
+      throw new AppError("Access denied.", 403);
+    }
+  } else {
+    assertWebsiteAccess(req.user, req.ownedWebsiteIds, quotation.websiteId);
+  }
 
   const { generateQuotationPDF } = await import("../services/pdfService.js");
   const pdfResult = await generateQuotationPDF(quotation);

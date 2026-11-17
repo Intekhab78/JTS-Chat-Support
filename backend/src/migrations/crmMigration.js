@@ -37,19 +37,20 @@ const DEFAULT_ROLES = [
   },
   {
     name: "manager",
-    description: "Full operational manager with CRM, Ticketing, Chat, Accounting, and Reporting access.",
+    description: "Full operational manager with CRM, Ticketing, Chat, Inventory, Team, and Reporting access.",
     permissions: [
-      "crm.view", "crm.create", "crm.update", "crm.archive", "crm.assign", "crm.merge",
-      "ticket.view", "ticket.create", "ticket.update", "ticket.comment",
+      "crm.view", "crm.create", "crm.update", "crm.archive", "crm.assign_owner", "crm.merge",
+      "ticket.view", "ticket.create", "ticket.update", "ticket.assign", "ticket.comment",
       "chat.view", "chat.transfer", "chat.note", "chat.history",
-      "accounts.view", "invoice.manage", "billing.view", "reports.view", "audit.view"
+      "inventory.view", "inventory.manage", "purchase.manage",
+      "team.view", "reports.view", "audit.view"
     ]
   },
   {
     name: "tax_consultant",
     description: "Tax Consultant handling assigned clients for VAT, Corporate Tax, and Trade License compliance.",
     permissions: [
-      "crm.view", "crm.create", "crm.update", "crm.assign",
+      "crm.view", "crm.create", "crm.update", "crm.assign_owner",
       "ticket.view", "ticket.create", "ticket.comment",
       "chat.view", "chat.note", "reports.view"
     ]
@@ -58,15 +59,16 @@ const DEFAULT_ROLES = [
     name: "sales",
     description: "Responsible for managing leads, creating prospects, and updating CRM sales records.",
     permissions: [
-      "crm.view", "crm.create", "crm.update", "crm.assign", "crm.merge",
-      "ticket.view", "ticket.create", "chat.view", "chat.note"
+      "crm.view", "crm.create", "crm.update", "crm.assign_owner", "crm.merge",
+      "ticket.view", "ticket.create", "chat.view", "chat.note",
+      "inventory.view", "reports.view"
     ]
   },
   {
     name: "agent",
     description: "Frontline support agent for managing tickets and communicating with customers via live chat.",
     permissions: [
-      "ticket.view", "ticket.create", "ticket.update", "ticket.comment",
+      "ticket.view", "ticket.create", "ticket.update", "ticket.assign", "ticket.comment",
       "chat.view", "chat.transfer", "chat.note", "chat.history", "crm.view"
     ]
   },
@@ -74,14 +76,15 @@ const DEFAULT_ROLES = [
     name: "accounts",
     description: "Handles accounting, invoicing, billing dashboards, and ledger review.",
     permissions: [
-      "accounts.view", "invoice.manage", "billing.view", "crm.view", "reports.view"
+      "accounts.view", "invoice.manage", "billing.view", "reports.view"
     ]
   },
   {
     name: "purchase",
-    description: "Manages purchase requests, tracks ticketing pipelines, and vendor status.",
+    description: "Manages purchase requests, procurement POs, inventory stock, and vendor/customer master.",
     permissions: [
-      "ticket.view", "ticket.create", "accounts.view", "billing.view"
+      "inventory.view", "inventory.manage", "purchase.manage", "purchase.manage",
+      "crm.view", "ticket.view", "ticket.create", "reports.view"
     ]
   }
 ];
@@ -89,9 +92,12 @@ const DEFAULT_ROLES = [
 export async function runCrmMigration() {
   console.log("[Migration] Starting JTS CRM Enterprise Migration...");
 
+  // Drop legacy single-field unique index on Role.name so tenants can override default roles cleanly
+  await Role.collection.dropIndex("name_1").catch(() => {});
+
   // Seed default Roles if missing
   for (const defRole of DEFAULT_ROLES) {
-    const existing = await Role.findOne({ name: defRole.name });
+    const existing = await Role.findOne({ name: defRole.name, createdBy: null });
     if (!existing) {
       console.log(`[Migration] Seeding role: ${defRole.name}`);
       await Role.create(defRole);

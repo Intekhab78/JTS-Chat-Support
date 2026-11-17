@@ -13,6 +13,7 @@ import { sendEmail, getEmailTemplate } from "./emailService.js";
 import { checkUnattendedClientsAndEscalate } from "./complianceInactivityService.js";
 import { runDatabaseBackup } from "./backupService.js";
 import { runSubscriptionBillingCron } from "./subscriptionCron.js";
+import { checkRiskReviewReminders } from "../controllers/riskController.js";
 
 export const startCronJobs = () => {
 
@@ -57,6 +58,15 @@ export const startCronJobs = () => {
     console.log("[Cron] Running Stale Deal Reminder check...");
     checkStaleDealReminders();
   });
+
+  // 6b. Enterprise Risk Review Reminders — daily at 8:00 AM (+ startup check)
+  cron.schedule("0 8 * * *", () => {
+    console.log("[Cron] Running Enterprise Risk Review Reminder check...");
+    checkRiskReviewReminders();
+  });
+  setTimeout(() => {
+    checkRiskReviewReminders();
+  }, 15000);
 
   // 7. Subscription Renewal Reminders — fires daily at 8:00 AM (3 days before endDate)
   cron.schedule("0 8 * * *", () => {

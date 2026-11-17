@@ -75,6 +75,7 @@ export const updateDeal = async (id, data, actorId) => {
       title: "Deal Stage Progressed",
       description: `Deal "${updated.dealName}" stage changed from "${previousStage}" to "${updated.stage}".`,
       dealId: updated._id,
+      customerId: updated.customerId || deal.customerId || null,
       ownerId: actorId
     });
   } else {
@@ -84,6 +85,7 @@ export const updateDeal = async (id, data, actorId) => {
       title: "Deal Updated",
       description: `Deal details updated for "${updated.dealName}".`,
       dealId: updated._id,
+      customerId: updated.customerId || deal.customerId || null,
       ownerId: actorId
     });
   }
@@ -105,6 +107,7 @@ export const deleteDeal = async (id, actorId) => {
     title: "Deal Archived",
     description: `Deal "${deal.dealName}" was archived (soft-deleted).`,
     dealId: deal._id,
+    customerId: deal.customerId || null,
     ownerId: actorId
   });
 

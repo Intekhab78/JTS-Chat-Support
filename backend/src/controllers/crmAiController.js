@@ -241,3 +241,60 @@ User Query: ${safeQueryText}`;
     actionTaken: actionResult
   });
 });
+
+export const updatePrompt = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const prompt = await AiPrompt.findById(req.params.id);
+  if (!prompt) throw new AppError("Prompt not found", 404);
+  if (!ownedWebsiteIds.map((id) => id.toString()).includes(String(prompt.websiteId))) {
+    throw new AppError("Unauthorized access", 403);
+  }
+  const { name, category, promptText, variables } = req.body;
+  if (name !== undefined) prompt.name = name;
+  if (category !== undefined) prompt.category = category;
+  if (promptText !== undefined) prompt.promptText = promptText;
+  if (variables !== undefined) prompt.variables = variables;
+  await prompt.save();
+  res.json(prompt);
+});
+
+export const deletePrompt = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_DELETE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const prompt = await AiPrompt.findById(req.params.id);
+  if (!prompt) throw new AppError("Prompt not found", 404);
+  if (!ownedWebsiteIds.map((id) => id.toString()).includes(String(prompt.websiteId))) {
+    throw new AppError("Unauthorized access", 403);
+  }
+  await prompt.deleteOne();
+  res.json({ message: "Prompt deleted" });
+});
+
+export const updateKnowledge = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const source = await AiKnowledgeSource.findById(req.params.id);
+  if (!source) throw new AppError("Knowledge source not found", 404);
+  if (!ownedWebsiteIds.map((id) => id.toString()).includes(String(source.websiteId))) {
+    throw new AppError("Unauthorized access", 403);
+  }
+  const { name, content, type } = req.body;
+  if (name !== undefined) source.name = name;
+  if (content !== undefined) source.content = content;
+  if (type !== undefined) source.type = type;
+  await source.save();
+  res.json(source);
+});
+
+export const deleteKnowledge = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_DELETE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const source = await AiKnowledgeSource.findById(req.params.id);
+  if (!source) throw new AppError("Knowledge source not found", 404);
+  if (!ownedWebsiteIds.map((id) => id.toString()).includes(String(source.websiteId))) {
+    throw new AppError("Unauthorized access", 403);
+  }
+  await source.deleteOne();
+  res.json({ message: "Knowledge source deleted" });
+});

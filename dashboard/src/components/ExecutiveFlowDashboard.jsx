@@ -13,7 +13,7 @@ export default function ExecutiveFlowDashboard({ websiteId }) {
 
   useEffect(() => {
     if (!websiteId) return;
-    api(`/api/flows/website/${websiteId}`)
+    api(`/api/flows?websiteId=${websiteId}`)
       .then((data) => {
         setFlows(data);
         if (data.length > 0) {

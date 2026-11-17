@@ -6,10 +6,11 @@ import {
   deleteWorkflow
 } from "../controllers/noCodeWorkflowController.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { attachTenantSubscription, requirePlanFeature } from "../middleware/planAccess.js";
 
 const router = Router();
 
-router.use(requireAuth);
+router.use(requireAuth, attachTenantSubscription, requirePlanFeature("automation"));
 
 router.get("/overview", requireRole("admin", "client", "manager", "management"), getWorkflowOverview);
 router.post("/workflows", requireRole("admin", "client", "manager"), createWorkflow);

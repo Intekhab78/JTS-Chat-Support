@@ -1,52 +1,126 @@
 import mongoose from "mongoose";
 import { EnterpriseBiAnalytics } from "../models/EnterpriseBiAnalytics.js";
+import { Deal } from "../models/Deal.js";
+import { Subscription } from "../models/Subscription.js";
+import { Ticket } from "../models/Ticket.js";
+import { Customer } from "../models/Customer.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { logAuditEvent } from "../services/auditService.js";
+import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 
 const DEFAULT_DASHBOARDS = [
   {
-    dashboardName: "CTO & Executive Board Cockpit",
+    dashboardName: "Executive Revenue & Operations Cockpit",
     dashboardType: "executive",
     isDefault: true,
     widgets: [
-      { widgetKey: "mrr_arr_forecast", widgetName: "MRR / ARR 12-Month Growth Forecast", chartType: "area", metricValue: "$2.4M ARR" },
-      { widgetKey: "compliance_heatmap", widgetName: "UAE VAT & Corporate Tax Compliance Heatmap", chartType: "heatmap", metricValue: "98.4% Compliant" },
-      { widgetKey: "sales_funnel", widgetName: "Enterprise Client Acquisition Funnel", chartType: "funnel", metricValue: "34.2% Conversion" },
-      { widgetKey: "cohort_retention", widgetName: "Customer Cohort 12-Month Retention Rate", chartType: "cohort", metricValue: "94.5% Retention" }
+      { widgetKey: "pipeline_revenue", widgetName: "CRM Pipeline & Won Revenue", chartType: "area", metricValue: "Live" },
+      { widgetKey: "support_sla_health", widgetName: "Support SLA & Resolution Index", chartType: "heatmap", metricValue: "Live" },
+      { widgetKey: "sales_funnel", widgetName: "Deal Acquisition Funnel Conversion", chartType: "funnel", metricValue: "Live" },
+      { widgetKey: "cohort_retention", widgetName: "Subscription Cohort Retention Rate", chartType: "cohort", metricValue: "Live" }
     ],
-    scheduledReports: [
-      { reportName: "Weekly Executive Board BI Summary", frequency: "weekly", recipientEmails: ["board@enterprise.ae"], lastSentAt: new Date() }
-    ]
+    scheduledReports: []
   }
 ];
 
+const formatCurrencyCompact = (amount) => {
+  const num = Number(amount || 0);
+  if (num >= 1000000) return `$${(num / 1000000).toFixed(2)}M`;
+  if (num >= 1000) return `$${(num / 1000).toFixed(1)}K`;
+  return `$${num.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+};
+
 export const getBiOverview = asyncHandler(async (req, res) => {
-  let count = await EnterpriseBiAnalytics.countDocuments({});
+  const count = await EnterpriseBiAnalytics.countDocuments({});
 
   if (count === 0) {
-    await EnterpriseBiAnalytics.insertMany(DEFAULT_DASHBOARDS.map(d => ({ ...d, createdBy: req.user._id })));
+    await EnterpriseBiAnalytics.insertMany(DEFAULT_DASHBOARDS.map((d) => ({ ...d, createdBy: req.user._id })));
   }
 
-  const dashboards = await EnterpriseBiAnalytics.find({}).sort({ isDefault: -1, createdAt: -1 });
+  const isAdmin = String(req.user?.role || "").toLowerCase() === "admin";
+  const ownedWebsiteIds = isAdmin ? [] : await getOwnedWebsiteIds(req.user);
+  const scopeFilter = isAdmin ? {} : { websiteId: { $in: ownedWebsiteIds } };
+
+  const [dashboards, deals, subscriptions, totalTickets, resolvedTickets, totalCustomers] = await Promise.all([
+    EnterpriseBiAnalytics.find(isAdmin ? {} : { $or: [{ createdBy: req.user._id }, { isDefault: true }] }).sort({ isDefault: -1, createdAt: -1 }),
+    Deal.find({ ...scopeFilter, isDeleted: { $ne: true } }).select("dealValue stage forecastCategory").lean(),
+    Subscription.find(scopeFilter).select("status seats billingCycle").lean(),
+    Ticket.countDocuments(scopeFilter),
+    Ticket.countDocuments({ ...scopeFilter, status: { $in: ["resolved", "closed"] } }),
+    Customer.countDocuments(scopeFilter)
+  ]);
+
+  let totalPipelineValue = 0;
+  let wonRevenue = 0;
+  let wonDealsCount = 0;
+  deals.forEach((d) => {
+    const val = Number(d.dealValue || 0);
+    totalPipelineValue += val;
+    const st = String(d.stage || "").toLowerCase();
+    if (st === "closed_won" || st === "won" || d.forecastCategory === "closed") {
+      wonRevenue += val;
+      wonDealsCount += 1;
+    }
+  });
+
+  const funnelConversionPct = deals.length > 0 ? ((wonDealsCount / deals.length) * 100).toFixed(1) : "0.0";
+  const activeSubs = subscriptions.filter((s) => ["active", "renewed", "free_trial"].includes(s.status)).length;
+  const retentionPct = subscriptions.length > 0 ? ((activeSubs / subscriptions.length) * 100).toFixed(1) : "0.0";
+  const slaHealthPct = totalTickets > 0 ? ((resolvedTickets / totalTickets) * 100).toFixed(1) : "100.0";
+
+  const estimatedMrr = Math.round(wonRevenue / 12);
+  const scheduledReportsList = dashboards.flatMap((d) =>
+    (d.scheduledReports || []).map((r) => ({
+      ...r.toObject(),
+      dashboardId: d._id,
+      dashboardName: d.dashboardName
+    }))
+  );
+
+  const liveWidgetLookup = {
+    pipeline_revenue: `${formatCurrencyCompact(totalPipelineValue)} Pipeline`,
+    support_sla_health: `${slaHealthPct}% Resolved`,
+    sales_funnel: `${funnelConversionPct}% Win Rate`,
+    cohort_retention: `${retentionPct}% Active`,
+    total_customers: `${totalCustomers} Customers`
+  };
+
+  const hydratedDashboards = dashboards.map((dash) => {
+    const obj = dash.toObject();
+    obj.widgets = (obj.widgets || []).map((w) => ({
+      ...w,
+      metricValue: liveWidgetLookup[w.widgetKey] || w.metricValue || "0"
+    }));
+    return obj;
+  });
 
   const metrics = {
-    mrrForecast: "$204,500 / mo (+18.4% YoY)",
-    arrForecast: "$2,454,000 / yr",
-    complianceScore: "98.4%",
-    retentionRate: "94.5%",
-    funnelConversion: "34.2%",
-    scheduledReportsCount: 1
+    pipelineValue: formatCurrencyCompact(totalPipelineValue),
+    wonRevenue: formatCurrencyCompact(wonRevenue),
+    estimatedMrr: `${formatCurrencyCompact(estimatedMrr)} / mo`,
+    arrRunRate: `${formatCurrencyCompact(wonRevenue)} / yr`,
+    pipelineValueAmount: totalPipelineValue,
+    wonRevenueAmount: wonRevenue,
+    estimatedMrrAmount: estimatedMrr,
+    slaHealthScore: `${slaHealthPct}%`,
+    retentionRate: `${retentionPct}%`,
+    funnelConversion: `${funnelConversionPct}%`,
+    totalDeals: deals.length,
+    totalCustomers,
+    activeSubscriptions: activeSubs,
+    scheduledReportsCount: scheduledReportsList.length
   };
 
   return res.json({
     summary: {
       totalBiDashboards: dashboards.length,
-      availableWidgetTypes: 8,
-      engineStatus: "ENTERPRISE_BI_ENGINE_ONLINE"
+      availableWidgetTypes: 6,
+      engineStatus: mongoose.connection.readyState === 1 ? "HEALTHY" : "DEGRADED"
     },
     metrics,
-    dashboards
+    dashboards: hydratedDashboards,
+    scheduledReports: scheduledReportsList
   });
 });
 
@@ -56,11 +130,14 @@ export const saveBiDashboard = asyncHandler(async (req, res) => {
   if (!dashboardName) throw new AppError("Dashboard name is required", 400);
 
   const dashboard = await EnterpriseBiAnalytics.create({
-    dashboardName,
+    dashboardName: dashboardName.trim(),
     dashboardType: dashboardType || "executive",
-    widgets: Array.isArray(widgets) ? widgets : [
-      { widgetKey: "mrr_arr_forecast", widgetName: "MRR Growth Forecast", chartType: "area", metricValue: "$2.4M" }
-    ],
+    widgets: Array.isArray(widgets) && widgets.length > 0
+      ? widgets
+      : [
+          { widgetKey: "pipeline_revenue", widgetName: "CRM Pipeline & Won Revenue", chartType: "area", metricValue: "Live" },
+          { widgetKey: "sales_funnel", widgetName: "Deal Acquisition Funnel Conversion", chartType: "funnel", metricValue: "Live" }
+        ],
     createdBy: req.user._id
   });
 
@@ -78,18 +155,52 @@ export const saveBiDashboard = asyncHandler(async (req, res) => {
   return res.status(201).json(dashboard);
 });
 
+export const deleteBiDashboard = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const dashboard = await EnterpriseBiAnalytics.findById(id);
+  if (!dashboard) throw new AppError("BI dashboard not found", 404);
+  if (dashboard.isDefault) throw new AppError("Default executive cockpit cannot be deleted", 400);
+
+  await EnterpriseBiAnalytics.findByIdAndDelete(id);
+
+  await logAuditEvent({
+    userId: req.user._id,
+    websiteId: null,
+    action: "ENTERPRISE_BI_DASHBOARD_DELETED",
+    resource: "EnterpriseBiAnalytics",
+    resourceId: dashboard._id,
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+    changes: { dashboardName: dashboard.dashboardName }
+  });
+
+  return res.json({ message: "BI dashboard deleted" });
+});
+
 export const scheduleBiReport = asyncHandler(async (req, res) => {
-  const { reportName, frequency, recipientEmails } = req.body;
+  const { reportName, frequency, recipientEmails, dashboardId } = req.body;
 
-  let dashboard = await EnterpriseBiAnalytics.findOne({ isDefault: true });
+  if (!reportName || !String(reportName).trim()) {
+    throw new AppError("Report name is required", 400);
+  }
+
+  let dashboard = dashboardId
+    ? await EnterpriseBiAnalytics.findById(dashboardId)
+    : await EnterpriseBiAnalytics.findOne({ isDefault: true });
   if (!dashboard) dashboard = await EnterpriseBiAnalytics.findOne({});
-
   if (!dashboard) throw new AppError("No BI dashboard found", 404);
 
+  const emails = Array.isArray(recipientEmails)
+    ? recipientEmails.map((e) => String(e).trim()).filter(Boolean)
+    : String(recipientEmails || "")
+        .split(",")
+        .map((e) => e.trim())
+        .filter(Boolean);
+
   dashboard.scheduledReports.push({
-    reportName: reportName || "Executive BI Digest",
-    frequency: frequency || "weekly",
-    recipientEmails: recipientEmails || ["cto@enterprise.ae"],
+    reportName: String(reportName).trim(),
+    frequency: ["daily", "weekly", "monthly"].includes(frequency) ? frequency : "weekly",
+    recipientEmails: emails,
     lastSentAt: new Date()
   });
 
@@ -107,4 +218,17 @@ export const scheduleBiReport = asyncHandler(async (req, res) => {
   });
 
   return res.status(201).json(dashboard.scheduledReports);
+});
+
+export const deleteScheduledBiReport = asyncHandler(async (req, res) => {
+  const { dashboardId, reportId } = req.params;
+  const dashboard = await EnterpriseBiAnalytics.findById(dashboardId);
+  if (!dashboard) throw new AppError("BI dashboard not found", 404);
+
+  dashboard.scheduledReports = (dashboard.scheduledReports || []).filter(
+    (r) => String(r._id) !== String(reportId)
+  );
+  await dashboard.save();
+
+  return res.json({ message: "Scheduled report removed" });
 });

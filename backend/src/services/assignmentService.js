@@ -1,5 +1,6 @@
 import { User } from "../models/User.js";
 import { ChatSession } from "../models/ChatSession.js";
+import { getSocketServer } from "../sockets/index.js";
 
 const MAX_CONCURRENT_CHATS = 5;
 
@@ -13,16 +14,17 @@ function normalizeCategory(value) {
  */
 export async function findAvailableAgent({ managerId, websiteId, category = "", roles = ["agent", "sales"] }) {
   const normalizedCategory = normalizeCategory(category);
-  
+
   // Flexible website filter: match specific website ID OR empty/unrestricted websiteIds
   const websiteFilter = websiteId
     ? { $or: [{ websiteIds: websiteId }, { websiteIds: { $size: 0 } }, { websiteIds: { $exists: false } }] }
     : {};
 
   const baseQuery = {
-    role: { $in: ["agent", "sales"] },
+    role: { $in: roles },
     isOnline: true,
     isAvailable: { $ne: false },
+    agentStatus: { $nin: ["offline", "busy", "break", "away"] },
     ...(managerId ? { managerId } : {}),
     ...websiteFilter
   };
@@ -31,17 +33,26 @@ export async function findAvailableAgent({ managerId, websiteId, category = "", 
   let agents = await User.find(
     normalizedCategory
       ? {
-          ...baseQuery,
-          $or: [
-            { department: normalizedCategory },
-            { assignedCategories: normalizedCategory }
-          ]
-        }
+        ...baseQuery,
+        $or: [
+          { department: normalizedCategory },
+          { assignedCategories: normalizedCategory }
+        ]
+      }
       : baseQuery
   ).select("_id name department assignedCategories").lean();
 
   if (agents.length === 0 && normalizedCategory) {
     agents = await User.find(baseQuery).select("_id name department assignedCategories").lean();
+  }
+
+  // Filter out stale DB isOnline flags by verifying the agent actually has an active Socket.IO connection
+  const io = getSocketServer();
+  if (io?.sockets?.adapter?.rooms) {
+    agents = agents.filter((a) => {
+      const room = io.sockets.adapter.rooms.get(`us_${a._id}`);
+      return Boolean(room && room.size > 0);
+    });
   }
 
   if (agents.length === 0) return null;

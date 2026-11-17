@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useSearchParams } from "react-router-dom";
 import {
    Ticket, Plus, Search, Filter, ChevronDown, Check,
    Clock, AlertTriangle, X, MessageSquare, Globe, User,
@@ -47,8 +48,9 @@ const STATUS_CONFIG = {
 };
 
 function renderTicketSubject(ticket) {
-   const isPhone = ticket?.channel === "phone" || ticket?.subject?.includes("📞");
-   const cleanSubj = (ticket?.subject || "Support Inquiry").replace(/^[📞🎫]\s*/, "");
+   const rawSubject = String(ticket?.subject || "Support Inquiry");
+   const isPhone = ticket?.channel === "phone" || rawSubject.includes("📞") || /^(missed call|ticket status inquiry|website creation inquiry)/i.test(rawSubject.replace(/^[\uFFFD📞🎫\s]+/, ""));
+   const cleanSubj = rawSubject.replace(/^[\uFFFD📞🎫\s]+/, "").trim() || "Support Inquiry";
    return (
       <span className="inline-flex items-center gap-1.5 truncate">
          {isPhone ? (
@@ -174,6 +176,26 @@ function TicketDetailPanel({ ticket, onUpdate, onClose, assignableAgents = [], c
    const [requesterName, setRequesterName] = useState(initialRequesterName);
    const [requesterEmail, setRequesterEmail] = useState(initialRequesterEmail);
    const [requesterPhone, setRequesterPhone] = useState(initialRequesterPhone);
+   const [expandActivityLog, setExpandActivityLog] = useState(false);
+
+   const hasUnsavedChanges =
+      status !== ticket.status ||
+      priority !== ticket.priority ||
+      crmStage !== (ticket.crmStage || "none") ||
+      assignedAgent !== (ticket.assignedAgent?._id || "") ||
+      Boolean(note.trim()) ||
+      requesterName !== initialRequesterName ||
+      requesterEmail !== initialRequesterEmail ||
+      requesterPhone !== initialRequesterPhone;
+
+   const handleAttemptClose = () => {
+      if (hasUnsavedChanges && !saving) {
+         if (!window.confirm("You have unsaved changes on this ticket. Discard and close?")) {
+            return;
+         }
+      }
+      onClose();
+   };
 
    useEffect(() => {
       api(`/api/tickets/${ticket._id}/activity`).then(setActivity).catch(() => setActivity([]));
@@ -181,7 +203,7 @@ function TicketDetailPanel({ ticket, onUpdate, onClose, assignableAgents = [], c
 
    useEffect(() => {
       const handleKeyDown = (e) => {
-         if (e.key === "Escape") onClose();
+         if (e.key === "Escape") handleAttemptClose();
       };
       window.addEventListener("keydown", handleKeyDown);
       return () => window.removeEventListener("keydown", handleKeyDown);
@@ -208,6 +230,7 @@ function TicketDetailPanel({ ticket, onUpdate, onClose, assignableAgents = [], c
          toast.success("Ticket updated successfully!");
          setIsEditingRequester(false);
          onUpdate();
+         api(`/api/tickets/${ticket._id}/activity`).then(setActivity).catch(() => {});
          setNote("");
          setSavedSuccess(true);
          setTimeout(() => setSavedSuccess(false), 2000);
@@ -220,10 +243,35 @@ function TicketDetailPanel({ ticket, onUpdate, onClose, assignableAgents = [], c
 
    const formatSLA = (start, end) => {
       if (!start || !end) return "--";
-      const diff = Math.round((new Date(end) - new Date(start)) / 60000);
+      const diff = Math.max(0, Math.round((new Date(end) - new Date(start)) / 60000));
       if (diff < 1) return "< 1m";
       if (diff < 60) return `${diff}m`;
-      return `${Math.round(diff / 60)}h ${diff % 60}m`;
+      const hrs = Math.floor(diff / 60);
+      const mins = diff % 60;
+      if (hrs >= 24) {
+         const days = Math.floor(hrs / 24);
+         return `${days}d ${hrs % 24}h`;
+      }
+      return `${hrs}h ${mins}m`;
+   };
+
+   const formatDueStatus = (dueAt, fallbackStart) => {
+      if (dueAt) {
+         const diffMins = Math.round((new Date(dueAt) - Date.now()) / 60000);
+         if (diffMins < 0) {
+            const absMins = Math.abs(diffMins);
+            const hrs = Math.floor(absMins / 60);
+            const label = hrs >= 24 ? `${Math.floor(hrs / 24)}d ${hrs % 24}h` : hrs > 0 ? `${hrs}h ${absMins % 60}m` : `${absMins}m`;
+            return { text: `Overdue (${label})`, tone: "text-rose-600 dark:text-rose-400" };
+         }
+         const hrs = Math.floor(diffMins / 60);
+         const label = hrs >= 24 ? `${Math.floor(hrs / 24)}d ${hrs % 24}h` : hrs > 0 ? `${hrs}h ${diffMins % 60}m` : `${diffMins}m`;
+         return { text: `Due in ${label}`, tone: "text-amber-600 dark:text-amber-400" };
+      }
+      if (fallbackStart) {
+         return { text: `Waiting (${formatSLA(fallbackStart, Date.now())})`, tone: "text-slate-600 dark:text-slate-300" };
+      }
+      return { text: "Pending", tone: "text-slate-500" };
    };
 
    const copyTicketId = () => {
@@ -295,6 +343,16 @@ function TicketDetailPanel({ ticket, onUpdate, onClose, assignableAgents = [], c
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
+                     {ticket.sessionId && (
+                        <a
+                           href={`${window.location.pathname}?tab=chats&sessionId=${encodeURIComponent(ticket.sessionId)}`}
+                           className="px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 border bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100 transition-colors"
+                           title="Jump to linked chat session"
+                        >
+                           <MessageSquare size={11} />
+                           <span>Open Chat</span>
+                        </a>
+                     )}
                      {slaDetails && (
                         <div className={`px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 border ${
                            slaDetails.isBreached 
@@ -305,7 +363,7 @@ function TicketDetailPanel({ ticket, onUpdate, onClose, assignableAgents = [], c
                            <span>SLA: {slaDetails.timeStr} {slaDetails.isBreached ? "Overdue" : "Left"}</span>
                         </div>
                      )}
-                     <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/10 rounded-lg transition-all">
+                     <button onClick={handleAttemptClose} className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/10 rounded-lg transition-all">
                         <X size={17} />
                      </button>
                   </div>
@@ -368,7 +426,7 @@ function TicketDetailPanel({ ticket, onUpdate, onClose, assignableAgents = [], c
                               />
                            ) : (
                               <p className="font-extrabold text-slate-900 dark:text-white truncate">
-                                 {cleanString(requesterName || ticket.customerId?.name || ticket.visitorId?.name, "Anonymous User")}
+                                 {cleanString(requesterName || ticket.customerId?.name || ticket.visitorId?.name, "Not provided")}
                               </p>
                            )}
                         </div>
@@ -440,14 +498,32 @@ function TicketDetailPanel({ ticket, onUpdate, onClose, assignableAgents = [], c
 
                   {/* SLA Metrics & Public URL (2-col row) */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                     <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-white/10 p-2.5 shadow-xs flex items-center justify-between">
-                        <div>
-                           <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">First Response SLA</span>
-                           <span className="text-xs font-extrabold text-slate-900 dark:text-white">{formatSLA(ticket.createdAt, ticket.firstResponseAt)}</span>
+                     <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-white/10 p-2.5 shadow-xs grid grid-cols-2 gap-2 items-center">
+                        <div className="min-w-0">
+                           <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider block whitespace-nowrap truncate">First Response SLA</span>
+                           {ticket.firstResponseAt ? (
+                              <span className="text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400 whitespace-nowrap block truncate">
+                                 {formatSLA(ticket.createdAt, ticket.firstResponseAt)}
+                              </span>
+                           ) : (
+                              (() => {
+                                 const s = formatDueStatus(ticket.firstResponseDueAt, ticket.createdAt);
+                                 return <span className={`text-[11px] font-extrabold whitespace-nowrap block truncate ${s.tone}`}>{s.text}</span>;
+                              })()
+                           )}
                         </div>
-                        <div className="text-right">
-                           <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Resolution SLA</span>
-                           <span className="text-xs font-extrabold text-slate-900 dark:text-white">{formatSLA(ticket.createdAt, ticket.resolvedAt)}</span>
+                        <div className="min-w-0 text-right border-l border-slate-100 dark:border-white/10 pl-2">
+                           <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider block whitespace-nowrap truncate">Resolution SLA</span>
+                           {ticket.resolvedAt ? (
+                              <span className="text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400 whitespace-nowrap block truncate">
+                                 {formatSLA(ticket.createdAt, ticket.resolvedAt)}
+                              </span>
+                           ) : (
+                              (() => {
+                                 const s = formatDueStatus(ticket.resolutionDueAt, ticket.createdAt);
+                                 return <span className={`text-[11px] font-extrabold whitespace-nowrap block truncate ${s.tone}`}>{s.text}</span>;
+                              })()
+                           )}
                         </div>
                      </div>
 
@@ -465,15 +541,26 @@ function TicketDetailPanel({ ticket, onUpdate, onClose, assignableAgents = [], c
                      </div>
                   </div>
 
-                  {/* Activity & Notes Log (Compact timeline) */}
+                  {/* Activity & Notes Log (Expandable timeline) */}
                   <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-white/10 p-3 shadow-xs space-y-2">
                      <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 dark:border-white/5">
                         <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                            <History size={12} className="text-sky-600" /> Activity & Notes Log
                         </span>
-                        <span className="text-[9px] font-bold text-slate-400">{activity.length} entries</span>
+                        <div className="flex items-center gap-2">
+                           <span className="text-[9px] font-bold text-slate-400">{activity.length} entries</span>
+                           {activity.length > 0 && (
+                              <button
+                                 type="button"
+                                 onClick={() => setExpandActivityLog((v) => !v)}
+                                 className="text-[9px] font-bold text-sky-600 hover:underline"
+                              >
+                                 {expandActivityLog ? "Compact" : "Expand"}
+                              </button>
+                           )}
+                        </div>
                      </div>
-                     <div className="max-h-36 overflow-y-auto custom-scrollbar pr-1">
+                     <div className={`${expandActivityLog ? "max-h-[380px]" : "max-h-56"} overflow-y-auto custom-scrollbar pr-1 transition-all`}>
                         <ActivityTimeline items={activity} emptyLabel="No ticket activity recorded yet." />
                      </div>
                   </div>
@@ -602,6 +689,28 @@ function TicketDetailPanel({ ticket, onUpdate, onClose, assignableAgents = [], c
                               <span>{noteIsPublic ? "Public" : "Internal"}</span>
                            </button>
                         </div>
+                        <div className="flex flex-wrap gap-1">
+                           {[
+                              { label: "Investigating this", text: "Investigating this issue and will update shortly.", nextStatus: "in_progress" },
+                              { label: "Waiting for", text: "Waiting for customer confirmation/details.", nextStatus: "waiting" },
+                              { label: "Issue resolved", text: "Issue resolved and verified.", nextStatus: "resolved" },
+                              { label: "Follow-up call/demo", text: "Follow-up call/demo scheduled.", nextStatus: null }
+                           ].map((tpl) => (
+                              <button
+                                 key={tpl.label}
+                                 type="button"
+                                 onClick={() => {
+                                    setNote((prev) => (prev.trim() ? `${prev.trim()} ${tpl.text}` : tpl.text));
+                                    if (tpl.nextStatus && stages.some((s) => s.key === tpl.nextStatus && s.active)) {
+                                       setStatus(tpl.nextStatus);
+                                    }
+                                 }}
+                                 className="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-sky-50 text-slate-600 hover:text-sky-700 text-[9px] font-bold border border-slate-200/80 transition-colors"
+                              >
+                                 + {tpl.label}
+                              </button>
+                           ))}
+                        </div>
                         <textarea
                            value={note}
                            onChange={(e) => setNote(e.target.value)}
@@ -640,6 +749,7 @@ function TicketDetailPanel({ ticket, onUpdate, onClose, assignableAgents = [], c
 export default function TicketManager({ websiteId }) {
    const { user } = useAuth();
    const toast = useToast();
+   const [searchParams, setSearchParams] = useSearchParams();
    const canManageAssignment = ["admin", "client", "manager"].includes(user?.role);
    const [viewMode, setViewMode] = useState("board");
    const [tickets, setTickets] = useState([]);
@@ -660,6 +770,10 @@ export default function TicketManager({ websiteId }) {
    const [dragOverLane, setDragOverLane] = useState(null);
    const [rangeSummary, setRangeSummary] = useState({ all: 0 });
    const [showManageStages, setShowManageStages] = useState(false);
+   const [showBulkAssignModal, setShowBulkAssignModal] = useState(false);
+   const [bulkAssignAgentId, setBulkAssignAgentId] = useState("");
+   const [bulkAssignReason, setBulkAssignReason] = useState("");
+   const [bulkUpdating, setBulkUpdating] = useState(false);
    const [stages, setStages] = useState(() => {
       const saved = localStorage.getItem(`ticket_stages_${websiteId}`);
       return saved ? JSON.parse(saved) : DEFAULT_STAGES;
@@ -670,13 +784,24 @@ export default function TicketManager({ websiteId }) {
       setStages(saved ? JSON.parse(saved) : DEFAULT_STAGES);
    }, [websiteId]);
 
+   useEffect(() => {
+      const targetTicketId = searchParams.get("ticketId");
+      if (!targetTicketId || tickets.length === 0) return;
+      const match = tickets.find(t => String(t._id) === targetTicketId || t.ticketId === targetTicketId);
+      if (match) {
+         setSelectedTicket(match);
+         const next = new URLSearchParams(searchParams);
+         next.delete("ticketId");
+         setSearchParams(next, { replace: true });
+      }
+   }, [tickets, searchParams, setSearchParams]);
+
    const fetchTickets = async () => {
       setLoading(true);
       try {
          const queryParams = new URLSearchParams();
          if (websiteId) queryParams.set("websiteId", websiteId);
          queryParams.set("range", activeRange);
-         if (filterChannel !== "all") queryParams.set("channel", filterChannel);
 
          const data = await api(`/api/tickets?${queryParams.toString()}`);
          setTickets(data.tickets || []);
@@ -727,7 +852,7 @@ export default function TicketManager({ websiteId }) {
 
    useEffect(() => {
       fetchTickets();
-   }, [websiteId, activeRange, filterChannel]);
+   }, [websiteId, activeRange]);
 
    const fetchTeamMembers = async () => {
       if (!canManageAssignment) return;
@@ -754,24 +879,52 @@ export default function TicketManager({ websiteId }) {
       setSelectedIds(allVisibleSelected ? selectedIds.filter(id => !visibleIds.includes(id)) : [...new Set([...selectedIds, ...visibleIds])]);
    };
 
-   const runBulkUpdate = async (updates) => {
-      if (!selectedIds.length) return alert("Select at least one ticket first.");
+   const runBulkUpdate = async (updates, successMessage) => {
+      if (!selectedIds.length) {
+         toast.error("Select at least one ticket first.");
+         return false;
+      }
+      setBulkUpdating(true);
       try {
-         await api("/api/tickets/bulk-update", {
+         const res = await api("/api/tickets/bulk-update", {
             method: "POST",
             body: JSON.stringify({ ticketIds: selectedIds, updates })
          });
+         const updatedCount = res?.count ?? selectedIds.length;
          setSelectedIds([]);
-         fetchTickets();
+         await fetchTickets();
+         toast.success(successMessage || `Updated ${updatedCount} ticket(s)`);
+         return true;
       } catch (e) {
-         alert(e.message);
+         toast.error("Bulk update failed: " + e.message);
+         return false;
+      } finally {
+         setBulkUpdating(false);
       }
    };
 
-   const handleBulkAssign = async () => {
-      const agentId = window.prompt("Enter agent ID to assign selected tickets to. Leave blank to unassign.");
-      if (agentId === null) return;
-      await runBulkUpdate({ assignedAgent: agentId.trim() || null });
+   const handleBulkAssign = () => {
+      if (!selectedIds.length) {
+         toast.error("Select at least one ticket first.");
+         return;
+      }
+      setBulkAssignAgentId("");
+      setBulkAssignReason("");
+      setShowBulkAssignModal(true);
+   };
+
+   const submitBulkAssign = async (e) => {
+      e.preventDefault();
+      const payload = {
+         assignedAgent: bulkAssignAgentId || null,
+         ...(bulkAssignReason.trim() ? { assignmentReason: bulkAssignReason.trim() } : {})
+      };
+      const agentName = assignableAgents.find(a => a._id === bulkAssignAgentId)?.name;
+      const msg = bulkAssignAgentId
+         ? `Assigned ${selectedIds.length} ticket(s) to ${agentName || "agent"}`
+         : `Unassigned ${selectedIds.length} ticket(s)`;
+      const ok = await runBulkUpdate(payload, msg);
+      if (ok) setShowBulkAssignModal(false);
    };
 
    const handleBulkExport = async () => {
@@ -792,7 +945,7 @@ export default function TicketManager({ websiteId }) {
       exportToCsv(filtered, columns, "Tickets_Master_Report");
    };
 
-   const filtered = tickets.filter(t => {
+   const matchesBaseFilters = (t) => {
       const custName = t.customerId?.name || t.visitorId?.name || "";
       const custEmail = t.customerId?.email || t.visitorId?.email || "";
       const matchSearch = !searchTerm ||
@@ -800,16 +953,24 @@ export default function TicketManager({ websiteId }) {
          (t.subject || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
          custName.toLowerCase().includes(searchTerm.toLowerCase()) ||
          custEmail.toLowerCase().includes(searchTerm.toLowerCase());
-      const [matchStatus, matchPriority, matchStage] = [
-         filterStatus === "all" || t.status === filterStatus,
-         filterPriority === "all" || t.priority === filterPriority,
-         filterStage === "all" || t.crmStage === filterStage
-      ];
+      const matchPriority = filterPriority === "all" || t.priority === filterPriority;
+      const matchStage = filterStage === "all" || t.crmStage === filterStage;
       const matchCRN = !searchCRN ||
          (t.crn && t.crn.toLowerCase().includes(searchCRN.toLowerCase())) ||
          custEmail.toLowerCase().includes(searchCRN.toLowerCase());
-      return matchSearch && matchStatus && matchPriority && matchStage && matchCRN;
-   });
+      return matchSearch && matchPriority && matchStage && matchCRN;
+   };
+
+   const ticketsForStatusCounts = tickets.filter(t =>
+      matchesBaseFilters(t) && (filterChannel === "all" || t.channel === filterChannel)
+   );
+   const ticketsForChannelCounts = tickets.filter(t =>
+      matchesBaseFilters(t) && (filterStatus === "all" || t.status === filterStatus)
+   );
+   const filtered = ticketsForStatusCounts.filter(t =>
+      filterStatus === "all" || t.status === filterStatus
+   );
+
    const paginatedFiltered = getPaginationMeta(filtered, page);
    const visibleTickets = paginatedFiltered.pageItems;
 
@@ -817,13 +978,20 @@ export default function TicketManager({ websiteId }) {
       setPage(1);
    }, [searchTerm, filterStatus, filterPriority, filterStage, filterChannel, searchCRN, tickets.length, viewMode]);
 
-   const counts = rangeSummary || {};
+   const counts = ticketsForStatusCounts.reduce((acc, t) => {
+      acc.all += 1;
+      if (t.status) acc[t.status] = (acc[t.status] || 0) + 1;
+      return acc;
+   }, { all: 0 });
+
    const channelCounts = {
-      all: tickets.length,
-      web: tickets.filter((ticket) => ticket.channel === "web").length,
-      chat: tickets.filter((ticket) => ticket.channel === "chat").length,
-      email: tickets.filter((ticket) => ticket.channel === "email").length
+      all: ticketsForChannelCounts.length,
+      web: ticketsForChannelCounts.filter((ticket) => ticket.channel === "web").length,
+      chat: ticketsForChannelCounts.filter((ticket) => ticket.channel === "chat").length,
+      phone: ticketsForChannelCounts.filter((ticket) => ticket.channel === "phone").length,
+      email: ticketsForChannelCounts.filter((ticket) => ticket.channel === "email").length
    };
+   const hasWebTickets = tickets.some((ticket) => ticket.channel === "web") || filterChannel === "web";
 
    if (loading) return (
       <div className="space-y-6 animate-pulse p-4">
@@ -833,44 +1001,44 @@ export default function TicketManager({ websiteId }) {
 
    return (
       <>
-         <div className="space-y-3.5 animate-in fade-in duration-500">
+         <div className="space-y-2.5 animate-in fade-in duration-500">
             {/* Clean, Compact Header & Action Bar */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/5 rounded-2xl p-4 shadow-sm space-y-3.5">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/5 rounded-2xl p-3 shadow-xs space-y-2.5">
                {/* Top Row: Title + Primary Actions */}
-               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-white/5">
-                  <div className="flex items-center gap-3 min-w-0">
-                     <div className="w-10 h-10 rounded-xl bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-100 dark:border-sky-500/20 flex items-center justify-center shrink-0">
-                        <Ticket size={20} />
+               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2 pb-2.5 border-b border-slate-100 dark:border-white/5">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                     <div className="w-8 h-8 rounded-lg bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-100 dark:border-sky-500/20 flex items-center justify-center shrink-0">
+                        <Ticket size={16} />
                      </div>
-                     <div>
+                     <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                           <h3 className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight">Ticket Nexus</h3>
-                           <span className="bg-sky-100 dark:bg-sky-500/20 text-sky-600 dark:text-sky-300 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                           <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">Ticket Nexus</h3>
+                           <span className="bg-sky-100 dark:bg-sky-500/20 text-sky-700 dark:text-sky-300 text-[11px] font-semibold px-2 py-0.5 rounded-full">
                               {filtered.length} Tickets
                            </span>
                         </div>
-                        <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">Resolution workflows and support requests</p>
+                        <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium leading-tight">Resolution workflows and support requests</p>
                      </div>
                   </div>
 
                   {/* Actions & View Toggle */}
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                      {/* View Mode Toggle */}
-                     <div className="flex items-center bg-slate-100 dark:bg-white/5 p-0.5 rounded-xl border border-slate-200/60 dark:border-white/5">
+                     <div className="flex items-center bg-slate-100 dark:bg-white/5 p-0.5 rounded-lg border border-slate-200/60 dark:border-white/5">
                         <button
                            type="button"
                            onClick={() => setViewMode("board")}
-                           className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === "board" ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs" : "text-slate-500 hover:text-slate-900 dark:hover:text-white"}`}
+                           className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all flex items-center gap-1 ${viewMode === "board" ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs" : "text-slate-500 hover:text-slate-900 dark:hover:text-white"}`}
                         >
-                           <LayoutGrid size={13} />
+                           <LayoutGrid size={12} />
                            <span>Board</span>
                         </button>
                         <button
                            type="button"
                            onClick={() => setViewMode("list")}
-                           className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${viewMode === "list" ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs" : "text-slate-500 hover:text-slate-900 dark:hover:text-white"}`}
+                           className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all flex items-center gap-1 ${viewMode === "list" ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs" : "text-slate-500 hover:text-slate-900 dark:hover:text-white"}`}
                         >
-                           <List size={13} />
+                           <List size={12} />
                            <span>List</span>
                         </button>
                      </div>
@@ -878,25 +1046,25 @@ export default function TicketManager({ websiteId }) {
                      <button
                         type="button"
                         onClick={handleExportTickets}
-                        className="bg-emerald-50/60 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-500/30 hover:bg-emerald-100/70 transition-all rounded-xl px-3.5 py-1.5 text-xs font-bold flex items-center gap-1.5 shadow-xs"
+                        className="bg-emerald-50/70 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100/80 transition-all rounded-lg px-2.5 py-1 text-[11px] font-semibold flex items-center gap-1 shadow-xs"
                      >
-                        <FileSpreadsheet size={13} />
+                        <FileSpreadsheet size={12} />
                         <span>Export</span>
                      </button>
 
                      {user && ["manager", "client", "admin"].includes(user.role) && (
                         <button
                            onClick={() => setShowManageStages(true)}
-                           className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 shadow-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
+                           className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1 shadow-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
                         >
-                           <Sliders size={13} className="text-sky-500" />
+                           <Sliders size={12} className="text-sky-500" />
                            <span>Columns</span>
                         </button>
                      )}
 
                      <button
                         onClick={toggleSelectAllVisible}
-                        className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
+                        className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-200 shadow-xs hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
                      >
                         {filtered.length > 0 && filtered.every(t => selectedIds.includes(t._id)) ? "Clear" : "Select All"}
                      </button>
@@ -904,17 +1072,19 @@ export default function TicketManager({ websiteId }) {
                      {selectedIds.length > 0 && (
                         <>
                            <button
-                              onClick={() => runBulkUpdate({ status: "resolved" })}
-                              className="bg-emerald-600 hover:bg-emerald-500 rounded-xl px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition-colors"
+                              onClick={() => runBulkUpdate({ status: "resolved" }, `Marked ${selectedIds.length} ticket(s) as resolved`)}
+                              disabled={bulkUpdating}
+                              className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-lg px-2.5 py-1 text-[11px] font-semibold text-white shadow-xs transition-colors"
                            >
                               Bulk Resolve ({selectedIds.length})
                            </button>
                            {user && ["manager", "client", "admin"].includes(user.role) && (
                               <button
                                  onClick={handleBulkAssign}
-                                 className="bg-sky-600 hover:bg-sky-500 rounded-xl px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition-colors"
+                                 disabled={bulkUpdating}
+                                 className="bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-lg px-2.5 py-1 text-[11px] font-semibold text-white shadow-xs transition-colors"
                               >
-                                 Bulk Assign
+                                 Bulk Assign ({selectedIds.length})
                               </button>
                            )}
                         </>
@@ -923,26 +1093,26 @@ export default function TicketManager({ websiteId }) {
                </div>
 
                {/* Second Row: Search & Dropdown Filters */}
-               <div className="flex items-center gap-2 flex-wrap">
+               <div className="flex items-center gap-1.5 flex-wrap">
                   {/* Search Ticket */}
                   <div className="relative flex-1 min-w-[160px]">
-                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
+                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={12} />
                      <input
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                         placeholder="Search ticket, subject, visitor..."
-                        className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200/90 dark:border-white/10 rounded-xl pl-8 pr-2.5 py-1.5 text-xs font-medium focus:bg-white dark:focus:bg-slate-900 focus:border-sky-500 outline-none transition-all dark:text-white placeholder:text-slate-400"
+                        className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200/90 dark:border-white/10 rounded-lg pl-7 pr-2.5 py-1 text-[11px] font-medium focus:bg-white dark:focus:bg-slate-900 focus:border-sky-500 outline-none transition-all dark:text-white placeholder:text-slate-400"
                      />
                   </div>
 
                   {/* Search CRN */}
-                  <div className="relative min-w-[130px]">
-                     <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={12} />
+                  <div className="relative min-w-[125px]">
+                     <Tag className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={11} />
                      <input
                         value={searchCRN}
                         onChange={e => setSearchCRN(e.target.value)}
                         placeholder="CRN / Email..."
-                        className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200/90 dark:border-white/10 rounded-xl pl-8 pr-2.5 py-1.5 text-xs font-medium focus:bg-white dark:focus:bg-slate-900 focus:border-sky-500 outline-none transition-all dark:text-white placeholder:text-slate-400"
+                        className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200/90 dark:border-white/10 rounded-lg pl-7 pr-2.5 py-1 text-[11px] font-medium focus:bg-white dark:focus:bg-slate-900 focus:border-sky-500 outline-none transition-all dark:text-white placeholder:text-slate-400"
                      />
                   </div>
 
@@ -950,7 +1120,7 @@ export default function TicketManager({ websiteId }) {
                   <select
                      value={filterStage}
                      onChange={e => setFilterStage(e.target.value)}
-                     className="bg-slate-50 dark:bg-slate-800/80 border border-slate-200/90 dark:border-white/10 rounded-xl px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 outline-none cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
+                     className="bg-slate-50 dark:bg-slate-800/80 border border-slate-200/90 dark:border-white/10 rounded-lg px-2 py-1 text-[11px] font-medium text-slate-700 dark:text-slate-300 outline-none cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
                   >
                      <option value="all">CRM Stages: All</option>
                      {Object.entries(CRM_STAGE_CONFIG).map(([k, v]) => (
@@ -962,7 +1132,7 @@ export default function TicketManager({ websiteId }) {
                   <select
                      value={filterPriority}
                      onChange={e => setFilterPriority(e.target.value)}
-                     className="bg-slate-50 dark:bg-slate-800/80 border border-slate-200/90 dark:border-white/10 rounded-xl px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 outline-none cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
+                     className="bg-slate-50 dark:bg-slate-800/80 border border-slate-200/90 dark:border-white/10 rounded-lg px-2 py-1 text-[11px] font-medium text-slate-700 dark:text-slate-300 outline-none cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
                   >
                      <option value="all">Priority: All</option>
                      {Object.entries(PRIORITY_CONFIG).map(([k, v]) => (
@@ -971,12 +1141,12 @@ export default function TicketManager({ websiteId }) {
                   </select>
 
                   {/* Focus Window Time Scope */}
-                  <div className="flex items-center bg-slate-100 dark:bg-white/5 p-0.5 rounded-xl ml-auto border border-slate-200/60 dark:border-white/5">
+                  <div className="flex items-center bg-slate-100 dark:bg-white/5 p-0.5 rounded-lg ml-auto border border-slate-200/60 dark:border-white/5">
                      {["all", "today", "week", "month"].map(r => (
                         <button
                            key={r}
                            onClick={() => setActiveRange(r)}
-                           className={`px-2.5 py-1 rounded-lg text-xs font-bold capitalize transition-all ${
+                           className={`px-2 py-0.5 rounded-md text-[11px] font-semibold capitalize transition-all ${
                               activeRange === r
                                  ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs"
                                  : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
@@ -989,14 +1159,14 @@ export default function TicketManager({ websiteId }) {
                </div>
 
                {/* Third Row: Status Scope & Channel Filter Bar */}
-               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2.5 border-t border-slate-100 dark:border-white/5">
+               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-white/5">
                   {/* Status Pills */}
-                  <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
+                  <div className="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar">
                      {["all", ...stages.filter(s => s.active).map(s => s.key)].map(s => (
                         <button
                            key={s}
                            onClick={() => setFilterStatus(s)}
-                           className={`px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                           className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                               filterStatus === s
                                  ? "bg-sky-600 text-white shadow-xs"
                                  : "bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/10"
@@ -1013,17 +1183,19 @@ export default function TicketManager({ websiteId }) {
                      ))}
                   </div>
 
-                  {/* Channel Tabs (All / Live Chat / Email) */}
-                  <div className="flex items-center gap-1 shrink-0 bg-slate-100 dark:bg-white/5 p-0.5 rounded-xl self-start sm:self-auto border border-slate-200/60 dark:border-white/5">
+                  {/* Channel Tabs */}
+                  <div className="flex items-center gap-0.5 shrink-0 bg-slate-100 dark:bg-white/5 p-0.5 rounded-lg self-start sm:self-auto border border-slate-200/60 dark:border-white/5">
                      {[
                         { key: "all", label: "All" },
                         { key: "chat", label: "Chat" },
+                        { key: "phone", label: "Phone" },
+                        ...(hasWebTickets ? [{ key: "web", label: "Web" }] : []),
                         { key: "email", label: "Email" }
                      ].map((channel) => (
                         <button
                            key={channel.key}
                            onClick={() => setFilterChannel(channel.key)}
-                           className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                           className={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition-all flex items-center gap-1 ${
                               filterChannel === channel.key
                                  ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs"
                                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
@@ -1042,8 +1214,8 @@ export default function TicketManager({ websiteId }) {
             {error && <div className="bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/20 text-red-600 dark:text-red-400 px-8 py-5 rounded-[28px] text-[11px] font-black uppercase tracking-widest shadow-xl animate-in shake duration-500">{error}</div>}
 
             {viewMode === "board" ? (
-               <div className="overflow-x-auto overflow-y-hidden pb-4 custom-scrollbar">
-                  <div className="flex gap-6 min-w-max">
+               <div className="overflow-x-auto overflow-y-hidden pb-2 custom-scrollbar">
+                  <div className="flex gap-3.5 min-w-max">
                   {stages.filter(s => s.active).map(s => s.key).map((statusKey) => {
                      const laneTickets = filtered.filter(ticket => ticket.status === statusKey);
                      const isDragOver = dragOverLane === statusKey;
@@ -1072,34 +1244,34 @@ export default function TicketManager({ websiteId }) {
                               if (id) handleTicketDragDrop(id, statusKey);
                               setDraggedTicketId(null);
                            }}
-                           className={`w-[320px] shrink-0 rounded-[32px] border transition-all duration-200 p-3.5 shadow-xs ${
+                           className={`w-[288px] shrink-0 rounded-2xl border transition-all duration-200 p-2.5 shadow-xs ${
                               isDragOver
                                  ? "border-sky-500 ring-2 ring-sky-400/40 bg-sky-50/40 dark:bg-sky-950/20"
-                                 : "border-slate-200/80 bg-slate-50/60 dark:bg-slate-900/60"
+                                 : "border-slate-200/80 bg-slate-50/70 dark:bg-slate-900/60"
                            }`}
                         >
-                           {/* Lane Header matching screenshot */}
-                           <div className="flex items-center gap-3.5 mb-4 px-1.5 pt-1">
-                              <div className={`w-10 h-10 rounded-full ${getStageConfig(statusKey, websiteId)?.badgeBg || "bg-blue-600"} text-white flex items-center justify-center font-black text-base shadow-xs shrink-0`}>
+                           {/* Compact Single-Line Lane Header */}
+                           <div className="flex items-center justify-between gap-2 mb-2.5 px-1 pt-0.5">
+                              <div className="flex items-center gap-2 min-w-0">
+                                 <span className={`w-2 h-2 rounded-full shrink-0 ${getStageConfig(statusKey, websiteId)?.dot || "bg-blue-600"}`} />
+                                 <h3 className="text-[11px] font-extrabold text-slate-800 dark:text-white uppercase tracking-wider truncate">
+                                    {getStageConfig(statusKey, websiteId)?.label}
+                                 </h3>
+                              </div>
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-white shrink-0 ${getStageConfig(statusKey, websiteId)?.badgeBg || "bg-blue-600"}`}>
                                  {counts[statusKey] || 0}
-                              </div>
-                              <div>
-                                 <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">{getStageConfig(statusKey, websiteId)?.label}</h3>
-                                 <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                                    {counts[statusKey] || 0} TICKETS
-                                 </p>
-                              </div>
+                              </span>
                            </div>
 
                            {/* Lane Body with drop target */}
                            <div
-                              className="space-y-3.5 min-h-[440px] max-h-[760px] overflow-y-auto custom-scrollbar"
+                              className="space-y-2 min-h-[380px] max-h-[720px] overflow-y-auto custom-scrollbar pr-0.5"
                            >
                               {laneTickets.length === 0 ? (
-                                 <div className={`h-44 border-2 border-dashed rounded-[24px] flex items-center justify-center text-center px-6 transition-colors ${
+                                 <div className={`h-32 border-2 border-dashed rounded-xl flex items-center justify-center text-center px-4 transition-colors ${
                                     isDragOver ? "border-sky-400 bg-sky-50/50 dark:bg-sky-950/30" : "border-slate-200/90 dark:border-white/10"
                                  }`}>
-                                    <p className="text-[10px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-[0.2em]">NO TICKETS IN THIS LANE</p>
+                                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-wider">No tickets</p>
                                  </div>
                               ) : laneTickets.map((ticket) => (
                                  <article
@@ -1116,70 +1288,70 @@ export default function TicketManager({ websiteId }) {
                                        setDraggedTicketId(null);
                                        setDragOverLane(null);
                                     }}
-                                    className={`rounded-[24px] border border-slate-200/90 dark:border-white/10 bg-white dark:bg-slate-800 p-4.5 shadow-xs hover:shadow-md transition-all cursor-pointer group cursor-grab active:cursor-grabbing ${
+                                    className={`rounded-xl border border-slate-200/90 dark:border-white/10 bg-white dark:bg-slate-800 p-3 shadow-xs hover:shadow-sm hover:border-sky-300/70 transition-all cursor-pointer group cursor-grab active:cursor-grabbing ${
                                        draggedTicketId === ticket._id ? "opacity-40 scale-95 border-dashed border-sky-400" : ""
                                     }`}
                                  >
                                     {/* Top Row: Ticket Code & Chevron */}
-                                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                                       <span className="text-[11px] font-extrabold text-sky-600 dark:text-sky-400 uppercase tracking-tight">
+                                    <div className="flex items-center justify-between gap-2 mb-1">
+                                       <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 tracking-tight">
                                           {ticket.ticketId}
                                        </span>
-                                       <ChevronRight size={14} className="text-slate-300 group-hover:text-sky-600 transition-colors shrink-0" />
+                                       <ChevronRight size={13} className="text-slate-300 group-hover:text-sky-600 transition-colors shrink-0" />
                                     </div>
 
                                     {/* Subject Header */}
-                                    <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight leading-snug line-clamp-2 mb-3">
+                                    <h4 className="text-[12px] font-semibold text-slate-900 dark:text-white leading-snug line-clamp-2 mb-2">
                                        {renderTicketSubject(ticket)}
                                     </h4>
 
-                                    <div className="space-y-3">
+                                    <div className="space-y-2">
                                        {/* Requester Identity Row */}
-                                       <div className="flex items-center gap-2.5">
-                                          <div className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xs font-black shrink-0 border border-emerald-100 dark:border-emerald-500/20">
-                                             {(ticket.customerId?.name || ticket.visitorId?.name)?.[0]?.toUpperCase() || "A"}
+                                       <div className="flex items-center gap-2">
+                                          <div className="w-6 h-6 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-[10px] font-bold shrink-0 border border-emerald-100 dark:border-emerald-500/20">
+                                             {cleanString(ticket.customerId?.name || ticket.visitorId?.name, "?")[0]?.toUpperCase() || "?"}
                                           </div>
                                           <div className="min-w-0">
-                                             <p className="text-[11px] font-bold text-slate-900 dark:text-white uppercase tracking-tight truncate">
-                                                {cleanString(ticket.customerId?.name || ticket.visitorId?.name, "ANONYMOUS")}
+                                             <p className="text-[11px] font-semibold text-slate-800 dark:text-white truncate leading-tight">
+                                                {cleanString(ticket.customerId?.name || ticket.visitorId?.name, "Not provided")}
                                              </p>
-                                             <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 truncate">
+                                             <p className="text-[10px] font-normal text-slate-400 dark:text-slate-500 truncate leading-tight">
                                                 {cleanString(ticket.customerId?.email || ticket.visitorId?.email, "No email")}
                                              </p>
                                           </div>
                                        </div>
 
                                        {/* Tag Chips */}
-                                       <div className="flex flex-wrap gap-1.5">
-                                          <span className="px-2.5 py-0.5 rounded-md text-[9px] font-extrabold uppercase tracking-wider border border-blue-200 bg-blue-50/50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20">
+                                       <div className="flex flex-wrap gap-1">
+                                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide border ${PRIORITY_CONFIG[ticket.priority]?.color || "border-blue-200 bg-blue-50/50 text-blue-600"}`}>
                                              {PRIORITY_CONFIG[ticket.priority]?.label || "Medium"}
                                           </span>
                                           {ticket.department ? (
-                                             <span className="px-2.5 py-0.5 rounded-md text-[9px] font-extrabold uppercase tracking-wider border border-sky-200 bg-sky-50/50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/20">
+                                             <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide border border-sky-200 bg-sky-50/50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/20">
                                                 {ticket.department}
                                              </span>
                                           ) : null}
                                           {["department_auto_assignment", "department_reassignment"].includes(getLatestAssignmentReason(ticket)) ? (
-                                             <span className="px-2.5 py-0.5 rounded-md text-[9px] font-extrabold uppercase tracking-wider border border-sky-200 bg-sky-50/50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/20">
+                                             <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide border border-sky-200 bg-sky-50/50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/20">
                                                 auto routed
                                              </span>
                                           ) : null}
                                           {ticket.crmStage && ticket.crmStage !== "none" ? (
-                                             <span className={`px-2.5 py-0.5 rounded-md text-[9px] font-extrabold uppercase tracking-wider border ${CRM_STAGE_CONFIG[ticket.crmStage]?.color}`}>
+                                             <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide border ${CRM_STAGE_CONFIG[ticket.crmStage]?.color}`}>
                                                 {CRM_STAGE_CONFIG[ticket.crmStage]?.label}
                                              </span>
                                           ) : null}
                                           {ticket.crn ? (
-                                             <span className="px-2.5 py-0.5 rounded-md text-[9px] font-extrabold uppercase tracking-wider border border-purple-200 bg-purple-50/50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/20">
+                                             <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide border border-purple-200 bg-purple-50/50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/20">
                                                 {ticket.crn}
                                              </span>
                                           ) : null}
                                        </div>
 
                                        {/* Footer: Website Name + Date */}
-                                       <div className="flex items-center justify-between gap-2 pt-1 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                                          <span className="truncate max-w-[170px]">{ticket.websiteId?.websiteName || "UAE INVOICING"}</span>
-                                          <span className="shrink-0 font-medium">{new Date(ticket.updatedAt || ticket.createdAt).toLocaleDateString()}</span>
+                                       <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-slate-100 dark:border-white/5 text-[10px] font-medium text-slate-400 dark:text-slate-500">
+                                          <span className="truncate max-w-[160px]">{ticket.websiteId?.websiteName || "Workspace"}</span>
+                                          <span className="shrink-0">{new Date(ticket.updatedAt || ticket.createdAt).toLocaleDateString()}</span>
                                        </div>
                                     </div>
                                  </article>
@@ -1191,135 +1363,112 @@ export default function TicketManager({ websiteId }) {
                   </div>
                </div>
             ) : (
-               <div className="grid grid-cols-1 gap-6">
-                  {visibleTickets.map(ticket => (
-                     <div
-                        key={ticket._id}
-                        onClick={() => setSelectedTicket(ticket)}
-                        className="premium-card p-0 group cursor-pointer border-2 border-transparent hover:border-indigo-500/20 transition-all duration-700 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/20 dark:shadow-none hover:-translate-y-1"
-                     >
-                        <div className="flex flex-col lg:flex-row lg:items-center h-full">
-                           <div className="p-8 lg:p-12 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-                              <div className="lg:col-span-1 flex items-center justify-center">
-                                 <input
-                                    type="checkbox"
-                                    checked={selectedIds.includes(ticket._id)}
-                                    onChange={(e) => {
-                                       e.stopPropagation();
-                                       toggleSelected(ticket._id);
-                                    }}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="h-5 w-5 rounded border-slate-300"
-                                 />
-                              </div>
-
-                              {/* Ticket ID & Core Status */}
-                              <div className="lg:col-span-2 space-y-4">
-                                 <div className="flex items-center gap-2 group-hover:scale-110 transition-transform origin-left">
-                                    <div className="w-2 h-8 rounded-full bg-indigo-600" />
-                                    <span className="text-[12px] font-black text-slate-950 dark:text-white tracking-tighter">{ticket.ticketId}</span>
-                                 </div>
-                                 <div className="space-y-1.5">
-                                    <div className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] border shadow-sm w-fit flex items-center gap-2 ${getStageConfig(ticket.status, ticket.websiteId?._id || ticket.websiteId)?.color}`}>
-                                       <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${getStageConfig(ticket.status, ticket.websiteId?._id || ticket.websiteId)?.dot}`} />
-                                       {getStageConfig(ticket.status, ticket.websiteId?._id || ticket.websiteId)?.label}
-                                    </div>
-                                    {ticket.crmStage && ticket.crmStage !== "none" && (
-                                       <div className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest w-fit border shadow-sm flex items-center gap-1.5 ${CRM_STAGE_CONFIG[ticket.crmStage]?.color}`}>
-                                          <span>{CRM_STAGE_CONFIG[ticket.crmStage]?.icon}</span>
-                                          {CRM_STAGE_CONFIG[ticket.crmStage]?.label}
-                                       </div>
-                                    )}
-                                    {ticket.crn && (
-                                       <div className="px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest w-fit border border-purple-100 bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/20 shadow-sm flex items-center gap-1.5 mt-1">
-                                          <Tag size={10} />
-                                          {ticket.crn}
-                                       </div>
-                                    )}
-                                    {ticket.category && (
-                                       <div className="px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest w-fit border border-indigo-100 bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20 shadow-sm flex items-center gap-1.5 mt-1">
-                                          <Layers size={10} />
-                                          {ticket.category}
-                                       </div>
-                                    )}
-                                    {ticket.department && (
-                                       <div className="px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest w-fit border border-sky-100 bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/20 shadow-sm flex items-center gap-1.5 mt-1">
-                                          <Activity size={10} />
-                                          {ticket.department}
-                                       </div>
-                                    )}
-                                 </div>
-                              </div>
-
-                              {/* Subject & Visitor Context */}
-                              <div className="lg:col-span-6 space-y-3">
-                                 <div className="flex items-center justify-between gap-4">
-                                    <h4 className="text-[12px] font-black text-slate-900 dark:text-white tracking-tight truncate group-hover:text-indigo-600 transition-colors">
-                                       {renderTicketSubject(ticket)}
-                                    </h4>
-                                    <div className="flex items-center gap-2">
-                                       {ticket.heatScore && <HeatIndicator score={ticket.heatScore} />}
-                                       {ticket.nbaMetadata && (
-                                          <div className="p-1 px-1.5 rounded-md bg-violet-600 text-white animate-bounce" title={ticket.nbaMetadata.recommendation}>
-                                             <Brain size={10} />
-                                          </div>
+               <div className="overflow-hidden rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-slate-900 shadow-xs">
+                  <div className="overflow-x-auto">
+                     <table className="w-full text-left border-collapse">
+                        <thead className="bg-slate-50/95 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-white/10">
+                           <tr>
+                              <th className="w-9 px-3 py-2.5 text-center">
+                                 <span className="sr-only">Select</span>
+                              </th>
+                              <th className="px-2.5 py-2.5 text-[10px] font-black uppercase tracking-wider text-slate-500 whitespace-nowrap">Ticket</th>
+                              <th className="px-2.5 py-2.5 text-[10px] font-black uppercase tracking-wider text-slate-500">Subject &amp; Requester</th>
+                              <th className="px-2.5 py-2.5 text-[10px] font-black uppercase tracking-wider text-slate-500 whitespace-nowrap">Status</th>
+                              <th className="px-2.5 py-2.5 text-[10px] font-black uppercase tracking-wider text-slate-500 whitespace-nowrap">Priority</th>
+                              <th className="px-2.5 py-2.5 text-[10px] font-black uppercase tracking-wider text-slate-500 whitespace-nowrap">Website &amp; Dept</th>
+                              <th className="px-2.5 py-2.5 text-[10px] font-black uppercase tracking-wider text-slate-500 whitespace-nowrap">SLA</th>
+                              <th className="px-3 py-2.5 text-right text-[10px] font-black uppercase tracking-wider text-slate-500 whitespace-nowrap">Updated</th>
+                           </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-white/5 text-xs">
+                           {visibleTickets.map((ticket) => {
+                              const stageInfo = getStageConfig(ticket.status, ticket.websiteId?._id || ticket.websiteId);
+                              const prioInfo = PRIORITY_CONFIG[ticket.priority] || PRIORITY_CONFIG.medium;
+                              const slaInfo = getSLADetails(ticket);
+                              const reqName = cleanString(ticket.customerId?.name || ticket.visitorId?.name, "Not provided");
+                              const reqEmail = cleanString(ticket.customerId?.email || ticket.visitorId?.email, "No email");
+                              return (
+                                 <tr
+                                    key={ticket._id}
+                                    onClick={() => setSelectedTicket(ticket)}
+                                    className="cursor-pointer hover:bg-sky-50/40 dark:hover:bg-white/5 transition-colors group"
+                                 >
+                                    <td className="px-3 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                                       <input
+                                          type="checkbox"
+                                          checked={selectedIds.includes(ticket._id)}
+                                          onChange={() => toggleSelected(ticket._id)}
+                                          className="h-4 w-4 rounded border-slate-300 cursor-pointer"
+                                       />
+                                    </td>
+                                    <td className="px-2.5 py-2.5 whitespace-nowrap">
+                                       <span className="text-[11px] font-extrabold text-sky-600 dark:text-sky-400 uppercase tracking-tight block">
+                                          {ticket.ticketId}
+                                       </span>
+                                       {ticket.crn && (
+                                          <span className="text-[9px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider block mt-0.5">
+                                             {ticket.crn}
+                                          </span>
                                        )}
-                                    </div>
-                                 </div>
-                                 <div className="flex items-center gap-4">
-                                    <div className="w-9 h-9 rounded-2xl bg-slate-50 dark:bg-white/5 flex items-center justify-center text-[12px] font-black text-indigo-500 dark:text-indigo-400 border border-slate-100 dark:border-white/5 shadow-inner">
-                                       {(ticket.customerId?.name || ticket.visitorId?.name)?.[0]?.toUpperCase() || "A"}
-                                    </div>
-                                    <div>
-                                       <p className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-tight">{cleanString(ticket.customerId?.name || ticket.visitorId?.name, "Participant Alpha")}</p>
-                                       <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">{cleanString(ticket.customerId?.email || ticket.visitorId?.email, "Encrypted Vector")}</p>
-                                    </div>
-                                 </div>
-                              </div>
-
-                              {/* Routing & Metadata */}
-                              <div className="lg:col-span-2 flex flex-col gap-4 border-l border-slate-50 dark:border-white/5 pl-10">
-                                 <div className="space-y-1">
-                                    <span className="text-[8px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-[0.2em]">Source Identity</span>
-                                    <div className="flex items-center gap-2 text-[10px] font-black text-slate-950 dark:text-white uppercase tracking-tight">
-                                       <Globe size={11} className="text-indigo-400" />
-                                       {ticket.websiteId?.websiteName || "Root Proxy"}
-                                    </div>
-                                 </div>
-                                 <div className="space-y-1 flex items-center justify-between">
-                                    <div className="space-y-1">
-                                       <span className="text-[8px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-[0.2em]">Priority Tier</span>
-                                       <div className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest w-fit border ${PRIORITY_CONFIG[ticket.priority]?.color}`}>
-                                          {PRIORITY_CONFIG[ticket.priority]?.label}
+                                    </td>
+                                    <td className="px-2.5 py-2.5 min-w-[170px] max-w-[260px]">
+                                       <div className="font-black text-slate-900 dark:text-white text-xs truncate group-hover:text-sky-600 transition-colors">
+                                          {renderTicketSubject(ticket)}
                                        </div>
-                                    </div>
-                                    {getSLADetails(ticket) && (
-                                       <div className="flex flex-col items-end">
-                                          <span className="text-[8px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-[0.2em]">SLA Deadline</span>
-                                          <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest mt-1 ${getSLADetails(ticket).isBreached ? 'bg-red-50 text-red-600 border border-red-100 animate-pulse' : 'bg-slate-50 text-slate-600 border border-slate-200'}`}>
+                                       <div className="flex items-center gap-1.5 mt-0.5 truncate">
+                                          <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate">{reqName}</span>
+                                          <span className="text-[10px] font-medium text-slate-400 truncate">• {reqEmail}</span>
+                                       </div>
+                                    </td>
+                                    <td className="px-2.5 py-2.5 whitespace-nowrap">
+                                       <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider border ${stageInfo?.color}`}>
+                                          <span className={`w-1.5 h-1.5 rounded-full ${stageInfo?.dot}`} />
+                                          {stageInfo?.label}
+                                       </span>
+                                    </td>
+                                    <td className="px-2.5 py-2.5 whitespace-nowrap">
+                                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider border ${prioInfo.color}`}>
+                                          {prioInfo.label}
+                                       </span>
+                                    </td>
+                                    <td className="px-2.5 py-2.5 whitespace-nowrap">
+                                       <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate max-w-[115px]">
+                                          {ticket.websiteId?.websiteName || "Workspace"}
+                                       </p>
+                                       {ticket.department && (
+                                          <p className="text-[9px] font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400 mt-0.5">
+                                             {ticket.department}
+                                          </p>
+                                       )}
+                                    </td>
+                                    <td className="px-2.5 py-2.5 whitespace-nowrap">
+                                       {slaInfo ? (
+                                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-extrabold border ${
+                                             slaInfo.isBreached
+                                                ? "bg-rose-50 text-rose-600 border-rose-200"
+                                                : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                          }`}>
                                              <Clock size={10} />
-                                             {getSLADetails(ticket).timeStr} {getSLADetails(ticket).isBreached ? 'Overdue' : 'Left'}
-                                          </div>
-                                       </div>
-                                    )}
-                                 </div>
-                              </div>
-
-                              {/* Temporal Sync */}
-                              <div className="lg:col-span-2 text-right">
-                                 <span className="text-[9px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-[0.2em]">Last Convergence</span>
-                                 <p className="text-base font-black text-slate-950 dark:text-white tracking-tighter mt-1">{new Date(ticket.updatedAt).toLocaleDateString([], { day: '2-digit', month: 'short' })}</p>
-                                 <p className="text-[10px] font-black text-indigo-500 dark:text-indigo-400 mt-1 uppercase tracking-[0.1em]">{new Date(ticket.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                              </div>
-                           </div>
-
-                           {/* Vertical Interactive Strip */}
-                           <div className="lg:w-20 w-full bg-slate-50/50 dark:bg-white/5 flex items-center justify-center border-t lg:border-t-0 lg:border-l border-slate-100 dark:border-white/5 p-6 lg:p-0 group-hover:bg-indigo-600 transition-all duration-500">
-                              <ChevronRight size={24} className="text-slate-300 group-hover:text-white transition-all transform group-hover:translate-x-1" />
-                           </div>
-                        </div>
-                     </div>
-                  ))}
+                                             {slaInfo.timeStr} {slaInfo.isBreached ? "Overdue" : "Left"}
+                                          </span>
+                                       ) : (
+                                          <span className="text-[10px] font-semibold text-slate-400">--</span>
+                                       )}
+                                    </td>
+                                    <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                                       <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                                          {new Date(ticket.updatedAt || ticket.createdAt).toLocaleDateString([], { day: "2-digit", month: "short" })}
+                                       </p>
+                                       <p className="text-[10px] font-medium text-slate-400">
+                                          {new Date(ticket.updatedAt || ticket.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                       </p>
+                                    </td>
+                                 </tr>
+                              );
+                           })}
+                        </tbody>
+                     </table>
+                  </div>
                   {filtered.length === 0 && !loading && (
                      <div className="p-40 border-4 border-dashed border-slate-100 dark:border-white/5 rounded-[64px] text-center space-y-8 bg-slate-50/30 dark:bg-white/5 transition-colors">
                         <div className="relative w-28 h-28 mx-auto flex items-center justify-center">
@@ -1383,6 +1532,8 @@ export default function TicketManager({ websiteId }) {
                         stages={stages}
                         setStages={setStages}
                         websiteId={websiteId}
+                        tickets={tickets}
+                        toast={toast}
                      />
                   </div>
 
@@ -1404,6 +1555,10 @@ export default function TicketManager({ websiteId }) {
                      </button>
                      <button
                         onClick={() => {
+                           const activeKeys = new Set(stages.filter(s => s.active).map(s => s.key));
+                           if (filterStatus !== "all" && !activeKeys.has(filterStatus)) {
+                              setFilterStatus("all");
+                           }
                            localStorage.setItem(`ticket_stages_${websiteId}`, JSON.stringify(stages));
                            setShowManageStages(false);
                            toast.success("Support board workflow updated successfully!");
@@ -1418,12 +1573,96 @@ export default function TicketManager({ websiteId }) {
             </div>,
             document.body
          )}
+
+         {showBulkAssignModal && createPortal(
+            <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+               <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md" onClick={() => !bulkUpdating && setShowBulkAssignModal(false)} />
+               <form
+                  onSubmit={submitBulkAssign}
+                  className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-100 dark:border-white/10 overflow-hidden animate-in zoom-in-95 duration-200"
+               >
+                  <div className="px-6 py-5 border-b border-slate-100 dark:border-white/5 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
+                     <div>
+                        <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">Bulk Assign Tickets</h3>
+                        <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+                           Assign or unassign {selectedIds.length} selected ticket{selectedIds.length === 1 ? "" : "s"}
+                        </p>
+                     </div>
+                     <button
+                        type="button"
+                        onClick={() => !bulkUpdating && setShowBulkAssignModal(false)}
+                        className="p-2 rounded-xl text-slate-400 hover:text-slate-900 hover:bg-slate-100 dark:hover:bg-white/5 dark:hover:text-white transition-all"
+                     >
+                        <X size={16} />
+                     </button>
+                  </div>
+
+                  <div className="p-6 space-y-4">
+                     <div>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5">
+                           Select Agent
+                        </label>
+                        <select
+                           value={bulkAssignAgentId}
+                           onChange={(e) => setBulkAssignAgentId(e.target.value)}
+                           className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-sky-500"
+                        >
+                           <option value="">-- Unassign Selected Tickets --</option>
+                           {assignableAgents.map(agent => (
+                              <option key={agent._id} value={agent._id}>
+                                 {agent.name} ({agent.role}){agent.email ? ` — ${agent.email}` : ""}
+                              </option>
+                           ))}
+                        </select>
+                     </div>
+
+                     <div>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5">
+                           Reason (Optional)
+                        </label>
+                        <input
+                           type="text"
+                           value={bulkAssignReason}
+                           onChange={(e) => setBulkAssignReason(e.target.value)}
+                           placeholder="e.g. Reassigning shift queue..."
+                           maxLength={200}
+                           className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-medium text-slate-800 dark:text-white outline-none focus:border-sky-500"
+                        />
+                     </div>
+                  </div>
+
+                  <div className="px-6 py-4 border-t border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-slate-900/50 flex items-center justify-end gap-2.5">
+                     <button
+                        type="button"
+                        onClick={() => setShowBulkAssignModal(false)}
+                        disabled={bulkUpdating}
+                        className="px-4 py-2 rounded-xl border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
+                     >
+                        Cancel
+                     </button>
+                     <button
+                        type="submit"
+                        disabled={bulkUpdating}
+                        className="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white text-xs font-bold shadow-sm transition-all"
+                     >
+                        {bulkUpdating ? "Updating..." : bulkAssignAgentId ? `Assign (${selectedIds.length})` : `Unassign (${selectedIds.length})`}
+                     </button>
+                  </div>
+               </form>
+            </div>,
+            document.body
+         )}
       </>
    );
 }
 
-function ManageStagesList({ stages, setStages, websiteId }) {
+function ManageStagesList({ stages, setStages, websiteId, tickets = [], toast }) {
   const [newLabel, setNewLabel] = useState("");
+
+  const stageCounts = tickets.reduce((acc, t) => {
+    if (t?.status) acc[t.status] = (acc[t.status] || 0) + 1;
+    return acc;
+  }, {});
 
   const moveStage = (index, direction) => {
     const updated = [...stages];
@@ -1437,9 +1676,17 @@ function ManageStagesList({ stages, setStages, websiteId }) {
   };
 
   const toggleActive = (index) => {
-    const updated = [...stages];
-    updated[index].active = !updated[index].active;
-    setStages(updated);
+    const stage = stages[index];
+    const ticketCount = stageCounts[stage.key] || 0;
+    if (stage.active && ticketCount > 0) {
+      toast?.error(`Cannot disable "${stage.label}" while it has ${ticketCount} ticket${ticketCount === 1 ? "" : "s"}. Move or resolve them first.`);
+      return;
+    }
+    if (stage.active && stages.filter(s => s.active).length <= 1) {
+      toast?.error("At least one column must remain enabled.");
+      return;
+    }
+    setStages(prev => prev.map((s, i) => (i === index ? { ...s, active: !s.active } : s)));
   };
 
   const updateLabel = (index, value) => {
@@ -1479,8 +1726,13 @@ function ManageStagesList({ stages, setStages, websiteId }) {
 
   const removeStage = (index) => {
     const stage = stages[index];
+    const ticketCount = stageCounts[stage.key] || 0;
     if (["open", "in_progress", "waiting", "pending", "resolved", "closed"].includes(stage.key)) {
-      alert("System core stages cannot be deleted, only disabled.");
+      toast?.error("System core stages cannot be deleted, only disabled.");
+      return;
+    }
+    if (ticketCount > 0) {
+      toast?.error(`Cannot delete "${stage.label}" while it has ${ticketCount} ticket${ticketCount === 1 ? "" : "s"}.`);
       return;
     }
     if (window.confirm(`Delete the custom column "${stage.label}"?`)) {
@@ -1495,20 +1747,36 @@ function ManageStagesList({ stages, setStages, websiteId }) {
       <div className="space-y-3">
         {stages.map((stage, index) => {
           const colorName = STAGE_PRESET_COLORS.find(c => c.color === stage.color)?.label || "Custom";
+          const ticketCount = stageCounts[stage.key] || 0;
+          const isLockedActive = stage.active && ticketCount > 0;
           return (
             <div key={stage.key} className="bg-slate-50 dark:bg-white/5 rounded-2xl p-4 border border-slate-100 dark:border-white/5 flex items-center justify-between gap-4 transition-all">
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 
-                {/* Active check toggle badge */}
+                {/* Enable / Disable toggle switch */}
                 <button
                   type="button"
                   onClick={() => toggleActive(index)}
-                  className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-[0.16em] border transition-all ${stage.active 
-                     ? "bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20" 
-                     : "bg-slate-100 text-slate-400 border-slate-200 dark:bg-white/5 dark:text-slate-600 dark:border-white/5"}`}
-                  title={stage.active ? "Click to Disable" : "Click to Enable"}
+                  aria-pressed={stage.active}
+                  className={`inline-flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-[0.14em] border transition-all shrink-0 ${
+                    isLockedActive
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 cursor-not-allowed"
+                      : stage.active
+                        ? "bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 cursor-pointer"
+                        : "bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200/70 dark:bg-white/5 dark:text-slate-400 dark:border-white/10 cursor-pointer"
+                  }`}
+                  title={
+                    isLockedActive
+                      ? `Cannot disable: ${ticketCount} ticket${ticketCount === 1 ? "" : "s"} in this column`
+                      : stage.active
+                        ? "Click to Disable column"
+                        : "Click to Enable column"
+                  }
                 >
-                  {stage.active ? "Active" : "Disabled"}
+                  <span className={`w-6 h-3.5 rounded-full p-0.5 flex items-center transition-colors ${stage.active ? "bg-emerald-500 justify-end" : "bg-slate-300 dark:bg-slate-600 justify-start"}`}>
+                    <span className="w-2.5 h-2.5 rounded-full bg-white shadow-xs" />
+                  </span>
+                  <span>{stage.active ? "Enabled" : "Disabled"}</span>
                 </button>
 
                 {/* Name Input */}
@@ -1516,8 +1784,22 @@ function ManageStagesList({ stages, setStages, websiteId }) {
                   type="text"
                   value={stage.label}
                   onChange={(e) => updateLabel(index, e.target.value)}
-                  className="bg-transparent border-b border-transparent focus:border-indigo-500 text-xs font-black uppercase text-slate-800 dark:text-white outline-none py-1 flex-1 min-w-0"
+                  className={`bg-transparent border-b border-transparent focus:border-indigo-500 text-xs font-black uppercase outline-none py-1 flex-1 min-w-0 ${
+                    stage.active ? "text-slate-800 dark:text-white" : "text-slate-400 dark:text-slate-500 line-through"
+                  }`}
                 />
+
+                {/* Ticket count badge */}
+                <span
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold shrink-0 ${
+                    ticketCount > 0
+                      ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300"
+                      : "bg-slate-100 text-slate-400 dark:bg-white/5 dark:text-slate-500"
+                  }`}
+                  title={ticketCount > 0 ? "Column has active tickets and cannot be disabled" : "Empty column — can be disabled"}
+                >
+                  {ticketCount} {ticketCount === 1 ? "ticket" : "tickets"}
+                </span>
               </div>
 
               {/* Controls */}

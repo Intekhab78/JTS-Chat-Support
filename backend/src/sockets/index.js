@@ -1477,7 +1477,7 @@ export function createSocketServer(httpServer) {
       }
     });
 
-    socket.on("visitor:join-room", async ({ sessionId }) => {
+    socket.on("visitor:join-room", async ({ sessionId, currentUrl = "" }) => {
       if (sessionId) {
         socket.join(sessionId);
         socket.data.sessionId = sessionId;
@@ -1498,6 +1498,51 @@ export function createSocketServer(httpServer) {
           io.to(`us_${socket.data.website.managerId}`).emit("visitor:online", statusPayload);
         }
         io.to("us_admin").emit("visitor:status", statusPayload);
+
+        // Auto-trigger active "welcome" ChatFlow on fresh idle sessions
+        if (socket.data.website?._id) {
+          try {
+            const sessionDoc = await ChatSession.findOne({ sessionId });
+            if (sessionDoc) {
+              const { triggerWelcomeChatFlow } = await import("../services/chatFlowRuntimeService.js");
+              const welcomeReply = await triggerWelcomeChatFlow({
+                session: sessionDoc,
+                websiteObj: socket.data.website,
+                pageUrl: currentUrl
+              });
+              if (welcomeReply && welcomeReply.message) {
+                const welcomeSaved = await addMessage({
+                  chatSession: sessionDoc,
+                  sender: "agent",
+                  message: welcomeReply.message,
+                  isAi: true,
+                  options: welcomeReply.options || [],
+                  formFields: welcomeReply.formFields || [],
+                  submitLabel: welcomeReply.submitLabel || ""
+                });
+                const welcomePayload = {
+                  _id: welcomeSaved._id,
+                  sessionId: sessionDoc.sessionId,
+                  message: welcomeSaved.message,
+                  sender: "agent",
+                  senderName: welcomeReply.flowName || "Automated Assistant",
+                  isAi: true,
+                  flowId: welcomeReply.flowId,
+                  nodeId: welcomeReply.nodeId,
+                  nodeType: welcomeReply.nodeType,
+                  options: welcomeReply.options || [],
+                  formFields: welcomeReply.formFields || [],
+                  submitLabel: welcomeReply.submitLabel || "",
+                  createdAt: welcomeSaved.createdAt
+                };
+                io.to(sessionDoc.sessionId).emit("chat:message", welcomePayload);
+                io.to(`ws_${socket.data.website._id}`).emit("chat:new-message", welcomePayload);
+              }
+            }
+          } catch (welcomeErr) {
+            console.error("Welcome ChatFlow auto-trigger error:", welcomeErr);
+          }
+        }
       }
     });
 
@@ -1687,7 +1732,7 @@ export function createSocketServer(httpServer) {
       }
     });
 
-    socket.on("visitor:message", async ({ sessionId, message, attachmentUrl = null, attachmentType = null, tempId = null }) => {
+    socket.on("visitor:message", async ({ sessionId, message, attachmentUrl = null, attachmentType = null, tempId = null, formData = null }) => {
       try {
         const { website, visitorId } = socket.data;
         if (!website || !visitorId) return;
@@ -1715,11 +1760,15 @@ export function createSocketServer(httpServer) {
           lowerMsg.includes("baat karni") || 
           lowerMsg.includes("human support");
 
-        if (wantsAgentOrEscalation) {
+        const { ChatFlow } = await import("../models/ChatFlow.js");
+        const hasActiveChatFlow = wsId ? Boolean(await ChatFlow.exists({ websiteId: wsId, isActive: true })) : false;
+        const flowHandlesEscalation = hasActiveChatFlow && !session.assignedAgent && session.botStatus !== "escalated";
+
+        if (wantsAgentOrEscalation && !flowHandlesEscalation) {
           session.botStatus = "escalated";
         }
 
-        if (!session.assignedAgent && wsId && (session.botStatus === "escalated" || !session.websiteId?.botEnabled)) {
+        if (!session.assignedAgent && wsId && !flowHandlesEscalation && (session.botStatus === "escalated" || (!session.websiteId?.botEnabled && !hasActiveChatFlow))) {
           const agent = await findAvailableAgent({ managerId: mgrId, websiteId: wsId });
           if (agent && !await hasReachedActiveChatLimit(agent._id)) {
             session.assignedAgent = agent._id;
@@ -1764,14 +1813,25 @@ export function createSocketServer(httpServer) {
               });
 
               if (!existingTicket) {
-                const rawVisName = session.visitorId?.name || "Visitor";
+                const rawVisName = String(session.visitorId?.name || "").trim();
+                const rawVisEmail = String(session.visitorId?.email || "").trim().toLowerCase();
+                const rawVisPhone = String(session.visitorId?.phone || "").trim();
+                const hasRealName = Boolean(rawVisName && !["anonymous visitor", "visitor", "anonymous", "unknown"].includes(rawVisName.toLowerCase()));
+                const hasRealEmail = Boolean(rawVisEmail && !rawVisEmail.endsWith("@visitor.local") && !rawVisEmail.endsWith("@anonymous.local") && !rawVisEmail.startsWith("anon-"));
+                const hasRealPhone = Boolean(rawVisPhone);
+
+                // Do not create anonymous offline tickets when neither name, email, nor phone has been provided
+                if (!hasRealName && !hasRealEmail && !hasRealPhone) {
+                  // Visitor has not shared contact details yet; skip creating an anonymous ticket
+                } else {
+                const displayVisName = hasRealName ? rawVisName : (hasRealEmail ? rawVisEmail : rawVisPhone);
                 const offlineTicket = await Ticket.create({
                   ticketId: buildTicketId(),
                   websiteId: wsId,
                   visitorId: visitorObjId,
                   customerId: customerObjId,
                   crn: session.crn || null,
-                  subject: `Offline Chat Support Request: ${rawVisName}`,
+                  subject: `Offline Chat Support Request: ${displayVisName}`,
                   priority: "high",
                   status: "open",
                   channel: "chat",
@@ -1785,10 +1845,11 @@ export function createSocketServer(httpServer) {
 
                 emitToWebsiteStaff(io, { websiteId: wsId, managerId: mgrId }, "ticket:created", {
                   ticket: offlineTicket,
-                  message: `Offline ticket ${offlineTicket.ticketId} created for ${rawVisName}`,
-                  user: rawVisName,
+                  message: `Offline ticket ${offlineTicket.ticketId} created for ${displayVisName}`,
+                  user: displayVisName,
                   websiteId: wsId
                 });
+                }
               }
             } catch (ticketErr) {
               console.error("[Sockets] Error creating offline chat fallback ticket:", ticketErr.message);
@@ -1824,41 +1885,175 @@ export function createSocketServer(httpServer) {
           io.to(`us_${session.assignedAgent._id || session.assignedAgent}`).emit("chat:message", payload);
         }
 
-        // If no human live agent is assigned and AI bot is enabled, generate real-time AI response using Google Gemini
-        if (!session.assignedAgent && message?.trim()) {
+        // If no human live agent is assigned and AI bot is enabled, execute matching ChatFlow first, then fall back to Gemini AI
+        if (!session.assignedAgent && (message?.trim() || formData)) {
           try {
             const websiteObj = wsId ? await Website.findById(wsId) : null;
-            if (websiteObj && websiteObj.botEnabled !== false) {
-              const { AiProviderManager } = await import("../services/aiProviderManager.js");
-              const aiProvider = AiProviderManager.getProvider("gemini");
-              const langInstruction = getStrictLanguageInstruction(message);
+            if (websiteObj && (websiteObj.botEnabled !== false || hasActiveChatFlow)) {
+              let handledByFlow = false;
+              try {
+                const { executeChatFlowStep } = await import("../services/chatFlowRuntimeService.js");
+                const flowReply = await executeChatFlowStep({ session, websiteObj, message, formData });
+                if (flowReply && flowReply.message) {
+                  const flowSaved = await addMessage({
+                    chatSession: session,
+                    sender: "agent",
+                    message: flowReply.message,
+                    isAi: true,
+                    options: flowReply.options || [],
+                    formFields: flowReply.formFields || [],
+                    submitLabel: flowReply.submitLabel || ""
+                  });
+                  const flowPayload = {
+                    _id: flowSaved._id,
+                    sessionId: session.sessionId,
+                    message: flowSaved.message,
+                    sender: "agent",
+                    senderName: flowReply.flowName || "Automated Assistant",
+                    isAi: true,
+                    flowId: flowReply.flowId,
+                    nodeId: flowReply.nodeId,
+                    nodeType: flowReply.nodeType,
+                    options: flowReply.options || [],
+                    formFields: flowReply.formFields || [],
+                    submitLabel: flowReply.submitLabel || "",
+                    createdAt: flowSaved.createdAt
+                  };
+                  if (saved?._id) {
+                    await Message.updateOne({ _id: saved._id, readAt: null }, { $set: { readAt: new Date() } });
+                    io.to(session.sessionId).emit("chat:read", { messageId: saved._id, sessionId: session.sessionId });
+                  }
+                  io.to(session.sessionId).emit("chat:message", flowPayload);
+                  if (wsId) io.to(`ws_${wsId}`).emit("chat:new-message", flowPayload);
+                  handledByFlow = true;
 
-              const aiResult = await aiProvider.generateCompletion({
-                prompt: `You are a helpful AI customer support assistant for ${websiteObj?.websiteName || "our company"}.
+                  if (flowReply.assignedAgentId) {
+                    const updatedPopulated = await ChatSession.findById(session._id)
+                      .populate("websiteId", "websiteName domain managerId")
+                      .populate("visitorId", "visitorId name email isOnline")
+                      .populate("assignedAgent", "name email role isOnline");
+                    if (updatedPopulated) emitSessionUpdate(updatedPopulated);
+                  }
+
+                  if (flowReply.conversionType) {
+                    const labelMap = {
+                      lead: "New CRM Lead Captured",
+                      ticket: "New Support Ticket Created",
+                      form: "New Flow Form Submitted"
+                    };
+                    const alertTitle = `${labelMap[flowReply.conversionType] || "Flow Conversion"} (${flowReply.flowName})`;
+                    if (mgrId) {
+                      createAndEmitNotification(io, {
+                        recipient: mgrId,
+                        type: flowReply.conversionType === "ticket" ? "new_ticket" : "new_chat",
+                        title: alertTitle,
+                        message: String(message || "").slice(0, 140),
+                        link: flowReply.conversionType === "ticket"
+                          ? "/client?tab=tickets"
+                          : "/client?tab=crm"
+                      }).catch(() => {});
+                    }
+                    if (flowReply.notifyEmail) {
+                      import("../services/emailService.js").then(({ sendEmail }) => {
+                        sendEmail({
+                          to: flowReply.notifyEmail,
+                          subject: `[JTS Support] ${alertTitle}`,
+                          html: `<p><strong>${alertTitle}</strong></p><p>Session: ${session.sessionId}</p><pre style="background:#f8fafc;padding:12px;border-radius:8px;">${String(message || "").replace(/</g, "&lt;")}</pre>`
+                        }).catch(() => {});
+                      }).catch(() => {});
+                    }
+                    if (flowReply.notifyWhatsapp || flowReply.notifyCustomerWhatsapp) {
+                      import("../services/providers/whatsappProvider.js").then(({ WhatsAppProviderManager }) => {
+                        const wa = WhatsAppProviderManager.getProvider("meta");
+                        if (flowReply.notifyWhatsapp) {
+                          wa.sendMessage({
+                            to: flowReply.notifyWhatsapp,
+                            message: `*${alertTitle}*\n\n${String(message || "").slice(0, 600)}`
+                          }).catch(() => {});
+                        }
+                        const extractPhoneFromObj = (obj) => {
+                          if (!obj || typeof obj !== "object") return "";
+                          for (const [k, v] of Object.entries(obj)) {
+                            if (/phone|mobile|whatsapp|tel/i.test(k) && String(v || "").trim()) {
+                              return String(v).trim();
+                            }
+                          }
+                          return "";
+                        };
+                        const msgPhoneMatch = String(message || "").match(/(?:\+?\d[\d\s\-()]{7,18}\d)/);
+                        const customerPhone =
+                          extractPhoneFromObj(flowReply.formData) ||
+                          extractPhoneFromObj(formData) ||
+                          (msgPhoneMatch ? msgPhoneMatch[0].trim() : "");
+                        const customerName =
+                          flowReply.formData?.name ||
+                          flowReply.formData?.full_name ||
+                          formData?.name ||
+                          formData?.full_name ||
+                          "";
+                        if (flowReply.notifyCustomerWhatsapp && customerPhone) {
+                          wa.sendMessage({
+                            to: customerPhone,
+                            message: `Hi${customerName ? ` ${customerName}` : ""}, thank you for contacting us! Your details have been received and our team will reach out shortly.`
+                          }).catch((err) => console.error("[Flow Customer WhatsApp Error]:", err?.message || err));
+                        }
+                      }).catch(() => {});
+                    }
+                    if (flowReply.notifyWebhookUrl) {
+                      fetch(flowReply.notifyWebhookUrl, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          event: `flow.${flowReply.conversionType}`,
+                          flowId: flowReply.flowId,
+                          flowName: flowReply.flowName,
+                          sessionId: session.sessionId,
+                          websiteId: String(wsId || ""),
+                          message: message || "",
+                          formData: flowReply.formData || formData || null,
+                          timestamp: new Date().toISOString()
+                        })
+                      }).catch(() => {});
+                    }
+                  }
+                }
+              } catch (flowErr) {
+                console.error("ChatFlow runtime execution error:", flowErr);
+              }
+
+              if (!handledByFlow) {
+                const { AiProviderManager } = await import("../services/aiProviderManager.js");
+                const aiProvider = AiProviderManager.getProvider("gemini");
+                const langInstruction = getStrictLanguageInstruction(message);
+
+                const aiResult = await aiProvider.generateCompletion({
+                  prompt: `You are a helpful AI customer support assistant for ${websiteObj?.websiteName || "our company"}.
 ${langInstruction.directive}
 
 Visitor message: "${message}".
 Reply concisely and politely in 1 to 2 sentences:`,
-                temperature: 0.7,
-                maxTokens: 300
-              });
+                  temperature: 0.7,
+                  maxTokens: 300
+                });
 
-              let outputMsg = aiResult?.text || "";
-              if (outputMsg && langInstruction.lang.code === "en") {
-                const hasHindiWords = /\b(aapke|aapka|aapki|aapko|naam|par|aur|ek|jinhe|hai|hain|kya|nahi|nhi|hoga|karein|kijiye|baare|mein|se|liye|kaam)\b/i.test(outputMsg);
-                if (hasHindiWords) {
-                  const fixRes = await aiProvider.generateCompletion({
-                    prompt: `Translate this support reply into natural English:\n"${outputMsg}"\nOutput ONLY the English text.`,
-                    temperature: 0.1,
-                    maxTokens: 300
-                  });
-                  if (fixRes?.text && !fixRes.text.includes("[Google Gemini Response]")) {
-                    outputMsg = fixRes.text.replace(/```/g, "").replace(/^["']|["']$/g, "").trim();
+                let outputMsg = aiResult?.text || "";
+                if (outputMsg && langInstruction.lang.code === "en") {
+                  const hasHindiWords = /\b(aapke|aapka|aapki|aapko|naam|par|aur|ek|jinhe|hai|hain|kya|nahi|nhi|hoga|karein|kijiye|baare|mein|se|liye|kaam)\b/i.test(outputMsg);
+                  if (hasHindiWords) {
+                    const fixRes = await aiProvider.generateCompletion({
+                      prompt: `Translate this support reply into natural English:\n"${outputMsg}"\nOutput ONLY the English text.`,
+                      temperature: 0.1,
+                      maxTokens: 300
+                    });
+                    if (fixRes?.text && !fixRes.text.includes("[Google Gemini Response]")) {
+                      outputMsg = fixRes.text.replace(/```/g, "").replace(/^["']|["']$/g, "").trim();
+                    }
                   }
                 }
-              }
 
-              if (outputMsg) {
+                if (!outputMsg) {
+                  outputMsg = "Thanks for your message! Our team has received it and will respond shortly.";
+                }
                 const aiSaved = await addMessage({
                   chatSession: session,
                   sender: "agent",
@@ -1871,18 +2066,25 @@ Reply concisely and politely in 1 to 2 sentences:`,
                   sessionId: session.sessionId,
                   message: aiSaved.message,
                   sender: "agent",
-                  senderName: "Gemini AI Assistant 🤖",
+                  senderName: "AI Assistant",
                   isAi: true,
                   createdAt: aiSaved.createdAt
                 };
 
+                if (saved?._id) {
+                  await Message.updateOne({ _id: saved._id, readAt: null }, { $set: { readAt: new Date() } });
+                  io.to(session.sessionId).emit("chat:read", { messageId: saved._id, sessionId: session.sessionId });
+                }
                 io.to(session.sessionId).emit("chat:message", aiPayload);
                 if (wsId) io.to(`ws_${wsId}`).emit("chat:new-message", aiPayload);
               }
             }
           } catch (aiErr) {
             console.error("Gemini AI auto-response error:", aiErr);
+            io.to(session.sessionId).emit("chat:typing", { isTyping: false, sender: "agent", sessionId });
           }
+        } else if (session.assignedAgent) {
+          io.to(session.sessionId).emit("chat:typing", { isTyping: false, sender: "agent", sessionId });
         }
 
         // Run intelligence processing in real-time

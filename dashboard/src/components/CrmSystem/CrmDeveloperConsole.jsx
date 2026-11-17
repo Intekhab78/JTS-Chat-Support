@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Terminal, Plus, ShieldCheck, Key, Globe, Activity, RefreshCw, Layers, CheckCircle, XCircle } from "lucide-react";
 import { api } from "../../api/client.js";
 
@@ -226,9 +227,9 @@ export default function CrmDeveloperConsole({ websiteId }) {
       </div>
 
       {/* Key Modal */}
-      {showKeyForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowKeyForm(false)} />
+      {showKeyForm && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowKeyForm(false)} />
           <form onSubmit={handleCreateKey} className="relative w-full max-w-sm bg-white rounded-[32px] p-8 shadow-2xl space-y-6">
             <h3 className="text-base font-black text-slate-900">Generate API Key</h3>
             <div className="space-y-1">
@@ -237,13 +238,14 @@ export default function CrmDeveloperConsole({ websiteId }) {
             </div>
             <button type="submit" className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-black uppercase">Generate Live Key</button>
           </form>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* OAuth App Modal */}
-      {showAppForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowAppForm(false)} />
+      {showAppForm && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowAppForm(false)} />
           <form onSubmit={handleCreateApp} className="relative w-full max-w-sm bg-white rounded-[32px] p-8 shadow-2xl space-y-6">
             <h3 className="text-base font-black text-slate-900">Register Client App</h3>
             <div className="space-y-1">
@@ -260,7 +262,8 @@ export default function CrmDeveloperConsole({ websiteId }) {
             </div>
             <button type="submit" className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-black uppercase">Register Client</button>
           </form>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

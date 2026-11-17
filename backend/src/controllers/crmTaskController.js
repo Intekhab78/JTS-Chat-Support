@@ -2,7 +2,7 @@ import { FollowUpTask } from "../models/FollowUpTask.js";
 import { Customer } from "../models/Customer.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
-import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
+import { getOwnedWebsiteIds, normalizeRole } from "../utils/roleUtils.js";
 import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
 import { emitCustomerActivity, createAndEmitCrmNotification } from "../utils/crmUtils.js";
 
@@ -19,7 +19,10 @@ export const createFollowUpTask = asyncHandler(async (req, res) => {
   const task = await FollowUpTask.create({
     customerId: customer._id, websiteId: customer.websiteId,
     ownerId: req.body.ownerId || req.user._id, createdBy: req.user._id,
-    type: req.body.type, title: req.body.title, dueAt: new Date(req.body.dueAt)
+    type: req.body.type, title: req.body.title,
+    notes: req.body.notes || "",
+    priority: req.body.priority || "medium",
+    dueAt: new Date(req.body.dueAt)
   });
 
   await emitCustomerActivity({
@@ -34,21 +37,26 @@ export const getMyFollowUpTasks = asyncHandler(async (req, res) => {
   const query = {};
 
   // Website scoping
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const effectiveRole = normalizeRole(req.user.role);
+  if (effectiveRole !== "admin" && ownedWebsiteIds.length === 0) {
+    return res.json([]);
+  }
+
   if (req.query.websiteId) {
-    query.websiteId = req.query.websiteId;
-  } else {
-    // Scope to websites the user owns/belongs to
-    const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
-    if (ownedWebsiteIds.length > 0) {
-      query.websiteId = { $in: ownedWebsiteIds };
+    if (effectiveRole !== "admin" && !ownedWebsiteIds.some((id) => String(id) === String(req.query.websiteId))) {
+      return res.status(403).json({ message: "Access denied for this website" });
     }
+    query.websiteId = req.query.websiteId;
+  } else if (effectiveRole !== "admin") {
+    query.websiteId = { $in: ownedWebsiteIds };
   }
 
   if (req.query.customerId) {
     query.customerId = req.query.customerId;
   } else {
-    const isRestricted = ["sales", "agent"].includes(req.user.role);
-    if (isRestricted && req.query.all !== "true") {
+    const isRestricted = ["sales", "agent", "tax_consultant"].includes(effectiveRole);
+    if (isRestricted) {
       query.ownerId = req.user._id;
     } else if (req.query.ownerId) {
       query.ownerId = req.query.ownerId;
@@ -79,13 +87,18 @@ export const updateFollowUpTask = asyncHandler(async (req, res) => {
 
   if (req.body.title) task.title = req.body.title;
   if (req.body.type) task.type = req.body.type;
+  if (req.body.notes !== undefined) task.notes = req.body.notes;
+  if (req.body.priority) task.priority = req.body.priority;
   if (req.body.dueAt) task.dueAt = new Date(req.body.dueAt);
-  if (req.body.ownerId) task.ownerId = req.body.ownerId;
+  if (req.body.ownerId !== undefined) task.ownerId = req.body.ownerId || null;
   if (req.body.status) {
     task.status = req.body.status;
     if (req.body.status === "completed") {
       task.completedAt = new Date();
       task.completedBy = req.user._id;
+    } else {
+      task.completedAt = null;
+      task.completedBy = null;
     }
   }
   await task.save();

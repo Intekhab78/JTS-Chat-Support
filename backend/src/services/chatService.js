@@ -1,4 +1,4 @@
-import { logger } from "../utils/logger.js";
+﻿import { logger } from "../utils/logger.js";
 import { ChatSession } from "../models/ChatSession.js";
 import { Message } from "../models/Message.js";
 import { Visitor } from "../models/Visitor.js";
@@ -114,7 +114,7 @@ export async function registerVisitor({
   if (!detectedCountry) detectedCountry = "India";
   if (!detectedCity) detectedCity = "India";
 
-  const finalDeviceInfo = `${detectedOs} • ${detectedBrowser}`;
+  const finalDeviceInfo = `${detectedOs} â€¢ ${detectedBrowser}`;
 
   if (existing) {
     existing.lastVisitTime = new Date();
@@ -217,8 +217,10 @@ export async function findOrCreateSession({ website, visitor, currentPage = "", 
     return session;
   }
 
-  const agent = await findAvailableAgent({ managerId: website.managerId, websiteId: website._id });
-  const status = agent ? "active" : "queued";
+  const { ChatFlow } = await import('../models/ChatFlow.js');
+  const hasActiveBotOrFlow = website.botEnabled !== false || Boolean(await ChatFlow.exists({ websiteId: website._id, isActive: true }));
+  const agent = hasActiveBotOrFlow ? null : await findAvailableAgent({ managerId: website.managerId, websiteId: website._id });
+  const status = (agent || hasActiveBotOrFlow) ? "active" : "queued";
 
   session = await ChatSession.create({
     sessionId: generatePublicId("session"),
@@ -245,7 +247,7 @@ export async function findOrCreateSession({ website, visitor, currentPage = "", 
   return ChatSession.findById(session._id).populate("assignedAgent", "name email isOnline");
 }
 
-export async function addMessage({ chatSession, sender, message, attachmentUrl = null, attachmentType = null, agentId = null, _id = null }) {
+export async function addMessage({ chatSession, sender, message, attachmentUrl = null, attachmentType = null, agentId = null, _id = null, options = [], formFields = [], submitLabel = "" }) {
   try {
     if (!chatSession?._id) {
       console.error("[SERVICE_ERROR]: addMessage called without valid chatSession._id");
@@ -260,7 +262,7 @@ export async function addMessage({ chatSession, sender, message, attachmentUrl =
       translatedText: msgText,
       detectedLanguage: "en",
       detectedLanguageName: "English",
-      flagSymbol: "🇬🇧"
+      flagSymbol: "ðŸ‡¬ðŸ‡§"
     };
 
     const messageDoc = {
@@ -270,10 +272,13 @@ export async function addMessage({ chatSession, sender, message, attachmentUrl =
       attachmentUrl,
       attachmentType,
       agentId: agentId || null,
+      options: Array.isArray(options) ? options : [],
+      formFields: Array.isArray(formFields) ? formFields : [],
+      submitLabel: submitLabel || "",
       translatedText: msgText,
       detectedLanguage: "en",
       detectedLanguageName: "English",
-      flagSymbol: "🇬🇧"
+      flagSymbol: "ðŸ‡¬ðŸ‡§"
     };
 
     if (_id) {
@@ -292,7 +297,7 @@ export async function addMessage({ chatSession, sender, message, attachmentUrl =
               translatedText: t.translatedText,
               detectedLanguage: t.detectedLanguage || "en",
               detectedLanguageName: t.detectedLanguageName || "English",
-              flagSymbol: t.flagSymbol || "🌐"
+              flagSymbol: t.flagSymbol || "ðŸŒ"
             }).catch(() => {});
           }
         })

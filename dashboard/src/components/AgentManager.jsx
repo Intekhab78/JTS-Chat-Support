@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import {
   UserPlus, Mail, Shield, Activity, Search, Trash2, Settings, BarChart2,
   CheckCircle2, X, Globe, Layers, Check, AlertCircle, Lock, UserCheck,
-  Building2, Tag, RefreshCw
+  Building2, Tag, RefreshCw, Eye, EyeOff, Star
 } from "lucide-react";
 import { api } from "../api/client.js";
 import PaginationControls from "./PaginationControls.jsx";
@@ -22,6 +22,7 @@ export default function AgentManager({ websiteId = "" }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
   const [editingId, setEditingId] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
   const formRef = useRef(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -341,15 +342,15 @@ export default function AgentManager({ websiteId = "" }) {
                   </div>
                 </div>
 
-                {/* 3-Cell Metrics Strip */}
-                <div className="grid grid-cols-3 gap-1 bg-slate-50 dark:bg-slate-800/40 p-1.5 rounded-lg border border-slate-100 dark:border-white/5 text-center">
+                {/* 4-Cell Metrics Strip */}
+                <div className="grid grid-cols-4 gap-1 bg-slate-50 dark:bg-slate-800/40 p-1.5 rounded-lg border border-slate-100 dark:border-white/5 text-center">
                   <div className="space-y-0.5">
                     <span className="text-[7.5px] font-black uppercase tracking-wider text-slate-400 block leading-none">Role</span>
                     <p className="text-[9.5px] font-black text-slate-900 dark:text-white truncate capitalize">
                       {agent.role || "agent"}
                     </p>
                   </div>
-                  <div className="space-y-0.5 border-x border-slate-200/60 dark:border-white/5 px-1">
+                  <div className="space-y-0.5 border-l border-slate-200/60 dark:border-white/5 px-1">
                     <span className="text-[7.5px] font-black uppercase tracking-wider text-slate-400 block leading-none">Workload</span>
                     <p className="text-[9.5px] font-black text-slate-900 dark:text-white flex items-center justify-center gap-0.5">
                       <span className={agent.activeChats > 0 ? "text-indigo-600 dark:text-indigo-400" : "text-slate-400"}>
@@ -357,6 +358,20 @@ export default function AgentManager({ websiteId = "" }) {
                       </span>
                       <span className="text-slate-300 dark:text-slate-600">/</span>
                       <span className="text-slate-400">{agent.maxWorkload || 5}</span>
+                    </p>
+                  </div>
+                  <div className="space-y-0.5 border-x border-slate-200/60 dark:border-white/5 px-1" title={agent.ratingCount > 0 ? `${agent.avgRating} average from ${agent.ratingCount} rated chats` : "No ratings yet"}>
+                    <span className="text-[7.5px] font-black uppercase tracking-wider text-slate-400 block leading-none">Rating</span>
+                    <p className="text-[9.5px] font-black text-slate-900 dark:text-white flex items-center justify-center gap-0.5">
+                      {agent.ratingCount > 0 ? (
+                        <>
+                          <Star size={9} className="text-amber-500 fill-amber-400 shrink-0" />
+                          <span>{agent.avgRating}</span>
+                          <span className="text-[8px] font-bold text-slate-400">({agent.ratingCount})</span>
+                        </>
+                      ) : (
+                        <span className="text-slate-400 font-bold">—</span>
+                      )}
                     </p>
                   </div>
                   <div className="space-y-0.5">
@@ -530,14 +545,25 @@ export default function AgentManager({ websiteId = "" }) {
                   <span>Access Password</span>
                   <span className="text-[8.5px] text-slate-400 font-bold">{editingId ? 'Optional (leave blank)' : 'Required'}</span>
                 </label>
-                <input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-indigo-500"
-                  placeholder={editingId ? "••••••••" : "Create password"}
-                  required={!editingId}
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl pl-3 pr-9 py-1.5 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-indigo-500"
+                    placeholder={editingId ? "Leave blank to keep current" : "Create password"}
+                    required={!editingId}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5"
+                    title={showPassword ? "Hide password" : "Show password"}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
               </div>
 
               {/* Role */}

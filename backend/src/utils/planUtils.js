@@ -31,7 +31,7 @@ export const MODULE_CATEGORIES = {
   ],
   enterprise: [
     "multi-organization", "enterprise-bi", "enterprise-integrations",
-    "mission-control", "sla-center", "observability", "load-testing",
+    "mission-control", "sla-center", "risk-register", "observability", "load-testing",
     "release-management", "developer-portal", "product-management",
     "compliance-governance", "mobile-readiness", "enterprise"
   ],
@@ -44,29 +44,35 @@ export const MODULE_CATEGORIES = {
 };
 
 export const PLAN_DEFINITIONS = {
+  free: {
+    plan: "free",
+    name: "Free Starter",
+    enabledModules: ["service", "chat", "security"],
+    limits: { agents: 1, websites: 1 }
+  },
   basic: {
     plan: "basic",
     name: "Starter Basic Tier",
-    enabledModules: ["service", "chat", "shortcuts", "security"],
+    enabledModules: ["service", "crm", "security"],
     limits: { agents: 2, websites: 1 }
   },
   standard: {
     plan: "standard",
     name: "Business Standard Tier",
-    enabledModules: ["service", "chat", "tickets", "crm", "finance", "shortcuts", "reports", "security"],
+    enabledModules: ["service", "crm", "operations", "finance", "reports", "security"],
     limits: { agents: 5, websites: 3 }
   },
   pro: {
     plan: "pro",
     name: "Pro Enterprise Tier",
-    enabledModules: ["service", "crm", "operations", "finance", "compliance", "automation", "reports", "security"],
+    enabledModules: ["service", "crm", "operations", "finance", "automation", "reports", "security"],
     limits: { agents: 10, websites: 10 }
   },
   enterprise: {
     plan: "enterprise",
     name: "Custom Enterprise Unlimited",
     enabledModules: [
-      "service", "crm", "operations", "finance", "compliance", "automation", "enterprise",
+      "service", "crm", "operations", "finance", "automation", "enterprise",
       "reports", "security"
     ],
     limits: { agents: 50, websites: 25 }
@@ -138,7 +144,9 @@ export function resolveSubscriptionForUser(user) {
   }
 
   const existingModules = Array.isArray(subscription.enabledModules) ? subscription.enabledModules : [];
-  const mergedModules = [...new Set([...fallback.enabledModules, ...existingModules])];
+  const mergedModules = existingModules.length > 0
+    ? [...new Set(existingModules.filter(m => m !== "compliance"))]
+    : [...fallback.enabledModules];
 
   return {
     plan,

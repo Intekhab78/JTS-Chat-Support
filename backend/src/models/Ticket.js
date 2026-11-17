@@ -62,4 +62,30 @@ const ticketSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+ticketSchema.pre("save", function (next) {
+  this._wasNew = this.isNew;
+  this._becameResolved = !this.isNew && this.isModified("status") && this.status === "resolved";
+  next();
+});
+
+ticketSchema.post("save", function (doc) {
+  if (!doc._wasNew && !doc._becameResolved) return;
+  const eventType = doc._wasNew ? "ticket.created" : "ticket.resolved";
+  import("../services/integrationWebhookService.js")
+    .then(({ emitIntegrationEvent }) =>
+      emitIntegrationEvent({
+        eventType,
+        websiteId: doc.websiteId || null,
+        payload: {
+          id: doc._id,
+          ticketId: doc.ticketId,
+          subject: doc.subject,
+          priority: doc.priority,
+          status: doc.status
+        }
+      })
+    )
+    .catch(() => {});
+});
+
 export const Ticket = mongoose.model("Ticket", ticketSchema);

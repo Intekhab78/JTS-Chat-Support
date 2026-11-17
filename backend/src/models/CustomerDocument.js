@@ -37,6 +37,11 @@ const documentVersionSchema = new mongoose.Schema({
 });
 
 const customerDocumentSchema = new mongoose.Schema({
+  websiteId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Website",
+    index: true
+  },
   customer: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Customer",

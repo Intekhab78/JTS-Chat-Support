@@ -149,41 +149,38 @@ export default function ConversationHistory({ websiteId } = {}) {
     <div className="space-y-3.5 animate-in fade-in duration-500">
       
       {/* ── Compact Header & KPI Metrics Bar ── */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 px-4 py-3.5 sm:px-5 sm:py-4 text-white border border-indigo-500/20 shadow-md">
-        <div className="absolute top-0 right-0 -mt-6 -mr-6 w-48 h-48 rounded-full bg-indigo-500/10 blur-2xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 -mb-8 w-60 h-60 rounded-full bg-violet-500/10 blur-2xl pointer-events-none" />
-
+      <div className="relative overflow-hidden rounded-2xl bg-white px-4 py-3.5 sm:px-5 sm:py-4 text-slate-900 border border-slate-200/80 shadow-xs">
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div className="space-y-1 max-w-xl">
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 text-[9px] font-black uppercase tracking-wider rounded-md border border-indigo-500/30 inline-flex items-center gap-1">
-                <ShieldCheck size={11} className="text-indigo-400" /> Secure Audit Trail
+              <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[9px] font-black uppercase tracking-wider rounded-md border border-indigo-200/70 inline-flex items-center gap-1">
+                <ShieldCheck size={11} className="text-indigo-500" /> Secure Audit Trail
               </span>
             </div>
-            <h2 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
+            <h2 className="text-base sm:text-lg font-black tracking-tight text-slate-900 flex items-center gap-2">
               Historical Conversation Archive & Transcripts
             </h2>
-            <p className="text-[11px] text-slate-300 font-medium leading-normal">
+            <p className="text-[11px] text-slate-500 font-medium leading-normal">
               Audit, review transcripts, track resolution times, and inspect visitor intelligence across all websites.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Quick Metrics */}
-            <div className="flex items-center gap-1.5 bg-white/5 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10">
+            <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/70">
               <div className="px-1.5 py-0.5 text-center">
                 <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block leading-none mb-0.5">Archived</span>
-                <span className="text-xs font-black text-white">{totalCount}</span>
+                <span className="text-xs font-black text-slate-900">{totalCount}</span>
               </div>
-              <div className="w-px h-4 bg-white/10" />
+              <div className="w-px h-4 bg-slate-200" />
               <div className="px-1.5 py-0.5 text-center">
-                <span className="text-[8px] font-black text-emerald-400 uppercase tracking-widest block leading-none mb-0.5">Resolved</span>
-                <span className="text-xs font-black text-white">{closedCount}</span>
+                <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest block leading-none mb-0.5">Resolved</span>
+                <span className="text-xs font-black text-slate-900">{closedCount}</span>
               </div>
-              <div className="w-px h-4 bg-white/10" />
+              <div className="w-px h-4 bg-slate-200" />
               <div className="px-1.5 py-0.5 text-center">
-                <span className="text-[8px] font-black text-amber-400 uppercase tracking-widest block leading-none mb-0.5">Avg Rating</span>
-                <span className="text-xs font-black text-amber-300 flex items-center gap-0.5">⭐ {avgRating}</span>
+                <span className="text-[8px] font-black text-amber-600 uppercase tracking-widest block leading-none mb-0.5">Avg Rating</span>
+                <span className="text-xs font-black text-amber-600 flex items-center gap-0.5">⭐ {avgRating}</span>
               </div>
             </div>
 

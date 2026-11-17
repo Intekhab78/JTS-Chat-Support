@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Ticket as TicketIcon, X, MessageCircle, ChevronRight, Clock, AlertCircle, CheckCircle, User, Bot, Loader2 } from "lucide-react";
+import { Ticket as TicketIcon, ArrowLeft, MessageCircle, ChevronRight, User, Bot, Loader2, Paperclip } from "lucide-react";
 import { TicketStatusBadge } from "../CrmUIComponents.jsx";
 import { api } from "../../../api/client.js";
 
@@ -7,30 +7,43 @@ function PriorityBadge({ priority }) {
   const colors = {
     high: "bg-red-50 text-red-600 border-red-100",
     medium: "bg-amber-50 text-amber-600 border-amber-100",
-    low: "bg-slate-50 text-slate-400 border-slate-100"
+    low: "bg-slate-50 text-slate-500 border-slate-200"
   };
   return (
-    <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${colors[priority] || colors.medium}`}>
+    <span className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${colors[priority] || colors.medium}`}>
       {priority || "medium"}
     </span>
   );
 }
 
 function ChatBubble({ message }) {
-  const isAgent = message.role === "agent" || message.role === "bot";
+  const sender = String(message.role || message.senderType || message.sender || "").toLowerCase();
+  const isAgent = ["agent", "bot", "admin", "client", "manager", "system"].includes(sender);
+  const bodyText =
+    message.content ||
+    message.text ||
+    message.message ||
+    message.body ||
+    (message.attachmentUrl || message.fileName ? `Attachment: ${message.fileName || "File"}` : "No text content");
+
   return (
-    <div className={`flex gap-2 ${isAgent ? "flex-row" : "flex-row-reverse"}`}>
-      <div className={`w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-white text-[9px] font-black ${isAgent ? "bg-indigo-500" : "bg-slate-400"}`}>
-        {isAgent ? <Bot size={12} /> : <User size={12} />}
+    <div className={`flex items-end gap-1.5 ${isAgent ? "flex-row" : "flex-row-reverse"}`}>
+      <div className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-white ${isAgent ? "bg-indigo-500" : "bg-slate-400"}`}>
+        {isAgent ? <Bot size={10} /> : <User size={10} />}
       </div>
-      <div className={`max-w-[80%] rounded-2xl px-3 py-2 ${isAgent ? "bg-indigo-50 text-indigo-900" : "bg-slate-100 text-slate-800"}`}>
+      <div className={`max-w-[78%] rounded-xl px-2.5 py-1.5 border ${isAgent ? "bg-indigo-50/70 border-indigo-100 text-indigo-950" : "bg-white border-slate-200/80 text-slate-800"}`}>
         {message.senderName && (
-          <p className="text-[8px] font-black uppercase tracking-widest mb-1 opacity-60">{message.senderName}</p>
+          <p className="text-[8px] font-bold uppercase tracking-wider mb-0.5 opacity-60">{message.senderName}</p>
         )}
-        <p className="text-[11px] font-medium leading-relaxed">{message.content}</p>
-        <p className="text-[8px] font-bold opacity-40 mt-1 text-right">
-          {new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+        <p className="text-[11px] font-medium leading-snug break-words flex items-center gap-1">
+          {(message.attachmentUrl || message.fileName) && !message.content && !message.text && <Paperclip size={10} className="shrink-0 opacity-60" />}
+          <span>{bodyText}</span>
         </p>
+        {message.createdAt && (
+          <p className="text-[8px] font-semibold opacity-45 mt-0.5 text-right">
+            {new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -61,118 +74,121 @@ export default function TicketsTab({ tickets }) {
     setTicketDetail(null);
   };
 
-  // Ticket list view
+  // Compact Ticket list view
   if (!selectedTicket) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-2">
         {tickets?.length > 0 ? tickets.map(ticket => (
           <button
             key={ticket._id}
             onClick={() => openTicket(ticket)}
-            className="w-full bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:border-indigo-200 hover:shadow-md transition-all group text-left"
+            className="w-full bg-white rounded-xl border border-slate-200/80 px-3 py-2.5 shadow-2xs hover:border-indigo-200 hover:bg-slate-50/40 transition-all group text-left flex items-center justify-between gap-3"
           >
-            <div className="flex justify-between items-start mb-3">
-              <TicketStatusBadge status={ticket.status} />
-              <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1 space-y-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <TicketStatusBadge status={ticket.status} />
                 <PriorityBadge priority={ticket.priority} />
-                <span className="text-[9px] font-bold text-slate-300 uppercase">{new Date(ticket.createdAt).toLocaleDateString()}</span>
+                <span className="text-[8.5px] font-semibold text-slate-400 uppercase tracking-wider">
+                  {ticket.ticketId}
+                </span>
               </div>
+              <h4 className="text-[11px] font-bold text-slate-900 truncate group-hover:text-indigo-600 transition-colors">
+                {ticket.subject}
+              </h4>
             </div>
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <h4 className="text-xs font-black text-slate-900 truncate group-hover:text-indigo-600 transition-colors">{ticket.subject}</h4>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{ticket.ticketId}</p>
-              </div>
-              <ChevronRight size={16} className="text-slate-200 group-hover:text-indigo-500 transition-colors flex-shrink-0" />
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-[9px] font-medium text-slate-400">
+                {new Date(ticket.createdAt).toLocaleDateString()}
+              </span>
+              <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-500 transition-colors" />
             </div>
           </button>
         )) : (
-          <div className="py-10 text-center space-y-2 bg-slate-50/60 rounded-2xl border border-slate-100/80">
-            <TicketIcon size={24} className="mx-auto text-slate-300" />
-            <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">No tickets linked</p>
+          <div className="py-8 text-center space-y-1.5 bg-slate-50/60 rounded-xl border border-slate-200/60">
+            <TicketIcon size={20} className="mx-auto text-slate-300" />
+            <p className="text-[9.5px] font-bold uppercase text-slate-400 tracking-wider">No tickets linked</p>
           </div>
         )}
       </div>
     );
   }
 
-  // Ticket detail + chat view
+  // Compact Ticket detail + chat view
   const detail = ticketDetail?.ticket || selectedTicket;
   const messages = ticketDetail?.messages || [];
 
   return (
-    <div className="flex flex-col h-full min-h-[500px]">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-4 pb-4 border-b border-slate-100">
+    <div className="flex flex-col gap-2.5">
+      {/* Compact Header */}
+      <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
         <button
           onClick={closeDetail}
-          className="p-2 rounded-xl hover:bg-slate-100 transition-all text-slate-400 hover:text-slate-700"
+          className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-700 cursor-pointer"
           title="Back to tickets"
         >
-          <X size={16} />
+          <ArrowLeft size={14} />
         </button>
         <div className="flex-1 min-w-0">
-          <h4 className="text-xs font-black text-slate-900 truncate">{detail.subject}</h4>
-          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{detail.ticketId}</p>
+          <h4 className="text-[11.5px] font-bold text-slate-900 truncate">{detail.subject}</h4>
+          <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">{detail.ticketId}</p>
         </div>
         <TicketStatusBadge status={detail.status} />
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 size={24} className="text-indigo-400 animate-spin" />
+        <div className="flex items-center justify-center py-10">
+          <Loader2 size={20} className="text-indigo-400 animate-spin" />
         </div>
       ) : (
-        <div className="flex flex-col gap-4 overflow-y-auto flex-1">
-          {/* Ticket Info Cards */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-slate-50 rounded-2xl px-3 py-2.5">
-              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">Priority</p>
+        <div className="flex flex-col gap-2.5">
+          {/* Compact 4-Column Metadata Strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="bg-slate-50/80 border border-slate-200/70 rounded-xl px-2.5 py-1.5">
+              <p className="text-[8px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Priority</p>
               <PriorityBadge priority={detail.priority} />
             </div>
-            <div className="bg-slate-50 rounded-2xl px-3 py-2.5">
-              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">Channel</p>
-              <p className="text-[10px] font-black text-slate-700 uppercase">{detail.channel || "Chat"}</p>
+            <div className="bg-slate-50/80 border border-slate-200/70 rounded-xl px-2.5 py-1.5">
+              <p className="text-[8px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Channel</p>
+              <p className="text-[10px] font-bold text-slate-800 uppercase">{detail.channel || "Chat"}</p>
             </div>
-            <div className="bg-slate-50 rounded-2xl px-3 py-2.5">
-              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">Agent</p>
-              <p className="text-[10px] font-black text-slate-700">{detail.assignedAgent?.name || "Unassigned"}</p>
+            <div className="bg-slate-50/80 border border-slate-200/70 rounded-xl px-2.5 py-1.5">
+              <p className="text-[8px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Agent</p>
+              <p className="text-[10px] font-bold text-slate-800 truncate">{detail.assignedAgent?.name || "Unassigned"}</p>
             </div>
-            <div className="bg-slate-50 rounded-2xl px-3 py-2.5">
-              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">Created</p>
-              <p className="text-[10px] font-black text-slate-700">{new Date(detail.createdAt).toLocaleDateString()}</p>
+            <div className="bg-slate-50/80 border border-slate-200/70 rounded-xl px-2.5 py-1.5">
+              <p className="text-[8px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Created</p>
+              <p className="text-[10px] font-bold text-slate-800">{new Date(detail.createdAt).toLocaleDateString()}</p>
             </div>
           </div>
 
-          {/* CRM Stage */}
           {detail.crmStage && detail.crmStage !== "none" && (
-            <div className="bg-indigo-50 rounded-2xl px-4 py-3">
-              <p className="text-[8px] font-black uppercase tracking-widest text-indigo-400 mb-1">CRM Stage</p>
-              <p className="text-xs font-black text-indigo-700 uppercase">{detail.crmStage}</p>
+            <div className="flex items-center justify-between bg-indigo-50/70 border border-indigo-100 rounded-xl px-3 py-1.5">
+              <span className="text-[8.5px] font-bold uppercase tracking-wider text-indigo-500">CRM Stage</span>
+              <span className="text-[10px] font-bold text-indigo-700 uppercase">{detail.crmStage}</span>
             </div>
           )}
 
           {/* Chat Messages */}
           <div>
-            <div className="flex items-center gap-2 mb-3">
-              <MessageCircle size={14} className="text-slate-400" />
-              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Chat History</p>
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <MessageCircle size={12} className="text-slate-400" />
+              <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Chat History</p>
               {messages.length > 0 && (
-                <span className="bg-indigo-100 text-indigo-600 text-[8px] font-black px-2 py-0.5 rounded-full">
-                  {messages.length} messages
+                <span className="bg-indigo-50 text-indigo-600 border border-indigo-100 text-[8.5px] font-bold px-1.5 py-0.2 rounded-full">
+                  {messages.length}
                 </span>
               )}
             </div>
             {messages.length > 0 ? (
-              <div className="space-y-3 bg-slate-50 rounded-2xl p-4 max-h-80 overflow-y-auto">
+              <div className="space-y-2 bg-slate-50/70 border border-slate-200/70 rounded-xl p-2.5 max-h-60 overflow-y-auto">
                 {messages.map((msg, i) => (
                   <ChatBubble key={msg._id || i} message={msg} />
                 ))}
               </div>
             ) : (
-              <div className="bg-slate-50 rounded-2xl py-8 text-center">
-                <MessageCircle size={24} className="mx-auto text-slate-200 mb-2" />
-                <p className="text-[9px] font-black uppercase text-slate-300 tracking-widest">No chat messages</p>
+              <div className="bg-slate-50/70 border border-slate-200/70 rounded-xl py-6 text-center">
+                <MessageCircle size={18} className="mx-auto text-slate-300 mb-1" />
+                <p className="text-[9px] font-bold uppercase text-slate-400 tracking-wider">No chat messages</p>
               </div>
             )}
           </div>

@@ -4,9 +4,10 @@
 
 export const isStaleLead = (customer) => {
   if (!customer?.updatedAt) return false;
-  
-  // A lead is stale if not won/lost and not updated in 7 days
-  const isFinalStage = ["won", "lost"].includes(customer.status);
+
+  // A lead is stale only if it is still in an open pipeline stage and not updated in 7 days
+  const stage = String(customer.pipelineStage || customer.status || "").toLowerCase();
+  const isFinalStage = ["won", "closed_won", "lost", "closed_lost"].includes(stage);
   if (isFinalStage) return false;
 
   const lastUpdate = new Date(customer.updatedAt);

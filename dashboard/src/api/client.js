@@ -269,16 +269,24 @@ export async function api(path, options = {}) {
   });
 
   if (response.status === 401) {
-    const isAuthPath = normalizedPath.includes("/api/auth/login") || normalizedPath.includes("/api/auth/register");
-    const isAlreadyOnLogin = typeof window !== "undefined" && window.location.pathname === "/login";
+    const isAuthPath =
+      normalizedPath.includes("/api/auth/login") ||
+      normalizedPath.includes("/api/auth/register") ||
+      normalizedPath.includes("/api/auth/me");
+    const currentPath = typeof window !== "undefined" ? window.location.pathname : "";
+    const isPublicRoute =
+      currentPath === "/" ||
+      currentPath === "/login" ||
+      currentPath === "/forgot-password" ||
+      currentPath.startsWith("/reset-password") ||
+      currentPath.startsWith("/ticket-status");
 
-    if (!isAuthPath && !isAlreadyOnLogin) {
-      if (typeof localStorage !== "undefined") {
-        localStorage.removeItem("dashboard_token");
-      }
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem("dashboard_token");
+    }
+
+    if (!isAuthPath && !isPublicRoute && typeof window !== "undefined") {
+      window.location.href = "/login";
     }
     throw new Error(data.message || "Session expired. Please log in again.");
   }

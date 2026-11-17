@@ -6,6 +6,7 @@ import { Invoice } from "../models/Invoice.js";
 import { Payment } from "../models/Payment.js";
 import { Visitor } from "../models/Visitor.js";
 import { ChatSession } from "../models/ChatSession.js";
+import { Article } from "../models/Article.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import mongoose from "mongoose";
 
@@ -55,7 +56,7 @@ const getPrevDateFilter = (range) => {
   const now = new Date();
   let endDate = new Date();
   let startDate = new Date();
-  
+
   if (range === 'today') {
     endDate.setHours(0, 0, 0, 0);
     startDate.setDate(now.getDate() - 1);
@@ -87,7 +88,7 @@ export const getExecutiveSummary = async (req, res) => {
     const prevFilter = getPrevDateFilter(range);
 
     const isAdmin = req.user?.role === "admin";
-    const scopedWebsites = await resolveAnalyticsWebsiteScope(req);
+    const scopedWebsites = await resolveAnalyticsWebsiteScope(req, { websiteId: req.query.websiteId, clientId: req.query.clientId });
     const siteMatch = scopedWebsites ? { websiteId: scopedWebsites } : {};
     const websiteDocMatch = !isAdmin
       ? { _id: scopedWebsites }
@@ -99,26 +100,26 @@ export const getExecutiveSummary = async (req, res) => {
     const prevClients = isAdmin
       ? await User.countDocuments({ role: "client", createdAt: prevFilter })
       : 1;
-    
+
     const activeWebsites = await Website.countDocuments({ ...websiteDocMatch, isActive: true, createdAt: currentFilter });
     const prevWebsites = await Website.countDocuments({ ...websiteDocMatch, isActive: true, createdAt: prevFilter });
-    
+
     const totalLeads = await Customer.countDocuments({ ...siteMatch, recordType: "lead", createdAt: currentFilter });
     const prevLeads = await Customer.countDocuments({ ...siteMatch, recordType: "lead", createdAt: prevFilter });
 
-    const newLeadsToday = await Customer.countDocuments({ 
+    const newLeadsToday = await Customer.countDocuments({
       ...siteMatch,
-      recordType: "lead", 
-      createdAt: getDateFilter('today') 
+      recordType: "lead",
+      createdAt: getDateFilter('today')
     });
 
     const openTickets = await Ticket.countDocuments({ ...siteMatch, status: { $in: ["open", "pending", "in_progress"] } });
     const resolvedTickets = await Ticket.countDocuments({ ...siteMatch, status: { $in: ["resolved", "closed"] }, updatedAt: currentFilter });
     const prevResolvedTickets = await Ticket.countDocuments({ ...siteMatch, status: { $in: ["resolved", "closed"] }, updatedAt: prevFilter });
-    
+
     const activeAgents = isAdmin
       ? await User.countDocuments({ role: "agent" })
-      : await User.countDocuments({ role: "agent", ...(scopedWebsites ? { websiteIds: scopedWebsites } : {}) });
+      : await User.countDocuments({ role: "agent", managerId: req.user.role === "client" ? req.user._id : req.user.managerId, ...(scopedWebsites ? { websiteIds: scopedWebsites } : {}) });
 
     const leadsWithRevenue = await Customer.aggregate([
       { $match: { ...siteMatch, recordType: 'customer', status: 'won', createdAt: currentFilter } },
@@ -131,12 +132,20 @@ export const getExecutiveSummary = async (req, res) => {
 
     const revenue = leadsWithRevenue[0]?.totalRevenue || 0;
     const prevRevenue = prevLeadsWithRevenue[0]?.totalRevenue || 0;
-    
-    const mrr = revenue > 0 ? Math.round(revenue / 12) : 0; 
+
+    const mrr = revenue > 0 ? Math.round(revenue / 12) : 0;
     const prevMrr = prevRevenue > 0 ? Math.round(prevRevenue / 12) : 0;
-    
-    const csat = 94.5;
-    const prevCsat = 92.1;
+
+    const [satisfiedCurr, unsatisfiedCurr, satisfiedPrev, unsatisfiedPrev] = await Promise.all([
+      ChatSession.countDocuments({ ...siteMatch, satisfactionStatus: "satisfied", createdAt: currentFilter }),
+      ChatSession.countDocuments({ ...siteMatch, satisfactionStatus: "unsatisfied", createdAt: currentFilter }),
+      ChatSession.countDocuments({ ...siteMatch, satisfactionStatus: "satisfied", createdAt: prevFilter }),
+      ChatSession.countDocuments({ ...siteMatch, satisfactionStatus: "unsatisfied", createdAt: prevFilter })
+    ]);
+    const totalCurrFb = satisfiedCurr + unsatisfiedCurr;
+    const totalPrevFb = satisfiedPrev + unsatisfiedPrev;
+    const csat = totalCurrFb > 0 ? Number(((satisfiedCurr / totalCurrFb) * 100).toFixed(1)) : 0;
+    const prevCsat = totalPrevFb > 0 ? Number(((satisfiedPrev / totalPrevFb) * 100).toFixed(1)) : 0;
 
     res.json({
       totalClients: { value: totalClients, trend: calculateTrend(totalClients, prevClients) },
@@ -199,19 +208,19 @@ export const getLeadAnalytics = async (req, res) => {
 
     const leadsOverTime = await Customer.aggregate([
       { $match: { recordType: "lead", ...matchQuery } },
-      { 
-        $group: { 
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, 
-          leads: { $sum: 1 } 
-        } 
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+          leads: { $sum: 1 }
+        }
       },
       { $sort: { _id: 1 } },
       { $project: { date: "$_id", leads: 1, _id: 0 } }
     ]);
 
-    const wonLeads = await Customer.countDocuments({ recordType: "customer", status: "won", ...matchQuery });
-    const lostLeads = await Customer.countDocuments({ recordType: "lead", leadStatus: "lost", ...matchQuery });
-    const totalProcessed = wonLeads + lostLeads;
+    const wonLeads = await Customer.countDocuments({ ...matchQuery, $or: [{ status: "won" }, { leadStatus: "won" }] });
+    const lostLeads = await Customer.countDocuments({ ...matchQuery, $or: [{ status: "lost" }, { leadStatus: "lost" }] });
+    const totalProcessed = await Customer.countDocuments(matchQuery);
     const conversionRate = totalProcessed > 0 ? ((wonLeads / totalProcessed) * 100).toFixed(1) : 0;
 
     res.json({
@@ -271,11 +280,11 @@ export const getTicketAnalytics = async (req, res) => {
 
     const ticketsOverTime = await Ticket.aggregate([
       { $match: matchQuery },
-      { 
-        $group: { 
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, 
-          count: { $sum: 1 } 
-        } 
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+          count: { $sum: 1 }
+        }
       },
       { $sort: { _id: 1 } },
       { $project: { date: "$_id", count: 1, _id: 0 } }
@@ -323,34 +332,37 @@ export const getAgentPerformanceAnalytics = async (req, res) => {
     if (scopedWebsite) matchQuery.websiteId = scopedWebsite;
 
     const agentQuery = { role: { $in: ["agent", "sales"] } };
+    if (req.user?.role !== "admin") {
+      agentQuery.managerId = req.user.role === "client" ? req.user._id : req.user.managerId;
+    }
     if (scopedWebsite) agentQuery.websiteIds = scopedWebsite;
 
     // Agent aggregations
     const agents = await User.find(agentQuery);
-    
+
     const performanceData = await Promise.all(agents.map(async (agent) => {
       const agentMatchQuery = { ...matchQuery, assignedAgent: agent._id };
-      
+
       const assignedTickets = await Ticket.countDocuments(agentMatchQuery);
       const resolvedTickets = await Ticket.countDocuments({ ...agentMatchQuery, status: { $in: ["resolved", "closed"] } });
-      
+
       const wonDeals = await Customer.countDocuments({
         ...(scopedWebsite ? { websiteId: scopedWebsite } : {}),
         ownerId: agent._id,
         status: "won",
         createdAt: dateFilter
       });
-      
+
       const ratedSessions = await ChatSession.find({
         ...(scopedWebsite ? { websiteId: scopedWebsite } : {}),
         assignedAgent: agent._id,
         feedbackRating: { $gte: 1 }
       }).select("feedbackRating");
 
-      const productivityScore = Math.min(100, Math.round(((resolvedTickets * 2) + (wonDeals * 5)) + 40));
+      const productivityScore = (resolvedTickets === 0 && wonDeals === 0 && assignedTickets === 0) ? 0 : Math.min(100, Math.round((resolvedTickets * 5) + (wonDeals * 10) + (assignedTickets * 2)));
       const csat = ratedSessions.length > 0
         ? Math.round((ratedSessions.reduce((s, r) => s + Number(r.feedbackRating || 0), 0) / (ratedSessions.length * 5)) * 100)
-        : 92;
+        : 0;
 
       return {
         _id: agent._id,
@@ -388,10 +400,10 @@ export const getAgentPerformanceAnalytics = async (req, res) => {
 
 export const getRevenueAnalytics = async (req, res) => {
   try {
-    const { range = 'month', clientId } = req.query;
+    const { range = 'month', clientId, websiteId } = req.query;
 
     let websiteFilter = {};
-    const scopedWebsite = await resolveAnalyticsWebsiteScope(req, { clientId });
+    const scopedWebsite = await resolveAnalyticsWebsiteScope(req, { websiteId, clientId });
     if (scopedWebsite) {
       websiteFilter.websiteId = scopedWebsite;
     }
@@ -452,7 +464,7 @@ export const getRevenueAnalytics = async (req, res) => {
       d.setMonth(currentMonthIdx - i);
       const mIdx = d.getMonth();
       const mYear = d.getFullYear();
-      
+
       const mPayments = payments.filter(p => {
         const pDate = new Date(p.paymentDate || p.createdAt);
         return pDate.getMonth() === mIdx && pDate.getFullYear() === mYear;
@@ -465,15 +477,23 @@ export const getRevenueAnalytics = async (req, res) => {
       });
     }
 
+    const pendingInvoicesTotal = invoices
+      .filter(i => i.status !== "paid" && i.paymentStatus !== "paid")
+      .reduce((sum, i) => sum + Math.max(0, Number(i.total || 0) - Number(i.paidAmount || 0)), 0);
+
     res.json({
       metrics: {
-        totalRevenue: `$${effectiveTotal.toLocaleString()}`,
-        subscriptionRevenue: `$${Math.round(effectiveTotal * 0.7).toLocaleString()}`,
-        mrr: `$${mrr.toLocaleString()}`,
-        arr: `$${arr.toLocaleString()}`
+        totalRevenueAmount: effectiveTotal,
+        pendingAmount: pendingInvoicesTotal,
+        mrrAmount: mrr,
+        arrAmount: arr,
+        totalRevenue: effectiveTotal,
+        pendingRevenue: pendingInvoicesTotal,
+        mrr,
+        arr
       },
       revenueGrowth: last6Months,
-      revenueByClient: revenueByClient.length > 0 ? revenueByClient : [{ name: "New Customers", value: effectiveTotal }]
+      revenueByClient
     });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
@@ -482,17 +502,17 @@ export const getRevenueAnalytics = async (req, res) => {
 
 export const getWebsiteAnalytics = async (req, res) => {
   try {
-    const { range = 'month', clientId } = req.query;
+    const { range = 'month', clientId, websiteId } = req.query;
     const dateFilter = getDateFilter(range);
 
     const matchQuery = {};
-    const scopedWebsite = await resolveAnalyticsWebsiteScope(req, { clientId });
+    const scopedWebsite = await resolveAnalyticsWebsiteScope(req, { websiteId, clientId });
     if (scopedWebsite) {
       matchQuery._id = scopedWebsite;
     }
 
     const websites = await Website.find(matchQuery).select('_id domain websiteName');
-    
+
     const performanceData = await Promise.all(websites.map(async (site) => {
       const [leadsGenerated, ticketsCreated, visitors, chatSessions] = await Promise.all([
         Customer.countDocuments({ recordType: "lead", websiteId: site._id, createdAt: dateFilter }),
@@ -500,8 +520,8 @@ export const getWebsiteAnalytics = async (req, res) => {
         Visitor.countDocuments({ websiteId: site._id, createdAt: dateFilter }),
         ChatSession.countDocuments({ websiteId: site._id, createdAt: dateFilter })
       ]);
-      
-      const conversionRate = visitors > 0 ? ((leadsGenerated / visitors) * 100).toFixed(1) : 0;
+
+      const conversionRate = visitors > 0 ? Math.min(100, (leadsGenerated / visitors) * 100).toFixed(1) : 0;
 
       return {
         _id: site._id,
@@ -522,7 +542,7 @@ export const getWebsiteAnalytics = async (req, res) => {
     const totalChatSessions = performanceData.reduce((acc, curr) => acc + curr.chatSessions, 0);
     const totalLeads = performanceData.reduce((acc, curr) => acc + curr.leadsGenerated, 0);
     const totalTickets = performanceData.reduce((acc, curr) => acc + curr.ticketsCreated, 0);
-    const overallConversion = totalVisitors > 0 ? ((totalLeads / totalVisitors) * 100).toFixed(1) : 0;
+    const overallConversion = totalVisitors > 0 ? Math.min(100, (totalLeads / totalVisitors) * 100).toFixed(1) : 0;
 
     res.json({
       metrics: {
@@ -542,19 +562,19 @@ export const getWebsiteAnalytics = async (req, res) => {
 
 export const getCustomerInsightsAnalytics = async (req, res) => {
   try {
-    const { range = 'month', clientId } = req.query;
+    const { range = 'month', clientId, websiteId } = req.query;
     const dateFilter = getDateFilter(range);
 
     const matchQuery = { recordType: "customer" };
-    const scopedWebsite = await resolveAnalyticsWebsiteScope(req, { clientId });
+    const scopedWebsite = await resolveAnalyticsWebsiteScope(req, { websiteId, clientId });
     if (scopedWebsite) matchQuery.websiteId = scopedWebsite;
-    
+
     // Total historical customers
     const totalCustomers = await Customer.countDocuments(matchQuery);
-    
+
     // Active customers
     const activeCustomers = await Customer.countDocuments({ ...matchQuery, status: "won" });
-    
+
     // Retention & Churn
     const churnedCustomers = await Customer.countDocuments({ ...matchQuery, status: "lost" });
     const churnRate = totalCustomers > 0 ? ((churnedCustomers / totalCustomers) * 100).toFixed(1) : 0;
@@ -566,16 +586,16 @@ export const getCustomerInsightsAnalytics = async (req, res) => {
     }).select("feedbackRating");
     const csat = ratedSessions.length > 0
       ? (ratedSessions.reduce((s, r) => s + Number(r.feedbackRating || 0), 0) / (ratedSessions.length * 5)) * 100
-      : 92.5;
+      : 0;
 
     // Growth over time
     const growthTrend = await Customer.aggregate([
       { $match: matchQuery },
-      { 
-        $group: { 
-          _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } }, 
-          count: { $sum: 1 } 
-        } 
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
+          count: { $sum: 1 }
+        }
       },
       { $sort: { _id: 1 } },
       { $limit: 6 },
@@ -609,43 +629,98 @@ export const getCustomerInsightsAnalytics = async (req, res) => {
 
 export const getAiInsightsAnalytics = async (req, res) => {
   try {
-    const { range = 'month', clientId } = req.query;
+    const { range = 'month', clientId, websiteId } = req.query;
+    const dateFilter = getDateFilter(range);
+    const scopedWebsite = await resolveAnalyticsWebsiteScope(req, { websiteId, clientId });
+    const siteMatch = scopedWebsite ? { websiteId: scopedWebsite } : {};
 
-    // In a real app, these would come from an AI pipeline or NLP analysis of tickets and chat transcripts.
-    const trendingIssues = [
-      { issue: "Password Reset Failures", count: 145, trend: "+12%" },
-      { issue: "Billing Integration Error", count: 89, trend: "+5%" },
-      { issue: "Slow Dashboard Loading", count: 64, trend: "-2%" },
-      { issue: "API Rate Limits", count: 42, trend: "+18%" }
-    ];
+    const [
+      ticketCategories,
+      serviceRequests,
+      kbArticles,
+      totalChats,
+      aiChats,
+      satisfiedChats,
+      unsatisfiedChats,
+      leadsList
+    ] = await Promise.all([
+      Ticket.aggregate([
+        { $match: { ...siteMatch, createdAt: dateFilter } },
+        { $group: { _id: { $ifNull: ["$category", "General Support"] }, count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 5 }
+      ]),
+      Customer.aggregate([
+        { $match: { ...siteMatch, createdAt: dateFilter } },
+        { $group: { _id: { $cond: [{ $or: [{ $eq: ["$requirement", ""] }, { $eq: ["$requirement", null] }] }, "General Inquiry", "$requirement"] }, requests: { $sum: 1 } } },
+        { $sort: { requests: -1 } },
+        { $limit: 5 }
+      ]),
+      Article.find(siteMatch).sort({ views: -1, updatedAt: -1 }).limit(5).select("title views helpfulCount"),
+      ChatSession.countDocuments({ ...siteMatch, createdAt: dateFilter }),
+      ChatSession.countDocuments({ ...siteMatch, assignedAgent: null, createdAt: dateFilter }),
+      ChatSession.countDocuments({ ...siteMatch, satisfactionStatus: "satisfied", createdAt: dateFilter }),
+      ChatSession.countDocuments({ ...siteMatch, satisfactionStatus: "unsatisfied", createdAt: dateFilter }),
+      Customer.find({ ...siteMatch, createdAt: dateFilter }).select("leadScore")
+    ]);
 
-    const mostRequestedServices = [
-      { service: "Web Design", requests: 320 },
-      { service: "SEO Optimization", requests: 215 },
-      { service: "Custom App Dev", requests: 180 },
-      { service: "CRM Setup", requests: 150 }
-    ];
+    const trendingIssues = ticketCategories.map((t) => ({
+      issue: t._id || "General Support",
+      count: t.count,
+      trend: "Live"
+    }));
 
-    const faqAnalytics = [
-      { question: "How to upgrade plan?", views: 1024, helpfulness: "92%" },
-      { question: "What are your support hours?", views: 845, helpfulness: "88%" },
-      { question: "Do you offer refunds?", views: 612, helpfulness: "75%" },
-      { question: "How to export data?", views: 530, helpfulness: "95%" }
-    ];
+    const mostRequestedServices = serviceRequests.map((s) => {
+      const raw = String(s._id || "General Inquiry");
+      const reqMatch = raw.match(/(?:Requirement|Requierment)\s*:\s*(.+)$/i);
+      const clean = (reqMatch ? reqMatch[1] : raw).replace(/\s+/g, " ").trim();
+      return {
+        service: clean.length > 50 ? `${clean.slice(0, 47)}...` : clean,
+        requests: s.requests
+      };
+    });
 
-    const ticketPrediction = [
-      { category: "Technical Support", predictedVolume: 450, confidence: "89%" },
-      { category: "Billing", predictedVolume: 210, confidence: "94%" },
-      { category: "Sales Inquiry", predictedVolume: 320, confidence: "82%" },
-      { category: "Feature Request", predictedVolume: 85, confidence: "76%" }
+    const faqAnalytics = kbArticles.map((a) => ({
+      question: a.title,
+      views: a.views || 0,
+      helpfulness: a.helpfulCount ? `${Math.min(100, a.helpfulCount * 10)}%` : "100%"
+    }));
+
+    const ticketPrediction = ticketCategories.map((t) => ({
+      category: t._id || "General Support",
+      predictedVolume: t.count,
+      confidence: t.count > 0 ? "100%" : "—"
+    }));
+
+    const avgLeadQualityScore = leadsList.length > 0
+      ? Math.round(leadsList.reduce((acc, l) => acc + (Number(l.leadScore) || 50), 0) / leadsList.length)
+      : 0;
+
+    const aiResolutionRate = totalChats > 0
+      ? `${Math.round((aiChats / totalChats) * 100)}%`
+      : "0%";
+
+    const totalSentiment = satisfiedChats + unsatisfiedChats;
+    const sentimentScore = totalSentiment > 0
+      ? `Positive (${Math.round((satisfiedChats / totalSentiment) * 100)}%)`
+      : "No Ratings Yet";
+
+    const totalTicketCount = ticketCategories.reduce((acc, t) => acc + (t.count || 0), 0);
+    const totalLeadCount = leadsList.length;
+    const forecastData = [
+      { month: "Current Period", tickets: totalTicketCount, leads: totalLeadCount },
+      { month: "Month +1 (Proj)", tickets: Math.round(totalTicketCount * 1.05), leads: Math.round(totalLeadCount * 1.1) },
+      { month: "Month +2 (Proj)", tickets: Math.round(totalTicketCount * 1.10), leads: Math.round(totalLeadCount * 1.2) },
+      { month: "Month +3 (Proj)", tickets: Math.round(totalTicketCount * 1.15), leads: Math.round(totalLeadCount * 1.3) }
     ];
 
     res.json({
       metrics: {
-        avgLeadQualityScore: 84, // out of 100
-        aiResolutionRate: "34%", // Tickets closed by AI without agent
-        sentimentScore: "Positive (78%)"
+        avgLeadQualityScore,
+        aiResolutionRate,
+        sentimentScore
       },
+      forecastData,
       trendingIssues,
       mostRequestedServices,
       faqAnalytics,

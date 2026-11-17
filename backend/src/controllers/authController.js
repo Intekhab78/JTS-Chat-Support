@@ -9,7 +9,8 @@ import AppError from "../utils/AppError.js";
 import { normalizeRole } from "../utils/roleUtils.js";
 import { buildOtpAuthUri, generateTotpSecret, verifyTotp } from "../services/totpService.js";
 import { logAuditEvent } from "../services/auditService.js";
-import { buildSubscription, resolveSubscriptionForUser } from "../utils/planUtils.js";
+import { buildSubscriptionAsync, resolveSubscriptionForUser } from "../utils/planUtils.js";
+import { verifyRecaptchaToken } from "../utils/recaptcha.js";
 
 const OWNER_ROLES = ["admin", "client", "manager"];
 
@@ -27,14 +28,11 @@ async function getTenantSubscription(user) {
 }
 
 async function serializeUser(user) {
-  const subscription = await getTenantSubscription(user);
-  
-  // Fetch dynamic permissions if an override exists in the Role collection
-  let permissions = undefined;
-  const roleDoc = await Role.findOne({ name: user.role, isActive: true });
-  if (roleDoc) {
-    permissions = roleDoc.permissions || [];
-  }
+  // Fetch subscription and dynamic permissions in parallel to minimize login/me latency
+  const [subscription, permissions] = await Promise.all([
+    getTenantSubscription(user),
+    Role.resolvePermissionsForUser(user)
+  ]);
 
   return {
     id: user._id,
@@ -57,10 +55,14 @@ const registerSchema = z.object({
   email: z.string().email("Invalid email format"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   role: z.enum(["admin", "client", "agent"]).optional(),
-  plan: z.enum(["basic", "standard", "pro"]).optional()
+  plan: z.string().trim().min(1).max(40).optional()
 });
 
 export const register = asyncHandler(async (req, res, next) => {
+  if (!req.user) {
+    await verifyRecaptchaToken(req.body?.captchaToken, req.ip);
+  }
+
   const result = registerSchema.safeParse(req.body);
   if (!result.success) {
     return next(new AppError(result.error.issues?.[0]?.message || "Invalid input", 400));
@@ -93,6 +95,17 @@ export const register = asyncHandler(async (req, res, next) => {
   }
 
   const hashedPassword = await bcrypt.hash(password, 12);
+  const selectedPlan = plan || "free";
+  const subscriptionOverrides =
+    selectedPlan === "free"
+      ? { status: "active", expiresAt: null }
+      : { status: "trial", expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) };
+
+  const clientSubscription =
+    role === "client"
+      ? await buildSubscriptionAsync(selectedPlan, subscriptionOverrides)
+      : undefined;
+
   const user = await User.create({
     name,
     email,
@@ -100,7 +113,7 @@ export const register = asyncHandler(async (req, res, next) => {
     role,
     managerId,
     isAvailable: role === "agent",
-    ...(role === "client" ? { subscription: buildSubscription(plan || "basic", { status: "active" }) } : {})
+    ...(clientSubscription ? { subscription: clientSubscription } : {})
   });
 
   await logAuditEvent({
@@ -122,6 +135,10 @@ const loginSchema = z.object({
 });
 
 export const login = asyncHandler(async (req, res, next) => {
+  if (!req.body?.twoFactorCode) {
+    await verifyRecaptchaToken(req.body?.captchaToken, req.ip);
+  }
+
   const result = loginSchema.safeParse(req.body);
   if (!result.success) {
     return next(new AppError(result.error.issues?.[0]?.message || "Invalid input", 400));
@@ -149,15 +166,19 @@ export const login = asyncHandler(async (req, res, next) => {
     }
   }
 
-  user.lastActiveAt = new Date();
-  await user.save();
+  // Non-blocking activity timestamp & audit logging so login responds immediately
+  void User.updateOne({ _id: user._id }, { $set: { lastActiveAt: new Date() } }).catch((err) => {
+    console.error("Failed to update lastActiveAt on login:", err?.message || err);
+  });
 
-  await logAuditEvent({
+  void logAuditEvent({
     actor: user,
     action: "auth.login",
     entityType: "user",
     entityId: user._id,
     ipAddress: req.ip
+  }).catch((err) => {
+    console.error("Failed to log login audit event:", err?.message || err);
   });
 
   return createSendToken(await serializeUser(user), 200, res);

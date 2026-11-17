@@ -250,7 +250,7 @@ export default function ManagerCrmReports({ websites = [], websiteId: externalWe
                   {revenueSeries.length > 0 ? (
                     <ResponsiveContainer>
                       <LineChart data={revenueSeries}>
-                        <XAxis dataKey="date" tickFormatter={(d) => String(d).slice(5)} />
+                        <XAxis dataKey="_id" tickFormatter={(d) => (d ? String(d).slice(5) : "")} />
                         <YAxis tickFormatter={(v) => `${v}`} />
                         <Tooltip formatter={(v) => new Intl.NumberFormat().format(Number(v || 0))} />
                         <Line dataKey="revenue" stroke="#2563EB" strokeWidth={2} dot={false} />

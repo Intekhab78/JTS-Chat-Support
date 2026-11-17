@@ -7,10 +7,11 @@ import {
   deleteAlertRule
 } from "../controllers/observabilityController.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { attachTenantSubscription, requirePlanFeature } from "../middleware/planAccess.js";
 
 const router = Router();
 
-router.use(requireAuth);
+router.use(requireAuth, attachTenantSubscription, requirePlanFeature("enterprise"));
 
 router.get("/overview", requireRole("admin", "client", "manager", "management"), getObservabilityOverview);
 router.get("/logs", requireRole("admin", "client", "manager", "management"), searchAuditLogs);

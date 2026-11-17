@@ -54,23 +54,23 @@ export const sendCustomerEmail = asyncHandler(async (req, res) => {
   }
 
   const websiteName = customer.websiteId?.websiteName || "JTS Support";
-  const { html } = salesOutreachTemplate({ 
-    customerName: customer.name, 
-    salesName: req.user.name, 
-    body, 
-    websiteName 
+  const { html } = salesOutreachTemplate({
+    customerName: customer.name,
+    salesName: req.user.name,
+    body,
+    websiteName
   });
-  
+
   await sendEmail({ to: customer.email, subject, html, replyTo: req.user.email });
 
-  customer.communications.unshift({ 
-    type: "email", 
-    direction: "outbound", 
-    to: customer.email, 
-    subject, 
-    body, 
-    sentBy: req.user._id, 
-    sentAt: new Date() 
+  customer.communications.unshift({
+    type: "email",
+    direction: "outbound",
+    to: customer.email,
+    subject,
+    body,
+    sentBy: req.user._id,
+    sentAt: new Date()
   });
   customer.lastInteraction = new Date();
   await customer.save();
@@ -102,8 +102,8 @@ export const promoteVisitor = asyncHandler(async (req, res) => {
   }
   const session = sessionId
     ? (/^[0-9a-fA-F]{24}$/.test(String(sessionId))
-        ? await ChatSession.findById(sessionId).populate("visitorId")
-        : await ChatSession.findOne({ sessionId }).populate("visitorId"))
+      ? await ChatSession.findById(sessionId).populate("visitorId")
+      : await ChatSession.findOne({ sessionId }).populate("visitorId"))
     : null;
 
   if (!visitor && session?.visitorId) {
@@ -176,19 +176,66 @@ export const promoteVisitor = asyncHandler(async (req, res) => {
 });
 
 export const getMyCustomerNotes = asyncHandler(async (req, res) => {
-  const customers = await Customer.find({
-    ownerId: req.user._id,
-    "internalNotes.0": { $exists: true }
-  }).select("name email internalNotes crn");
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const ownedStrings = ownedWebsiteIds.map(String);
+  if (req.user.role !== "admin" && ownedWebsiteIds.length === 0) {
+    return res.json([]);
+  }
+
+  const query = { "internalNotes.0": { $exists: true } };
+  if (req.query.websiteId) {
+    if (!ownedStrings.includes(String(req.query.websiteId))) {
+      throw new AppError("Access denied", 403);
+    }
+    query.websiteId = req.query.websiteId;
+  } else if (ownedWebsiteIds.length > 0) {
+    query.websiteId = { $in: ownedWebsiteIds };
+  }
+
+  if (["sales", "agent"].includes(req.user.role)) {
+    query.$or = [
+      { ownerId: req.user._id },
+      { "internalNotes.authorId": req.user._id }
+    ];
+  }
+
+  const customers = await Customer.find(query)
+    .select("name email companyName internalNotes crn websiteId")
+    .lean();
 
   const allNotes = customers.flatMap(c =>
-    c.internalNotes.map(n => ({
-      ...n.toObject(),
+    (c.internalNotes || []).map(n => ({
+      ...n,
       customerName: c.name,
+      customerCompany: c.companyName || "",
+      customerEmail: c.email || "",
       customerId: c._id,
-      customerCrn: c.crn
+      customerCrn: c.crn,
+      websiteId: c.websiteId
     }))
   ).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   res.json(allNotes);
+});
+
+export const deleteCustomerNote = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
+  const customer = await Customer.findById(req.params.id);
+  if (!customer) throw new AppError("Customer not found", 404);
+
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!ownedWebsiteIds.map(String).includes(String(customer.websiteId))) {
+    throw new AppError("Access denied", 403);
+  }
+
+  const beforeLen = customer.internalNotes.length;
+  customer.internalNotes = customer.internalNotes.filter(
+    (n) => String(n._id) !== String(req.params.noteId)
+  );
+  if (customer.internalNotes.length === beforeLen) {
+    throw new AppError("Note not found", 404);
+  }
+
+  await customer.save();
+  res.json({ success: true });
 });

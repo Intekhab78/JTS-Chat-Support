@@ -13,5 +13,6 @@ router.get("/metrics", biController.getCentralMetrics);
 // Alerts threshold
 router.get("/alerts", biController.listAlerts);
 router.post("/alerts", biController.createAlert);
+router.delete("/alerts/:id", biController.deleteAlert);
 
 export default router;

@@ -24,10 +24,10 @@ async function resolveOwnedWebsite(websiteId, user) {
     }
   } catch (e) {}
 
-  if (!website.managerId) return website;
+  if (!website.managerId) return null;
   const ownerId = user?.role === "client" ? user._id : user?.managerId;
-  if (String(website.managerId) === String(ownerId)) return website;
-  return website;
+  if (ownerId && String(website.managerId) === String(ownerId)) return website;
+  return null;
 }
 
 export const listDepartments = asyncHandler(async (req, res) => {

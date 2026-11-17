@@ -36,18 +36,18 @@ export default function WidgetCustomizer({ website, onUpdate }) {
       <div className="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 rounded-xl p-3.5 sm:p-4 space-y-3 shadow-xs">
         <div className="space-y-0.5">
           <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
-            Aesthetic Intelligence
+            Widget Appearance
           </h3>
-          <p className="text-[9.5px] text-slate-400 font-medium">
-            Configure how the primary neural interface appears to your visitors.
+          <p className="text-[10px] text-slate-400 font-medium">
+            Customize how your live chat widget appears to website visitors.
           </p>
         </div>
 
         <div className="space-y-2.5">
-          {/* Color Picker */}
-          <div className="space-y-1">
-            <label className="flex items-center gap-1.5 text-[8.5px] font-black uppercase tracking-wider text-slate-400">
-              <Palette size={12} className="text-indigo-500" /> Brand Color Vector
+          {/* Color Picker + Quick Swatches */}
+          <div className="space-y-1.5">
+            <label className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-slate-400">
+              <Palette size={12} className="text-indigo-500" /> Primary Brand Color
             </label>
             <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-800/80 p-2 rounded-lg border border-slate-200/80 dark:border-white/10">
               <div className="relative group shrink-0">
@@ -71,15 +71,28 @@ export default function WidgetCustomizer({ website, onUpdate }) {
                   className="w-full bg-transparent border-none text-xs font-black font-mono tracking-tight text-slate-900 dark:text-white outline-none"
                   placeholder="#HEXVAL"
                 />
-                <p className="text-[7.5px] font-bold text-slate-400 uppercase tracking-wider">Primary Cryptographic Color</p>
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Click swatch or enter hex code</p>
+              </div>
+              <div className="flex items-center gap-1">
+                {["#4f46e5", "#059669", "#2563eb", "#e11d48", "#d97706", "#0f172a"].map((hex) => (
+                  <button
+                    key={hex}
+                    type="button"
+                    onClick={() => setConfig({ ...config, primaryColor: hex })}
+                    className={`w-4 h-4 rounded-full border transition-transform hover:scale-110 ${config.primaryColor?.toLowerCase() === hex ? "ring-2 ring-offset-1 ring-slate-900 dark:ring-white" : "border-black/15"
+                      }`}
+                    style={{ backgroundColor: hex }}
+                    title={hex}
+                  />
+                ))}
               </div>
             </div>
           </div>
 
           {/* Spatial Position */}
           <div className="space-y-1">
-            <label className="flex items-center gap-1.5 text-[8.5px] font-black uppercase tracking-wider text-slate-400">
-              <LayoutIcon size={12} className="text-indigo-500" /> Spatial Positioning
+            <label className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-slate-400">
+              <LayoutIcon size={12} className="text-indigo-500" /> Widget Position
             </label>
             <div className="grid grid-cols-2 gap-1.5 bg-slate-50 dark:bg-slate-800/80 p-1 rounded-lg border border-slate-200/80 dark:border-white/10">
               {["left", "right"].map((pos) => (
@@ -87,13 +100,12 @@ export default function WidgetCustomizer({ website, onUpdate }) {
                   key={pos}
                   type="button"
                   onClick={() => setConfig({ ...config, position: pos })}
-                  className={`py-1.5 rounded-md text-[9.5px] font-black uppercase tracking-wider transition-all ${
-                    config.position === pos
+                  className={`py-1.5 rounded-md text-[9.5px] font-black uppercase tracking-wider transition-all ${config.position === pos
                       ? "bg-slate-950 dark:bg-indigo-600 text-white shadow-xs"
                       : "bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                  }`}
+                    }`}
                 >
-                  {pos} Alignment
+                  {pos === "left" ? "Bottom Left" : "Bottom Right"}
                 </button>
               ))}
             </div>
@@ -101,14 +113,14 @@ export default function WidgetCustomizer({ website, onUpdate }) {
 
           {/* Welcome Message */}
           <div className="space-y-1">
-            <label className="flex items-center gap-1.5 text-[8.5px] font-black uppercase tracking-wider text-slate-400">
-              <MessageSquare size={12} className="text-indigo-500" /> Initialization Sequence
+            <label className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-slate-400">
+              <MessageSquare size={12} className="text-indigo-500" /> Welcome Message
             </label>
             <textarea
               value={config.welcomeMessage}
               onChange={(e) => setConfig({ ...config, welcomeMessage: e.target.value })}
               className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10 rounded-lg p-2.5 text-xs font-medium text-slate-800 dark:text-slate-100 focus:border-indigo-500 outline-none transition-all min-h-[72px] resize-none leading-relaxed placeholder:text-slate-400"
-              placeholder="How can we help you today?"
+              placeholder="Hi there! How can we help you today?"
             />
           </div>
         </div>
@@ -121,9 +133,9 @@ export default function WidgetCustomizer({ website, onUpdate }) {
           {saving ? (
             <><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> <span>Saving...</span></>
           ) : success ? (
-            <><Check size={14} className="text-emerald-400" /> <span>Config Initialized</span></>
+            <><Check size={14} className="text-emerald-400" /> <span>Widget Design Saved</span></>
           ) : (
-            <><Sparkles size={14} /> <span>Apply Visual Identity</span></>
+            <><Sparkles size={14} /> <span>Save Widget Design</span></>
           )}
         </button>
       </div>
@@ -134,7 +146,7 @@ export default function WidgetCustomizer({ website, onUpdate }) {
         <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200/80 dark:border-white/10 shrink-0">
           <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md shadow-xs border border-slate-200/80 dark:border-white/10">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[8.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Simulated Synthesis</span>
+            <span className="text-[8.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Live Preview</span>
           </div>
           <div className="flex items-center gap-1 bg-slate-200/60 dark:bg-slate-800 p-0.5 rounded-md text-[8px] font-bold">
             <button

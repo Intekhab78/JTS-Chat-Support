@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X, BarChart, Clock } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { apiUrl } from "../../api/client.js";
@@ -76,9 +77,9 @@ export default function CrmWinReports({ websiteId = "", preset = "month", onClos
     return () => { mounted = false; };
   }, [websiteId, preset]);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/40" onClick={onClose} />
       <div className="relative w-full max-w-2xl bg-white rounded-2xl p-6 shadow-lg z-10">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-black">CRM Insights</h3>
@@ -90,7 +91,7 @@ export default function CrmWinReports({ websiteId = "", preset = "month", onClos
               {series && series.length > 0 ? (
                 <ResponsiveContainer>
                   <LineChart data={series}>
-                    <XAxis dataKey="date" tickFormatter={(d) => d.slice(5)} />
+                    <XAxis dataKey="_id" tickFormatter={(d) => (d ? String(d).slice(5) : "")} />
                     <YAxis tickFormatter={(v) => `${v}`} />
                     <Tooltip formatter={(v) => new Intl.NumberFormat().format(v)} />
                     <Line dataKey="revenue" stroke="#2563EB" strokeWidth={2} dot={false} />
@@ -124,6 +125,7 @@ export default function CrmWinReports({ websiteId = "", preset = "month", onClos
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

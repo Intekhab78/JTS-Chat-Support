@@ -14,6 +14,7 @@ import { applyTaxToInvoice } from "../utils/taxCalculator.js";
 import { Payment } from "../models/Payment.js";
 import { env } from "../config/env.js";
 import { canUseMockBilling } from "../utils/mockBillingAccess.js";
+import { emitIntegrationEvent } from "../services/integrationWebhookService.js";
 import crypto from "crypto";
 import Razorpay from "razorpay";
 
@@ -189,11 +190,30 @@ export const createInvoice = asyncHandler(async (req, res) => {
     sendInvoiceDispatchNotification(invoice).catch(err => console.error(err));
   }
 
+  if (invoice.status === "paid") {
+    void emitIntegrationEvent({
+      eventType: "invoice.paid",
+      websiteId: invoice.websiteId || null,
+      ownerId: req.user?._id || null,
+      payload: {
+        id: invoice._id,
+        invoiceId: invoice.invoiceId,
+        customerId: invoice.customerId,
+        total: invoice.total,
+        paidAmount: invoice.paidAmount,
+        status: "paid"
+      }
+    });
+  }
+
   res.status(201).json(invoice);
 });
 
 export const generateInvoicePdf = asyncHandler(async (req, res) => {
   const { invoice } = await findAuthorizedInvoice(req, req.params.id);
+  if (req.user.role === "customer" && String(invoice.customerId?._id || invoice.customerId) !== String(req.user.customerId)) {
+    throw new AppError("Access denied.", 403);
+  }
   const { generateInvoicePDF } = await import("../services/pdfService.js");
   const pdfResult = await generateInvoicePDF(invoice);
   if (pdfResult) {
@@ -271,6 +291,22 @@ export const updateInvoice = asyncHandler(async (req, res) => {
 
   if (invoice.status !== updatedInvoice.status && ["sent", "pending", "paid"].includes(updatedInvoice.status)) {
     sendInvoiceDispatchNotification(updatedInvoice).catch(err => console.error(err));
+  }
+
+  if (invoice.status !== "paid" && updatedInvoice.status === "paid") {
+    void emitIntegrationEvent({
+      eventType: "invoice.paid",
+      websiteId: updatedInvoice.websiteId || null,
+      ownerId: req.user?._id || null,
+      payload: {
+        id: updatedInvoice._id,
+        invoiceId: updatedInvoice.invoiceId,
+        customerId: updatedInvoice.customerId,
+        total: updatedInvoice.total,
+        paidAmount: updatedInvoice.paidAmount,
+        status: "paid"
+      }
+    });
   }
 
   res.json(updatedInvoice);
@@ -368,6 +404,20 @@ export const verifyRazorpayPayment = asyncHandler(async (req, res) => {
     invoice.paidAmount = invoice.total;
     await invoice.save();
 
+    void emitIntegrationEvent({
+      eventType: "invoice.paid",
+      websiteId: invoice.websiteId || null,
+      ownerId: req.user?._id || null,
+      payload: {
+        id: invoice._id,
+        invoiceId: invoice.invoiceId,
+        customerId: invoice.customerId,
+        total: invoice.total,
+        paidAmount: invoice.paidAmount,
+        status: "paid"
+      }
+    });
+
     // Create payment record
     await Payment.create({
       websiteId: invoice.websiteId,
@@ -401,4 +451,26 @@ export const verifyRazorpayPayment = asyncHandler(async (req, res) => {
   }
 
   res.json({ success: true, message: "Payment verified and recorded." });
+});
+
+export const sendInvoiceReminder = asyncHandler(async (req, res) => {
+  const { invoice } = await findAuthorizedInvoice(req, req.params.id);
+  if (invoice.status === "paid" || invoice.status === "cancelled") {
+    throw new AppError("Cannot send reminder for a paid or cancelled invoice", 400);
+  }
+
+  await sendInvoiceDispatchNotification(invoice);
+  invoice.reminderSent = true;
+  await invoice.save();
+
+  await logCrmActivity({
+    websiteId: invoice.websiteId,
+    type: "email",
+    title: `Payment Reminder Sent: ${invoice.invoiceId || invoice.invoiceNumber}`,
+    description: `Manual payment reminder dispatched for invoice ${invoice.invoiceId || invoice.invoiceNumber}.`,
+    customerId: invoice.customerId,
+    ownerId: req.user._id
+  }).catch(() => {});
+
+  res.json({ success: true, message: "Payment reminder dispatched." });
 });

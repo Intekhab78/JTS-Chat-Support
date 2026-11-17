@@ -679,6 +679,14 @@ export default function SupplierPage() {
                </div>
 
                {/* QUALITY SCORE CARD */}
+               {(() => {
+                 const totalOrd = orders.length;
+                 const deliveredOrd = orders.filter((o) => ["delivered", "completed", "received", "fulfilled"].includes(String(o.status || "").toLowerCase())).length;
+                 const acceptedOrd = orders.filter((o) => !["cancelled", "rejected", "disputed"].includes(String(o.status || "").toLowerCase())).length;
+                 const passRate = totalOrd > 0 ? ((acceptedOrd / totalOrd) * 100).toFixed(1) : "0.0";
+                 const onTimeRate = totalOrd > 0 ? Math.round((deliveredOrd / totalOrd) * 100) : 0;
+                 const matchedRate = totalOrd > 0 ? Math.round((acceptedOrd / totalOrd) * 100) : 0;
+                 return (
                <div className="premium-card bg-[linear-gradient(135deg,#0f172a_0%,#1e293b_100%)] p-8 rounded-[40px] shadow-xl text-white relative overflow-hidden">
                  <div className="relative z-10">
                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.3em] mb-6">Service Quality</p>
@@ -687,18 +695,18 @@ export default function SupplierPage() {
                         <LucidePieChart size={32} className="text-indigo-400" />
                       </div>
                       <div>
-                        <h4 className="text-3xl font-black">98.2<span className="text-lg text-indigo-400">%</span></h4>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quality Pass Rate</p>
+                        <h4 className="text-3xl font-black">{passRate}<span className="text-lg text-indigo-400">%</span></h4>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quality Pass Rate ({totalOrd} orders)</p>
                       </div>
                    </div>
                    <div className="space-y-4">
                      <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/10">
-                       <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">On-Time Delivery</span>
-                       <span className="text-sm font-black text-emerald-400">96%</span>
+                       <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Fulfilled / Delivered</span>
+                       <span className="text-sm font-black text-emerald-400">{onTimeRate}%</span>
                      </div>
                      <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/10">
-                       <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Invoice Accuracy</span>
-                       <span className="text-sm font-black text-indigo-400">100%</span>
+                       <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Order Acceptance</span>
+                       <span className="text-sm font-black text-indigo-400">{matchedRate}%</span>
                      </div>
                    </div>
                  </div>
@@ -706,6 +714,8 @@ export default function SupplierPage() {
                  <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl" />
                  <div className="absolute top-10 -left-10 w-20 h-20 bg-emerald-500/5 rounded-full blur-2xl" />
                </div>
+                 );
+               })()}
             </div>
           </div>
         )}

@@ -1,9 +1,20 @@
 import React, { useState, useRef, useEffect } from "react";
-import { TrendingUp, Download, Printer, Filter, ChevronDown } from "lucide-react";
+import { Download, Printer, ChevronDown } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { formatCurrency, getCurrencySymbol } from "../../utils/currencyFormatter.js";
 
-export default function CRMPipelineBar({ customers }) {
+const STAGE_COLOR_PALETTE = [
+  { color: "bg-violet-500", textColor: "text-violet-600" },
+  { color: "bg-sky-500", textColor: "text-sky-600" },
+  { color: "bg-indigo-500", textColor: "text-indigo-600" },
+  { color: "bg-amber-500", textColor: "text-amber-600" },
+  { color: "bg-orange-500", textColor: "text-orange-600" },
+  { color: "bg-emerald-500", textColor: "text-emerald-600" },
+  { color: "bg-rose-500", textColor: "text-rose-600" },
+];
+
+export default function CRMPipelineBar({ customers = [], stagesConfig = [], activeStage = "", onSelectStage }) {
   const [selectedStageMenu, setSelectedStageMenu] = useState("");
   const containerRef = useRef(null);
 
@@ -24,15 +35,24 @@ export default function CRMPipelineBar({ customers }) {
     return acc;
   }, {});
 
-  const stages = [
-    { key: "new", label: "New", color: "bg-violet-500", textColor: "text-violet-600", count: pipelineCounts.new || 0 },
-    { key: "contacted", label: "Contacted", color: "bg-sky-500", textColor: "text-sky-600", count: pipelineCounts.contacted || 0 },
-    { key: "qualified", label: "Qualified", color: "bg-indigo-500", textColor: "text-indigo-600", count: pipelineCounts.qualified || 0 },
-    { key: "proposal", label: "Proposal", color: "bg-amber-500", textColor: "text-amber-600", count: pipelineCounts.proposal || 0 },
-    { key: "negotiation", label: "Negotiation", color: "bg-orange-500", textColor: "text-orange-600", count: pipelineCounts.negotiation || 0 },
-    { key: "won", label: "Won", color: "bg-emerald-500", textColor: "text-emerald-600", count: pipelineCounts.won || 0 },
-    { key: "lost", label: "Lost", color: "bg-red-400", textColor: "text-red-500", count: pipelineCounts.lost || 0 },
-  ];
+  // Build stages dynamically from website stagesConfig, or derive from live customers
+  const baseStages = Array.isArray(stagesConfig) && stagesConfig.length > 0
+    ? stagesConfig
+    : Array.from(new Set(customers.map(c => c.pipelineStage || "new"))).map((key) => ({
+        key,
+        label: key.replaceAll("_", " ")
+      }));
+
+  const stages = baseStages.map((st, idx) => {
+    const palette = STAGE_COLOR_PALETTE[idx % STAGE_COLOR_PALETTE.length];
+    return {
+      key: st.key,
+      label: st.label || st.key,
+      color: st.barColor || palette.color,
+      textColor: st.textColor || palette.textColor,
+      count: pipelineCounts[st.key] || 0
+    };
+  });
 
   const total = customers.length || 1;
 
@@ -41,7 +61,7 @@ export default function CRMPipelineBar({ customers }) {
     const stageCustomers = customers.filter(c => (c.pipelineStage || "new").toLowerCase() === stageKey);
     const title = `CRM STAGE REPORT - ${stageLabel.toUpperCase()}`;
     const filename = `${stageLabel.toUpperCase()}_Stage_Leads_${new Date().toISOString().slice(0, 10)}`;
-    const columns = ["Client / Lead Name", "Company Name", "Email", "Phone", "TRN", "Lead Value ($)", "Work Status", "Payment Status", "Owner"];
+    const columns = ["Client / Lead Name", "Company Name", "Email", "Phone", "TRN", "Lead Value", "Work Status", "Payment Status", "Owner"];
     
     const rows = stageCustomers.map(c => [
       c.name || "-",
@@ -49,7 +69,7 @@ export default function CRMPipelineBar({ customers }) {
       c.email || "-",
       c.phones?.[0]?.phone || c.phone || c.whatsApp || "-",
       c.trn || "Not Registered",
-      c.leadValue || c.budget || 0,
+      formatCurrency(c.leadValue || c.budget || 0),
       c.workStatus || "Pending",
       c.paymentStatus || "Pending",
       c.ownerId?.name || "Unassigned"
@@ -125,9 +145,9 @@ export default function CRMPipelineBar({ customers }) {
       stages.forEach(st => {
         const stCustomers = customers.filter(c => (c.pipelineStage || "new").toLowerCase() === st.key);
         rows.push([`--- ${st.label.toUpperCase()} STAGE (${stCustomers.length} Records) ---`]);
-        rows.push(["Client / Lead Name", "Company Name", "Email", "Phone", "TRN", "Lead Value ($)", "Work Status", "Payment Status", "Owner"]);
+        rows.push(["Client / Lead Name", "Company Name", "Email", "Phone", "TRN", `Lead Value (${getCurrencySymbol()})`, "Work Status", "Payment Status", "Owner"]);
         if (stCustomers.length === 0) {
-          rows.push(["No records in this stage", "-", "-", "-", "-", "$0", "-", "-", "-"]);
+          rows.push(["No records in this stage", "-", "-", "-", "-", formatCurrency(0), "-", "-", "-"]);
         } else {
           stCustomers.forEach(c => {
             rows.push([
@@ -193,15 +213,15 @@ export default function CRMPipelineBar({ customers }) {
           c.companyName || "-",
           c.email || "-",
           c.phones?.[0]?.phone || c.phone || c.whatsApp || "-",
-          `$${(c.leadValue || c.budget || 0).toLocaleString()}`,
+          formatCurrency(c.leadValue || c.budget || 0),
           c.workStatus || "Pending"
         ]);
 
         autoTable(doc, {
           startY: currentY + 3,
           margin: { left: 14, right: 14 },
-          head: [["NAME", "COMPANY", "EMAIL", "PHONE", "VALUE ($)", "STATUS"]],
-          body: rows.length > 0 ? rows : [["No records in this stage", "-", "-", "-", "$0", "-"]],
+          head: [["NAME", "COMPANY", "EMAIL", "PHONE", `VALUE (${getCurrencySymbol()})`, "STATUS"]],
+          body: rows.length > 0 ? rows : [["No records in this stage", "-", "-", "-", formatCurrency(0), "-"]],
           theme: "grid",
           styles: { fontSize: 8, cellPadding: 2 },
           headStyles: { fillColor: [30, 27, 75], textColor: [255, 255, 255], fontStyle: "bold" },
@@ -261,18 +281,35 @@ export default function CRMPipelineBar({ customers }) {
       <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pt-0.5">
         <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest shrink-0 mr-0.5">Stages:</span>
         {stages.map(s => (
-          <div key={s.key} className="relative group shrink-0">
-            <button
-              onClick={() => setSelectedStageMenu(selectedStageMenu === s.key ? "" : s.key)}
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200/80 bg-white hover:bg-slate-50 transition-all cursor-pointer text-[9px] font-black uppercase whitespace-nowrap ${
-                selectedStageMenu === s.key ? "ring-1.5 ring-indigo-500 border-indigo-500 bg-indigo-50/20" : ""
+          <div key={s.key} className="relative group shrink-0 flex items-center">
+            <div
+              className={`flex items-center rounded-lg border transition-all text-[9px] font-black uppercase whitespace-nowrap ${
+                activeStage === s.key
+                  ? "ring-1 ring-indigo-500 border-indigo-500 bg-indigo-50/70"
+                  : selectedStageMenu === s.key
+                  ? "border-indigo-300 bg-indigo-50/20"
+                  : "border-slate-200/80 bg-white hover:bg-slate-50"
               }`}
             >
-              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${s.color}`} />
-              <span className="text-slate-700 tracking-wider">{s.label}</span>
-              <span className={`text-[9px] font-black ${s.textColor} bg-slate-100/90 px-1 py-0.2 rounded ml-0.5`}>{s.count}</span>
-              <ChevronDown size={10} className="text-slate-400" />
-            </button>
+              <button
+                type="button"
+                onClick={() => onSelectStage?.(s.key)}
+                className="flex items-center gap-1 px-2 py-1 cursor-pointer"
+                title={`Filter by ${s.label}`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${s.color}`} />
+                <span className="text-slate-700 tracking-wider">{s.label}</span>
+                <span className={`text-[9px] font-black ${s.textColor} bg-slate-100/90 px-1 py-0.2 rounded ml-0.5`}>{s.count}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedStageMenu(selectedStageMenu === s.key ? "" : s.key)}
+                className="px-1.5 py-1 border-l border-slate-200/70 text-slate-400 hover:text-slate-700 cursor-pointer"
+                title={`Export ${s.label}`}
+              >
+                <ChevronDown size={10} />
+              </button>
+            </div>
 
             {/* Dropdown Menu for Individual Stage Export */}
             {selectedStageMenu === s.key && (

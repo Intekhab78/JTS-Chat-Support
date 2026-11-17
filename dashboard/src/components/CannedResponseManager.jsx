@@ -80,6 +80,20 @@ export default function CannedResponseManager() {
     }
   }
 
+  async function handleToggleActive(res) {
+    const nextActive = res.isActive === false;
+    try {
+      const updated = await api(`/api/canned-responses/${res._id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isActive: nextActive })
+      });
+      setResponses((prev) => prev.map((item) => (item._id === res._id ? { ...item, ...updated, isActive: nextActive } : item)));
+      toast.success(nextActive ? "Shortcut enabled." : "Shortcut disabled.");
+    } catch (err) {
+      setError(err.message || "Failed to update shortcut status.");
+    }
+  }
+
   function handleCopyShortcut(text, id) {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
@@ -112,41 +126,38 @@ export default function CannedResponseManager() {
     <div className="space-y-3.5 animate-in fade-in duration-500">
       
       {/* ── Compact Executive Hero Header Banner ── */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 px-4 py-3.5 sm:px-5 sm:py-4 text-white border border-indigo-500/20 shadow-md">
-        <div className="absolute top-0 right-0 -mt-6 -mr-6 w-48 h-48 rounded-full bg-indigo-500/10 blur-2xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 -mb-8 w-60 h-60 rounded-full bg-violet-500/10 blur-2xl pointer-events-none" />
-
+      <div className="relative overflow-hidden rounded-2xl bg-white px-4 py-3.5 sm:px-5 sm:py-4 text-slate-900 border border-slate-200/80 shadow-xs">
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div className="space-y-1 max-w-xl">
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 text-[9px] font-black uppercase tracking-wider rounded-md border border-indigo-500/30 inline-flex items-center gap-1">
-                <Terminal size={11} className="text-indigo-400" /> Protocol Quick Replies
+              <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[9px] font-black uppercase tracking-wider rounded-md border border-indigo-200/70 inline-flex items-center gap-1">
+                <Terminal size={11} className="text-indigo-500" /> Protocol Quick Replies
               </span>
             </div>
-            <h2 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
+            <h2 className="text-base sm:text-lg font-black tracking-tight text-slate-900 flex items-center gap-2">
               Protocol Shortcuts & Quick Replies
             </h2>
-            <p className="text-[11px] text-slate-300 font-medium leading-normal">
-              Type <code className="bg-white/10 px-1.5 py-0.5 rounded text-indigo-300 font-mono text-[10px] font-bold">/shortcut</code> in any chat to instantly deploy customer response templates.
+            <p className="text-[11px] text-slate-500 font-medium leading-normal">
+              Type <code className="bg-slate-100 px-1.5 py-0.5 rounded text-indigo-600 font-mono text-[10px] font-bold">/shortcut</code> in any chat to instantly deploy customer response templates.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Quick Metrics */}
-            <div className="flex items-center gap-1.5 bg-white/5 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10">
+            <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/70">
               <div className="px-1.5 py-0.5 text-center">
                 <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block leading-none mb-0.5">Total</span>
-                <span className="text-xs font-black text-white">{totalCount}</span>
+                <span className="text-xs font-black text-slate-900">{totalCount}</span>
               </div>
-              <div className="w-px h-4 bg-white/10" />
+              <div className="w-px h-4 bg-slate-200" />
               <div className="px-1.5 py-0.5 text-center">
-                <span className="text-[8px] font-black text-emerald-400 uppercase tracking-widest block leading-none mb-0.5">Team</span>
-                <span className="text-xs font-black text-white">{sharedCount}</span>
+                <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest block leading-none mb-0.5">Team</span>
+                <span className="text-xs font-black text-slate-900">{sharedCount}</span>
               </div>
-              <div className="w-px h-4 bg-white/10" />
+              <div className="w-px h-4 bg-slate-200" />
               <div className="px-1.5 py-0.5 text-center">
-                <span className="text-[8px] font-black text-amber-400 uppercase tracking-widest block leading-none mb-0.5">Private</span>
-                <span className="text-xs font-black text-white">{personalCount}</span>
+                <span className="text-[8px] font-black text-amber-600 uppercase tracking-widest block leading-none mb-0.5">Private</span>
+                <span className="text-xs font-black text-slate-900">{personalCount}</span>
               </div>
             </div>
 
@@ -232,73 +243,105 @@ export default function CannedResponseManager() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {paginatedResponses.pageItems.map(res => {
             const isPersonal = res.visibility === "personal";
-            const shortcutCode = `/${res.shortcut}`;
+            const isEnabled = res.isActive !== false;
+            const canEditThis = canManageSharedShortcuts || (canManagePersonalShortcuts && res.isOwnedByCurrentUser);
+            const cleanCode = String(res.shortcut || "").replace(/^\/+/, "");
+            const shortcutCode = `/${cleanCode}`;
             const isCopied = copiedId === res._id;
             const contentText = res.content || res.text || "";
 
             return (
               <div 
                 key={res._id} 
-                className="group relative bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-white/10 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between overflow-hidden"
+                className={`group bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200/80 dark:border-white/10 shadow-xs hover:shadow-md hover:border-slate-300 dark:hover:border-white/20 transition-all duration-200 flex flex-col justify-between ${
+                  isEnabled ? "" : "opacity-65 bg-slate-50/70 dark:bg-slate-900/60"
+                }`}
               >
-                {/* Left accent highlight bar */}
-                <div className={`absolute top-0 left-0 w-1.5 h-full transition-all ${
-                  isPersonal ? "bg-amber-500" : "bg-indigo-600"
-                }`} />
-
-                <div className="space-y-4">
-                  {/* Top Bar: Code Pill + Scope Badge + Actions */}
+                <div className="space-y-3">
+                  {/* Top Bar: Code Pill + Scope Badge + Toggle + Delete */}
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                       <button
+                        type="button"
                         onClick={() => handleCopyShortcut(shortcutCode, res._id)}
-                        className="inline-flex items-center gap-1.5 bg-slate-900 dark:bg-black text-indigo-300 font-mono text-xs font-black px-3 py-1.5 rounded-xl border border-indigo-500/30 hover:border-indigo-400 transition-all shadow-xs"
+                        className="inline-flex items-center gap-1.5 bg-slate-900 dark:bg-black text-indigo-300 font-mono text-xs font-bold px-2.5 py-1 rounded-lg border border-slate-800 hover:border-indigo-400 transition-colors"
                         title="Click to copy shortcut code"
                       >
-                        <Zap size={12} className="text-indigo-400" />
+                        <Zap size={11} className="text-indigo-400" />
                         <span>{shortcutCode}</span>
-                        {isCopied ? <Check size={12} className="text-emerald-400" /> : <Copy size={11} className="text-slate-400 opacity-60" />}
+                        {isCopied ? <Check size={11} className="text-emerald-400" /> : <Copy size={10} className="text-slate-400 opacity-70" />}
                       </button>
 
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider border ${
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
                         isPersonal
-                          ? "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200/60"
-                          : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200/60"
+                          ? "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200/70"
+                          : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200/70"
                       }`}>
-                        {isPersonal ? <Lock size={10} /> : <Globe size={10} />}
+                        {isPersonal ? <Lock size={9} /> : <Globe size={9} />}
                         {isPersonal ? "Private" : "Shared"}
                       </span>
                     </div>
 
-                    {canManageShortcuts && (
-                      <button
-                        onClick={() => handleDelete(res._id)}
-                        disabled={canManagePersonalShortcuts && !res.isOwnedByCurrentUser}
-                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-all disabled:opacity-20 disabled:cursor-not-allowed"
-                        title="Delete shortcut"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    )}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {canEditThis && (
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={isEnabled}
+                          onClick={() => handleToggleActive(res)}
+                          title={isEnabled ? "Click to disable shortcut" : "Click to enable shortcut"}
+                          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                            isEnabled ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-700"
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs transition duration-200 ${
+                              isEnabled ? "translate-x-4" : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                      )}
+                      {canManageShortcuts && (
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(res._id)}
+                          disabled={canManagePersonalShortcuts && !res.isOwnedByCurrentUser}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+                          title="Delete shortcut"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Body: Expansion Text Payload */}
-                  <div className="bg-slate-50/70 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-white/5 relative group/body">
-                    <p className="text-xs text-slate-700 dark:text-slate-200 font-medium leading-relaxed whitespace-pre-wrap line-clamp-4">
+                  <div className="bg-slate-50/80 dark:bg-slate-800/40 p-3 rounded-xl border border-slate-100 dark:border-white/5">
+                    <p className="text-xs text-slate-700 dark:text-slate-200 font-medium leading-relaxed whitespace-pre-wrap line-clamp-3">
                       {contentText}
                     </p>
                   </div>
                 </div>
 
                 {/* Footer bar */}
-                <div className="pt-4 mt-4 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[10px] font-bold text-slate-400 dark:text-slate-500">
-                  <span className="font-mono">Use: {shortcutCode}</span>
-                  <button 
+                <div className="pt-3 mt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[10px] font-semibold text-slate-400 dark:text-slate-500">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono">Use: {shortcutCode}</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
+                      isEnabled
+                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+                        : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                    }`}>
+                      {isEnabled ? "Enabled" : "Disabled"}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
                     onClick={() => handleCopyShortcut(contentText, `${res._id}-text`)}
-                    className="hover:text-indigo-600 transition-colors flex items-center gap-1 font-black uppercase tracking-wider text-[9px]"
+                    className="hover:text-indigo-600 transition-colors flex items-center gap-1 font-bold uppercase tracking-wider text-[9px]"
                   >
                     <Copy size={11} /> Copy Text
                   </button>

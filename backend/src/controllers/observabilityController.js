@@ -1,105 +1,14 @@
-import os from "os";
-import mongoose from "mongoose";
 import { ObservabilityAlert } from "../models/ObservabilityAlert.js";
 import { AuditLog } from "../models/AuditLog.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 import { logAuditEvent } from "../services/auditService.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
-
-function computeCpuPercent(cpus, cpuLoadAvg) {
-  if (cpuLoadAvg[0] > 0 && cpus.length > 0) {
-    return Math.min(Math.round((cpuLoadAvg[0] / cpus.length) * 100), 95);
-  }
-  if (!cpus || cpus.length === 0) return 0;
-  let totalIdle = 0;
-  let totalTick = 0;
-  for (const cpu of cpus) {
-    for (const type of Object.keys(cpu.times)) {
-      totalTick += cpu.times[type];
-    }
-    totalIdle += cpu.times.idle;
-  }
-  if (totalTick === 0) return 0;
-  return Math.max(1, Math.min(95, Math.round(100 - (100 * totalIdle) / totalTick)));
-}
+import { collectTelemetrySnapshot, runObservabilityCheck } from "../services/observabilityTelemetryService.js";
 
 export const getObservabilityOverview = asyncHandler(async (req, res) => {
-  const dbState = mongoose.connection.readyState;
-  const dbStatus = dbState === 1 ? "healthy" : "degraded";
-
-  const uptime = process.uptime();
-  const memoryUsage = process.memoryUsage();
-  const totalMem = os.totalmem();
-  const freeMem = os.freemem();
-  const usedMem = totalMem - freeMem;
-
-  const cpus = os.cpus();
-  const cpuLoadAvg = os.loadavg();
-  const cpuPercent = computeCpuPercent(cpus, cpuLoadAvg);
-
-  const rssMb = Math.round(memoryUsage.rss / 1024 / 1024);
-  const heapUsedMb = Math.round(memoryUsage.heapUsed / 1024 / 1024);
-  const heapTotalMb = Math.round(memoryUsage.heapTotal / 1024 / 1024);
-
-  // Collections & Audit Metrics
-  let collectionsCount = 0;
-  try {
-    if (dbState === 1) {
-      const collections = await mongoose.connection.db.collections();
-      collectionsCount = collections.length;
-    }
-  } catch (err) {
-    console.error("Observability collections count error:", err);
-  }
-
-  const failedLogins = await AuditLog.countDocuments({ action: { $regex: /LOGIN_FAILED|UNAUTHORIZED/i } });
-  const totalAuditEvents = await AuditLog.countDocuments({});
-
-  const activeAlertsCount = await ObservabilityAlert.countDocuments({ isTriggered: true });
-
-  return res.json({
-    status: "healthy",
-    uptimeSeconds: Math.floor(uptime),
-    uptimeFormatted: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m ${Math.floor(uptime % 60)}s`,
-    system: {
-      platform: os.platform(),
-      arch: os.arch(),
-      cpuCores: cpus.length,
-      cpuPercent,
-      loadAvg: cpuLoadAvg.map(n => n.toFixed(2)),
-      memory: {
-        totalMemMb: Math.round(totalMem / 1024 / 1024),
-        freeMemMb: Math.round(freeMem / 1024 / 1024),
-        usedMemMb: Math.round(usedMem / 1024 / 1024),
-        rssMb,
-        heapUsedMb,
-        heapTotalMb
-      }
-    },
-    database: {
-      status: dbStatus,
-      host: mongoose.connection.host || "localhost",
-      collections: collectionsCount,
-      activeConnections: 12
-    },
-    servicesHealth: [
-      { name: "Node.js Express Backend", status: "healthy", latencyMs: 14, availability: "99.98%" },
-      { name: "MongoDB Database Cluster", status: dbStatus, latencyMs: 8, availability: "99.99%" },
-      { name: "Socket.IO Realtime Engine", status: "healthy", latencyMs: 3, availability: "99.95%" },
-      { name: "Cron Scheduler Engine", status: "healthy", latencyMs: 1, availability: "100.0%" },
-      { name: "Document Storage Vault", status: "healthy", latencyMs: 22, availability: "99.90%" }
-    ],
-    telemetry: {
-      requestsPerMinute: 340,
-      errorsPerMinute: 0.2,
-      avgResponseTimeMs: 18.5,
-      failedLogins,
-      totalAuditEvents,
-      activeAlertsCount,
-      uptime90DaysPercent: 99.96
-    }
-  });
+  const { snapshot } = await collectTelemetrySnapshot({ recordHistory: true });
+  return res.json(snapshot);
 });
 
 export const searchAuditLogs = asyncHandler(async (req, res) => {
@@ -146,7 +55,7 @@ export const listAlertRules = asyncHandler(async (req, res) => {
 });
 
 export const createAlertRule = asyncHandler(async (req, res) => {
-  const { ruleName, metricType, thresholdValue, severity, notificationChannel } = req.body;
+  const { ruleName, metricType, thresholdValue, severity, notificationChannel, webhookUrl } = req.body;
 
   if (!ruleName || !metricType || thresholdValue === undefined) {
     throw new AppError("Rule name, metric type, and threshold value are required", 400);
@@ -158,6 +67,7 @@ export const createAlertRule = asyncHandler(async (req, res) => {
     thresholdValue: Number(thresholdValue),
     severity: severity || "warning",
     notificationChannel: notificationChannel || "in_app",
+    webhookUrl: webhookUrl ? String(webhookUrl).trim() : "",
     createdBy: req.user._id
   });
 
@@ -171,6 +81,9 @@ export const createAlertRule = asyncHandler(async (req, res) => {
     userAgent: req.get("user-agent"),
     changes: { ruleName: alert.ruleName, metricType: alert.metricType }
   });
+
+  // Trigger immediate background evaluation so newly-breached rules notify promptly
+  void runObservabilityCheck();
 
   return res.status(201).json(alert);
 });

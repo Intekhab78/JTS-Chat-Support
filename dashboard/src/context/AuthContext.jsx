@@ -23,22 +23,36 @@ export function AuthProvider({ children }) {
       const now = Date.now();
       const timeUntilExpiry = expTime - now;
 
-      if (timeUntilExpiry > 0) {
-        // Show warning 30 minutes before expiry
-        const warningTime = Math.max(timeUntilExpiry - 30 * 60 * 1000, 1000);
-        const warningTimer = setTimeout(() => setSessionWarning(true), warningTime);
-
-        // Auto logout at expiry
-        const logoutTimer = setTimeout(() => {
-          logout();
-          setSessionWarning(false);
-        }, timeUntilExpiry);
-
-        setSessionTimeout({ warningTimer, logoutTimer });
+      if (timeUntilExpiry <= 0) {
+        localStorage.removeItem("dashboard_token");
+        setLoading(false);
+        return;
       }
+
+      // Show warning 30 minutes before expiry
+      const warningTime = Math.max(timeUntilExpiry - 30 * 60 * 1000, 1000);
+      const warningTimer = setTimeout(() => setSessionWarning(true), warningTime);
+
+      // Auto logout at expiry
+      const logoutTimer = setTimeout(() => {
+        logout();
+        setSessionWarning(false);
+      }, timeUntilExpiry);
+
+      setSessionTimeout({ warningTimer, logoutTimer });
     } catch (e) {
       // Invalid token
     }
+
+    const fetchMe = () => {
+      const currentToken = localStorage.getItem("dashboard_token");
+      if (!currentToken) return Promise.resolve();
+      return api("/api/auth/me")
+        .then((data) => {
+          if (data?.user) setUser(data.user);
+        })
+        .catch(() => {});
+    };
 
     api("/api/auth/me")
       .then((data) => setUser(data.user))
@@ -47,12 +61,24 @@ export function AuthProvider({ children }) {
         setUser(null);
       })
       .finally(() => setLoading(false));
+
+    const handleStorage = (e) => {
+      if (e.key === "jts_permissions_updated_at") fetchMe();
+    };
+    window.addEventListener("focus", fetchMe);
+    window.addEventListener("permissions:updated", fetchMe);
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener("focus", fetchMe);
+      window.removeEventListener("permissions:updated", fetchMe);
+      window.removeEventListener("storage", handleStorage);
+    };
   }, []);
 
-  async function login(email, password, twoFactorCode = "") {
+  async function login(email, password, twoFactorCode = "", captchaToken = "") {
     const data = await api("/api/auth/login", {
       method: "POST",
-      body: JSON.stringify({ email, password, twoFactorCode })
+      body: JSON.stringify({ email, password, twoFactorCode, captchaToken })
     });
 
     if (data.twoFactorRequired) {

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 export default function MasterModal({ isOpen, onClose, title, onSubmit, children, submitLabel = "Save Master" }) {
@@ -20,49 +21,50 @@ export default function MasterModal({ isOpen, onClose, title, onSubmit, children
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-300">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div className="absolute inset-0" onClick={onClose} />
-      
+      <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={onClose} />
+
       {/* Modal Container */}
-      <div className="relative w-full max-w-[650px] sm:w-[90%] md:w-[650px] bg-white rounded-[32px] border border-slate-200 shadow-[0_32px_90px_-24px_rgba(15,23,42,0.3)] overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
+      <div className="relative w-full max-w-[620px] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 bg-slate-50/50">
-          <h3 className="text-lg font-black tracking-tight text-slate-900">{title}</h3>
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 dark:border-white/10 bg-slate-50/70 dark:bg-slate-800/50">
+          <h3 className="text-sm font-black tracking-tight text-slate-900 dark:text-white uppercase">{title}</h3>
           <button
             type="button"
             onClick={onClose}
-            className="p-2.5 rounded-2xl bg-white border border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-100 transition-all shadow-sm"
+            className="p-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 text-slate-400 hover:text-indigo-600 transition-all cursor-pointer"
           >
-            <X size={16} />
+            <X size={15} />
           </button>
         </div>
 
         {/* Content & Form */}
         <form onSubmit={onSubmit} className="flex flex-col min-h-0 flex-1">
-          <div className="p-6 overflow-y-auto space-y-5 flex-1">
+          <div className="p-4 sm:p-5 overflow-y-auto space-y-3 flex-1">
             {children}
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end gap-3">
+          <div className="px-5 py-3 border-t border-slate-100 dark:border-white/10 bg-slate-50/70 dark:bg-slate-800/50 flex items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-2xl border border-slate-200 bg-white px-6 py-3.5 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-all"
+              className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="rounded-2xl bg-slate-900 text-white px-8 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-black transition-all shadow-xl"
+              className="rounded-xl bg-slate-900 dark:bg-indigo-600 text-white px-5 py-2 text-[10px] font-black uppercase tracking-wider hover:bg-black dark:hover:bg-indigo-500 transition-all shadow-sm cursor-pointer"
             >
               {submitLabel}
             </button>
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

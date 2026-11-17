@@ -15,7 +15,7 @@ const subscriptionPlanSchema = new mongoose.Schema(
     },
     includedModules: {
       type: [String],
-      default: ["crm", "operations", "finance", "compliance", "service", "automation"]
+      default: ["service", "crm", "operations", "finance", "automation", "reports", "security"]
     },
     isPopular: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true }

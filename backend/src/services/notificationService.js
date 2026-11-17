@@ -42,7 +42,10 @@ export async function createNotification({ userId, recipient, title, message, co
 
 export async function sendTicketAlert({ website, ticket, callLog }) {
   if (!ticket) return;
-  const phone = website?.voiceSettings?.alertPhoneNumber || "+971-50-9876543";
+  const phone = String(website?.voiceSettings?.alertPhoneNumber || "").trim();
+  if (!phone) {
+    return { whatsappSent: false, smsSent: false, alertPhone: null, skipped: "No alertPhoneNumber configured" };
+  }
   const enableWhatsApp = website?.voiceSettings?.enableWhatsAppAlerts !== false;
   const enableSms = website?.voiceSettings?.enableSmsAlerts !== false;
   if (enableWhatsApp) { logger.log(`[WHATSAPP ALERT SENT] to ${phone} -> Ticket ${ticket.ticketId}`); }

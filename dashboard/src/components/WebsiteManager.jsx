@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Globe, Plus, Trash2, Copy, Check, Settings, Code, Palette, X, Network, DollarSign, Lock } from "lucide-react";
+import { Globe, Plus, Trash2, Copy, Check, Settings, Code, Palette, X, DollarSign, Lock } from "lucide-react";
 import { api, getApiBase } from "../api/client.js";
 import WidgetCustomizer from "./WidgetCustomizer.jsx";
-import FlowBuilder from "./FlowBuilder.jsx";
 import PaginationControls from "./PaginationControls.jsx";
 import { getPaginationMeta } from "../utils/pagination.js";
 import { CURRENCY_MASTER, DEFAULT_CURRENCY_SETTINGS } from "../constants/currencies.js";
@@ -65,7 +64,6 @@ export default function WebsiteManager() {
     customFaqs: []
   });
   const [customizingWebsite, setCustomizingWebsite] = useState(null);
-  const [buildingFlowWebsite, setBuildingFlowWebsite] = useState(null);
   const [localizingWebsite, setLocalizingWebsite] = useState(null);
   const [page, setPage] = useState(1);
   const [widgetBaseUrl, setWidgetBaseUrl] = useState("");
@@ -127,7 +125,7 @@ export default function WebsiteManager() {
         enableWhatsAppAlerts: true,
         enableSmsAlerts: true
       },
-      enabledModules: ["crm", "operations", "finance", "compliance", "service", "automation"],
+      enabledModules: ["crm", "operations", "finance", "service", "automation"],
       businessHours: createDefaultBusinessHours(),
       webhooks: [],
       businessDescription: "",
@@ -172,7 +170,7 @@ export default function WebsiteManager() {
         enableWhatsAppAlerts: true,
         enableSmsAlerts: true
       },
-      enabledModules: website.enabledModules || ["crm", "operations", "finance", "compliance", "service", "automation"],
+      enabledModules: website.enabledModules || ["crm", "operations", "finance", "service", "automation"],
       businessHours: website.businessHours || createDefaultBusinessHours(),
       webhooks: website.webhooks || [],
       businessDescription: website.businessDescription || "",
@@ -438,35 +436,6 @@ export default function WebsiteManager() {
     );
   }
 
-  if (buildingFlowWebsite) {
-    return (
-      <div className="space-y-3 animate-in fade-in duration-300">
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">Flow Builder</h2>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 border-l border-slate-200 dark:border-slate-800 pl-3">
-              Configure Bot Routing for <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">{buildingFlowWebsite.websiteName}</span>
-            </span>
-          </div>
-          <button
-            onClick={() => setBuildingFlowWebsite(null)}
-            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all shadow-xs"
-            title="Close Flow Builder"
-          >
-            <X size={18} />
-          </button>
-        </div>
-        <FlowBuilder
-          website={buildingFlowWebsite}
-          onUpdate={(updated) => {
-            setWebsites(websites.map(w => w._id === updated._id ? updated : w));
-            setBuildingFlowWebsite(updated);
-          }}
-        />
-      </div>
-    );
-  }
-
   if (localizingWebsite) {
     return (
       <LocalizationModal
@@ -629,7 +598,6 @@ export default function WebsiteManager() {
                         { key: "enableLeadGeneration", label: "Lead Gen (CRM)" },
                         { key: "enableTicketing", label: "Helpdesk Tickets" },
                         { key: "enableKnowledgeBase", label: "Help Center" },
-                        { module: "compliance", label: "UAE Compliance (VAT)" },
                         { module: "finance", label: "Finance & Invoicing" },
                         { module: "operations", label: "Operations & Catalog" },
                         { module: "service", label: "Service & Care Inbox" },
@@ -657,7 +625,7 @@ export default function WebsiteManager() {
                         const toggleFunc = () => {
                           if (isLockedForClient) return;
                           if (isModule) {
-                            const current = formData.enabledModules || ["crm", "operations", "finance", "compliance", "service", "automation"];
+                            const current = formData.enabledModules || ["crm", "operations", "finance", "service", "automation"];
                             const next = current.includes(feat.module)
                               ? current.filter(m => m !== feat.module)
                               : [...current, feat.module];
@@ -823,7 +791,7 @@ export default function WebsiteManager() {
                         onChange={(e) => setFormData({ ...formData, businessDescription: e.target.value })}
                         rows={3}
                         className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10 rounded-lg p-2 text-xs font-medium focus:border-indigo-500 outline-none transition-all dark:text-white resize-y"
-                        placeholder="E.g. UAE Invoicing specializes exclusively in electronic invoicing, billing software, and POS inventory. We do NOT provide VAT tax filing or company trade license formation services."
+                        placeholder="E.g. JTS Support specializes in enterprise customer support, live chat ticketing, CRM pipelines, and automated omnichannel workflows."
                       />
                     </div>
 
@@ -910,42 +878,107 @@ export default function WebsiteManager() {
                       </button>
                     </div>
                     <div className="space-y-2">
-                      {(formData.webhooks || []).map((hook, idx) => (
-                        <div key={idx} className="rounded-lg border border-slate-200/80 dark:border-white/10 p-2.5 space-y-1.5 bg-slate-50/50 dark:bg-slate-800/40">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <input
-                              value={hook.url}
-                              onChange={(e) => {
-                                const webhooks = [...formData.webhooks];
-                                webhooks[idx] = { ...webhooks[idx], url: e.target.value };
-                                setFormData({ ...formData, webhooks });
-                              }}
-                              placeholder="https://example.com/webhooks"
-                              className="w-full bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-bold outline-none"
-                            />
-                            <input
-                              value={hook.secret || ""}
-                              onChange={(e) => {
-                                const webhooks = [...formData.webhooks];
-                                webhooks[idx] = { ...webhooks[idx], secret: e.target.value };
-                                setFormData({ ...formData, webhooks });
-                              }}
-                              placeholder="Signing secret"
-                              className="w-full bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-bold outline-none"
-                            />
+                      {(formData.webhooks || []).map((hook, idx) => {
+                        const presetEvents = ["ticket.created", "ticket.updated", "ticket.resolved", "lead.created", "chat.started"];
+                        const activeEvents = Array.isArray(hook.events) ? hook.events : [];
+                        return (
+                          <div key={idx} className="rounded-lg border border-slate-200/80 dark:border-white/10 p-2.5 space-y-2 bg-slate-50/50 dark:bg-slate-800/40">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              <input
+                                value={hook.url}
+                                onChange={(e) => {
+                                  const webhooks = [...formData.webhooks];
+                                  webhooks[idx] = { ...webhooks[idx], url: e.target.value };
+                                  setFormData({ ...formData, webhooks });
+                                }}
+                                placeholder="https://example.com/webhooks"
+                                className="w-full bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-bold outline-none"
+                              />
+                              <input
+                                value={hook.secret || ""}
+                                onChange={(e) => {
+                                  const webhooks = [...formData.webhooks];
+                                  webhooks[idx] = { ...webhooks[idx], secret: e.target.value };
+                                  setFormData({ ...formData, webhooks });
+                                }}
+                                placeholder="Signing secret"
+                                className="w-full bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-bold outline-none"
+                              />
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {presetEvents.map((ev) => {
+                                const selected = activeEvents.includes(ev);
+                                return (
+                                  <button
+                                    key={ev}
+                                    type="button"
+                                    onClick={() => {
+                                      const webhooks = [...formData.webhooks];
+                                      const nextEvents = selected ? activeEvents.filter((x) => x !== ev) : [...activeEvents, ev];
+                                      webhooks[idx] = { ...webhooks[idx], events: nextEvents };
+                                      setFormData({ ...formData, webhooks });
+                                    }}
+                                    className={`px-2 py-0.5 rounded-md text-[9.5px] font-bold border transition-colors ${
+                                      selected
+                                        ? "bg-indigo-600 text-white border-indigo-600"
+                                        : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-white/10 hover:border-indigo-300"
+                                    }`}
+                                  >
+                                    {ev}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            <div className="flex items-center justify-between gap-2 pt-0.5">
+                              <input
+                                value={activeEvents.join(", ")}
+                                onChange={(e) => {
+                                  const webhooks = [...formData.webhooks];
+                                  webhooks[idx] = { ...webhooks[idx], events: e.target.value.split(",").map(v => v.trim()).filter(Boolean) };
+                                  setFormData({ ...formData, webhooks });
+                                }}
+                                placeholder="ticket.created, ticket.updated"
+                                className="flex-1 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-white/10 rounded-lg px-2.5 py-1 text-[11px] font-bold outline-none"
+                              />
+                              {editingId && (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (!hook.url) return setError("Enter a webhook URL first.");
+                                    try {
+                                      setError("");
+                                      const res = await api(`/api/websites/${editingId}/test-webhook`, {
+                                        method: "POST",
+                                        body: JSON.stringify({ url: hook.url, secret: hook.secret, events: activeEvents })
+                                      });
+                                      if (res?.ok) {
+                                        alert(`Webhook reachable! HTTP ${res.status} (${res.statusText})`);
+                                      } else {
+                                        setError(`Webhook responded with HTTP ${res?.status || "error"}`);
+                                      }
+                                    } catch (err) {
+                                      setError(err.message || "Webhook test failed");
+                                    }
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase tracking-wider shrink-0"
+                                >
+                                  Test
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const webhooks = (formData.webhooks || []).filter((_, i) => i !== idx);
+                                  setFormData({ ...formData, webhooks });
+                                }}
+                                className="px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-[10px] font-black uppercase tracking-wider shrink-0"
+                              >
+                                Remove
+                              </button>
+                            </div>
                           </div>
-                          <input
-                            value={(hook.events || []).join(", ")}
-                            onChange={(e) => {
-                              const webhooks = [...formData.webhooks];
-                              webhooks[idx] = { ...webhooks[idx], events: e.target.value.split(",").map(v => v.trim()).filter(Boolean) };
-                              setFormData({ ...formData, webhooks });
-                            }}
-                            placeholder="ticket.created, ticket.updated"
-                            className="w-full bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-bold outline-none"
-                          />
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -1016,23 +1049,6 @@ export default function WebsiteManager() {
 
               {/* Action Buttons */}
               <div className="flex flex-wrap items-center gap-1.5 relative z-10 shrink-0">
-                <button
-                  onClick={async () => {
-                    try {
-                      // Fetch fully-populated website (with activeFlowId.nodes) before opening Flow Builder
-                      const populated = await api(`/api/websites/${website._id}`);
-                      setBuildingFlowWebsite(populated);
-                    } catch {
-                      // Fallback to existing data if fetch fails
-                      setBuildingFlowWebsite(website);
-                    }
-                  }}
-                  className="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-wider transition-all shadow-xs flex items-center gap-1"
-                >
-                  <Network size={12} />
-                  <span>Flow Builder</span>
-                </button>
-
                 <button
                   onClick={() => setLocalizingWebsite(website)}
                   className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-black text-[10px] uppercase tracking-wider hover:bg-emerald-600 hover:text-white transition-all shadow-xs border border-slate-200/80 dark:border-white/10 flex items-center gap-1"

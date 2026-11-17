@@ -8,6 +8,7 @@ import AppError from "../utils/AppError.js";
 import { PERMISSIONS, requirePermission } from "../utils/permissions.js";
 import { checkUnattendedClientsAndEscalate } from "../services/complianceInactivityService.js";
 import { generateCRN } from "../services/customerService.js";
+import { escapeRegex } from "../utils/regexUtils.js";
 
 function resolveScopedComplianceWebsiteIds(user, ownedWebsiteIds, websiteId) {
   if (websiteId) {
@@ -62,10 +63,10 @@ export const getVatComplianceStats = asyncHandler(async (req, res) => {
     query.$and = [
       {
         $or: [
-          { name: new RegExp(search, "i") },
-          { email: new RegExp(search, "i") },
-          { companyName: new RegExp(search, "i") },
-          { trn: new RegExp(search, "i") }
+          { name: new RegExp(escapeRegex(search), "i") },
+          { email: new RegExp(escapeRegex(search), "i") },
+          { companyName: new RegExp(escapeRegex(search), "i") },
+          { trn: new RegExp(escapeRegex(search), "i") }
         ]
       }
     ];
@@ -189,10 +190,10 @@ export const getCorporateTaxStats = asyncHandler(async (req, res) => {
     query.$and = [
       {
         $or: [
-          { name: new RegExp(search, "i") },
-          { email: new RegExp(search, "i") },
-          { companyName: new RegExp(search, "i") },
-          { trn: new RegExp(search, "i") }
+          { name: new RegExp(escapeRegex(search), "i") },
+          { email: new RegExp(escapeRegex(search), "i") },
+          { companyName: new RegExp(escapeRegex(search), "i") },
+          { trn: new RegExp(escapeRegex(search), "i") }
         ]
       }
     ];
@@ -309,10 +310,10 @@ export const getTradeLicenseStats = asyncHandler(async (req, res) => {
     query.$and = [
       {
         $or: [
-          { name: new RegExp(search, "i") },
-          { email: new RegExp(search, "i") },
-          { companyName: new RegExp(search, "i") },
-          { tradeLicenseNumber: new RegExp(search, "i") }
+          { name: new RegExp(escapeRegex(search), "i") },
+          { email: new RegExp(escapeRegex(search), "i") },
+          { companyName: new RegExp(escapeRegex(search), "i") },
+          { tradeLicenseNumber: new RegExp(escapeRegex(search), "i") }
         ]
       }
     ];

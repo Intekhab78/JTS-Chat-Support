@@ -1,541 +1,1106 @@
-import { useState, useEffect } from "react";
-import { UserPlus, Mail, Shield, Activity, Search, Trash2, Building2, Globe, Users, X, ChevronLeft, MessageSquare, MonitorSmartphone, Key } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
+import {
+  UserPlus,
+  Mail,
+  Shield,
+  Activity,
+  Search,
+  Trash2,
+  Building2,
+  Globe,
+  Users,
+  X,
+  ChevronLeft,
+  MessageSquare,
+  EyeOff,
+  MonitorSmartphone,
+  Key,
+  Edit2,
+  RefreshCw,
+  FileSpreadsheet,
+  Eye
+} from "lucide-react";
 import { api } from "../api/client.js";
 import PaginationControls from "./PaginationControls.jsx";
 import { getPaginationMeta } from "../utils/pagination.js";
 import { useToast } from "../context/ToastContext.jsx";
+import { exportToCsv } from "../utils/exportUtils.js";
 
-function ClientDetailView({ client, details, onBack, onResetPassword }) {
-   if (!details) return (
-      <div className="flex flex-col items-center justify-center py-32 space-y-6">
-         <div className="w-12 h-12 border-4 border-indigo-100 dark:border-white/5 border-t-indigo-600 rounded-full animate-spin" />
-         <p className="text-[10px] text-slate-400 dark:text-slate-500 font-black uppercase tracking-[0.3em] animate-pulse">Loading Ecosystem Data...</p>
+function ClientDetailView({ client, details, onBack, onResetPassword, onEditClient }) {
+  const [detailTab, setDetailTab] = useState("overview");
+  const [websiteFilter, setWebsiteFilter] = useState("all");
+  const [chatPage, setChatPage] = useState(1);
+  const [ticketPage, setTicketPage] = useState(1);
+  const [customerPage, setCustomerPage] = useState(1);
+
+  if (!details) {
+    return (
+      <div className="py-16 text-center bg-white rounded-xl border border-slate-200">
+        <RefreshCw size={20} className="animate-spin text-indigo-600 mx-auto mb-2" />
+        <p className="text-[11px] font-semibold text-slate-500">Loading Client Ecosystem...</p>
       </div>
-   );
+    );
+  }
 
-   const websitePagination = getPaginationMeta(details.websites || [], 1);
-   const personnelPagination = getPaginationMeta(details.personnel || [], 1);
-   const chatsPagination = getPaginationMeta(details.chats || [], 1);
+  const stats = details.stats || {
+    totalDomains: details.websites?.length || 0,
+    totalPersonnel: details.personnel?.length || 0,
+    totalChats: details.chats?.length || 0,
+    totalVisitors: details.visitors?.length || 0,
+    totalTickets: details.tickets?.length || 0,
+    totalCustomers: details.customers?.length || 0
+  };
 
-   return (
-      <div className="space-y-10 animate-in slide-in-from-right-8 duration-500">
-         <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-               <button onClick={onBack} className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-all shadow-sm">
-                  <ChevronLeft size={20} />
-               </button>
-               <div>
-                  <h3 className="heading-md dark:text-white flex items-center gap-3">
-                     {client.name}
-                     <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-lg text-[10px] font-black uppercase tracking-widest border border-indigo-100 dark:border-indigo-500/20">Client</span>
-                  </h3>
-                  <p className="small-label dark:text-slate-500 flex items-center gap-2 mt-1">
-                     <Mail size={12} className="text-indigo-400" /> {client.email}
-                  </p>
-               </div>
-            </div>
-         </div>
+  const filteredPersonnel = (details.personnel || []).filter((p) => {
+    if (websiteFilter === "all") return true;
+    if (!p.websiteIds || p.websiteIds.length === 0) return false;
+    return p.websiteIds.some((w) => String(w._id || w) === String(websiteFilter));
+  });
 
-         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-            <div className="premium-card p-8 bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5 space-y-4">
-               <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 flex items-center justify-center mb-4"><Globe size={20} /></div>
-               <h4 className="text-2xl font-black text-slate-900 dark:text-white">{details.websites.length}</h4>
-               <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Active Domains</p>
-            </div>
-            <div className="premium-card p-8 bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5 space-y-4">
-               <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-500 flex items-center justify-center mb-4"><Users size={20} /></div>
-               <h4 className="text-2xl font-black text-slate-900 dark:text-white">{details.personnel.length}</h4>
-               <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Total Personnel</p>
-            </div>
-            <div className="premium-card p-8 bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5 space-y-4">
-               <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500 flex items-center justify-center mb-4"><MessageSquare size={20} /></div>
-               <h4 className="text-2xl font-black text-slate-900 dark:text-white">{details.chats.length}</h4>
-               <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Recent Chats</p>
-            </div>
-            <div className="premium-card p-8 bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5 space-y-4">
-               <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-500 flex items-center justify-center mb-4"><MonitorSmartphone size={20} /></div>
-               <h4 className="text-2xl font-black text-slate-900 dark:text-white">{details.visitors.length}</h4>
-               <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Unique Visitors</p>
-            </div>
-         </div>
+  const filteredChats = (details.chats || []).filter((c) =>
+    websiteFilter === "all" ? true : String(c.websiteId?._id || c.websiteId) === String(websiteFilter)
+  );
 
-         <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
-            {/* DOMAINS */}
-            <div className="space-y-6">
-               <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest flex items-center gap-3">
-                  <Globe className="text-indigo-500" size={16} /> Managed Domains
-               </h4>
-               <div className="space-y-4">
-                  {websitePagination.pageItems.map(w => (
-                     <div key={w._id} className="premium-card p-6 border border-slate-100 dark:border-white/5 bg-white dark:bg-slate-900 flex justify-between items-center group">
-                        <div>
-                           <strong className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight block">{w.websiteName}</strong>
-                           <span className="text-[10px] text-slate-400 font-bold tracking-widest">{w.domain}</span>
-                        </div>
-                        <span className={`px-3 py-1 text-[9px] font-black tracking-widest uppercase rounded-lg ${w.isActive ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-slate-100 text-slate-500 dark:bg-white/5'}`}>
-                           {w.isActive ? 'Online' : 'Offline'}
-                        </span>
-                     </div>
-                  ))}
-                  {details.websites.length === 0 && <p className="text-xs font-bold text-slate-400 p-6 border-2 border-dashed border-slate-100 dark:border-white/5 rounded-2xl text-center">No domains mapped.</p>}
-               </div>
-            </div>
+  const filteredTickets = (details.tickets || []).filter((t) =>
+    websiteFilter === "all" ? true : String(t.websiteId?._id || t.websiteId) === String(websiteFilter)
+  );
 
-            {/* PERSONNEL */}
-            <div className="space-y-6">
-               <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest flex items-center gap-3">
-                  <Shield className="text-indigo-500" size={16} /> Deployed Personnel
-               </h4>
-               <div className="grid grid-cols-1 gap-4 max-h-[400px] overflow-y-auto pr-2">
-                  {personnelPagination.pageItems.map(p => (
-                     <div key={p._id} className="premium-card p-6 border border-slate-100 dark:border-white/5 bg-white dark:bg-slate-900 flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300 flex items-center justify-center font-black">
-                           {p.name.charAt(0)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                           <strong className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight block truncate">{p.name}</strong>
-                           <span className="text-[10px] text-slate-400 font-bold tracking-widest flex items-center gap-1"><Mail size={10} /> {p.email}</span>
-                        </div>
-                        <span className="px-3 py-1 bg-slate-50 dark:bg-white/5 text-slate-500 dark:text-slate-400 border border-slate-100 dark:border-white/10 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
-                           {p.role}
-                        </span>
-                        <button
-                           type="button"
-                           onClick={(e) => { e.stopPropagation(); onResetPassword(p); }}
-                           className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-white/5 rounded-xl transition-all"
-                           title="Reset User Password"
-                        >
-                           <Key size={14} />
-                        </button>
-                     </div>
-                  ))}
-                  {details.personnel.length === 0 && <p className="text-xs font-bold text-slate-400 p-6 border-2 border-dashed border-slate-100 dark:border-white/5 rounded-2xl text-center">No personnel deployed.</p>}
-               </div>
-            </div>
-         </div>
+  const filteredCustomers = (details.customers || []).filter((c) =>
+    websiteFilter === "all" ? true : String(c.websiteId?._id || c.websiteId) === String(websiteFilter)
+  );
 
-         {/* RECENT CHATS */}
-         <div className="space-y-6">
-            <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest flex items-center gap-3">
-               <Activity className="text-indigo-500" size={16} /> Recent Conversations & Traffic
+  const chatsPagination = getPaginationMeta(filteredChats, chatPage);
+  const ticketsPagination = getPaginationMeta(filteredTickets, ticketPage);
+  const customersPagination = getPaginationMeta(filteredCustomers, customerPage);
+
+  return (
+    <div className="space-y-3">
+      {/* Detail Header */}
+      <div className="bg-white border border-slate-200 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <button
+            type="button"
+            onClick={onBack}
+            className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-indigo-600 cursor-pointer shrink-0"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-sm font-bold text-slate-900 truncate">{client.name}</h3>
+              <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded text-[9px] font-bold uppercase">
+                {client.subscription?.plan || "pro"} plan
+              </span>
+              <span
+                className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${client.isActive !== false ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
+                  }`}
+              >
+                {client.isActive !== false ? "Active" : "Suspended"}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5 truncate">
+              <Mail size={11} className="text-slate-400" /> {client.email}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onEditClient(client)}
+            className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+          >
+            <Edit2 size={12} /> Edit Client
+          </button>
+          <button
+            type="button"
+            onClick={() => onResetPassword(client)}
+            className="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer"
+          >
+            <Key size={12} /> Reset Password
+          </button>
+        </div>
+      </div>
+
+      {/* Accurate Real-Time KPI Strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+        <div className="bg-white border border-slate-200 rounded-xl p-2.5">
+          <span className="text-[10px] font-semibold uppercase text-slate-400 block">Domains</span>
+          <span className="text-base font-bold text-slate-900 mt-0.5 block">{stats.totalDomains}</span>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-2.5">
+          <span className="text-[10px] font-semibold uppercase text-slate-400 block">Personnel</span>
+          <span className="text-base font-bold text-slate-900 mt-0.5 block">{stats.totalPersonnel}</span>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-2.5">
+          <span className="text-[10px] font-semibold uppercase text-slate-400 block">Total Chats</span>
+          <span className="text-base font-bold text-indigo-600 mt-0.5 block">{stats.totalChats}</span>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-2.5">
+          <span className="text-[10px] font-semibold uppercase text-slate-400 block">Tickets</span>
+          <span className="text-base font-bold text-amber-600 mt-0.5 block">{stats.totalTickets}</span>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-2.5">
+          <span className="text-[10px] font-semibold uppercase text-slate-400 block">Customers / Leads</span>
+          <span className="text-base font-bold text-emerald-600 mt-0.5 block">{stats.totalCustomers}</span>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-2.5">
+          <span className="text-[10px] font-semibold uppercase text-slate-400 block">Visitors</span>
+          <span className="text-base font-bold text-slate-900 mt-0.5 block">{stats.totalVisitors}</span>
+        </div>
+      </div>
+
+      {/* Sub-navigation tabs + Website Scope Filter */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 bg-white border border-slate-200 rounded-xl p-1.5 w-fit">
+          {[
+            { id: "overview", label: "Domains & Personnel" },
+            { id: "chats", label: `Chats (${websiteFilter === "all" ? stats.totalChats : filteredChats.length})` },
+            { id: "tickets", label: `Tickets (${websiteFilter === "all" ? stats.totalTickets : filteredTickets.length})` },
+            { id: "customers", label: `Customers (${websiteFilter === "all" ? stats.totalCustomers : filteredCustomers.length})` }
+          ].map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setDetailTab(t.id)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${detailTab === t.id ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-100"
+                }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <select
+            value={websiteFilter}
+            onChange={(e) => {
+              setWebsiteFilter(e.target.value);
+              setChatPage(1);
+              setTicketPage(1);
+              setCustomerPage(1);
+            }}
+            className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none"
+          >
+            <option value="all">All Websites ({details.websites.length})</option>
+            {details.websites.map((w) => (
+              <option key={w._id} value={w._id}>{w.websiteName}</option>
+            ))}
+          </select>
+          {websiteFilter !== "all" && (
+            <button
+              type="button"
+              onClick={() => setWebsiteFilter("all")}
+              className="px-2.5 py-1.5 text-xs font-semibold text-indigo-600 hover:underline cursor-pointer"
+            >
+              Show All
+            </button>
+          )}
+        </div>
+      </div>
+
+      {detailTab === "overview" && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                <Globe size={14} className="text-indigo-600" /> Managed Domains ({details.websites.length})
+              </h4>
+              <span className="text-[10px] text-slate-400">Click domain to filter users</span>
+            </div>
+            <div className="space-y-1.5 max-h-72 overflow-y-auto">
+              {details.websites.map((w) => {
+                const isSelected = String(websiteFilter) === String(w._id);
+                return (
+                  <div
+                    key={w._id}
+                    onClick={() => setWebsiteFilter(isSelected ? "all" : w._id)}
+                    className={`p-2.5 rounded-lg border flex items-center justify-between gap-2 cursor-pointer transition-all ${isSelected
+                      ? "bg-indigo-50/70 border-indigo-400"
+                      : "border-slate-100 bg-slate-50/60 hover:border-slate-300"
+                      }`}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-slate-900 truncate">{w.websiteName}</p>
+                      <p className="text-[10px] text-slate-500 truncate">{w.domain}</p>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${w.isActive ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                      {w.isActive ? "Online" : "Offline"}
+                    </span>
+                  </div>
+                );
+              })}
+              {details.websites.length === 0 && (
+                <p className="text-xs text-slate-400 py-6 text-center">No domains mapped.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2">
+            <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+              <Shield size={14} className="text-indigo-600" /> Deployed Personnel ({filteredPersonnel.length})
             </h4>
-            <div className="premium-card p-0 overflow-hidden bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5">
-               <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                     <thead>
-                        <tr className="bg-slate-50/50 dark:bg-white/5">
-                           <th className="px-8 py-4 text-[10px] font-black tracking-widest text-slate-400 uppercase">Status</th>
-                           <th className="px-8 py-4 text-[10px] font-black tracking-widest text-slate-400 uppercase">Domain</th>
-                           <th className="px-8 py-4 text-[10px] font-black tracking-widest text-slate-400 uppercase">Visitor</th>
-                           <th className="px-8 py-4 text-[10px] font-black tracking-widest text-slate-400 uppercase">Assigned</th>
-                        </tr>
-                     </thead>
-                     <tbody className="divide-y divide-slate-50 dark:divide-white/5">
-                        {chatsPagination.pageItems.map(chat => (
-                           <tr key={chat._id} className="hover:bg-slate-50/30 dark:hover:bg-white/[0.02] transition-colors">
-                              <td className="px-8 py-4">
-                                 <span className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest ${chat.status === 'active' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10' : 'bg-slate-100 text-slate-500 dark:bg-white/5'}`}>
-                                    {chat.status}
-                                 </span>
-                              </td>
-                              <td className="px-8 py-4 text-[11px] font-bold text-slate-700 dark:text-slate-300">{chat.websiteId?.websiteName || 'Unknown'}</td>
-                              <td className="px-8 py-4 text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate max-w-[150px]">{chat.visitorId?.name || chat.visitorId?.visitorId || 'Guest'}</td>
-                              <td className="px-8 py-4 text-[11px] font-bold text-slate-700 dark:text-slate-300">{chat.assignedAgent?.name || '-'}</td>
-                           </tr>
-                        ))}
-                        {details.chats.length === 0 && (
-                           <tr><td colSpan="4" className="text-center py-10 text-xs font-bold text-slate-400 uppercase tracking-widest">No chat history found.</td></tr>
+            <div className="space-y-1.5 max-h-72 overflow-y-auto">
+              {filteredPersonnel.map((p) => (
+                <div key={p._id} className="p-2.5 rounded-lg border border-slate-100 bg-slate-50/60 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-bold shrink-0">
+                      {p.name?.charAt(0)?.toUpperCase() || "U"}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-slate-900 truncate">{p.name}</p>
+                      <p className="text-[10px] text-slate-500 truncate">{p.email}</p>
+                      <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                        {p.websiteIds && p.websiteIds.length > 0 ? (
+                          p.websiteIds.map((w) => (
+                            <span
+                              key={w._id || w}
+                              className="px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded text-[9px] font-medium"
+                            >
+                              {w.websiteName || w}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px]">
+                            Unassigned / Global
+                          </span>
                         )}
-                     </tbody>
-                  </table>
-               </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[9px] font-semibold uppercase text-slate-600">
+                      {p.role}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onResetPassword(p)}
+                      className="p-1 text-slate-400 hover:text-indigo-600 rounded cursor-pointer"
+                      title="Reset User Password"
+                    >
+                      <Key size={13} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {filteredPersonnel.length === 0 && (
+                <p className="text-xs text-slate-400 py-6 text-center">No personnel mapped to this website.</p>
+              )}
             </div>
-         </div>
-      </div>
-   );
+          </div>
+        </div>
+      )}
+
+      {detailTab === "chats" && (
+        <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+              <Activity size={14} className="text-indigo-600" /> Recent Conversations ({details.chats.length} of {stats.totalChats})
+            </h4>
+          </div>
+          <div className="border border-slate-200 rounded-lg overflow-x-auto">
+            <table className="w-full text-left text-[11px]">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
+                <tr>
+                  <th className="px-3 py-2 font-semibold">Status</th>
+                  <th className="px-3 py-2 font-semibold">Domain</th>
+                  <th className="px-3 py-2 font-semibold">Visitor</th>
+                  <th className="px-3 py-2 font-semibold">Assigned Agent</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {chatsPagination.pageItems.map((chat) => (
+                  <tr key={chat._id} className="hover:bg-slate-50/50">
+                    <td className="px-3 py-2">
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${chat.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                        {chat.status}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-slate-700">{chat.websiteId?.websiteName || "Unknown"}</td>
+                    <td className="px-3 py-2 text-slate-700 truncate max-w-[160px]">{chat.visitorId?.name || chat.visitorId?.visitorId || "Guest"}</td>
+                    <td className="px-3 py-2 text-slate-600">{chat.assignedAgent?.name || "—"}</td>
+                  </tr>
+                ))}
+                {details.chats.length === 0 && (
+                  <tr>
+                    <td colSpan="4" className="text-center py-6 text-xs text-slate-400">No chat history found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          {details.chats.length > 0 && (
+            <PaginationControls
+              currentPage={chatsPagination.currentPage}
+              totalPages={chatsPagination.totalPages}
+              totalItems={chatsPagination.totalItems}
+              itemLabel="chats"
+              onPageChange={setChatPage}
+            />
+          )}
+        </div>
+      )}
+
+      {detailTab === "tickets" && (
+        <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2.5">
+          <h4 className="text-xs font-bold text-slate-900">Support Tickets ({details.tickets?.length || 0} of {stats.totalTickets})</h4>
+          <div className="border border-slate-200 rounded-lg overflow-x-auto">
+            <table className="w-full text-left text-[11px]">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
+                <tr>
+                  <th className="px-3 py-2 font-semibold">Ticket ID</th>
+                  <th className="px-3 py-2 font-semibold">Subject</th>
+                  <th className="px-3 py-2 font-semibold">Priority</th>
+                  <th className="px-3 py-2 font-semibold">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {ticketsPagination.pageItems.map((t) => (
+                  <tr key={t._id} className="hover:bg-slate-50/50">
+                    <td className="px-3 py-2 font-mono text-slate-700">{t.ticketId || String(t._id).slice(-6)}</td>
+                    <td className="px-3 py-2 text-slate-800 truncate max-w-[240px]">{t.subject}</td>
+                    <td className="px-3 py-2 uppercase text-[10px] text-slate-600">{t.priority}</td>
+                    <td className="px-3 py-2">
+                      <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[9px] font-bold uppercase">{t.status}</span>
+                    </td>
+                  </tr>
+                ))}
+                {(details.tickets || []).length === 0 && (
+                  <tr>
+                    <td colSpan="4" className="text-center py-6 text-xs text-slate-400">No tickets found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          {(details.tickets || []).length > 0 && (
+            <PaginationControls
+              currentPage={ticketsPagination.currentPage}
+              totalPages={ticketsPagination.totalPages}
+              totalItems={ticketsPagination.totalItems}
+              itemLabel="tickets"
+              onPageChange={setTicketPage}
+            />
+          )}
+        </div>
+      )}
+
+      {detailTab === "customers" && (
+        <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2.5">
+          <h4 className="text-xs font-bold text-slate-900">Customers & Leads ({details.customers?.length || 0} of {stats.totalCustomers})</h4>
+          <div className="border border-slate-200 rounded-lg overflow-x-auto">
+            <table className="w-full text-left text-[11px]">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
+                <tr>
+                  <th className="px-3 py-2 font-semibold">Name / Company</th>
+                  <th className="px-3 py-2 font-semibold">Email</th>
+                  <th className="px-3 py-2 font-semibold">Stage</th>
+                  <th className="px-3 py-2 font-semibold">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {customersPagination.pageItems.map((c) => (
+                  <tr key={c._id} className="hover:bg-slate-50/50">
+                    <td className="px-3 py-2 font-medium text-slate-800">{c.companyName || c.name}</td>
+                    <td className="px-3 py-2 text-slate-600">{c.email}</td>
+                    <td className="px-3 py-2 uppercase text-[10px] text-slate-600">{c.pipelineStage || "new"}</td>
+                    <td className="px-3 py-2">
+                      <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[9px] font-bold uppercase">{c.status || "lead"}</span>
+                    </td>
+                  </tr>
+                ))}
+                {(details.customers || []).length === 0 && (
+                  <tr>
+                    <td colSpan="4" className="text-center py-6 text-xs text-slate-400">No customers found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          {(details.customers || []).length > 0 && (
+            <PaginationControls
+              currentPage={customersPagination.currentPage}
+              totalPages={customersPagination.totalPages}
+              totalItems={customersPagination.totalItems}
+              itemLabel="customers"
+              onPageChange={setCustomerPage}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function ClientManager() {
-   const toast = useToast();
-   const [clients, setClients] = useState([]);
-   const [loading, setLoading] = useState(true);
-   
-   // Password reset states
-   const [resettingUser, setResettingUser] = useState(null);
-   const [customPassword, setCustomPassword] = useState("");
-   const [tempPassword, setTempPassword] = useState("");
-   const [resetSuccess, setResetSuccess] = useState(false);
-   const [resetLoading, setResetLoading] = useState(false);
+  const toast = useToast();
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-   const handleAdminResetPassword = async (e) => {
-      e.preventDefault();
-      if (!resettingUser) return;
-      setResetLoading(true);
-      try {
-         const data = await api(`/api/users/${resettingUser._id}/reset-password`, {
-            method: "POST",
-            body: JSON.stringify({ newPassword: customPassword })
-         });
-         setTempPassword(data.password);
-         setResetSuccess(true);
-         toast.success("Password reset email sent successfully!");
-         
-         // Refresh detail view if we are viewing it
-         if (selectedClient) {
-            loadClientDetails(selectedClient);
-         }
-      } catch (err) {
-         toast.error("Failed to reset password: " + err.message);
-      } finally {
-         setResetLoading(false);
+  // Search & Filters
+  const [searchTerm, setSearchTerm] = useState("");
+  const [planFilter, setPlanFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
+
+  // Detail View
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [clientDetails, setClientDetails] = useState(null);
+
+  // Create / Edit Modal
+  const [showClientModal, setShowClientModal] = useState(false);
+  const [editingClient, setEditingClient] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    plan: "pro",
+    isActive: true
+  });
+
+  // Delete Confirm Modal
+  const [deletingClient, setDeletingClient] = useState(null);
+
+  // Password reset states
+  const [resettingUser, setResettingUser] = useState(null);
+  const [customPassword, setCustomPassword] = useState("");
+  const [tempPassword, setTempPassword] = useState("");
+  const [resetSuccess, setResetSuccess] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+
+  const fetchClients = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await api("/api/users/clients");
+      setClients(Array.isArray(data) ? data : []);
+      setError("");
+    } catch (err) {
+      setError(err.message);
+      toast.error("Failed to load clients: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchClients();
+  }, [fetchClients]);
+
+  const loadClientDetails = async (client) => {
+    try {
+      setSelectedClient(client);
+      setClientDetails(null);
+      const data = await api(`/api/users/clients/${client._id}/details`);
+      setClientDetails(data);
+    } catch (err) {
+      setError(err.message);
+      toast.error("Failed to load client details: " + err.message);
+      setSelectedClient(null);
+    }
+  };
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, planFilter, statusFilter, clients.length]);
+
+  useEffect(() => {
+    const anyModal = showClientModal || resettingUser || deletingClient;
+    if (!anyModal) return;
+    const orig = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        setShowClientModal(false);
+        setResettingUser(null);
+        setDeletingClient(null);
       }
-   };
-   const [error, setError] = useState("");
-   const [isAdding, setIsAdding] = useState(false);
-   const [searchTerm, setSearchTerm] = useState("");
-   const [selectedClient, setSelectedClient] = useState(null);
-   const [clientDetails, setClientDetails] = useState(null);
-   const [page, setPage] = useState(1);
-   const [formData, setFormData] = useState({
-      name: "",
-      email: "",
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = orig;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [showClientModal, resettingUser, deletingClient]);
+
+  const openCreateModal = () => {
+    setEditingClient(null);
+    setFormData({ name: "", email: "", password: "", plan: "pro", isActive: true });
+    setShowClientModal(true);
+  };
+
+  const openEditModal = (client) => {
+    setEditingClient(client);
+    setFormData({
+      name: client.name || "",
+      email: client.email || "",
       password: "",
-      plan: "pro"
-   });
+      plan: client.subscription?.plan || "pro",
+      isActive: client.isActive !== false
+    });
+    setShowClientModal(true);
+  };
 
-   const fetchClients = async () => {
-      try {
-         const data = await api("/api/users/clients");
-         setClients(data);
-      } catch (err) {
-         setError(err.message);
-         toast.error("Failed to load clients: " + err.message);
-      } finally {
-         setLoading(false);
+  const handleSaveClient = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      if (editingClient) {
+        const updated = await api(`/api/users/clients/${editingClient._id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            name: formData.name,
+            email: formData.email,
+            plan: formData.plan,
+            isActive: formData.isActive
+          })
+        });
+        toast.success("Client updated successfully");
+        if (selectedClient?._id === editingClient._id) {
+          setSelectedClient((prev) => ({ ...prev, ...updated }));
+        }
+      } else {
+        await api("/api/users/clients", {
+          method: "POST",
+          body: JSON.stringify({
+            name: formData.name,
+            email: formData.email,
+            password: formData.password,
+            plan: formData.plan
+          })
+        });
+        toast.success("Client created successfully");
       }
-   };
+      setShowClientModal(false);
+      await fetchClients();
+    } catch (err) {
+      toast.error(err.message || "Failed to save client");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-   const loadClientDetails = async (client) => {
-      try {
-         setSelectedClient(client);
-         setClientDetails(null);
-         const data = await api(`/api/users/clients/${client._id}/details`);
-         setClientDetails(data);
-         window.scrollTo({ top: 0, behavior: "smooth" });
-      } catch (err) {
-         setError(err.message);
-         toast.error("Failed to load client details: " + err.message);
-         setSelectedClient(null);
+  const handleDeleteClient = async () => {
+    if (!deletingClient) return;
+    try {
+      await api(`/api/users/clients/${deletingClient._id}`, { method: "DELETE" });
+      toast.success("Client removed");
+      setDeletingClient(null);
+      if (selectedClient?._id === deletingClient._id) {
+        setSelectedClient(null);
       }
-   };
+      await fetchClients();
+    } catch (err) {
+      toast.error(err.message || "Failed to delete client");
+    }
+  };
 
-   useEffect(() => {
-      fetchClients();
-   }, []);
+  const handleAdminResetPassword = async (e) => {
+    e.preventDefault();
+    if (!resettingUser) return;
+    setResetLoading(true);
+    try {
+      const data = await api(`/api/users/${resettingUser._id}/reset-password`, {
+        method: "POST",
+        body: JSON.stringify({ newPassword: customPassword })
+      });
+      setTempPassword(data.password);
+      setResetSuccess(true);
+      toast.success("Password reset email sent successfully!");
+      if (selectedClient) loadClientDetails(selectedClient);
+    } catch (err) {
+      toast.error("Failed to reset password: " + err.message);
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
-   useEffect(() => {
-      setPage(1);
-   }, [searchTerm, clients.length]);
+  const dashboardStats = useMemo(() => {
+    const active = clients.filter((c) => c.isActive !== false).length;
+    const domains = clients.reduce((sum, c) => sum + (Number(c.websiteCount) || 0), 0);
+    const personnel = clients.reduce((sum, c) => sum + (Number(c.agentCount) || 0), 0);
+    const highTier = clients.filter((c) => ["pro", "enterprise"].includes((c.subscription?.plan || "").toLowerCase())).length;
+    return { total: clients.length, active, domains, personnel, highTier };
+  }, [clients]);
 
-   const handleSubmit = async (e) => {
-      e.preventDefault();
-      try {
-         await api("/api/users/clients", {
-            method: "POST",
-            body: JSON.stringify(formData)
-         });
-         setIsAdding(false);
-         setFormData({ name: "", email: "", password: "", plan: "pro" });
-         fetchClients();
-      } catch (err) {
-         setError(err.message);
-         toast.error("Failed to create client: " + err.message);
+  const filteredClients = useMemo(() => {
+    return clients.filter((client) => {
+      const plan = (client.subscription?.plan || "pro").toLowerCase();
+      const isAct = client.isActive !== false;
+      if (planFilter !== "all" && plan !== planFilter) return false;
+      if (statusFilter === "active" && !isAct) return false;
+      if (statusFilter === "suspended" && isAct) return false;
+      if (searchTerm.trim()) {
+        const q = searchTerm.toLowerCase();
+        return (
+          (client.name || "").toLowerCase().includes(q) ||
+          (client.email || "").toLowerCase().includes(q)
+        );
       }
-   };
+      return true;
+    });
+  }, [clients, searchTerm, planFilter, statusFilter]);
 
-   const filteredClients = clients.filter(client =>
-      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.email.toLowerCase().includes(searchTerm.toLowerCase())
-   );
-   const paginatedClients = getPaginationMeta(filteredClients, page);
+  const paginatedClients = getPaginationMeta(filteredClients, page);
 
-   if (selectedClient) {
-      return <ClientDetailView
-         client={selectedClient}
-         details={clientDetails}
-         onResetPassword={(u) => { setResettingUser(u); setCustomPassword(""); }}
-         onBack={() => {
+  if (loading && clients.length === 0) {
+    return (
+      <div className="py-16 text-center bg-white rounded-xl border border-slate-200">
+        <RefreshCw size={20} className="animate-spin text-indigo-600 mx-auto mb-2" />
+        <p className="text-[11px] font-semibold text-slate-500">Synchronizing Client Network...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {selectedClient ? (
+        <ClientDetailView
+          client={selectedClient}
+          details={clientDetails}
+          onResetPassword={(u) => { setResettingUser(u); setCustomPassword(""); setResetSuccess(false); }}
+          onEditClient={openEditModal}
+          onBack={() => {
             setSelectedClient(null);
             setClientDetails(null);
             fetchClients();
-         }}
-      />;
-   }
-
-   if (loading) return (
-      <div className="flex flex-col items-center justify-center py-32 space-y-6">
-         <div className="w-12 h-12 border-4 border-indigo-100 dark:border-white/5 border-t-indigo-600 rounded-full animate-spin" />
-         <p className="text-[10px] text-slate-400 dark:text-slate-500 font-black uppercase tracking-[0.3em] animate-pulse">Synchronizing Client Network...</p>
-      </div>
-   );
-
-   return (
-      <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-700">
-         <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
-            <div className="space-y-1.5">
-               <h3 className="heading-md dark:text-white">Client Infrastructure</h3>
-               <p className="small-label dark:text-slate-500">Manage high-level enterprise accounts and their respective support ecosystems.</p>
+          }}
+        />
+      ) : (
+        <>
+          {/* ── Clean White Header ───────────────────────────────── */}
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                <Building2 size={16} />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-slate-900">Client Infrastructure</h3>
+                <p className="text-[11px] text-slate-500 truncate">
+                  Manage client organizations, subscription plans, domains, and personnel
+                </p>
+              </div>
             </div>
-            <div className="flex gap-4">
-               <div className="relative group">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={14} />
-                  <input
-                     value={searchTerm}
-                     onChange={(e) => setSearchTerm(e.target.value)}
-                     placeholder="Locate client entity..."
-                     className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-2xl pl-12 pr-6 py-4 text-xs font-bold focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none transition-all w-64 shadow-sm dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-700"
-                  />
-               </div>
-               <button
-                  onClick={() => setIsAdding(!isAdding)}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all shadow-xl shadow-indigo-100/10 flex items-center justify-center gap-3"
-               >
-                  {isAdding ? <X size={16} /> : <UserPlus size={16} />}
-                  {isAdding ? "Cancel" : "Add Client"}
-               </button>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={fetchClients}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-indigo-600 cursor-pointer"
+                title="Refresh Clients"
+              >
+                <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const cols = [
+                    { key: "name", label: "Client Name" },
+                    { key: "email", label: "Email" },
+                    { key: "plan", label: "Plan", accessor: (c) => c.subscription?.plan || "pro" },
+                    { key: "websiteCount", label: "Domains" },
+                    { key: "agentCount", label: "Personnel" },
+                    { key: "status", label: "Status", accessor: (c) => (c.isActive !== false ? "Active" : "Suspended") }
+                  ];
+                  exportToCsv(filteredClients, cols, "Client_Infrastructure");
+                }}
+                className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+              >
+                <FileSpreadsheet size={13} /> Export CSV
+              </button>
+              <button
+                type="button"
+                onClick={openCreateModal}
+                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+              >
+                <UserPlus size={13} /> Add Client
+              </button>
             </div>
-         </div>
+          </div>
 
-         {isAdding && (
-            <form onSubmit={handleSubmit} className="premium-card p-10 md:p-14 animate-in zoom-in-95 duration-500 bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5">
-               <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
-                  <div className="space-y-3">
-                     <label className="small-label dark:text-slate-400">Entity Identity Name</label>
-                     <input
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-6 py-4 text-xs font-bold text-slate-700 dark:text-white focus:border-indigo-500/50 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-800"
-                        placeholder="Acme Corporation"
-                        required
-                     />
-                  </div>
-                  <div className="space-y-3">
-                     <label className="small-label dark:text-slate-400">Master Contact Email</label>
-                     <input
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-6 py-4 text-xs font-bold text-slate-700 dark:text-white focus:border-indigo-500/50 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-800"
-                        placeholder="admin@acme.com"
-                        required
-                     />
-                  </div>
-                  <div className="space-y-3 flex flex-col justify-end">
-                     <label className="small-label dark:text-slate-400">Secure Access Key</label>
-                     <input
-                        type="password"
-                        value={formData.password}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-6 py-4 text-xs font-bold text-slate-700 dark:text-white focus:border-indigo-500/50 outline-none transition-all placeholder:text-slate-800 dark:placeholder:text-slate-800"
-                        placeholder="••••••••••••"
-                        required
-                     />
-                  </div>
-                  <div className="space-y-3 flex flex-col justify-end">
-                     <label className="small-label dark:text-slate-400">Client Package</label>
-                     <select
-                        value={formData.plan}
-                        onChange={(e) => setFormData({ ...formData, plan: e.target.value })}
-                        className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-6 py-4 text-xs font-bold text-slate-700 dark:text-white focus:border-indigo-500/50 outline-none transition-all"
-                     >
-                        <option value="basic">Basic</option>
-                        <option value="standard">Standard</option>
-                        <option value="pro">Pro</option>
-                     </select>
-                  </div>
-               </div>
-               <div className="mt-10 pt-10 border-t border-slate-50 dark:border-white/5 flex justify-end">
-                  <button type="submit" className="w-full md:w-fit bg-slate-950 dark:bg-indigo-600 hover:bg-black dark:hover:bg-indigo-500 text-white font-black text-[11px] uppercase tracking-[0.3em] px-12 py-5 rounded-2xl shadow-2xl transition-all hover:scale-[1.02] active:scale-[0.98]">
-                     Authorize Client Provisioning
-                  </button>
-               </div>
-            </form>
-         )}
-
-         {error && (
-            <div className="bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/20 text-red-600 dark:text-red-400 px-6 py-4 rounded-2xl text-[11px] font-bold shadow-sm">
-               Signal Error: {error}
+          {/* ── Clean White KPI Cards ────────────────────────────── */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+            <div className="bg-white border border-slate-200 rounded-xl p-3">
+              <span className="text-[10px] font-semibold uppercase text-slate-400 block">Total Clients</span>
+              <div className="flex items-baseline justify-between mt-1">
+                <span className="text-lg font-bold text-slate-900">{dashboardStats.total}</span>
+                <span className="text-[10px] text-emerald-600 font-medium">{dashboardStats.active} active</span>
+              </div>
             </div>
-         )}
+            <div className="bg-white border border-slate-200 rounded-xl p-3">
+              <span className="text-[10px] font-semibold uppercase text-slate-400 block">Active Domains</span>
+              <div className="flex items-baseline justify-between mt-1">
+                <span className="text-lg font-bold text-indigo-600">{dashboardStats.domains}</span>
+                <span className="text-[10px] text-slate-500">Websites mapped</span>
+              </div>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-3">
+              <span className="text-[10px] font-semibold uppercase text-slate-400 block">Deployed Personnel</span>
+              <div className="flex items-baseline justify-between mt-1">
+                <span className="text-lg font-bold text-slate-900">{dashboardStats.personnel}</span>
+                <span className="text-[10px] text-slate-500">Agents & Staff</span>
+              </div>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-3">
+              <span className="text-[10px] font-semibold uppercase text-slate-400 block">Pro & Enterprise</span>
+              <div className="flex items-baseline justify-between mt-1">
+                <span className="text-lg font-bold text-emerald-600">{dashboardStats.highTier}</span>
+                <span className="text-[10px] text-slate-500">Upgraded tiers</span>
+              </div>
+            </div>
+          </div>
 
-         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {paginatedClients.pageItems.map((client) => (
-               <div key={client._id} onClick={() => loadClientDetails(client)} className="premium-card cursor-pointer group hover:shadow-2xl hover:shadow-indigo-500/5 transition-all bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5 p-0 overflow-hidden">
-                  <div className="p-8 flex items-center gap-8 relative">
-                     <div className={`w-20 h-20 rounded-[32px] bg-slate-950 dark:bg-black flex items-center justify-center text-white text-2xl font-black shadow-2xl group-hover:bg-indigo-600 transition-all shrink-0 border border-white/5 group-hover:scale-105 duration-500`}>
-                        <Building2 size={32} />
-                     </div>
+          {/* ── Compact Filter Bar ───────────────────────────────── */}
+          <div className="bg-white border border-slate-200 rounded-xl p-2.5 flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search client name or email..."
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 text-xs outline-none focus:border-indigo-400"
+              />
+            </div>
+            <select
+              value={planFilter}
+              onChange={(e) => setPlanFilter(e.target.value)}
+              className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none"
+            >
+              <option value="all">All Plans</option>
+              <option value="basic">Basic</option>
+              <option value="standard">Standard</option>
+              <option value="pro">Pro</option>
+              <option value="enterprise">Enterprise</option>
+            </select>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 outline-none"
+            >
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="suspended">Suspended</option>
+            </select>
+          </div>
 
-                     <div className="flex-1 min-w-0 space-y-4">
-                        <div className="space-y-1">
-                           <h4 className="text-base font-black text-slate-900 dark:text-white tracking-tighter uppercase leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{client.name}</h4>
-                           <div className="flex items-center gap-2.5 text-[10px] text-slate-400 dark:text-slate-500 font-bold truncate">
-                              <Mail size={12} className="text-indigo-400/50" />
-                              {client.email}
-                           </div>
+          {error && (
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 px-3 py-2 rounded-lg text-xs font-medium">
+              {error}
+            </div>
+          )}
+
+          {/* ── Compact Client Cards Grid ────────────────────────── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+            {paginatedClients.pageItems.map((client) => {
+              const planName = client.subscription?.plan || "pro";
+              const isAct = client.isActive !== false;
+              return (
+                <div
+                  key={client._id}
+                  onClick={() => loadClientDetails(client)}
+                  className="bg-white border border-slate-200 hover:border-indigo-300 rounded-xl p-3.5 transition-all cursor-pointer flex flex-col justify-between gap-2.5"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-10 h-10 rounded-lg bg-slate-900 text-white flex items-center justify-center shrink-0">
+                        <Building2 size={18} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="text-xs font-bold text-slate-900 uppercase truncate">{client.name}</h4>
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${isAct ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-600"
+                              }`}
+                          >
+                            {isAct ? "Active" : "Suspended"}
+                          </span>
                         </div>
+                        <p className="text-[11px] text-slate-500 flex items-center gap-1 truncate">
+                          <Mail size={11} className="text-slate-400 shrink-0" />
+                          {client.email}
+                        </p>
+                      </div>
+                    </div>
 
-                        <div className="flex flex-wrap items-center gap-3">
-                           <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl shadow-sm">
-                              <Shield size={10} className="text-indigo-500" />
-                              <span className="text-[8px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{client.role}</span>
-                           </div>
-                           <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl shadow-sm">
-                              <Globe size={10} className="text-emerald-500" />
-                              <span className="text-[8px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{client.websiteCount || 0} Domains</span>
-                           </div>
-                           <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl shadow-sm">
-                              <Users size={10} className="text-amber-500" />
-                              <span className="text-[8px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{client.agentCount || 0} Personnel</span>
-                           </div>
-                           <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl shadow-sm">
-                              <Shield size={10} className="text-rose-500" />
-                              <span className="text-[8px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{client.subscription?.plan || "pro"} plan</span>
-                           </div>
-                        </div>
-                     </div>
-
-                     <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0 flex gap-2">
-                        <button
-                           type="button"
-                           onClick={(e) => { e.stopPropagation(); setResettingUser(client); setCustomPassword(""); }}
-                           className="p-3 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-white/5 rounded-2xl transition-all shadow-sm"
-                           title="Reset Client Password"
-                        >
-                           <Key size={16} />
-                        </button>
-                        <button
-                           type="button"
-                           disabled
-                           title="Client deletion is not available from this screen yet."
-                           onClick={(e) => e.stopPropagation()}
-                           className="p-3.5 text-slate-300 bg-slate-50 dark:bg-white/5 rounded-2xl transition-all shadow-sm cursor-not-allowed opacity-60"
-                        >
-                           <Trash2 size={18} />
-                        </button>
-                     </div>
+                    <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={() => loadClientDetails(client)}
+                        title="View Ecosystem"
+                        className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md cursor-pointer"
+                      >
+                        <Eye size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(client)}
+                        title="Edit Client & Plan"
+                        className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md cursor-pointer"
+                      >
+                        <Edit2 size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setResettingUser(client); setCustomPassword(""); setResetSuccess(false); }}
+                        title="Reset Password"
+                        className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-md cursor-pointer"
+                      >
+                        <Key size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeletingClient(client)}
+                        title="Delete Client"
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md cursor-pointer"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Bottom bar for premium feel */}
-                  <div className="bg-slate-50/50 dark:bg-black/10 px-8 py-3 flex justify-between items-center opacity-60 group-hover:opacity-100 transition-opacity border-t border-slate-50 dark:border-white/5">
-                     <span className="text-[8px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-[0.3em]">View Ecosystem Log</span>
-                     <ChevronLeft size={10} className="text-indigo-500 rotate-180 transition-transform group-hover:translate-x-1" />
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="px-2 py-0.5 bg-slate-50 border border-slate-200 rounded text-[10px] font-semibold text-slate-600 inline-flex items-center gap-1">
+                        <Globe size={10} className="text-emerald-600" /> {client.websiteCount || 0} Domains
+                      </span>
+                      <span className="px-2 py-0.5 bg-slate-50 border border-slate-200 rounded text-[10px] font-semibold text-slate-600 inline-flex items-center gap-1">
+                        <Users size={10} className="text-amber-600" /> {client.agentCount || 0} Personnel
+                      </span>
+                      <span className="px-2 py-0.5 bg-indigo-50 border border-indigo-100 rounded text-[10px] font-bold uppercase text-indigo-700 inline-flex items-center gap-1">
+                        <Shield size={10} /> {planName} Plan
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-semibold text-indigo-600">View Ecosystem →</span>
                   </div>
-               </div>
-            ))}
+                </div>
+              );
+            })}
 
-            {filteredClients.length === 0 && !isAdding && (
-               <div className="col-span-full py-32 border-2 border-dashed border-slate-100 dark:border-white/5 rounded-[48px] text-center space-y-6 bg-slate-50/30 dark:bg-white/5">
-                  <div className="w-20 h-20 bg-white dark:bg-slate-800 rounded-3xl shadow-xl flex items-center justify-center mx-auto text-slate-300 dark:text-slate-700 transition-transform hover:rotate-12">
-                     <Building2 size={32} />
-                  </div>
-                  <div className="space-y-2">
-                     <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight">No Entities Found</h3>
-                     <p className="small-label dark:text-slate-700">Initialize a client record to begin ecosystem deployment.</p>
-                  </div>
-               </div>
+            {filteredClients.length === 0 && (
+              <div className="col-span-full py-12 bg-white border border-slate-200 rounded-xl text-center space-y-1.5">
+                <Building2 size={24} className="mx-auto text-slate-300" />
+                <p className="text-xs font-bold text-slate-700">No clients match your filter</p>
+                <p className="text-[11px] text-slate-400">Adjust filters or click + Add Client to create one.</p>
+              </div>
             )}
-         </div>
-         <PaginationControls
-            currentPage={paginatedClients.currentPage}
-            totalPages={paginatedClients.totalPages}
-            totalItems={paginatedClients.totalItems}
-            itemLabel="clients"
-            onPageChange={setPage}
-         />
+          </div>
 
-         {/* Password Reset Dialog Modal */}
-         {resettingUser && (
-            <>
-               <div 
-                  className="fixed inset-0 z-[9900] bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
-                  onClick={() => { setResettingUser(null); setResetSuccess(false); setTempPassword(""); }}
-               />
-               <div className="fixed inset-0 z-[9901] flex items-center justify-center p-4 pointer-events-none">
-                  <div className="pointer-events-auto w-full max-w-md bg-white dark:bg-slate-900 rounded-[28px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.35)] border border-slate-100 dark:border-white/5 animate-in zoom-in-95 duration-300 overflow-hidden">
-                     <div className="flex items-start justify-between p-6 pb-0">
-                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-                           <Key size={20} />
-                        </div>
-                        <button
-                           onClick={() => { setResettingUser(null); setResetSuccess(false); setTempPassword(""); }}
-                           className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
-                        >
-                           <X size={16} />
-                        </button>
-                     </div>
+          {filteredClients.length > 0 && (
+            <PaginationControls
+              currentPage={paginatedClients.currentPage}
+              totalPages={paginatedClients.totalPages}
+              totalItems={paginatedClients.totalItems}
+              itemLabel="clients"
+              onPageChange={setPage}
+            />
+          )}
+        </>
+      )}
 
-                     {!resetSuccess ? (
-                        <form onSubmit={handleAdminResetPassword}>
-                           <div className="px-6 pt-4 pb-6 space-y-4">
-                              <div>
-                                 <h3 className="text-sm font-black text-slate-900 dark:text-white tracking-tight uppercase">Reset Password</h3>
-                                 <p className="text-[10px] text-slate-400 font-bold tracking-widest mt-1">Target Account: <span className="text-indigo-500 font-black">{resettingUser.name} ({resettingUser.email})</span></p>
-                              </div>
-                              <div className="space-y-2">
-                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Custom Password (Optional)</label>
-                                 <input
-                                    type="text"
-                                    value={customPassword}
-                                    onChange={(e) => setCustomPassword(e.target.value)}
-                                    placeholder="Leave blank to auto-generate secure password"
-                                    className="w-full bg-slate-50 dark:bg-black/20 border-2 border-slate-100 dark:border-white/5 rounded-2xl px-6 py-4 text-xs font-bold text-slate-700 dark:text-white focus:border-indigo-500/50 outline-none transition-all"
-                                 />
-                              </div>
-                              <p className="text-[9px] font-bold text-slate-400 leading-relaxed bg-amber-500/5 border border-amber-500/10 p-3 rounded-xl">
-                                 ⚠️ Administrative passwords updates are saved and dispatched automatically to the user's registered email address.
-                              </p>
-                           </div>
-                           <div className="flex gap-3 px-6 pb-6">
-                              <button
-                                 type="button"
-                                 onClick={() => { setResettingUser(null); setResetSuccess(false); setTempPassword(""); }}
-                                 className="flex-1 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5"
-                              >
-                                 Cancel
-                              </button>
-                              <button
-                                 type="submit"
-                                 disabled={resetLoading}
-                                 className="flex-1 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-white bg-indigo-600 hover:bg-indigo-700 shadow-xl shadow-indigo-500/10"
-                              >
-                                 {resetLoading ? "Updating..." : "Reset & Mail"}
-                              </button>
-                           </div>
-                        </form>
-                     ) : (
-                        <div className="px-6 pt-4 pb-6 space-y-6">
-                           <div>
-                              <h3 className="text-sm font-black text-slate-900 dark:text-white tracking-tight uppercase">Password Reset Successfully</h3>
-                              <p className="text-[10px] text-slate-400 font-bold tracking-widest mt-1">Credentials have been sent to their inbox.</p>
-                           </div>
-                           <div className="p-5 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 rounded-2xl text-center space-y-2">
-                              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Plaintext Password View</span>
-                              <span className="text-xl font-mono font-black text-indigo-600 dark:text-indigo-400 tracking-wider select-all block">{tempPassword}</span>
-                           </div>
-                           <button
-                              type="button"
-                              onClick={() => { setResettingUser(null); setResetSuccess(false); setTempPassword(""); }}
-                              className="w-full py-4 bg-slate-950 dark:bg-indigo-600 hover:bg-black text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em]"
-                           >
-                              Close Panel
-                           </button>
-                        </div>
-                     )}
+      {/* ── Create / Edit Client Modal (Portal) ──────────────── */}
+      {showClientModal && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5">
+          <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-xs" onClick={() => setShowClientModal(false)} />
+          <div className="relative z-10 w-full max-w-md bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+              <h3 className="text-xs font-bold text-slate-900">
+                {editingClient ? "Edit Client Account" : "Add New Client"}
+              </h3>
+              <button type="button" onClick={() => setShowClientModal(false)} className="p-1 text-slate-400 hover:text-slate-700 rounded cursor-pointer">
+                <X size={15} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveClient} className="p-4 space-y-3 text-xs">
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Entity / Client Name *</label>
+                <input
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Acme Corporation"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Master Email *</label>
+                <input
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="admin@acme.com"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              {!editingClient && (
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Password *</label>
+                  <div className="relative">
+                    <input
+                      type={formData.showPassword ? "text" : "password"}
+                      required
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      placeholder="Minimum 6 characters"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-3 pr-9 py-2 text-xs outline-none focus:border-indigo-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, showPassword: !formData.showPassword })}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                      title={formData.showPassword ? "Hide password" : "Show password"}
+                    >
+                      {formData.showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
                   </div>
-               </div>
-            </>
-         )}
-      </div>
-   );
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Subscription Plan</label>
+                  <select
+                    value={formData.plan}
+                    onChange={(e) => setFormData({ ...formData, plan: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 text-xs outline-none"
+                  >
+                    <option value="basic">Basic</option>
+                    <option value="standard">Standard</option>
+                    <option value="pro">Pro</option>
+                    <option value="enterprise">Enterprise</option>
+                  </select>
+                </div>
+
+                {editingClient && (
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Account Status</label>
+                    <select
+                      value={formData.isActive ? "active" : "suspended"}
+                      onChange={(e) => setFormData({ ...formData, isActive: e.target.value === "active" })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 text-xs outline-none"
+                    >
+                      <option value="active">Active</option>
+                      <option value="suspended">Suspended</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button type="button" onClick={() => setShowClientModal(false)} className="px-3.5 py-1.5 border border-slate-200 text-slate-600 rounded-lg text-xs font-semibold cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" disabled={submitting} className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold cursor-pointer">
+                  {submitting ? "Saving..." : editingClient ? "Save Changes" : "Create Client"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Delete Confirmation Modal (Portal) ───────────────── */}
+      {deletingClient && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3">
+          <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-xs" onClick={() => setDeletingClient(null)} />
+          <div className="relative z-10 w-full max-w-sm bg-white rounded-xl shadow-xl border border-slate-200 p-4 space-y-3">
+            <h4 className="text-xs font-bold text-slate-900">Delete Client Account?</h4>
+            <p className="text-xs text-slate-600">
+              Remove <strong>{deletingClient.name}</strong> ({deletingClient.email}) from Client Infrastructure?
+            </p>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setDeletingClient(null)} className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 cursor-pointer">
+                Cancel
+              </button>
+              <button type="button" onClick={handleDeleteClient} className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold cursor-pointer">
+                Delete Client
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Password Reset Dialog Modal (Portal) ─────────────── */}
+      {resettingUser && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-slate-950/50 backdrop-blur-xs"
+            onClick={() => { setResettingUser(null); setResetSuccess(false); setTempPassword(""); }}
+          />
+          <div className="relative z-10 w-full max-w-md bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50">
+              <div className="flex items-center gap-2">
+                <Key size={15} className="text-indigo-600" />
+                <h3 className="text-xs font-bold text-slate-900">Reset Password</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setResettingUser(null); setResetSuccess(false); setTempPassword(""); }}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded cursor-pointer"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            {!resetSuccess ? (
+              <form onSubmit={handleAdminResetPassword} className="p-4 space-y-3 text-xs">
+                <p className="text-[11px] text-slate-600">
+                  Target Account: <strong className="text-slate-900">{resettingUser.name}</strong> ({resettingUser.email})
+                </p>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Custom Password (Optional)</label>
+                  <input
+                    type="text"
+                    value={customPassword}
+                    onChange={(e) => setCustomPassword(e.target.value)}
+                    placeholder="Leave blank to auto-generate"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => { setResettingUser(null); setResetSuccess(false); setTempPassword(""); }}
+                    className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 border border-slate-200 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={resetLoading}
+                    className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 cursor-pointer"
+                  >
+                    {resetLoading ? "Updating..." : "Reset & Send Email"}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="p-4 space-y-3 text-xs">
+                <p className="text-xs font-semibold text-emerald-700">Password reset & dispatched via email.</p>
+                <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-center">
+                  <span className="text-[10px] text-slate-500 uppercase block mb-1">Temporary Password</span>
+                  <span className="text-sm font-mono font-bold text-indigo-700 select-all">{tempPassword}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setResettingUser(null); setResetSuccess(false); setTempPassword(""); }}
+                  className="w-full py-2 bg-slate-900 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
 }

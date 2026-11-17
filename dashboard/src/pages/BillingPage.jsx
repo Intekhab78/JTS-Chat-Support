@@ -59,48 +59,48 @@ export default function BillingPage() {
     <div className="space-y-3.5 animate-in fade-in duration-500">
       
       {/* ── Compact Executive Header Banner ── */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 px-4 py-3.5 sm:px-5 sm:py-4 text-white border border-indigo-500/20 shadow-md">
-        <div className="absolute top-0 right-0 -mt-6 -mr-6 w-48 h-48 rounded-full bg-indigo-500/10 blur-2xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 -mb-8 w-60 h-60 rounded-full bg-violet-500/10 blur-2xl pointer-events-none" />
+      <div className="relative overflow-hidden rounded-2xl bg-white px-4 py-3.5 sm:px-5 sm:py-4 text-slate-900 border border-slate-200/90 shadow-xs">
+        <div className="absolute top-0 right-0 -mt-6 -mr-6 w-48 h-48 rounded-full bg-indigo-50/80 blur-2xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 -mb-8 w-60 h-60 rounded-full bg-violet-50/80 blur-2xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div className="space-y-1 max-w-xl">
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 text-[9px] font-black uppercase tracking-wider rounded-md border border-indigo-500/30 inline-flex items-center gap-1">
-                <Crown size={11} className="text-amber-400" /> Platform Tier & Quotas
+              <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[9px] font-black uppercase tracking-wider rounded-md border border-indigo-200/80 inline-flex items-center gap-1">
+                <Crown size={11} className="text-amber-500" /> Platform Tier & Quotas
               </span>
             </div>
-            <h2 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
+            <h2 className="text-base sm:text-lg font-black tracking-tight text-slate-900 flex items-center gap-2">
               Billing & Subscription Command Center
             </h2>
-            <p className="text-[11px] text-slate-300 font-medium leading-normal">
+            <p className="text-[11px] text-slate-500 font-medium leading-normal">
               Manage platform subscription, quotas, included enterprise modules, and upgrade pathways.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Quick Metrics */}
-            <div className="flex items-center gap-1.5 bg-white/5 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10">
+            <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/80">
               <div className="px-1.5 py-0.5 text-center">
                 <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block leading-none mb-0.5">Tier</span>
-                <span className="text-xs font-black text-amber-300 uppercase">{currentPlan}</span>
+                <span className="text-xs font-black text-indigo-700 uppercase">{currentPlan}</span>
               </div>
-              <div className="w-px h-4 bg-white/10" />
+              <div className="w-px h-4 bg-slate-200" />
               <div className="px-1.5 py-0.5 text-center">
-                <span className="text-[8px] font-black text-emerald-400 uppercase tracking-widest block leading-none mb-0.5">Domains</span>
-                <span className="text-xs font-black text-white">{data?.subscription?.limits?.websites || 10}</span>
+                <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest block leading-none mb-0.5">Domains</span>
+                <span className="text-xs font-black text-slate-900">{data?.subscription?.limits?.websites || 10}</span>
               </div>
-              <div className="w-px h-4 bg-white/10" />
+              <div className="w-px h-4 bg-slate-200" />
               <div className="px-1.5 py-0.5 text-center">
-                <span className="text-[8px] font-black text-indigo-300 uppercase tracking-widest block leading-none mb-0.5">Seats</span>
-                <span className="text-xs font-black text-white">{data?.subscription?.limits?.agents || 10}</span>
+                <span className="text-[8px] font-black text-indigo-600 uppercase tracking-widest block leading-none mb-0.5">Seats</span>
+                <span className="text-xs font-black text-slate-900">{data?.subscription?.limits?.agents || 10}</span>
               </div>
             </div>
 
             {data?.stripeCustomerId && (
               <button
                 onClick={handlePortal}
-                className="px-3.5 py-2 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-black text-[11px] uppercase tracking-wider rounded-xl shadow-md shadow-indigo-500/20 transition-all hover:scale-[1.02] flex items-center justify-center gap-1.5 shrink-0"
+                className="px-3.5 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-black text-[11px] uppercase tracking-wider rounded-xl shadow-xs transition-all hover:scale-[1.02] flex items-center justify-center gap-1.5 shrink-0"
               >
                 <ExternalLink size={13} />
                 <span>Stripe Portal</span>
@@ -128,37 +128,37 @@ export default function BillingPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
         
         {/* Active Plan Card */}
-        <div className="rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white border border-indigo-500/20 shadow-xs flex flex-col justify-between">
+        <div className="rounded-2xl p-4 sm:p-5 bg-white text-slate-900 border border-slate-200/90 shadow-xs flex flex-col justify-between">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <div className="p-2 bg-white/10 rounded-xl border border-white/10 text-indigo-400">
+              <div className="p-2 bg-indigo-50 rounded-xl border border-indigo-100 text-indigo-600">
                 <Shield size={16} />
               </div>
-              <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
                 🟢 {data?.subscription?.status || "Active"}
               </span>
             </div>
 
             <div>
-              <p className="text-[9px] font-black text-indigo-300 uppercase tracking-widest">Current Platform Tier</p>
-              <h3 className="text-2xl font-black tracking-tight uppercase flex items-baseline gap-1.5 mt-0.5">
-                {currentPlan} <span className="text-xs font-bold text-white/50 tracking-normal capitalize">Tier</span>
+              <p className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">Current Platform Tier</p>
+              <h3 className="text-2xl font-black tracking-tight uppercase text-slate-900 flex items-baseline gap-1.5 mt-0.5">
+                {currentPlan} <span className="text-xs font-bold text-slate-400 tracking-normal capitalize">Tier</span>
               </h3>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 border-t border-white/10 pt-3 mt-4 text-center">
+          <div className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 mt-4 text-center">
             <div>
               <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider block">Websites</span>
-              <span className="text-xs font-black text-white">{data?.subscription?.limits?.websites || 10} Domains</span>
+              <span className="text-xs font-black text-slate-900">{data?.subscription?.limits?.websites || 10} Domains</span>
             </div>
-            <div className="border-x border-white/10">
+            <div className="border-x border-slate-100">
               <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider block">Personnel</span>
-              <span className="text-xs font-black text-white">{data?.subscription?.limits?.agents || 10} Seats</span>
+              <span className="text-xs font-black text-slate-900">{data?.subscription?.limits?.agents || 10} Seats</span>
             </div>
             <div>
               <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider block">Valid Until</span>
-              <span className="text-xs font-black text-white">{expiresAt ? new Date(expiresAt).toLocaleDateString() : "Active"}</span>
+              <span className="text-xs font-black text-slate-900">{expiresAt ? new Date(expiresAt).toLocaleDateString() : "Active"}</span>
             </div>
           </div>
         </div>
@@ -170,7 +170,7 @@ export default function BillingPage() {
               Included Enterprise Capabilities
             </h4>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-              {(data?.subscription?.enabledModules || ["crm", "operations", "finance", "compliance", "service", "automation"]).map(mod => (
+              {(data?.subscription?.enabledModules || ["crm", "operations", "finance", "service", "automation"]).filter(mod => mod !== "compliance").map(mod => (
                 <div key={mod} className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-white/5">
                   <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
                     <Zap size={11} />
@@ -199,7 +199,7 @@ export default function BillingPage() {
               Available Subscription Tiers & Upgrades
             </h3>
             <p className="text-[11px] text-slate-400 font-bold mt-0.5">
-              Scale agent seats, unlock UAE Tax Compliance, and deploy multi-website networks.
+              Scale agent seats, unlock AI Workflows, and deploy multi-website networks.
             </p>
           </div>
 

@@ -165,6 +165,7 @@ export const createFollowUpTaskSchema = z.object({
   type: z.enum(FOLLOW_UP_TASK_TYPES).default("follow_up"),
   title: z.string().trim().min(3).max(160),
   notes: z.string().trim().max(2000).optional().or(z.literal("")),
+  priority: z.enum(["low", "medium", "high", "urgent"]).default("medium").optional(),
   dueAt: z.string().min(1, "Due date is required"),
   ownerId: z.string().nullable().optional().or(z.literal(""))
 });
@@ -172,9 +173,10 @@ export const createFollowUpTaskSchema = z.object({
 export const updateFollowUpTaskSchema = z.object({
   type: z.enum(FOLLOW_UP_TASK_TYPES).optional(),
   title: z.string().trim().min(3).max(160).optional(),
-  notes: z.string().trim().max(2000).optional(),
+  notes: z.string().trim().max(2000).optional().or(z.literal("")),
+  priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
   dueAt: z.string().optional(),
-  ownerId: z.string().nullable().optional(),
+  ownerId: z.string().nullable().optional().or(z.literal("")),
   status: z.enum(FOLLOW_UP_TASK_STATUSES).optional()
 }).refine((data) => Object.keys(data).length > 0, { message: "At least one field is required" });
 
@@ -234,13 +236,17 @@ export const webhookConfigSchema = z.object({
 export const createKnowledgeBaseArticleSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(180),
   content: z.string().trim().min(1, "Content is required").max(50000),
-  categoryId: z.string().trim().min(1, "Category is required"),
+  categoryId: z.string().trim().optional(),
+  categoryName: z.string().trim().max(80).optional(),
   websiteId: z.string().trim().min(1, "Website is required"),
   tags: z.union([
     z.array(z.string().trim().max(60)),
     z.string().max(1000)
   ]).optional().default([]),
   isPublished: z.boolean().optional()
+}).refine((data) => Boolean(data.categoryId || data.categoryName), {
+  message: "Category is required",
+  path: ["categoryId"]
 });
 
 export const updateKnowledgeBaseArticleSchema = z.object({

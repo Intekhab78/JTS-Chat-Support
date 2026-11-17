@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   FileText, Download, Filter, Calendar, Users, Briefcase, RefreshCw, FileSpreadsheet,
   ShieldCheck, Check, Search, Award, AlertTriangle, CreditCard, Landmark, Sparkles, ChevronRight, Layers, Eye, X, ArrowUpRight, Printer, Activity
 } from "lucide-react";
 import { api } from "../../api/client.js";
 import { exportToPDF, exportToExcel, exportToCSV, exportSingleRecordPDF } from "../../utils/exportUtils.js";
-import OverdueClientsSection from "./OverdueClientsSection.jsx";
 
 const COMPLIANCE_REPORTS = [
   {
@@ -164,51 +164,48 @@ export default function ComplianceReportsHub({ websiteId, teamMembers = [] }) {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       {/* ── Executive Header Banner ────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-[36px] bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 p-8 text-white shadow-[0_24px_70px_-20px_rgba(15,23,42,0.6)] border border-slate-800/80">
-        <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-indigo-500/15 blur-3xl" />
-        <div className="absolute -left-20 -bottom-20 h-72 w-72 rounded-full bg-violet-500/15 blur-3xl" />
-
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-500/10 px-3.5 py-1.5 text-[9px] font-black uppercase tracking-[0.25em] text-indigo-300 border border-indigo-500/20 backdrop-blur-md">
-              <Sparkles size={12} className="text-indigo-400" /> Executive Compliance Intelligence
+      <div className="relative overflow-hidden rounded-2xl bg-white p-5 text-slate-900 shadow-xs border border-slate-200/80">
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-indigo-600 border border-indigo-100">
+              <Sparkles size={11} className="text-indigo-500" /> Executive Compliance Intelligence
             </div>
-            <h2 className="text-2xl lg:text-3xl font-black tracking-tight text-white">
+            <h2 className="text-lg lg:text-xl font-black tracking-tight text-slate-900">
               Compliance Reporting Hub
             </h2>
-            <p className="max-w-xl text-xs font-bold text-slate-300/80 leading-relaxed">
+            <p className="max-w-xl text-xs font-medium text-slate-500 leading-relaxed">
               Clean, audit-ready compliance reporting for UAE VAT, Corporate Tax, DED Trade Licenses, and Consultant Performance.
             </p>
           </div>
 
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={handleExportPDF}
               disabled={!filteredRows.length}
-              className="group relative overflow-hidden rounded-2xl bg-gradient-to-r from-rose-600 via-rose-500 to-pink-600 px-5 py-3.5 text-xs font-black text-white uppercase tracking-wider shadow-[0_10px_30px_-5px_rgba(244,63,94,0.4)] transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:hover:scale-100"
+              className="group relative overflow-hidden rounded-xl bg-rose-600 px-3.5 py-2 text-[10px] font-black text-white uppercase tracking-wider transition-all hover:bg-rose-700 disabled:opacity-40 cursor-pointer"
             >
-              <span className="flex items-center gap-2">
-                <FileText size={15} /> Export PDF
+              <span className="flex items-center gap-1.5">
+                <FileText size={13} /> Export PDF
               </span>
             </button>
 
             <button
               onClick={handleExportExcel}
               disabled={!filteredRows.length}
-              className="group relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-700 px-5 py-3.5 text-xs font-black text-white uppercase tracking-wider shadow-[0_10px_30px_-5px_rgba(16,185,129,0.4)] transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:hover:scale-100"
+              className="group relative overflow-hidden rounded-xl bg-emerald-600 px-3.5 py-2 text-[10px] font-black text-white uppercase tracking-wider transition-all hover:bg-emerald-700 disabled:opacity-40 cursor-pointer"
             >
-              <span className="flex items-center gap-2">
-                <FileSpreadsheet size={15} /> Export Excel
+              <span className="flex items-center gap-1.5">
+                <FileSpreadsheet size={13} /> Export Excel
               </span>
             </button>
 
             <button
               onClick={handleExportCSV}
               disabled={!filteredRows.length}
-              className="group relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-800 via-slate-900 to-indigo-950 px-5 py-3.5 text-xs font-black text-white uppercase tracking-wider border border-slate-700/60 shadow-[0_10px_30px_-5px_rgba(15,23,42,0.6)] transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:hover:scale-100"
+              className="group relative overflow-hidden rounded-xl bg-white px-3.5 py-2 text-[10px] font-black text-slate-700 uppercase tracking-wider border border-slate-200 transition-all hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
             >
-              <span className="flex items-center gap-2">
-                <Download size={15} /> Export CSV
+              <span className="flex items-center gap-1.5">
+                <Download size={13} /> Export CSV
               </span>
             </button>
           </div>
@@ -358,11 +355,8 @@ export default function ComplianceReportsHub({ websiteId, teamMembers = [] }) {
         </div>
       </div>
 
-      {/* ── Overdue Clients Collapsible Modules or Standard Report Table ── */}
-      {selectedReport === "overdue_clients" ? (
-        <OverdueClientsSection websiteId={websiteId} />
-      ) : (
-        <div className="rounded-[34px] border border-slate-200/90 bg-white shadow-xl shadow-slate-200/40 overflow-hidden">
+      {/* ── Standard Report Table ── */}
+      <div className="rounded-[34px] border border-slate-200/90 bg-white shadow-xl shadow-slate-200/40 overflow-hidden">
           {/* Table Header & Search */}
           <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
             <div>
@@ -495,11 +489,10 @@ export default function ComplianceReportsHub({ websiteId, teamMembers = [] }) {
             </table>
           </div>
         </div>
-      )}
 
       {/* ── Client Audit Details Modal ──────────────────────────── */}
-      {inspectClient && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      {inspectClient && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
           <div className="bg-white rounded-[32px] max-w-lg w-full p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b pb-4 border-slate-100">
               <div>
@@ -525,7 +518,8 @@ export default function ComplianceReportsHub({ websiteId, teamMembers = [] }) {
               <button onClick={() => setInspectClient(null)} className="px-5 py-2.5 bg-indigo-600 text-white font-black text-xs uppercase rounded-xl shadow-lg shadow-indigo-100">Close Record</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

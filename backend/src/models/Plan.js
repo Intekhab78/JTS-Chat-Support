@@ -5,7 +5,7 @@ const planSchema = new mongoose.Schema(
     websiteId: { type: mongoose.Schema.Types.ObjectId, ref: "Website", required: true, index: true },
     name: { type: String, required: true, trim: true },
     price: { type: Number, required: true, default: 0 },
-    billingCycle: { type: String, enum: ["monthly", "yearly"], default: "monthly", index: true },
+    billingCycle: { type: String, enum: ["monthly", "quarterly", "half_yearly", "yearly"], default: "monthly", index: true },
     features: [{ type: String }],
     usageLimits: {
       storageGb: { type: Number, default: 5 },

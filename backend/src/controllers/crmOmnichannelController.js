@@ -152,12 +152,16 @@ export const assignSession = asyncHandler(async (req, res) => {
   const { agentId } = req.body;
   const session = await ChatSession.findById(req.params.id);
   if (!session) throw new AppError("Conversation not found", 404);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!ownedWebsiteIds.map(id => id.toString()).includes(String(session.websiteId))) {
+    throw new AppError("Unauthorized access to this conversation", 403);
+  }
 
   const previousAgent = session.assignedAgent;
   session.assignedAgent = agentId || null;
   session.status = agentId ? "active" : "queued";
   
-  if (previousAgent !== session.assignedAgent) {
+  if (String(previousAgent || "") !== String(session.assignedAgent || "")) {
     session.transferHistory.push({
       fromAgentId: previousAgent,
       toAgentId: session.assignedAgent,
@@ -189,6 +193,13 @@ export const updateSessionPriority = asyncHandler(async (req, res) => {
     throw new AppError("Invalid priority value", 400);
   }
 
+  const existing = await ChatSession.findById(req.params.id);
+  if (!existing) throw new AppError("Conversation not found", 404);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!ownedWebsiteIds.map(id => id.toString()).includes(String(existing.websiteId))) {
+    throw new AppError("Unauthorized access to this conversation", 403);
+  }
+
   const session = await ChatSession.findByIdAndUpdate(
     req.params.id,
     { priority },
@@ -202,6 +213,13 @@ export const updateSessionLabels = asyncHandler(async (req, res) => {
   const { labels } = req.body;
   if (!Array.isArray(labels)) {
     throw new AppError("Labels must be an array of strings", 400);
+  }
+
+  const existing = await ChatSession.findById(req.params.id);
+  if (!existing) throw new AppError("Conversation not found", 404);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  if (!ownedWebsiteIds.map(id => id.toString()).includes(String(existing.websiteId))) {
+    throw new AppError("Unauthorized access to this conversation", 403);
   }
 
   const session = await ChatSession.findByIdAndUpdate(

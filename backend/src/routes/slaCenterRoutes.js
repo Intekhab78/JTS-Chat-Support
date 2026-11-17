@@ -7,10 +7,11 @@ import {
   deleteSlaPolicy
 } from "../controllers/slaCenterController.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { attachTenantSubscription, requirePlanFeature } from "../middleware/planAccess.js";
 
 const router = Router();
 
-router.use(requireAuth);
+router.use(requireAuth, attachTenantSubscription, requirePlanFeature("enterprise"));
 
 router.get("/overview", requireRole("admin", "client", "manager", "management", "tax_consultant"), getSlaOverview);
 router.get("/policies", requireRole("admin", "client", "manager", "management", "tax_consultant"), listSlaPolicies);

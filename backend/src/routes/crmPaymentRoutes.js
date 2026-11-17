@@ -6,5 +6,6 @@ const router = Router();
 router.get("/", paymentController.listPayments);
 router.post("/", paymentController.createPayment);
 router.post("/refund/:id", paymentController.refundPayment);
+router.delete("/:id", paymentController.deletePayment);
 
 export default router;

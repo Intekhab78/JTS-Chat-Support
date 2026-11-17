@@ -360,4 +360,31 @@ customerSchema.index({ websiteId: 1, ownerId: 1, status: 1 });
 customerSchema.index({ "services.workStatus": 1, "services.dueDate": 1 });
 customerSchema.index({ websiteId: 1, tradeLicenseExpiry: 1 });
 
+customerSchema.pre("save", function (next) {
+  this._wasNew = this.isNew;
+  next();
+});
+
+customerSchema.post("save", function (doc) {
+  if (!doc._wasNew) return;
+  const eventType = doc.recordType === "lead" ? "lead.created" : "customer.created";
+  import("../services/integrationWebhookService.js")
+    .then(({ emitIntegrationEvent }) =>
+      emitIntegrationEvent({
+        eventType,
+        websiteId: doc.websiteId || null,
+        payload: {
+          id: doc._id,
+          recordType: doc.recordType,
+          name: doc.name,
+          companyName: doc.companyName,
+          email: doc.email,
+          phone: doc.phone,
+          crn: doc.crn
+        }
+      })
+    )
+    .catch(() => {});
+});
+
 export const Customer = mongoose.model("Customer", customerSchema);

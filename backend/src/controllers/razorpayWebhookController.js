@@ -8,6 +8,7 @@ import { sendEmail } from "../services/emailService.js";
 import { createNotification } from "../services/notificationService.js";
 import { paymentFailedRecoveryTemplate } from "../utils/emailTemplates.js";
 import { getSocketServer } from "../sockets/index.js";
+import { emitIntegrationEvent } from "../services/integrationWebhookService.js";
 
 /**
  * Controller to handle Razorpay Webhook Events.
@@ -90,6 +91,20 @@ export async function handleRazorpayWebhook(req, res) {
           }).catch(() => {});
 
           console.log(`[Razorpay Webhook] Invoice ${invoice.invoiceId} marked Paid and payment logged.`);
+
+          void emitIntegrationEvent({
+            eventType: "invoice.paid",
+            websiteId: invoice.websiteId || null,
+            ownerId: invoice.ownerId || null,
+            payload: {
+              id: invoice._id,
+              invoiceId: invoice.invoiceId,
+              customerId: invoice.customerId,
+              total: invoice.total,
+              paidAmount: invoice.paidAmount,
+              status: "paid"
+            }
+          });
         }
       }
     }

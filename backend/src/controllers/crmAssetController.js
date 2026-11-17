@@ -47,3 +47,34 @@ export const createAsset = asyncHandler(async (req, res) => {
 
   res.status(201).json(asset);
 });
+
+export const updateAsset = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const asset = await Asset.findById(req.params.id);
+  if (!asset) throw new AppError("Asset not found", 404);
+  if (!ownedWebsiteIds.map((id) => id.toString()).includes(String(asset.websiteId))) {
+    throw new AppError("Unauthorized access", 403);
+  }
+  const { name, serialNumber, value, durationMonths, status, customerId } = req.body;
+  if (name !== undefined) asset.name = name;
+  if (serialNumber !== undefined) asset.serialNumber = serialNumber;
+  if (value !== undefined) asset.value = Number(value) || 0;
+  if (durationMonths !== undefined) asset.durationMonths = Number(durationMonths) || 12;
+  if (status !== undefined) asset.status = status;
+  if (customerId !== undefined) asset.customerId = customerId;
+  await asset.save();
+  res.json(asset);
+});
+
+export const deleteAsset = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_DELETE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const asset = await Asset.findById(req.params.id);
+  if (!asset) throw new AppError("Asset not found", 404);
+  if (!ownedWebsiteIds.map((id) => id.toString()).includes(String(asset.websiteId))) {
+    throw new AppError("Unauthorized access", 403);
+  }
+  await asset.deleteOne();
+  res.json({ message: "Asset deleted" });
+});

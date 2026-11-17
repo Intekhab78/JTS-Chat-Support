@@ -224,25 +224,25 @@ export default function ActionsTab({
   };
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-3 pb-4">
       {/* ── Log Interaction / Video Meeting Section ── */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-sm space-y-5">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
+      <div className="bg-white rounded-xl border border-slate-200/80 p-3 space-y-3">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+          <div className="flex items-center gap-2.5">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
               interactionType === "meeting"
                 ? "bg-indigo-50 border border-indigo-100 text-indigo-600"
                 : interactionType === "call"
                   ? "bg-emerald-50 border border-emerald-100 text-emerald-600"
                   : "bg-sky-50 border border-sky-100 text-sky-600"
             }`}>
-              {interactionType === "meeting" ? <Video size={18} /> : interactionType === "call" ? <Phone size={18} /> : <Mail size={18} />}
+              {interactionType === "meeting" ? <Video size={14} /> : interactionType === "call" ? <Phone size={14} /> : <Mail size={14} />}
             </div>
             <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-900">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-900">
                 {interactionType === "meeting" ? "Video Meeting & Call Center" : "Log Interaction"}
               </p>
-              <p className="text-[9px] font-bold text-slate-400">
+              <p className="text-[9px] font-medium text-slate-400">
                 {interactionType === "meeting" ? "Schedule JTS Meet, start instant video call, or record notes" : "Record a phone call, meeting or email"}
               </p>
             </div>
@@ -250,7 +250,7 @@ export default function ActionsTab({
         </div>
 
         {/* Primary Type Selector: Call / Meeting / Email */}
-        <div className="flex gap-2 p-1 bg-slate-100 rounded-2xl">
+        <div className="flex gap-1.5 p-1 bg-slate-100 rounded-xl">
           {[
             { id: "meeting", label: "Meeting (JTS Meet)", icon: Video },
             { id: "call", label: "Phone Call", icon: Phone },
@@ -263,11 +263,11 @@ export default function ActionsTab({
                 key={t.id}
                 type="button"
                 onClick={() => setInteractionType(t.id)}
-                className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
-                  active ? "bg-white text-indigo-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                className={`flex-1 py-1.5 rounded-lg text-[9.5px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  active ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-700"
                 }`}
               >
-                <Icon size={13} />
+                <Icon size={12} />
                 <span>{t.label}</span>
               </button>
             );
@@ -549,19 +549,19 @@ export default function ActionsTab({
 
         {/* ── WHEN CALL OR EMAIL IS SELECTED: CLASSIC NOTES LOGGING ── */}
         {interactionType !== "meeting" && (
-          <form onSubmit={onLogInteraction} className="space-y-4 pt-1 animate-in fade-in duration-200">
+          <form onSubmit={onLogInteraction} className="space-y-2.5">
             <textarea
               value={interactionNote}
               onChange={(e) => setInteractionNote(e.target.value)}
               placeholder={`What was the outcome of this ${interactionType === "call" ? "phone call" : "email conversation"}?`}
-              rows={4}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs font-medium outline-none focus:ring-4 focus:ring-indigo-500/5 transition-all resize-none shadow-sm"
+              rows={3}
+              className="w-full bg-slate-50/70 border border-slate-200/80 rounded-lg p-2.5 text-[11px] font-medium outline-none focus:border-indigo-400 focus:bg-white transition-all resize-none"
               required
             />
             <button
               type="submit"
               disabled={interactionSaving || !interactionNote.trim()}
-              className="w-full py-3.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.22em] hover:bg-slate-800 transition-all shadow-xl disabled:opacity-50"
+              className="w-full py-2 bg-indigo-600 text-white rounded-lg text-[9.5px] font-bold uppercase tracking-wider hover:bg-indigo-700 transition-all disabled:opacity-50 cursor-pointer"
             >
               {interactionSaving ? "Recording..." : `Log ${interactionType === "call" ? "Phone Call" : "Email"}`}
             </button>
@@ -570,34 +570,34 @@ export default function ActionsTab({
       </div>
 
       {/* ── Schedule Follow-up Task Section ── */}
-      <div className="bg-white rounded-3xl border border-amber-100 p-6 shadow-sm space-y-5">
-        <div className="flex items-center gap-3 border-b border-amber-50 pb-4">
-          <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-500">
-            <Clock size={18} />
+      <div className="bg-white rounded-xl border border-slate-200/80 p-3 space-y-2.5">
+        <div className="flex items-center gap-2.5 border-b border-slate-100 pb-2">
+          <div className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-500">
+            <Clock size={14} />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-900">Schedule Task</p>
-            <p className="text-[9px] font-bold text-slate-400">Plan a follow-up action or deadline for this lead.</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-900">Schedule Task</p>
+            <p className="text-[9px] font-medium text-slate-400">Plan a follow-up action or deadline for this lead.</p>
           </div>
         </div>
-        <form onSubmit={onCreateTask} className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Action Description</label>
+        <form onSubmit={onCreateTask} className="space-y-2.5">
+          <div className="space-y-1">
+            <label className="text-[8.5px] font-bold text-slate-400 uppercase tracking-wider">Action Description</label>
             <input
               value={taskForm.title}
               onChange={(e) => setTaskForm(prev => ({ ...prev, title: e.target.value }))}
               placeholder="e.g. Discuss proposal breakdown"
-              className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-4 focus:ring-amber-500/5"
+              className="w-full bg-slate-50/70 border border-slate-200/80 rounded-lg px-3 py-2 text-[11px] font-semibold outline-none focus:border-indigo-400 focus:bg-white"
               required
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Type</label>
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="space-y-1">
+              <label className="text-[8.5px] font-bold text-slate-400 uppercase tracking-wider">Type</label>
               <select
                 value={taskForm.type}
                 onChange={(e) => setTaskForm(prev => ({ ...prev, type: e.target.value }))}
-                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-[10px] font-black uppercase outline-none focus:ring-4 focus:ring-amber-500/5"
+                className="w-full bg-slate-50/70 border border-slate-200/80 rounded-lg px-2.5 py-2 text-[10px] font-bold uppercase outline-none focus:border-indigo-400 focus:bg-white"
               >
                 <option value="call">Call</option>
                 <option value="email">Email</option>
@@ -605,13 +605,13 @@ export default function ActionsTab({
                 <option value="task">General</option>
               </select>
             </div>
-            <div className="space-y-1.5">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Due Date</label>
+            <div className="space-y-1">
+              <label className="text-[8.5px] font-bold text-slate-400 uppercase tracking-wider">Due Date</label>
               <input
                 type="date"
                 value={taskForm.dueAt}
                 onChange={(e) => setTaskForm(prev => ({ ...prev, dueAt: e.target.value }))}
-                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-[11px] text-[10px] font-black uppercase outline-none focus:ring-4 focus:ring-amber-500/5"
+                className="w-full bg-slate-50/70 border border-slate-200/80 rounded-lg px-2.5 py-1.5 text-[10px] font-bold uppercase outline-none focus:border-indigo-400 focus:bg-white"
                 required
               />
             </div>
@@ -619,7 +619,7 @@ export default function ActionsTab({
           <button
             type="submit"
             disabled={taskSaving || !taskForm.title.trim() || !taskForm.dueAt}
-            className="w-full py-3.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.22em] hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 disabled:opacity-50"
+            className="w-full py-2 bg-indigo-600 text-white rounded-lg text-[9.5px] font-bold uppercase tracking-wider hover:bg-indigo-700 transition-all disabled:opacity-50 cursor-pointer"
           >
             {taskSaving ? "Scheduling..." : "Create Action Task"}
           </button>

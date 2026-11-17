@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Search, Command, X, Mail, Phone, ChevronRight, Zap } from "lucide-react";
 import { api } from "../../api/client.js";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -117,8 +118,8 @@ export default function GlobalSearch() {
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-[1000] flex items-start justify-center pt-[10vh] px-4 md:px-0">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[10vh] px-4 md:px-0">
       <div 
         className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200"
         onClick={() => setIsOpen(false)}
@@ -225,6 +226,7 @@ export default function GlobalSearch() {
           <div className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">CRM GLOBAL SEARCH</div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

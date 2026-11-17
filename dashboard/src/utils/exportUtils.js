@@ -86,7 +86,7 @@ export function downloadCSV(content = "", filename = "export.csv") {
 /**
  * Helper to export any array of data to a real PDF document using jsPDF & autoTable.
  */
-export function exportToPDF(data = [], columns = [], filename = "export", reportTitle = "ENTERPRISE COMPLIANCE & INTELLIGENCE REPORT") {
+export function exportToPDF(data = [], columns = [], filename = "export", reportTitle = "ENTERPRISE INTELLIGENCE REPORT", options = {}) {
   if (!data || data.length === 0) {
     alert("No data available to export.");
     return;
@@ -95,9 +95,13 @@ export function exportToPDF(data = [], columns = [], filename = "export", report
   let actualColumns = columns;
   let actualFilename = filename;
   let titleText = reportTitle;
+  let pdfOptions = options || {};
 
-  // Handle signature exportToPDF(data, filename, reportTitle)
+  // Handle signature exportToPDF(data, filename, reportTitle, options)
   if (typeof columns === "string") {
+    if (typeof reportTitle === "object" && reportTitle !== null) {
+      pdfOptions = reportTitle;
+    }
     if (typeof filename === "string" && filename !== "export") {
       titleText = filename;
     }
@@ -109,7 +113,10 @@ export function exportToPDF(data = [], columns = [], filename = "export", report
   if (!Array.isArray(actualColumns) || actualColumns.length === 0) {
     const firstRow = data[0] || {};
     if (typeof firstRow === "object" && !Array.isArray(firstRow)) {
-      actualColumns = Object.keys(firstRow).map(k => ({ key: k, label: k }));
+      actualColumns = Object.keys(firstRow).map(k => ({
+        key: k,
+        label: String(k).replace(/([A-Z])/g, " $1").replace(/_/g, " ").trim()
+      }));
     } else if (Array.isArray(firstRow)) {
       actualColumns = firstRow.map((_, idx) => ({ key: idx, label: `Column ${idx + 1}` }));
     }
@@ -123,26 +130,58 @@ export function exportToPDF(data = [], columns = [], filename = "export", report
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const reportDate = new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+  const brandName = String(pdfOptions.brandName || "JTS SUPPORT").toUpperCase();
+  const subtitle = pdfOptions.subtitle ? String(pdfOptions.subtitle).toUpperCase() : String(titleText || "ENTERPRISE REPORT").toUpperCase();
+  const summaryCards = Array.isArray(pdfOptions.summaryCards) ? pdfOptions.summaryCards.slice(0, 4) : [];
 
-  // Top Dark Header Bar
+  // Top Branded Header Bar
   doc.setFillColor(15, 23, 42); // slate-900
-  doc.rect(0, 0, 210, 32, "F");
+  doc.rect(0, 0, 210, 30, "F");
+
+  doc.setFillColor(79, 70, 229); // indigo-600 accent strip
+  doc.rect(0, 30, 210, 1.5, "F");
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
+  doc.setFontSize(13);
   doc.setTextColor(255, 255, 255);
-  doc.text("JTS SUPPORT CRM", 14, 13);
+  doc.text(brandName, 14, 12.5);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(199, 210, 254);
-  doc.text(String(titleText || "FILTERED ENTERPRISE COMPLIANCE REPORT").toUpperCase(), 14, 21);
+  doc.text(subtitle, 14, 20.5);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
   doc.setTextColor(255, 255, 255);
-  doc.text(`DATE: ${reportDate}`, 196, 13, { align: "right" });
-  doc.text(`RECORDS: ${data.length}`, 196, 21, { align: "right" });
+  doc.text(`GENERATED: ${reportDate}`, 196, 12.5, { align: "right" });
+  doc.text(`ROWS: ${data.length}`, 196, 20.5, { align: "right" });
+
+  let tableStartY = 38;
+
+  // Optional Executive Summary KPI Cards Strip
+  if (summaryCards.length > 0) {
+    const gap = 3;
+    const totalW = 182;
+    const cardW = (totalW - gap * (summaryCards.length - 1)) / summaryCards.length;
+    summaryCards.forEach((card, idx) => {
+      const x = 14 + idx * (cardW + gap);
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(x, 36, cardW, 18, 2, 2, "FD");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text(String(card.label || "").toUpperCase().slice(0, 22), x + 3, 42);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text(String(card.value ?? "-").slice(0, 18), x + 3, 49.5);
+    });
+    tableStartY = 60;
+  }
 
   // Prepare table headers & body
   const tableHeaders = [actualColumns.map(c => String(c.label || c.key || "").toUpperCase())];
@@ -156,7 +195,7 @@ export function exportToPDF(data = [], columns = [], filename = "export", report
   });
 
   autoTable(doc, {
-    startY: 38,
+    startY: tableStartY,
     head: tableHeaders,
     body: tableBody,
     theme: "grid",
@@ -165,16 +204,26 @@ export function exportToPDF(data = [], columns = [], filename = "export", report
       textColor: [255, 255, 255],
       fontSize: 7.5,
       fontStyle: "bold",
-      halign: "left"
+      halign: "left",
+      cellPadding: 2.5
     },
     bodyStyles: {
       fontSize: 7.5,
-      textColor: [51, 65, 85]
+      textColor: [51, 65, 85],
+      cellPadding: 2.3
     },
     alternateRowStyles: {
       fillColor: [248, 250, 252]
     },
-    margin: { top: 38, left: 14, right: 14 }
+    margin: { top: 36, bottom: 18, left: 14, right: 14 },
+    didDrawPage: (hookData) => {
+      const pageCount = doc.internal.getNumberOfPages();
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(148, 163, 184);
+      doc.text(`${brandName} • Confidential Analytics Report`, 14, 289);
+      doc.text(`Page ${hookData.pageNumber} of ${pageCount}`, 196, 289, { align: "right" });
+    }
   });
 
   const pdfName = actualFilename.toLowerCase().endsWith(".pdf") ? actualFilename : `${actualFilename}.pdf`;

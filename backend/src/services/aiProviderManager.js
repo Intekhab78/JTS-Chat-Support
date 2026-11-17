@@ -54,6 +54,7 @@ export class AiProviderManager {
                   {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
+                    signal: AbortSignal.timeout(8000),
                     body: JSON.stringify({
                       contents: [{ parts: [{ text: prompt }] }],
                       generationConfig: {
@@ -67,6 +68,7 @@ export class AiProviderManager {
                 if (!response.ok) {
                   const errText = await response.text();
                   lastErr = new Error(`Gemini API error (${modelToTry}): ${response.status} - ${errText}`);
+                  if ([400, 401, 403].includes(response.status)) break;
                   continue;
                 }
 

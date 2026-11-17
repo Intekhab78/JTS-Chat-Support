@@ -1,6 +1,7 @@
 import { EmailTemplate } from "../models/EmailTemplate.js";
 import { sendEmail } from "../services/emailService.js";
 import AppError from "../utils/AppError.js";
+import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 
 /**
  * List all email templates within the client's website scope context
@@ -10,6 +11,10 @@ export async function listTemplates(req, res, next) {
     const { websiteId } = req.query;
     if (!websiteId) {
       return next(new AppError("Website ID domain context is required.", 400));
+    }
+    const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+    if (!ownedWebsiteIds.map(id => id.toString()).includes(String(websiteId))) {
+      return next(new AppError("Unauthorized access to this website's templates.", 403));
     }
 
     const templates = await EmailTemplate.find({ websiteId }).sort({ createdAt: -1 });
@@ -30,6 +35,11 @@ export async function createTemplate(req, res, next) {
     if (!subject || !subject.trim()) return next(new AppError("Subject line is required.", 400));
     if (!htmlContent || !htmlContent.trim()) return next(new AppError("HTML template content is required.", 400));
     if (!websiteId) return next(new AppError("Website ID context is missing.", 400));
+
+    const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+    if (!ownedWebsiteIds.map(id => id.toString()).includes(String(websiteId))) {
+      return next(new AppError("Unauthorized access to this website's templates.", 403));
+    }
 
     // Check for duplicate names inside same website scope
     const existing = await EmailTemplate.findOne({ websiteId, name: name.trim() });
@@ -67,6 +77,10 @@ export async function updateTemplate(req, res, next) {
     if (!template) {
       return next(new AppError("Template not found.", 404));
     }
+    const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+    if (!ownedWebsiteIds.map(w => w.toString()).includes(String(template.websiteId))) {
+      return next(new AppError("Unauthorized access to this template.", 403));
+    }
 
     if (name) template.name = name.trim();
     if (subject) template.subject = subject.trim();
@@ -90,10 +104,15 @@ export async function updateTemplate(req, res, next) {
 export async function deleteTemplate(req, res, next) {
   try {
     const { id } = req.params;
-    const template = await EmailTemplate.findByIdAndDelete(id);
-    if (!template) {
+    const existing = await EmailTemplate.findById(id);
+    if (!existing) {
       return next(new AppError("Template not found.", 404));
     }
+    const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+    if (!ownedWebsiteIds.map(w => w.toString()).includes(String(existing.websiteId))) {
+      return next(new AppError("Unauthorized access to this template.", 403));
+    }
+    await EmailTemplate.findByIdAndDelete(id);
 
     return res.status(200).json({
       success: true,
@@ -109,10 +128,15 @@ export async function deleteTemplate(req, res, next) {
  */
 export async function sendTestEmail(req, res, next) {
   try {
-    const { targetEmail, subject, htmlContent } = req.body;
+    const { targetEmail, subject, htmlContent, websiteId } = req.body;
 
     if (!targetEmail || !htmlContent) {
       return next(new AppError("targetEmail and htmlContent are required.", 400));
+    }
+
+    const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+    if (websiteId && !ownedWebsiteIds.map(id => id.toString()).includes(String(websiteId))) {
+      return next(new AppError("Unauthorized access to this website's templates.", 403));
     }
 
     const finalSubject = (subject || "").trim() || "Notification Update";

@@ -134,6 +134,15 @@ const DEFAULT_ICE_SERVERS = [
 
   // Professional React / Lucide SVG Icons for Crisp Hi-DPI Vector Rendering
   const ICONS = {
+    singleTick: (size = 13, color = "currentColor") => `
+      <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; flex-shrink:0;">
+        <path d="M20 6 9 17l-5-5"/>
+      </svg>`,
+    doubleTick: (size = 13, color = "currentColor") => `
+      <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; flex-shrink:0;">
+        <path d="M18 6 7 17l-5-5"/>
+        <path d="m22 10-7.5 7.5L13 16"/>
+      </svg>`,
     bot: (size = 18, color = "currentColor", fill = "none") => `
       <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${fill}" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; flex-shrink:0;">
         <path d="M12 8V4H8"/>
@@ -604,7 +613,7 @@ const DEFAULT_ICE_SERVERS = [
               isAiSpeaking = false;
               if ("speechSynthesis" in window) window.speechSynthesis.cancel();
               if (recognition) {
-                try { recognition.stop(); } catch(e) {}
+                try { recognition.stop(); } catch (e) { }
               }
               if (silenceTimer) clearTimeout(silenceTimer);
               voiceOverlay.style.display = "none";
@@ -616,12 +625,12 @@ const DEFAULT_ICE_SERVERS = [
               isCallActive = false;
               if ("speechSynthesis" in window) window.speechSynthesis.cancel();
               isAiSpeaking = false;
-              if (recognition) { try { recognition.stop(); } catch(e) {} }
+              if (recognition) { try { recognition.stop(); } catch (e) { } }
               if (silenceTimer) clearTimeout(silenceTimer);
               accumulatedTranscript = "";
 
               const transcriptText = voiceHistory.map(h => `${h.role === 'user' ? 'Visitor' : 'AI'}: ${h.text}`).join('\n');
-              
+
               startDirectAgentCall({
                 transcript: transcriptText,
                 aiSummary: reason || "Visitor requested live human agent voice assistance during AI session."
@@ -720,16 +729,16 @@ const DEFAULT_ICE_SERVERS = [
 
             async function processQueryAndRespond(promptText) {
               if (!isCallActive || isHumanAgentCallActive) return;
-              
+
               const lower = (promptText || "").toLowerCase();
-              const isTransferIntent = 
-                lower.includes("agent") || 
-                lower.includes("human") || 
+              const isTransferIntent =
+                lower.includes("agent") ||
+                lower.includes("human") ||
                 lower.includes("representative") ||
                 lower.includes("customer care") ||
-                lower.includes("baat karni") || 
-                lower.includes("call agent") || 
-                lower.includes("connect") || 
+                lower.includes("baat karni") ||
+                lower.includes("call agent") ||
+                lower.includes("connect") ||
                 lower.includes("transfer") ||
                 lower.includes("live support") ||
                 lower.includes("real person");
@@ -739,19 +748,19 @@ const DEFAULT_ICE_SERVERS = [
                 return;
               }
 
-              const isEndCallIntent = 
-                lower.includes("end call") || 
+              const isEndCallIntent =
+                lower.includes("end call") ||
                 lower.includes("end this call") ||
-                lower.includes("cut the call") || 
-                lower.includes("cut call") || 
-                lower.includes("hang up") || 
-                lower.includes("disconnect") || 
-                lower.includes("bye") || 
-                lower.includes("goodbye") || 
-                lower.includes("call band") || 
-                lower.includes("call kaat") || 
-                lower.includes("call kato") || 
-                lower.includes("call cut") || 
+                lower.includes("cut the call") ||
+                lower.includes("cut call") ||
+                lower.includes("hang up") ||
+                lower.includes("disconnect") ||
+                lower.includes("bye") ||
+                lower.includes("goodbye") ||
+                lower.includes("call band") ||
+                lower.includes("call kaat") ||
+                lower.includes("call kato") ||
+                lower.includes("call cut") ||
                 lower.includes("in this call") ||
                 lower.includes("and this call");
 
@@ -763,7 +772,7 @@ const DEFAULT_ICE_SERVERS = [
               // Mute mic while AI thinks and speaks
               isAiSpeaking = true;
               if (recognition) {
-                try { recognition.stop(); } catch(e) {}
+                try { recognition.stop(); } catch (e) { }
               }
 
               try {
@@ -840,7 +849,7 @@ const DEFAULT_ICE_SERVERS = [
                     window.speechSynthesis.cancel();
                     const utterance = new SpeechSynthesisUtterance(data.voiceResponse);
                     utterance.rate = data.voiceSettings?.speed || 1.05;
-                    
+
                     const targetGender = data.voiceSettings?.gender || "female";
                     if (targetGender === "male") {
                       utterance.pitch = 0.85;
@@ -851,7 +860,7 @@ const DEFAULT_ICE_SERVERS = [
                     if (data.detectedLanguage) {
                       utterance.lang = data.detectedLanguage;
                     }
-                    
+
                     let availableVoices = window.speechSynthesis.getVoices();
                     if (availableVoices && availableVoices.length > 0) {
                       const matchVoice = availableVoices.find(v => {
@@ -903,7 +912,7 @@ const DEFAULT_ICE_SERVERS = [
 
               try {
                 if (recognition) {
-                  try { recognition.stop(); } catch(e) {}
+                  try { recognition.stop(); } catch (e) { }
                 }
 
                 recognition = new SpeechRecognition();
@@ -942,7 +951,7 @@ const DEFAULT_ICE_SERVERS = [
                       if (accumulatedTranscript && accumulatedTranscript.length > 2 && !isAiSpeaking) {
                         const sendText = accumulatedTranscript;
                         accumulatedTranscript = "";
-                        try { recognition.stop(); } catch(e) {}
+                        try { recognition.stop(); } catch (e) { }
                         processQueryAndRespond(sendText);
                       }
                     }, 1200);
@@ -955,7 +964,7 @@ const DEFAULT_ICE_SERVERS = [
 
                 recognition.onend = () => {
                   if (isCallActive && !isAiSpeaking) {
-                    try { recognition.start(); } catch(e) {}
+                    try { recognition.start(); } catch (e) { }
                   }
                 };
 
@@ -1276,7 +1285,7 @@ const DEFAULT_ICE_SERVERS = [
           ringCtx = new AudioCtx();
           const playRing = () => {
             if (!ringCtx || ringCtx.state === "closed") return;
-            if (ringCtx.state === "suspended") ringCtx.resume().catch(() => {});
+            if (ringCtx.state === "suspended") ringCtx.resume().catch(() => { });
             const now = ringCtx.currentTime;
             const o1 = ringCtx.createOscillator();
             const o2 = ringCtx.createOscillator();
@@ -1304,7 +1313,7 @@ const DEFAULT_ICE_SERVERS = [
 
       const stopRingback = () => {
         if (ringTimer) { clearInterval(ringTimer); ringTimer = null; }
-        if (ringCtx && ringCtx.state !== "closed") { ringCtx.close().catch(() => {}); ringCtx = null; }
+        if (ringCtx && ringCtx.state !== "closed") { ringCtx.close().catch(() => { }); ringCtx = null; }
       };
 
       // Render Calling / Ringing screen
@@ -1512,10 +1521,10 @@ const DEFAULT_ICE_SERVERS = [
         if (AudioCtx) {
           ringCtx = new AudioCtx();
           if (ringCtx.state === "suspended") {
-            ringCtx.resume().catch(() => {});
+            ringCtx.resume().catch(() => { });
           }
           const resumeRing = () => {
-            if (ringCtx && ringCtx.state === "suspended") ringCtx.resume().catch(() => {});
+            if (ringCtx && ringCtx.state === "suspended") ringCtx.resume().catch(() => { });
           };
           window.addEventListener("click", resumeRing, { once: true });
           window.addEventListener("mousemove", resumeRing, { once: true });
@@ -1523,7 +1532,7 @@ const DEFAULT_ICE_SERVERS = [
 
           const playRing = () => {
             if (!ringCtx || ringCtx.state === "closed") return;
-            if (ringCtx.state === "suspended") ringCtx.resume().catch(() => {});
+            if (ringCtx.state === "suspended") ringCtx.resume().catch(() => { });
             const now = ringCtx.currentTime;
             const o1 = ringCtx.createOscillator();
             const o2 = ringCtx.createOscillator();
@@ -1552,7 +1561,7 @@ const DEFAULT_ICE_SERVERS = [
       const stopRing = () => {
         if (ringTimer) { clearInterval(ringTimer); ringTimer = null; }
         if (ringTimeout) { clearTimeout(ringTimeout); ringTimeout = null; }
-        if (ringCtx && ringCtx.state !== "closed") { ringCtx.close().catch(() => {}); ringCtx = null; }
+        if (ringCtx && ringCtx.state !== "closed") { ringCtx.close().catch(() => { }); ringCtx = null; }
       };
       window.__csw_stop_incoming_ring = stopRing;
 
@@ -1832,96 +1841,96 @@ const DEFAULT_ICE_SERVERS = [
     bindEvents();
   }
 
-      async function getClientTelemetry() {
-      let os = "Windows 10";
-      const ua = navigator.userAgent;
-      if (/Windows NT 10.0/.test(ua)) os = "Windows 10";
-      else if (/Windows NT 6.3/.test(ua)) os = "Windows 8.1";
-      else if (/Windows NT 6.1/.test(ua)) os = "Windows 7";
-      else if (/Macintosh|Mac OS X/.test(ua)) os = "macOS";
-      else if (/iPhone|iPad|iPod/.test(ua)) os = "iOS";
-      else if (/Android/.test(ua)) os = "Android";
-      else if (/Linux/.test(ua) && !/Android/.test(ua)) os = "Linux";
+  async function getClientTelemetry() {
+    let os = "Windows 10";
+    const ua = navigator.userAgent;
+    if (/Windows NT 10.0/.test(ua)) os = "Windows 10";
+    else if (/Windows NT 6.3/.test(ua)) os = "Windows 8.1";
+    else if (/Windows NT 6.1/.test(ua)) os = "Windows 7";
+    else if (/Macintosh|Mac OS X/.test(ua)) os = "macOS";
+    else if (/iPhone|iPad|iPod/.test(ua)) os = "iOS";
+    else if (/Android/.test(ua)) os = "Android";
+    else if (/Linux/.test(ua) && !/Android/.test(ua)) os = "Linux";
 
-      if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
-        try {
-          const uaData = await navigator.userAgentData.getHighEntropyValues(["platformVersion", "platform"]);
-          if (uaData.platform === "Windows") {
-            const major = parseInt((uaData.platformVersion || "").split(".")[0] || "0", 10);
-            os = major >= 13 ? "Windows 11" : "Windows 10";
-          }
-        } catch (e) {}
-      }
-
-      let browser = "Chrome";
-      if (/Edg\/([\d.]+)/.test(ua)) {
-        browser = "Microsoft Edge " + RegExp.$1.split('.')[0];
-      } else if (/Chrome\/([\d.]+)/.test(ua)) {
-        browser = "Chrome " + RegExp.$1.split('.')[0];
-      } else if (/Version\/([\d.]+).*Safari/.test(ua)) {
-        browser = "Safari " + RegExp.$1.split('.')[0];
-      } else if (/Firefox\/([\d.]+)/.test(ua)) {
-        browser = "Firefox " + RegExp.$1.split('.')[0];
-      }
-
-      let device = "Desktop";
-      if (/Android|iPhone|iPad|iPod|Mobile/i.test(ua) || /Android|iOS/i.test(os)) {
-        device = "Mobile";
-      }
-
-      const clientTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-      let realIp = "";
-      let realCity = "";
-      let realRegion = "";
-      let realCountry = "";
-
-      // Smart timezone to country fallback
-      if (clientTimezone.includes("Kolkata") || clientTimezone.includes("Calcutta") || clientTimezone.includes("India")) {
-        realCountry = "India";
-        realCity = "India";
-      } else if (clientTimezone.includes("Dubai") || clientTimezone.includes("Abu_Dhabi")) {
-        realCountry = "United Arab Emirates";
-        realCity = "Dubai";
-      } else if (clientTimezone.includes("New_York") || clientTimezone.includes("Los_Angeles") || clientTimezone.includes("Chicago")) {
-        realCountry = "United States";
-        realCity = clientTimezone.split("/")[1]?.replace(/_/g, " ") || "New York";
-      } else if (clientTimezone.includes("/")) {
-        const parts = clientTimezone.split("/");
-        realCity = parts[parts.length - 1]?.replace(/_/g, " ");
-        realCountry = parts[0];
-      }
-
+    if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
       try {
-        const geoController = new AbortController();
-        const timeoutId = setTimeout(() => geoController.abort(), 2000);
-        const res = await fetch("https://ipwho.is/", { signal: geoController.signal });
-        clearTimeout(timeoutId);
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.success !== false) {
-            if (data.ip) realIp = data.ip;
-            if (data.city) realCity = data.city;
-            if (data.region) realRegion = data.region;
-            if (data.country) realCountry = data.country;
-          }
+        const uaData = await navigator.userAgentData.getHighEntropyValues(["platformVersion", "platform"]);
+        if (uaData.platform === "Windows") {
+          const major = parseInt((uaData.platformVersion || "").split(".")[0] || "0", 10);
+          os = major >= 13 ? "Windows 11" : "Windows 10";
         }
-      } catch (err) {}
-
-      return {
-        os,
-        browser,
-        device,
-        ipAddress: realIp,
-        city: realCity,
-        region: realRegion,
-        country: realCountry,
-        timeZone: clientTimezone,
-        screenResolution: `${window.screen.width}x${window.screen.height}`,
-        language: navigator.language || "en-US"
-      };
+      } catch (e) { }
     }
 
-    async function boot(ui, preData) {
+    let browser = "Chrome";
+    if (/Edg\/([\d.]+)/.test(ua)) {
+      browser = "Microsoft Edge " + RegExp.$1.split('.')[0];
+    } else if (/Chrome\/([\d.]+)/.test(ua)) {
+      browser = "Chrome " + RegExp.$1.split('.')[0];
+    } else if (/Version\/([\d.]+).*Safari/.test(ua)) {
+      browser = "Safari " + RegExp.$1.split('.')[0];
+    } else if (/Firefox\/([\d.]+)/.test(ua)) {
+      browser = "Firefox " + RegExp.$1.split('.')[0];
+    }
+
+    let device = "Desktop";
+    if (/Android|iPhone|iPad|iPod|Mobile/i.test(ua) || /Android|iOS/i.test(os)) {
+      device = "Mobile";
+    }
+
+    const clientTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    let realIp = "";
+    let realCity = "";
+    let realRegion = "";
+    let realCountry = "";
+
+    // Smart timezone to country fallback
+    if (clientTimezone.includes("Kolkata") || clientTimezone.includes("Calcutta") || clientTimezone.includes("India")) {
+      realCountry = "India";
+      realCity = "India";
+    } else if (clientTimezone.includes("Dubai") || clientTimezone.includes("Abu_Dhabi")) {
+      realCountry = "United Arab Emirates";
+      realCity = "Dubai";
+    } else if (clientTimezone.includes("New_York") || clientTimezone.includes("Los_Angeles") || clientTimezone.includes("Chicago")) {
+      realCountry = "United States";
+      realCity = clientTimezone.split("/")[1]?.replace(/_/g, " ") || "New York";
+    } else if (clientTimezone.includes("/")) {
+      const parts = clientTimezone.split("/");
+      realCity = parts[parts.length - 1]?.replace(/_/g, " ");
+      realCountry = parts[0];
+    }
+
+    try {
+      const geoController = new AbortController();
+      const timeoutId = setTimeout(() => geoController.abort(), 2000);
+      const res = await fetch("https://ipwho.is/", { signal: geoController.signal });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.success !== false) {
+          if (data.ip) realIp = data.ip;
+          if (data.city) realCity = data.city;
+          if (data.region) realRegion = data.region;
+          if (data.country) realCountry = data.country;
+        }
+      }
+    } catch (err) { }
+
+    return {
+      os,
+      browser,
+      device,
+      ipAddress: realIp,
+      city: realCity,
+      region: realRegion,
+      country: realCountry,
+      timeZone: clientTimezone,
+      screenResolution: `${window.screen.width}x${window.screen.height}`,
+      language: navigator.language || "en-US"
+    };
+  }
+
+  async function boot(ui, preData) {
     try {
       const savedName = localStorage.getItem(`csw_name_${apiKey}`);
       const savedEmail = localStorage.getItem(`csw_email_${apiKey}`);
@@ -1998,7 +2007,7 @@ const DEFAULT_ICE_SERVERS = [
       const fetchedVisitorName = (preData && preData.name) || (data.visitor && data.visitor.name) || (data.session?.visitorId?.name);
       if (fetchedVisitorName && fetchedVisitorName.trim()) {
         currentVisitorName = fetchedVisitorName.trim();
-        try { localStorage.setItem(nameKey, currentVisitorName); } catch {}
+        try { localStorage.setItem(nameKey, currentVisitorName); } catch { }
       }
 
       // If existing session is already closed on initial boot without preData, clear sessionKey so a new chat can start
@@ -2018,7 +2027,7 @@ const DEFAULT_ICE_SERVERS = [
       // UI Transition
       const isIdentified = (data.visitor && data.visitor.name) || (data.session && data.session.visitorId && data.session.visitorId.name);
       const isSessionClosed = data.session?.status === "closed";
-      
+
       if (preData || (isIdentified && !isSessionClosed)) {
         ui.prechat.style.display = "none";
         ui.chatInterface.style.display = "flex";
@@ -2039,6 +2048,15 @@ const DEFAULT_ICE_SERVERS = [
         data.messages.forEach(msg => {
           appendMessage(ui, msg.sender === "visitor" ? "visitor" : (msg.sender === "system" ? "system" : "agent"), msg.message, msg.attachmentUrl, msg.attachmentType, msg.senderName, msg.isAi, msg._id, msg.deliveredAt, msg.readAt);
         });
+        const lastMsg = data.messages[data.messages.length - 1];
+        if (lastMsg && lastMsg.sender === "agent") {
+          if (Array.isArray(lastMsg.options) && lastMsg.options.length > 0) {
+            renderQuickReplies(ui, lastMsg.options);
+          }
+          if (Array.isArray(lastMsg.formFields) && lastMsg.formFields.length > 0) {
+            renderChatFlowFormCard(ui, lastMsg.formFields, lastMsg.submitLabel || "Submit Details");
+          }
+        }
       }
 
       // Bot Flow Initialization & Resumption
@@ -2085,7 +2103,8 @@ const DEFAULT_ICE_SERVERS = [
       } else {
         ui.form.style.display = "flex";
         if (!data.messages || data.messages.length === 0) {
-          const greeting = (!config.isAgentOnline)
+          const isAiOrAgentAvailable = Boolean(config.isAgentOnline || config.botEnabled || config.enableAi !== false);
+          const greeting = !isAiOrAgentAvailable
             ? (config.awayMessage || "We're currently away. Leave a message and we'll reply soon.")
             : (config.welcomeMessage || "Hi! How can we help?");
           appendMessage(ui, "agent", greeting, null, null, config.websiteName || "Support", false);
@@ -2131,7 +2150,7 @@ const DEFAULT_ICE_SERVERS = [
           setupUpload(ui, apiKey);
         }
         if (activeSessionId) {
-          socket.emit("visitor:join-room", { sessionId: activeSessionId });
+          socket.emit("visitor:join-room", { sessionId: activeSessionId, currentUrl: window.location.pathname + window.location.search });
         }
       });
 
@@ -2139,23 +2158,32 @@ const DEFAULT_ICE_SERVERS = [
         try {
           // Strict deduplication by tempId OR database _id
           const existing = (msg.tempId && ui.panel.querySelector(`[data-temp-id="${msg.tempId}"]`)) ||
-                           (msg._id && ui.panel.querySelector(`[data-msg-id="${msg._id}"]`));
+            (msg._id && ui.panel.querySelector(`[data-msg-id="${msg._id}"]`));
           if (existing) {
             if (msg._id) existing.setAttribute('data-msg-id', msg._id);
             if (msg.tempId) existing.removeAttribute('data-temp-id');
             const status = existing.querySelector('.csw-status');
-            if (status) status.textContent = "Delivered";
+            if (status && !status.classList.contains('csw-read')) {
+              status.innerHTML = ICONS.doubleTick();
+              status.title = "Delivered";
+            }
             return;
           }
 
           if (msg.sender === "agent") {
             ui.typing.classList.remove("active");
-            if (!msg.isAi) {
-              ui.quickReplies.innerHTML = "";
-            }
+            ui.quickReplies.innerHTML = "";
           }
 
           appendMessage(ui, msg.sender === "visitor" ? "visitor" : (msg.sender === "system" ? "system" : "agent"), msg.message, msg.attachmentUrl, msg.attachmentType, msg.senderName, msg.isAi, msg._id, msg.deliveredAt, msg.readAt);
+
+          if (msg.sender === "agent" && Array.isArray(msg.options) && msg.options.length > 0) {
+            renderQuickReplies(ui, msg.options);
+          }
+
+          if (msg.sender === "agent" && Array.isArray(msg.formFields) && msg.formFields.length > 0) {
+            renderChatFlowFormCard(ui, msg.formFields, msg.submitLabel || "Submit Details");
+          }
           if (msg.sender !== "visitor") {
             socket.emit("chat:ack:delivered", { messageId: msg._id, sessionId: activeSessionId });
           }
@@ -2166,13 +2194,17 @@ const DEFAULT_ICE_SERVERS = [
 
       socket.on("chat:delivered", ({ messageId }) => {
         const el = ui.panel.querySelector(`[data-msg-id="${messageId}"] .csw-status`);
-        if (el) el.textContent = "Delivered";
+        if (el && !el.classList.contains("csw-read")) {
+          el.innerHTML = ICONS.doubleTick();
+          el.title = "Delivered";
+        }
       });
 
       socket.on("chat:read", ({ messageId }) => {
         const el = ui.panel.querySelector(`[data-msg-id="${messageId}"] .csw-status`);
         if (el) {
-          el.textContent = "Read";
+          el.innerHTML = ICONS.doubleTick();
+          el.title = "Read";
           el.classList.add("csw-read");
         }
       });
@@ -2181,10 +2213,12 @@ const DEFAULT_ICE_SERVERS = [
         const el = ui.panel.querySelector(`[data-msg-id="${messageId}"] .csw-status`);
         if (!el) return;
         if (status === "read") {
-          el.textContent = "Read";
+          el.innerHTML = ICONS.doubleTick();
+          el.title = "Read";
           el.classList.add("csw-read");
-        } else if (status === "delivered") {
-          el.textContent = "Delivered";
+        } else if (status === "delivered" && !el.classList.contains("csw-read")) {
+          el.innerHTML = ICONS.doubleTick();
+          el.title = "Delivered";
         }
       });
 
@@ -2323,7 +2357,7 @@ const DEFAULT_ICE_SERVERS = [
       setStatusMessage(ui, "Uploading file...", "#f59e0b");
       const formData = new FormData();
       formData.append("file", file);
-        formData.append("attachment", file);
+      formData.append("attachment", file);
       formData.append("sessionId", activeSessionId);
 
       try {
@@ -2337,14 +2371,14 @@ const DEFAULT_ICE_SERVERS = [
         const uploadData = await uploadRes.json();
 
         const fileUrl = uploadData?.file?.url || uploadData?.url;
-          const fileName = uploadData?.file?.filename || uploadData?.filename || (fileUrl ? fileUrl.split("/").pop() : "Attachment");
-          const fileMime = uploadData?.file?.mimeType || uploadData?.attachmentType || file.type || "";
-          const attachType = (fileMime.startsWith("image/") || file.type.startsWith("image/")) ? "image" : (fileMime.includes("pdf") || file.type.includes("pdf")) ? "pdf" : "file";
-          sendVisitorMessage({
-            message: fileName,
-            attachmentUrl: fileUrl,
-            attachmentType: attachType
-          });
+        const fileName = uploadData?.file?.filename || uploadData?.filename || (fileUrl ? fileUrl.split("/").pop() : "Attachment");
+        const fileMime = uploadData?.file?.mimeType || uploadData?.attachmentType || file.type || "";
+        const attachType = (fileMime.startsWith("image/") || file.type.startsWith("image/")) ? "image" : (fileMime.includes("pdf") || file.type.includes("pdf")) ? "pdf" : "file";
+        sendVisitorMessage({
+          message: fileName,
+          attachmentUrl: fileUrl,
+          attachmentType: attachType
+        });
 
         setStatusMessage(ui, "File sent successfully", "#10b981");
         setTimeout(() => setStatusMessage(ui, "Online | Instant Replies"), 3000);
@@ -2445,20 +2479,24 @@ const DEFAULT_ICE_SERVERS = [
     }
 
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    let statusText = "";
+    let statusHtml = "";
+    let statusTitle = "";
     let readClass = "";
     if (sender === "visitor") {
       if (readAt) {
-        statusText = "Read";
+        statusHtml = ICONS.doubleTick();
+        statusTitle = "Read";
         readClass = "csw-read";
       } else if (deliveredAt) {
-        statusText = "Delivered";
+        statusHtml = ICONS.doubleTick();
+        statusTitle = "Delivered";
       } else {
-        statusText = "Sent";
+        statusHtml = ICONS.singleTick();
+        statusTitle = "Sent";
       }
     }
 
-    html += `<div class="csw-meta"><span class="csw-time">${time}</span>${statusText ? `<span class="csw-status ${readClass}">${statusText}</span>` : ''}</div>`;
+    html += `<div class="csw-meta"><span class="csw-time">${time}</span>${statusHtml ? `<span class="csw-status ${readClass}" title="${statusTitle}">${statusHtml}</span>` : ''}</div>`;
     msg.innerHTML = html;
     ui.messages.appendChild(msg);
     ui.messages.scrollTop = ui.messages.scrollHeight;
@@ -2518,6 +2556,232 @@ const DEFAULT_ICE_SERVERS = [
       ui.messages.innerHTML = "";
       boot(ui);
     });
+  }
+
+  function renderQuickReplies(ui, options) {
+    if (!ui?.quickReplies || !Array.isArray(options) || options.length === 0) return;
+    ui.quickReplies.innerHTML = "";
+    options.forEach((opt) => {
+      const label = typeof opt === "string" ? opt : (opt?.label || opt?.text || "");
+      if (!label) return;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "csw-qr-pill";
+      btn.textContent = label;
+      btn.onclick = () => {
+        const vTempId = `temp-${Date.now()}`;
+        appendMessage(ui, "visitor", label, null, null, "You", false, null, null, null, vTempId);
+        ui.quickReplies.innerHTML = "";
+        ui.typing.classList.add("active");
+        setTimeout(() => ui.typing.classList.remove("active"), 10000);
+        if (socket && activeSessionId) {
+          socket.emit("visitor:message", { sessionId: activeSessionId, message: label, tempId: vTempId });
+        }
+      };
+      ui.quickReplies.appendChild(btn);
+    });
+  }
+
+  function renderChatFlowFormCard(ui, fields, submitLabel) {
+    if (!ui?.messages || !Array.isArray(fields) || fields.length === 0) return;
+
+    const card = document.createElement("form");
+    card.className = "csw-flow-form-card";
+    card.style.cssText = "background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:12px;margin:8px 0;box-shadow:0 4px 16px rgba(15,23,42,0.06);display:flex;flex-direction:column;gap:8px;max-width:92%;";
+
+    const inputs = [];
+    fields.forEach((field) => {
+      const wrap = document.createElement("div");
+      wrap.style.cssText = "display:flex;flex-direction:column;gap:3px;";
+
+      const labelEl = document.createElement("label");
+      labelEl.textContent = `${field.label || field.key}${field.required !== false ? " *" : ""}`;
+      labelEl.style.cssText = "font-size:11px;font-weight:700;color:#475569;";
+      wrap.appendChild(labelEl);
+
+      let inputEl;
+      const baseInputStyle = "width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:9px;font-size:12.5px;color:#0f172a;background:#f8fafc;outline:none;font-family:inherit;";
+      let ccSelect = null;
+      if (field.type === "tel") {
+        const phoneRow = document.createElement("div");
+        phoneRow.style.cssText = "display:flex;gap:6px;align-items:center;";
+        ccSelect = document.createElement("select");
+        ccSelect.style.cssText = "width:96px;flex-shrink:0;padding:8px 6px;border:1px solid #cbd5e1;border-radius:9px;font-size:11.5px;font-weight:700;color:#0f172a;background:#f8fafc;outline:none;font-family:inherit;";
+        [
+          ["91", "IN +91"], ["971", "AE +971"], ["1", "US +1"], ["44", "GB +44"], ["966", "SA +966"],
+          ["65", "SG +65"], ["61", "AU +61"], ["974", "QA +974"], ["965", "KW +965"], ["968", "OM +968"],
+          ["973", "BH +973"], ["49", "DE +49"], ["33", "FR +33"], ["39", "IT +39"], ["34", "ES +34"],
+          ["31", "NL +31"], ["41", "CH +41"], ["46", "SE +46"], ["47", "NO +47"], ["48", "PL +48"],
+          ["353", "IE +353"], ["64", "NZ +64"], ["81", "JP +81"], ["82", "KR +82"], ["86", "CN +86"],
+          ["92", "PK +92"], ["880", "BD +880"], ["977", "NP +977"], ["94", "LK +94"], ["60", "MY +60"],
+          ["62", "ID +62"], ["63", "PH +63"], ["66", "TH +66"], ["84", "VN +84"], ["90", "TR +90"],
+          ["20", "EG +20"], ["234", "NG +234"], ["254", "KE +254"], ["27", "ZA +27"], ["55", "BR +55"],
+          ["52", "MX +52"], ["7", "RU +7"]
+        ].forEach(([code, label]) => {
+          const opt = document.createElement("option");
+          opt.value = code;
+          opt.textContent = label;
+          ccSelect.appendChild(opt);
+        });
+        inputEl = document.createElement("input");
+        inputEl.type = "tel";
+        inputEl.style.cssText = baseInputStyle;
+        if (field.placeholder) inputEl.placeholder = field.placeholder;
+        if (field.required !== false) inputEl.required = true;
+        phoneRow.appendChild(ccSelect);
+        phoneRow.appendChild(inputEl);
+        wrap.appendChild(phoneRow);
+        card.appendChild(wrap);
+        inputs.push({ field, inputEl, ccSelect });
+        return;
+      }
+
+      if (field.type === "textarea") {
+        inputEl = document.createElement("textarea");
+        inputEl.rows = 2;
+        inputEl.style.cssText = `${baseInputStyle}resize:vertical;`;
+      } else if (field.type === "file") {
+        inputEl = document.createElement("input");
+        inputEl.type = "file";
+        inputEl.accept = "image/*,.pdf,.doc,.docx";
+        inputEl.style.cssText = "width:100%;font-size:11.5px;color:#334155;";
+      } else if (field.type === "select" && Array.isArray(field.options) && field.options.length > 0) {
+        inputEl = document.createElement("select");
+        inputEl.style.cssText = baseInputStyle;
+        const emptyOpt = document.createElement("option");
+        emptyOpt.value = "";
+        emptyOpt.textContent = field.placeholder || `Select ${field.label || "option"}...`;
+        inputEl.appendChild(emptyOpt);
+        field.options.forEach((optVal) => {
+          const opt = document.createElement("option");
+          opt.value = optVal;
+          opt.textContent = optVal;
+          inputEl.appendChild(opt);
+        });
+      } else {
+        inputEl = document.createElement("input");
+        inputEl.type = field.type === "email" ? "email" : (field.type === "tel" ? "tel" : "text");
+        inputEl.style.cssText = baseInputStyle;
+      }
+
+      if (field.placeholder && field.type !== "select") {
+        inputEl.placeholder = field.placeholder;
+      }
+      if (field.required !== false) {
+        inputEl.required = true;
+      }
+      wrap.appendChild(inputEl);
+      card.appendChild(wrap);
+      inputs.push({ field, inputEl, ccSelect });
+    });
+
+    const errEl = document.createElement("div");
+    errEl.style.cssText = "display:none;font-size:11px;font-weight:600;color:#e11d48;";
+    card.appendChild(errEl);
+
+    const submitBtn = document.createElement("button");
+    submitBtn.type = "submit";
+    submitBtn.textContent = submitLabel || "Submit Details";
+    submitBtn.style.cssText = `margin-top:2px;padding:9px 14px;border:none;border-radius:10px;background:${latestConfig?.primaryColor || "#6366f1"};color:#ffffff;font-size:12px;font-weight:700;cursor:pointer;`;
+    card.appendChild(submitBtn);
+
+    card.onsubmit = async (e) => {
+      e.preventDefault();
+      errEl.style.display = "none";
+      const formData = {};
+      const summaryLines = [];
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Submitting...";
+
+      try {
+        for (const { field, inputEl, ccSelect } of inputs) {
+          if (field.type === "file") {
+            const file = inputEl.files && inputEl.files[0];
+            if (field.required !== false && !file) {
+              errEl.textContent = `Please attach ${field.label || field.key}.`;
+              errEl.style.display = "block";
+              submitBtn.disabled = false;
+              submitBtn.textContent = submitLabel || "Submit Details";
+              return;
+            }
+            if (file) {
+              const fd = new FormData();
+              fd.append("file", file);
+              if (activeSessionId) fd.append("sessionId", activeSessionId);
+              const uploadRes = await fetch(`${origin}/api/widget/upload`, {
+                method: "POST",
+                headers: { "x-api-key": apiKey },
+                body: fd
+              });
+              if (!uploadRes.ok) throw new Error("Attachment upload failed");
+              const uploadJson = await uploadRes.json();
+              const uploadedUrl = uploadJson?.file?.url || uploadJson?.url || "";
+              formData[field.key || field.label] = uploadedUrl || file.name;
+              summaryLines.push(`${field.label || field.key}: ${uploadedUrl || file.name}`);
+            }
+            continue;
+          }
+
+          let val = String(inputEl.value || "").trim();
+          if (field.type === "tel" && val && ccSelect) {
+            const cleaned = val.replace(/[^0-9+]/g, "");
+            val = cleaned.startsWith("+") ? cleaned : `+${ccSelect.value}${cleaned.replace(/^0+/, "")}`;
+          }
+          if (field.required !== false && !val) {
+            errEl.textContent = `Please enter ${field.label || field.key}.`;
+            errEl.style.display = "block";
+            inputEl.focus();
+            submitBtn.disabled = false;
+            submitBtn.textContent = submitLabel || "Submit Details";
+            return;
+          }
+          if (field.type === "email" && val && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+            errEl.textContent = "Please enter a valid email address.";
+            errEl.style.display = "block";
+            inputEl.focus();
+            submitBtn.disabled = false;
+            submitBtn.textContent = submitLabel || "Submit Details";
+            return;
+          }
+          if (val) {
+            formData[field.key || field.label] = val;
+            summaryLines.push(`${field.label || field.key}: ${val}`);
+          }
+        }
+      } catch (uploadErr) {
+        errEl.textContent = uploadErr?.message || "Failed to upload attachment. Please try again.";
+        errEl.style.display = "block";
+        submitBtn.disabled = false;
+        submitBtn.textContent = submitLabel || "Submit Details";
+        return;
+      }
+
+      inputs.forEach(({ inputEl, ccSelect }) => {
+        inputEl.disabled = true;
+        if (ccSelect) ccSelect.disabled = true;
+      });
+      submitBtn.textContent = "Submitted ✓";
+      submitBtn.style.opacity = "0.7";
+
+      const summaryText = summaryLines.join("\n");
+      const vTempId = `temp-${Date.now()}`;
+      appendMessage(ui, "visitor", summaryText, null, null, "You", false, null, null, null, vTempId);
+      ui.quickReplies.innerHTML = "";
+      ui.typing.classList.add("active");
+
+      if (socket && activeSessionId) {
+        socket.emit("visitor:message", {
+          sessionId: activeSessionId,
+          message: summaryText,
+          formData,
+          tempId: vTempId
+        });
+      }
+    };
+
+    ui.messages.appendChild(card);
+    ui.messages.scrollTop = ui.messages.scrollHeight;
   }
 
   function renderBotNode(ui, nodeKey, skipLocalAppend = false) {
@@ -2688,7 +2952,7 @@ const DEFAULT_ICE_SERVERS = [
     try {
       localStorage.setItem(nameKey, name);
       localStorage.setItem(emailKey, email);
-    } catch {}
+    } catch { }
     boot(ui, { name, email });
   };
 

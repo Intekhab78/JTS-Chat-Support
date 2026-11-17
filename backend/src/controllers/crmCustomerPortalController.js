@@ -29,24 +29,46 @@ const checkCustomerIsolation = (user, customerId) => {
 // 1. Dashboard View
 export const getDashboardSummary = asyncHandler(async (req, res) => {
   const customerId = req.user.customerId;
+  const customer = await Customer.findById(customerId).populate("websiteId", "websiteName domain currencySettings").lean();
+  const scope = customer?.websiteId?._id ? { customerId, websiteId: customer.websiteId._id } : { customerId };
 
   const [tickets, quotes, orders, invoices, notifications, meetings] = await Promise.all([
-    Ticket.find({ customerId }).sort({ updatedAt: -1 }),
-    Quotation.find({ customerId }).sort({ updatedAt: -1 }),
-    SalesOrder.find({ customerId }).sort({ updatedAt: -1 }),
-    Invoice.find({ customerId }).sort({ updatedAt: -1 }),
-    Notification.find({ userId: req.user._id }).sort({ createdAt: -1 }).limit(10),
-    Activity.find({ customerId, type: "meeting" }).sort({ dueDate: 1 }).limit(5)
+    Ticket.find(scope).sort({ updatedAt: -1 }).lean(),
+    Quotation.find(scope).sort({ updatedAt: -1 }).lean(),
+    SalesOrder.find(scope).sort({ updatedAt: -1 }).lean(),
+    Invoice.find(scope).sort({ updatedAt: -1 }).lean(),
+    Notification.find({ userId: req.user._id }).sort({ createdAt: -1 }).limit(10).lean(),
+    Activity.find({ ...scope, type: "meeting" }).sort({ dueDate: 1 }).limit(5).lean()
   ]);
 
+  const sanitizedTickets = tickets.map(t => ({
+    ...t,
+    notes: (t.notes || []).filter(n => n.isPublic !== false)
+  }));
+
+  const totalBilled = invoices.reduce((sum, i) => sum + Number(i.totalAmount ?? i.total ?? 0), 0);
+  const totalPaid = invoices.reduce((sum, i) => {
+    const amt = Number(i.totalAmount ?? i.total ?? 0);
+    if (i.status === "paid" || i.paymentStatus === "paid") return sum + (Number(i.paidAmount || 0) || amt);
+    return sum + Number(i.paidAmount || 0);
+  }, 0);
+  const outstandingDue = Math.max(0, totalBilled - totalPaid);
+
   res.json({
+    workspaceName: customer?.websiteId?.websiteName || "",
+    currency: customer?.websiteId?.currencySettings?.currencyCode || "USD",
+    currencySettings: customer?.websiteId?.currencySettings || null,
+    customer: customer ? { _id: customer._id, name: customer.name, crn: customer.crn, email: customer.email } : null,
+    financials: { totalBilled, totalPaid, outstandingDue },
     summary: {
-      openTickets: tickets.filter(t => t.status !== "closed").length,
+      openTickets: sanitizedTickets.filter(t => t.status !== "closed").length,
       activeQuotes: quotes.filter(q => q.status === "sent" || q.status === "negotiation").length,
+      totalQuotes: quotes.length,
       totalOrders: orders.length,
-      unpaidInvoices: invoices.filter(i => i.status !== "paid" && i.paymentStatus !== "paid").length
+      unpaidInvoices: invoices.filter(i => i.status !== "paid" && i.paymentStatus !== "paid").length,
+      totalInvoices: invoices.length
     },
-    tickets: tickets.slice(0, 5),
+    tickets: sanitizedTickets.slice(0, 5),
     quotes: quotes.slice(0, 5),
     orders: orders.slice(0, 5),
     invoices: invoices.slice(0, 5),
@@ -57,7 +79,9 @@ export const getDashboardSummary = asyncHandler(async (req, res) => {
 
 // 2. Quotations list and actions
 export const getQuotations = asyncHandler(async (req, res) => {
-  const quotes = await Quotation.find({ customerId: req.user.customerId }).sort({ createdAt: -1 });
+  const customer = await Customer.findById(req.user.customerId).select("websiteId").lean();
+  const scope = customer?.websiteId ? { customerId: req.user.customerId, websiteId: customer.websiteId } : { customerId: req.user.customerId };
+  const quotes = await Quotation.find(scope).sort({ createdAt: -1 });
   res.json(quotes);
 });
 
@@ -96,7 +120,7 @@ export const updateQuotationStatus = asyncHandler(async (req, res) => {
         const { CustomerSuccess } = await import("../models/CustomerSuccess.js");
         await CustomerSuccess.findOneAndUpdate(
           { websiteId: customer.websiteId, customerId: customer._id },
-          { 
+          {
             websiteId: customer.websiteId,
             customerId: customer._id,
             onboardingStatus: "pending",
@@ -117,7 +141,7 @@ export const updateQuotationStatus = asyncHandler(async (req, res) => {
       }
 
       // 3. Auto-generate the corresponding Invoice if one does not exist
-      let invoice = await Invoice.findOne({ quotationId: quote.quotationId });
+      let invoice = await Invoice.findOne({ quotationId: quote.quotationId, websiteId: quote.websiteId, customerId: quote.customerId });
       if (!invoice) {
         const invoiceId = `INV-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
         const invoiceItems = (quote.items || []).map(item => ({
@@ -168,7 +192,7 @@ export const updateQuotationStatus = asyncHandler(async (req, res) => {
           const io = getSocketServer();
           if (notif && io) {
             io.to(`us_${String(quote.ownerId)}`).emit("notification:new", notif);
-            io.emit("lead:created", {
+            io.to(`ws_${String(customer.websiteId)}`).to("us_admin").emit("lead:created", {
               message: `Deal Won: ${customer.name} accepted quotation`,
               user: customer.name,
               customerId: customer._id,
@@ -182,7 +206,11 @@ export const updateQuotationStatus = asyncHandler(async (req, res) => {
       }
     }
   } else if (action === "reject") {
+    const rejectionReason = String(req.body?.reason || "").trim();
     quote.status = "rejected";
+    if (rejectionReason) {
+      quote.notes = [quote.notes, `Customer Revision Note: ${rejectionReason}`].filter(Boolean).join("\n");
+    }
     await quote.save();
 
     // Feedback Loop: Move customer back to negotiation stage for revision!
@@ -196,7 +224,7 @@ export const updateQuotationStatus = asyncHandler(async (req, res) => {
         toStage: "negotiation",
         changedBy: req.user._id,
         changedAt: new Date(),
-        reason: `Quotation ${quote.quotationId || quote._id} rejected/revision requested by customer in Portal`
+        reason: rejectionReason || `Quotation ${quote.quotationId || quote._id} rejected/revision requested by customer in Portal`
       });
       await customer.save();
 
@@ -216,7 +244,7 @@ export const updateQuotationStatus = asyncHandler(async (req, res) => {
           if (notif && io) {
             io.to(`us_${String(quote.ownerId)}`).emit("notification:new", notif);
           }
-        } catch (err) {}
+        } catch (err) { }
       }
     }
   } else {
@@ -237,20 +265,30 @@ export const updateQuotationStatus = asyncHandler(async (req, res) => {
 
 // 3. Orders List
 export const getOrders = asyncHandler(async (req, res) => {
-  const orders = await SalesOrder.find({ customerId: req.user.customerId }).sort({ createdAt: -1 });
+  const customer = await Customer.findById(req.user.customerId).select("websiteId").lean();
+  const scope = customer?.websiteId ? { customerId: req.user.customerId, websiteId: customer.websiteId } : { customerId: req.user.customerId };
+  const orders = await SalesOrder.find(scope).sort({ createdAt: -1 });
   res.json(orders);
 });
 
 // 4. Invoices List
 export const getInvoices = asyncHandler(async (req, res) => {
-  const invoices = await Invoice.find({ customerId: req.user.customerId }).sort({ createdAt: -1 });
+  const customer = await Customer.findById(req.user.customerId).select("websiteId").lean();
+  const scope = customer?.websiteId ? { customerId: req.user.customerId, websiteId: customer.websiteId } : { customerId: req.user.customerId };
+  const invoices = await Invoice.find(scope).populate("customerId", "name email phone").sort({ createdAt: -1 });
   res.json(invoices);
 });
 
 // 5. Support Tickets list, create, and reply
 export const getTickets = asyncHandler(async (req, res) => {
-  const tickets = await Ticket.find({ customerId: req.user.customerId }).sort({ createdAt: -1 });
-  res.json(tickets);
+  const customer = await Customer.findById(req.user.customerId).select("websiteId").lean();
+  const scope = customer?.websiteId ? { customerId: req.user.customerId, websiteId: customer.websiteId } : { customerId: req.user.customerId };
+  const tickets = await Ticket.find(scope).sort({ createdAt: -1 }).lean();
+  const safeTickets = tickets.map(t => ({
+    ...t,
+    notes: (t.notes || []).filter(n => n.isPublic !== false)
+  }));
+  res.json(safeTickets);
 });
 
 export const createTicket = asyncHandler(async (req, res) => {
@@ -307,13 +345,16 @@ export const replyToTicket = asyncHandler(async (req, res) => {
   ticket.notes.push({
     content: message,
     addedBy: req.user._id,
+    authorName: req.user.name || "Customer",
     isPublic: true,
     createdAt: new Date()
   });
   ticket.status = "open"; // reset status to open if customer replies
 
   await ticket.save();
-  res.json(ticket);
+  const safeTicket = ticket.toObject();
+  safeTicket.notes = (safeTicket.notes || []).filter(n => n.isPublic !== false);
+  res.json(safeTicket);
 });
 
 // 6. Profile & Password edits
@@ -324,9 +365,10 @@ export const getProfile = asyncHandler(async (req, res) => {
   // Find associated company details if any
   let company = null;
   if (customer.companyName) {
+    const escapedCompany = String(customer.companyName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     company = await Company.findOne({
       websiteId: customer.websiteId,
-      $or: [{ name: customer.companyName }, { name: new RegExp(customer.companyName, "i") }]
+      $or: [{ name: customer.companyName }, { name: new RegExp(`^${escapedCompany}$`, "i") }]
     });
   }
 
@@ -421,7 +463,7 @@ export const payInvoice = asyncHandler(async (req, res) => {
     // 1. Log activity
     await logCrmActivity({
       websiteId: invoice.websiteId,
-      type: "meeting",
+      type: "note",
       title: "Invoice Paid Online",
       description: `Invoice #${invoice.invoiceNumber || invoice._id} paid online via Customer Portal for $${payAmount}. Reference: ${payment.referenceNumber}`,
       customerId: invoice.customerId
@@ -429,8 +471,13 @@ export const payInvoice = asyncHandler(async (req, res) => {
 
     // 2. Advance Purchase Workflow & transition lead if fully paid
     if (invoice.status === "paid") {
-      await advancePurchaseWorkflow(invoice._id, "completed", "Invoice paid in full");
-      
+      await advancePurchaseWorkflow({
+        customerId: invoice.customerId,
+        status: "completed",
+        actor: null,
+        reason: "Invoice paid in full"
+      });
+
       const customer = await Customer.findById(invoice.customerId);
       if (customer) {
         customer.pipelineStage = "won";
@@ -509,8 +556,11 @@ export const verifyRazorpayPaymentForPortal = asyncHandler(async (req, res) => {
     throw new AppError("Razorpay API Configuration missing.", 500);
   }
 
-  // Validate signature (skip for mock orders in test mode)
-  if (!razorpay_order_id?.startsWith("order_mock_") && !razorpay_payment_id?.startsWith("pay_mock_")) {
+  const allowMock = process.env.ALLOW_MOCK_BILLING === "true" || process.env.NODE_ENV !== "production";
+  const isMockOrder = allowMock && (razorpay_order_id?.startsWith("order_mock_") || razorpay_payment_id?.startsWith("pay_mock_"));
+
+  // Validate signature (skip only for mock orders when mock billing is enabled)
+  if (!isMockOrder) {
     const hmac = crypto.createHmac("sha256", keySecret);
     hmac.update(razorpay_order_id + "|" + razorpay_payment_id);
     const generatedSignature = hmac.digest("hex");
@@ -547,7 +597,7 @@ export const verifyRazorpayPaymentForPortal = asyncHandler(async (req, res) => {
       description: `Razorpay payment ${razorpay_payment_id} verified from customer portal. Marked paid.`,
       customerId: invoice.customerId,
       ownerId: invoice.ownerId
-    }).catch(() => {});
+    }).catch(() => { });
 
     // Advance purchase workflows & transition lead stage to won
     try {
@@ -569,4 +619,32 @@ export const verifyRazorpayPaymentForPortal = asyncHandler(async (req, res) => {
   }
 
   res.json({ success: true, message: "Payment verified and recorded." });
+});
+
+export const downloadQuotationPdf = asyncHandler(async (req, res) => {
+  const quote = await Quotation.findById(req.params.id);
+  if (!quote) throw new AppError("Quotation not found", 404);
+  checkCustomerIsolation(req.user, quote.customerId);
+
+  const { generateQuotationPDF } = await import("../services/pdfService.js");
+  const pdfResult = await generateQuotationPDF(quote);
+  if (pdfResult) {
+    quote.pdfUrl = pdfResult.path;
+    await quote.save();
+  }
+  res.json({ pdfUrl: quote.pdfUrl });
+});
+
+export const downloadInvoicePdf = asyncHandler(async (req, res) => {
+  const invoice = await Invoice.findById(req.params.id);
+  if (!invoice) throw new AppError("Invoice not found", 404);
+  checkCustomerIsolation(req.user, invoice.customerId);
+
+  const { generateInvoicePDF } = await import("../services/pdfService.js");
+  const pdfResult = await generateInvoicePDF(invoice);
+  if (pdfResult) {
+    invoice.pdfUrl = pdfResult.path;
+    await invoice.save();
+  }
+  res.json({ pdfUrl: invoice.pdfUrl });
 });

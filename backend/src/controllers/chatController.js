@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { ChatSession } from "../models/ChatSession.js";
+import { ChatFlow } from "../models/ChatFlow.js";
 import { Message } from "../models/Message.js";
 import { Website } from "../models/Website.js";
 import { User } from "../models/User.js";
@@ -7,6 +8,7 @@ import { Visitor } from "../models/Visitor.js";
 import { addMessage, closeSession, findOrCreateSession, registerVisitor } from "../services/chatService.js";
 import { normalizeRole, getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import { sendEmail } from "../services/emailService.js";
+import { escapeRegex } from "../utils/regexUtils.js";
 import { chatTransferredTemplate } from "../utils/emailTemplates.js";
 import { env } from "../config/env.js";
 import { logAuditEvent } from "../services/auditService.js";
@@ -361,20 +363,36 @@ async function enrichSessionsWithOnlinePresence(sessions) {
   }));
 }
 
+async function resolveSessionWebsiteIds(user, requestedWebsiteId) {
+  const ownedIds = await getOwnedWebsiteIds(user);
+  const ownedStrings = ownedIds.map((id) => String(id));
+  if (requestedWebsiteId && requestedWebsiteId !== "all" && requestedWebsiteId !== "undefined" && requestedWebsiteId !== "null") {
+    const role = normalizeRole(user.role);
+    if (role !== "admin" && !ownedStrings.includes(String(requestedWebsiteId))) {
+      return [];
+    }
+    return [requestedWebsiteId];
+  }
+  return ownedIds;
+}
+
 export async function listManagerSessions(req, res) {
   requirePermission(req.user, PERMISSIONS.CHAT_VIEW);
-  const websiteIds = await getOwnedWebsiteIds(req.user);
-  const sessions = await populateSession(ChatSession.find({ websiteId: { $in: websiteIds } }));
+  const websiteIds = await resolveSessionWebsiteIds(req.user, req.query.websiteId);
+  const sessions = await populateSession(ChatSession.find({ websiteId: { $in: websiteIds } }).limit(250));
   return res.json(sessions);
 }
 
 export async function listAgentSessions(req, res) {
   requirePermission(req.user, PERMISSIONS.CHAT_VIEW);
-  const websiteIds = await getOwnedWebsiteIds(req.user);
+  const websiteIds = await resolveSessionWebsiteIds(req.user, req.query.websiteId);
+  if (websiteIds.length === 0) return res.json([]);
   const sessions = await populateSession(ChatSession.find({
+    websiteId: { $in: websiteIds },
     $or: [
       { assignedAgent: req.user._id },
-      { websiteId: { $in: websiteIds } }
+      { assignedAgent: null },
+      { assignedAgent: { $exists: false } }
     ]
   }).sort({ lastMessageAt: -1, createdAt: -1 }).limit(100));
   return res.json(sessions);
@@ -382,20 +400,27 @@ export async function listAgentSessions(req, res) {
 
 export async function listSalesSessions(req, res) {
   requirePermission(req.user, PERMISSIONS.CHAT_VIEW);
-  const websiteIds = await getOwnedWebsiteIds(req.user);
+  const websiteIds = await resolveSessionWebsiteIds(req.user, req.query.websiteId);
+  if (websiteIds.length === 0) return res.json([]);
   const sessions = await populateSession(ChatSession.find({
+    websiteId: { $in: websiteIds },
     $or: [
       { assignedAgent: req.user._id },
-      { websiteId: { $in: websiteIds } }
+      { assignedAgent: null },
+      { assignedAgent: { $exists: false } }
     ]
   }).sort({ lastMessageAt: -1, createdAt: -1 }).limit(100));
   return res.json(sessions);
 }
 
 export async function listQueuedSessions(req, res) {
-  const websiteIds = await getOwnedWebsiteIds(req.user);
+  const websiteIds = await resolveSessionWebsiteIds(req.user, req.query.websiteId);
   const sessions = await populateSession(
-    ChatSession.find({ websiteId: { $in: websiteIds }, status: "queued" })
+    ChatSession.find({
+      websiteId: { $in: websiteIds },
+      status: "queued",
+      archivedAt: null
+    }).limit(200)
   );
   return res.json(sessions);
 }
@@ -742,10 +767,11 @@ export async function getWidgetConfig(req, res) {
   const businessOpen = isBusinessOpen(website.businessHours);
 
   // Build botFlow from the populated activeFlowId (Flow document)
-  // website.botFlow does not exist as a schema field — the flow is stored
-  // in the separate Flow collection and referenced via activeFlowId.
+  // Only expose legacy client-side botFlow if no active VisualFlowBuilder ChatFlow exists,
+  // preventing duplicate welcome greetings or conflicting bot routing.
+  const hasActiveChatFlow = await ChatFlow.exists({ websiteId: website._id, isActive: true });
   let botFlow = null;
-  if (website.activeFlowId && website.activeFlowId.nodes) {
+  if (!hasActiveChatFlow && website.activeFlowId && website.activeFlowId.nodes) {
     botFlow = {
       flowId: website.activeFlowId._id,
       flowName: website.activeFlowId.name,
@@ -805,7 +831,7 @@ export async function getChatHistory(req, res) {
     }
 
     if (searchTerm) {
-      const searchRegex = new RegExp(searchTerm, "i");
+      const searchRegex = new RegExp(escapeRegex(searchTerm), "i");
       const matchingVisitors = await Visitor.find({
         $or: [{ name: searchRegex }, { email: searchRegex }, { visitorId: searchRegex }]
       }).select("_id");

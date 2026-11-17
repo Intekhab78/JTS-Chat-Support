@@ -57,7 +57,7 @@ const websiteSchema = new mongoose.Schema(
     },
     enabledModules: {
       type: [String],
-      default: ["crm", "operations", "finance", "compliance", "service", "automation"]
+      default: ["service", "crm", "operations", "finance", "automation", "reports", "security"]
     },
     businessDescription: { type: String, default: "" },
     customFaqs: [

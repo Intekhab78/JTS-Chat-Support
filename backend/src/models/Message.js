@@ -19,6 +19,11 @@ const messageSchema = new mongoose.Schema(
     readAt: { type: Date, default: null },
     providerMessageId: { type: String, index: true, default: null },
 
+    // Interactive Chatbot Flow metadata (persisted so page refresh preserves active UI)
+    options: [{ label: String, targetNodeId: String }],
+    formFields: [mongoose.Schema.Types.Mixed],
+    submitLabel: { type: String, default: "" },
+
     // Multilingual Translation Engine
     translatedText: { type: String, default: "" },
     detectedLanguage: { type: String, default: "en" },

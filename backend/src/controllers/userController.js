@@ -26,9 +26,11 @@ async function ensureUniqueEmail(email, currentUserId = null) {
   if (existingUser && String(existingUser._id) !== String(currentUserId || "")) {
     throw new AppError("A user account with this email already exists", 409);
   }
-  const existingCustomer = await Customer.findOne({ email: normalized });
-  if (existingCustomer) {
-    throw new AppError("A customer or lead profile with this email already exists", 409);
+  if (!currentUserId) {
+    const existingCustomer = await Customer.findOne({ email: normalized });
+    if (existingCustomer) {
+      throw new AppError("A customer or lead profile with this email already exists", 409);
+    }
   }
 }
 
@@ -108,7 +110,7 @@ async function resolvePersonnelRole(requestedRole) {
 function buildPersonnelFilter(scope = {}) {
   return {
     ...scope,
-    role: { $nin: ["admin", "client"] }
+    role: { $nin: ["admin", "client", "customer", "supplier"] }
   };
 }
 
@@ -181,16 +183,28 @@ export const listAgents = asyncHandler(async (req, res) => {
 
   const { ChatSession } = await import("../models/ChatSession.js");
   const agentIds = agents.map(a => a._id);
-  const activeChatCounts = await ChatSession.aggregate([
-    { $match: { assignedAgent: { $in: agentIds }, status: "active" } },
-    { $group: { _id: "$assignedAgent", count: { $sum: 1 } } }
+  const [activeChatCounts, ratingStats] = await Promise.all([
+    ChatSession.aggregate([
+      { $match: { assignedAgent: { $in: agentIds }, status: "active" } },
+      { $group: { _id: "$assignedAgent", count: { $sum: 1 } } }
+    ]),
+    ChatSession.aggregate([
+      { $match: { assignedAgent: { $in: agentIds }, satisfactionRating: { $gt: 0 } } },
+      { $group: { _id: "$assignedAgent", avgRating: { $avg: "$satisfactionRating" }, ratingCount: { $sum: 1 } } }
+    ])
   ]);
   const activeChatMap = new Map(activeChatCounts.map(item => [item._id.toString(), item.count]));
+  const ratingMap = new Map(ratingStats.map(item => [item._id.toString(), item]));
 
-  const enhancedAgents = agents.map((agent) => ({
-    ...agent.toObject(),
-    activeChats: activeChatMap.get(agent._id.toString()) || 0
-  }));
+  const enhancedAgents = agents.map((agent) => {
+    const ratingInfo = ratingMap.get(agent._id.toString());
+    return {
+      ...agent.toObject(),
+      activeChats: activeChatMap.get(agent._id.toString()) || 0,
+      avgRating: ratingInfo ? Number(ratingInfo.avgRating.toFixed(1)) : 0,
+      ratingCount: ratingInfo?.ratingCount || 0
+    };
+  });
 
   return res.json(enhancedAgents);
 });
@@ -203,7 +217,7 @@ export const listClients = asyncHandler(async (req, res) => {
 
   const enhancedClients = await Promise.all(clients.map(async (client) => {
     const websiteCount = await Website.countDocuments({ managerId: client._id });
-    const agentCount = await User.countDocuments({ role: "agent", managerId: client._id });
+    const agentCount = await User.countDocuments({ managerId: client._id });
     return { ...client.toObject(), websiteCount, agentCount, subscription: resolveSubscriptionForUser(client) };
   }));
 
@@ -216,7 +230,7 @@ export const createClient = asyncHandler(async (req, res) => {
   }
 
   const { name, email, password } = createUserSchema.parse(req.body);
-  const requestedPlan = ["basic", "standard", "pro"].includes(req.body.plan) ? req.body.plan : "pro";
+  const requestedPlan = ["basic", "standard", "pro", "enterprise"].includes(req.body.plan) ? req.body.plan : "pro";
   await ensureUniqueEmail(email);
   const hashedPassword = await hashPassword(password);
 
@@ -234,8 +248,50 @@ export const createClient = asyncHandler(async (req, res) => {
     name: client.name,
     email: client.email,
     role: client.role,
+    isActive: client.isActive,
     subscription: resolveSubscriptionForUser(client)
   });
+});
+
+export const updateClient = asyncHandler(async (req, res) => {
+  if (normalizeRole(req.user.role) !== "admin") {
+    return res.status(403).json({ message: "Admin access required" });
+  }
+
+  const client = await User.findOne({ _id: req.params.id, role: "client" });
+  if (!client) throw new AppError("Client not found", 404);
+
+  if (req.body.name !== undefined && String(req.body.name).trim()) {
+    client.name = String(req.body.name).trim();
+  }
+  if (req.body.email !== undefined && String(req.body.email).trim()) {
+    const nextEmail = String(req.body.email).trim().toLowerCase();
+    if (nextEmail !== client.email) {
+      await ensureUniqueEmail(nextEmail);
+      client.email = nextEmail;
+    }
+  }
+  if (req.body.plan && ["basic", "standard", "pro", "enterprise"].includes(req.body.plan)) {
+    client.subscription = buildSubscription(req.body.plan);
+  }
+  if (req.body.isActive !== undefined) {
+    client.isActive = Boolean(req.body.isActive);
+  }
+
+  await client.save();
+  const obj = client.toObject();
+  delete obj.password;
+  return res.json({ ...obj, subscription: resolveSubscriptionForUser(client) });
+});
+
+export const deleteClient = asyncHandler(async (req, res) => {
+  if (normalizeRole(req.user.role) !== "admin") {
+    return res.status(403).json({ message: "Admin access required" });
+  }
+
+  const result = await User.deleteOne({ _id: req.params.id, role: "client" });
+  if (result.deletedCount === 0) throw new AppError("Client not found", 404);
+  return res.json({ message: "Client deleted successfully" });
 });
 
 export const updateAvailability = asyncHandler(async (req, res) => {
@@ -305,9 +361,10 @@ export const updateAgent = asyncHandler(async (req, res) => {
 
   const { name, email, password, role, websiteIds, department, assignedCategories } = req.body;
   if (name) agent.name = name;
-  if (email && email !== agent.email) {
-    await ensureUniqueEmail(email, agent._id);
-    agent.email = email;
+  const normalizedEmail = email ? String(email).trim().toLowerCase() : "";
+  if (normalizedEmail && normalizedEmail !== String(agent.email || "").trim().toLowerCase()) {
+    await ensureUniqueEmail(normalizedEmail, agent._id);
+    agent.email = normalizedEmail;
   }
   if (password) {
     agent.password = await hashPassword(password);
@@ -345,8 +402,9 @@ export const updateAgent = asyncHandler(async (req, res) => {
 });
 
 export const adminResetPassword = asyncHandler(async (req, res) => {
-  if (normalizeRole(req.user.role) !== "admin") {
-    throw new AppError("Admin access required", 403);
+  const actorRole = normalizeRole(req.user.role);
+  if (!["admin", "client"].includes(actorRole)) {
+    throw new AppError("Admin or Client access required", 403);
   }
 
   const { id } = req.params;
@@ -355,8 +413,14 @@ export const adminResetPassword = asyncHandler(async (req, res) => {
   const targetUser = await User.findById(id);
   if (!targetUser) throw new AppError("User not found", 404);
 
+  if (actorRole === "client" && String(targetUser.managerId) !== String(req.user._id)) {
+    throw new AppError("You can only reset passwords for your own organization's users", 403);
+  }
+
   // Generate a random secure password if none is provided
-  const generatedPassword = newPassword || Math.random().toString(36).substring(2, 10) + "Jts@1";
+  const generatedPassword = (newPassword && String(newPassword).trim())
+    ? String(newPassword).trim()
+    : Math.random().toString(36).substring(2, 10) + "Jts@1";
 
   // Hash the password
   targetUser.password = await bcrypt.hash(generatedPassword, 12);
@@ -428,24 +492,57 @@ export const getClientDetails = asyncHandler(async (req, res) => {
 
   const { ChatSession } = await import("../models/ChatSession.js");
   const { Visitor } = await import("../models/Visitor.js");
+  const { Ticket } = await import("../models/Ticket.js");
+  const { Customer } = await import("../models/Customer.js");
 
-  const chats = await ChatSession.find({ websiteId: { $in: websiteIds } })
-    .populate("assignedAgent", "name email")
-    .populate("websiteId", "websiteName domain")
-    .populate("visitorId", "name email visitorId")
-    .sort({ createdAt: -1 })
-    .limit(50);
-
-  const visitors = await Visitor.find({ websiteId: { $in: websiteIds } })
-    .sort({ lastVisitTime: -1, createdAt: -1 })
-    .limit(50);
+  const [
+    chats,
+    totalChats,
+    visitors,
+    totalVisitors,
+    tickets,
+    totalTickets,
+    customers,
+    totalCustomers
+  ] = await Promise.all([
+    ChatSession.find({ websiteId: { $in: websiteIds } })
+      .populate("assignedAgent", "name email")
+      .populate("websiteId", "websiteName domain")
+      .populate("visitorId", "name email visitorId")
+      .sort({ createdAt: -1 })
+      .limit(100),
+    ChatSession.countDocuments({ websiteId: { $in: websiteIds } }),
+    Visitor.find({ websiteId: { $in: websiteIds } })
+      .sort({ lastVisitTime: -1, createdAt: -1 })
+      .limit(50),
+    Visitor.countDocuments({ websiteId: { $in: websiteIds } }),
+    Ticket.find({ websiteId: { $in: websiteIds } })
+      .populate("websiteId", "websiteName")
+      .sort({ createdAt: -1 })
+      .limit(100),
+    Ticket.countDocuments({ websiteId: { $in: websiteIds } }),
+    Customer.find({ websiteId: { $in: websiteIds } })
+      .sort({ createdAt: -1 })
+      .limit(100),
+    Customer.countDocuments({ websiteId: { $in: websiteIds } })
+  ]);
 
   return res.json({
     client: { ...client.toObject(), subscription: resolveSubscriptionForUser(client) },
     websites,
     personnel,
     chats,
-    visitors
+    visitors,
+    tickets,
+    customers,
+    stats: {
+      totalDomains: websites.length,
+      totalPersonnel: personnel.length,
+      totalChats,
+      totalVisitors,
+      totalTickets,
+      totalCustomers
+    }
   });
 });
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   TrendingUp, LayoutGrid, List, UserCheck, Clock, AlertCircle,
@@ -29,42 +29,39 @@ import CrmStageEditor from "./CrmStageEditor.jsx";
 import CrmImportModal from "./CrmImportModal.jsx";
 import PaginationControls from "../PaginationControls.jsx";
 import { formatCurrency, CRM_STAGE_CONFIG, DEFAULT_CRM_STAGE_CONFIG } from "./CrmUIComponents.jsx";
-import CrmContactsView from "./CrmContactsView.jsx";
-import CrmCompaniesView from "./CrmCompaniesView.jsx";
-import CrmDealsView from "./CrmDealsView.jsx";
-import CrmPipelinesConfig from "./CrmPipelinesConfig.jsx";
 import CrmDashboardWidgets from "./CrmDashboardWidgets.jsx";
-import Customer360View from "./Customer360View.jsx";
-import CrmProductsView from "./CrmProductsView.jsx";
-import CrmQuotationsView from "./CrmQuotationsView.jsx";
-import CrmSalesOrdersView from "./CrmSalesOrdersView.jsx";
-import CrmFinanceDashboard from "./CrmFinanceDashboard.jsx";
-import CrmSubscriptionsView from "./CrmSubscriptionsView.jsx";
-import CrmInvoicesView from "./CrmInvoicesView.jsx";
-import CrmPaymentsLedgerView from "./CrmPaymentsLedgerView.jsx";
-import CrmOmnichannelInbox from "./CrmOmnichannelInbox.jsx";
-import CannedResponsesManager from "./CannedResponsesManager.jsx";
-import CrmHelpdeskView from "./CrmHelpdeskView.jsx";
-import CrmCustomerSuccessView from "./CrmCustomerSuccessView.jsx";
-import CrmWorkflowBuilder from "./CrmWorkflowBuilder.jsx";
-import CrmWorkflowHistory from "./CrmWorkflowHistory.jsx";
-import CrmAiConsole from "./CrmAiConsole.jsx";
-import CrmBiDashboard from "./CrmBiDashboard.jsx";
-import CrmAdminConsole from "./CrmAdminConsole.jsx";
-import CrmDeveloperConsole from "./CrmDeveloperConsole.jsx";
-import CrmAuditLogsView from "./CrmAuditLogsView.jsx";
-import CrmEmailBuilderView from "./CrmEmailBuilderView.jsx";
-import CrmCalendarView from "./CrmCalendarView.jsx";
-import MeetingPlatformsManager from "./MeetingPlatformsManager.jsx";
-import CrmSalesTargets from "./CrmSalesTargets.jsx";
-import CrmActivityFeed from "./CrmActivityFeed.jsx";
-import CrmTasksView from "./CrmTasksView.jsx";
-import VatFilingDashboard from "./VatFilingDashboard.jsx";
-import CorporateTaxDashboard from "./CorporateTaxDashboard.jsx";
-import TradeLicenseDashboard from "./TradeLicenseDashboard.jsx";
-import ComplianceReportsHub from "./ComplianceReportsHub.jsx";
-import HelpCenterView from "./HelpCenterView.jsx";
 import { BookOpen } from "lucide-react";
+
+const CrmContactsView = lazy(() => import("./CrmContactsView.jsx"));
+const CrmCompaniesView = lazy(() => import("./CrmCompaniesView.jsx"));
+const CrmDealsView = lazy(() => import("./CrmDealsView.jsx"));
+const CrmPipelinesConfig = lazy(() => import("./CrmPipelinesConfig.jsx"));
+const Customer360View = lazy(() => import("./Customer360View.jsx"));
+const CrmProductsView = lazy(() => import("./CrmProductsView.jsx"));
+const CrmQuotationsView = lazy(() => import("./CrmQuotationsView.jsx"));
+const CrmSalesOrdersView = lazy(() => import("./CrmSalesOrdersView.jsx"));
+const CrmFinanceDashboard = lazy(() => import("./CrmFinanceDashboard.jsx"));
+const CrmSubscriptionsView = lazy(() => import("./CrmSubscriptionsView.jsx"));
+const CrmInvoicesView = lazy(() => import("./CrmInvoicesView.jsx"));
+const CrmPaymentsLedgerView = lazy(() => import("./CrmPaymentsLedgerView.jsx"));
+const CrmOmnichannelInbox = lazy(() => import("./CrmOmnichannelInbox.jsx"));
+const CannedResponsesManager = lazy(() => import("./CannedResponsesManager.jsx"));
+const CrmHelpdeskView = lazy(() => import("./CrmHelpdeskView.jsx"));
+const CrmCustomerSuccessView = lazy(() => import("./CrmCustomerSuccessView.jsx"));
+const CrmWorkflowBuilder = lazy(() => import("./CrmWorkflowBuilder.jsx"));
+const CrmWorkflowHistory = lazy(() => import("./CrmWorkflowHistory.jsx"));
+const CrmAiConsole = lazy(() => import("./CrmAiConsole.jsx"));
+const CrmBiDashboard = lazy(() => import("./CrmBiDashboard.jsx"));
+const CrmAdminConsole = lazy(() => import("./CrmAdminConsole.jsx"));
+const CrmDeveloperConsole = lazy(() => import("./CrmDeveloperConsole.jsx"));
+const CrmAuditLogsView = lazy(() => import("./CrmAuditLogsView.jsx"));
+const CrmEmailBuilderView = lazy(() => import("./CrmEmailBuilderView.jsx"));
+const CrmCalendarView = lazy(() => import("./CrmCalendarView.jsx"));
+const MeetingPlatformsManager = lazy(() => import("./MeetingPlatformsManager.jsx"));
+const CrmSalesTargets = lazy(() => import("./CrmSalesTargets.jsx"));
+const CrmActivityFeed = lazy(() => import("./CrmActivityFeed.jsx"));
+const CrmTasksView = lazy(() => import("./CrmTasksView.jsx"));
+const HelpCenterView = lazy(() => import("./HelpCenterView.jsx"));
 
 
 const crmGroups = [
@@ -77,7 +74,6 @@ const crmGroups = [
       { id: "leads", label: "Leads", icon: UserPlus },
       { id: "contacts", label: "Contacts", icon: Users },
       { id: "companies", label: "Companies", icon: Building2 },
-      { id: "deals", label: "Deals", icon: Briefcase },
       { id: "pipelines", label: "Pipelines", icon: GitBranch },
       { id: "calendar", label: "Calendar", icon: Calendar },
       { id: "meeting-platforms", label: "Meeting Platforms", icon: Video },
@@ -105,17 +101,6 @@ const crmGroups = [
       { id: "subscriptions", label: "Subscriptions", icon: Repeat },
       { id: "invoices", label: "Invoices", icon: Receipt },
       { id: "payments-ledger", label: "Payments Ledger", icon: CreditCard },
-    ]
-  },
-  {
-    id: "compliance",
-    label: "Compliance Suite",
-    icon: Shield,
-    items: [
-      { id: "vat-dashboard", label: "VAT Filing", icon: FileCheck },
-      { id: "ct-dashboard", label: "Corporate Tax", icon: Calculator },
-      { id: "tl-dashboard", label: "Trade License Expiry", icon: ShieldAlert },
-      { id: "compliance-reports", label: "Compliance Reports", icon: FileText },
     ]
   },
   {
@@ -216,7 +201,7 @@ export default function CrmContainer({
   const [searchParams] = useSearchParams();
   const urlWorkspaceTab = searchParams.get("workspaceTab");
   const [workspaceTab, setWorkspaceTab] = useState(
-    urlWorkspaceTab || (user?.role === "tax_consultant" ? "vat-dashboard" : "dashboard")
+    urlWorkspaceTab || "dashboard"
   );
   useEffect(() => {
     if (urlWorkspaceTab) setWorkspaceTab(urlWorkspaceTab);
@@ -312,7 +297,7 @@ export default function CrmContainer({
 
   useEffect(() => {
     fetchCustomers();
-  }, [statusFilter, websiteId, leadView, recordCategoryTab, sourceFilter, healthFilter, stageFilter, activeRange]);
+  }, [statusFilter, websiteId, leadView, recordCategoryTab, sourceFilter, healthFilter, stageFilter, activeRange, quickFilter, serviceTypeFilter, workStatusFilter, paymentStatusFilter]);
 
   useEffect(() => {
     fetchTeamMembers();
@@ -339,7 +324,7 @@ export default function CrmContainer({
 
     const handleLeadCreated = (payload) => {
       if (!payload) return;
-      if (websiteId && payload.websiteId && payload.websiteId !== websiteId) return;
+      if (websiteId && payload.websiteId && String(payload.websiteId) !== String(websiteId)) return;
       fetchCustomers(1);
     };
 
@@ -371,7 +356,7 @@ export default function CrmContainer({
         status: statusFilter,
         websiteId,
         view: leadView,
-        recordType: recordCategoryTab,
+        recordType: recordCategoryTab === "reports" ? "all" : recordCategoryTab,
         leadSource: sourceFilter,
         healthStatus: healthFilter,
         pipelineStage: stageFilter,
@@ -1181,7 +1166,7 @@ export default function CrmContainer({
     { key: "all", label: "Pipeline", value: summary.totalLeads || pagination.total || customers.length, helper: "Active records", icon: LayoutGrid },
     { key: "my_leads", label: "Assigned to Me", value: summary.myLeads || 0, helper: "Owned by you", icon: UserCheck },
     { key: "hot_leads", label: "Hot Deals", value: summary.hotLeads || 0, helper: "High interest", icon: Zap },
-    { key: "high_value", label: "High Value", value: summary.highValue || 0, helper: "Value >= ₹50k", icon: Award },
+    { key: "high_value", label: "High Value", value: summary.highValue || 0, helper: `Value >= ${formatCurrency(50000)}`, icon: Award },
     { key: "due_today", label: "Due Today", value: summary.dueToday || 0, helper: "Activities due", icon: Clock },
     { key: "stale", label: "Stale Leads", value: summary.staleLeads || 0, helper: "7+ days inactive", icon: AlertCircle },
     { key: "no_follow_up", label: "Missing Plan", value: summary.noFollowUp || 0, helper: "Needs activity", icon: History },
@@ -1203,11 +1188,10 @@ export default function CrmContainer({
               <button
                 key={group.id}
                 onClick={() => handleGroupClick(group)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all duration-150 select-none cursor-pointer ${
-                  isGroupActive 
-                    ? "bg-slate-900 text-white shadow-xs scale-[1.01]" 
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all duration-150 select-none cursor-pointer ${isGroupActive
+                    ? "bg-slate-900 text-white shadow-xs scale-[1.01]"
                     : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
-                }`}
+                  }`}
               >
                 <GroupIcon size={13} className={isGroupActive ? "text-indigo-400" : "text-slate-400"} />
                 <span>{group.label}</span>
@@ -1225,11 +1209,10 @@ export default function CrmContainer({
               <button
                 key={item.id}
                 onClick={() => setWorkspaceTab(item.id)}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-wider border transition-all duration-150 select-none cursor-pointer ${
-                  isItemActive
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-wider border transition-all duration-150 select-none cursor-pointer ${isItemActive
                     ? "bg-indigo-50/90 text-indigo-700 border-indigo-200/80 shadow-2xs font-bold"
                     : "bg-white text-slate-500 border-slate-200/80 hover:text-slate-700 hover:bg-slate-50"
-                }`}
+                  }`}
               >
                 <ItemIcon size={12} className={isItemActive ? "text-indigo-600" : "text-slate-400"} />
                 <span>{item.label}</span>
@@ -1393,34 +1376,29 @@ export default function CrmContainer({
                     <button
                       key={card.key}
                       onClick={() => setLeadView(card.key)}
-                      className={`group rounded-xl border p-2 sm:p-2.5 text-left transition-all duration-200 cursor-pointer select-none ${
-                        active 
-                          ? `${colors.activeBorder} shadow-sm ring-1 ring-slate-900/10 scale-[1.01]` 
+                      className={`group rounded-xl border p-2 sm:p-2.5 text-left transition-all duration-200 cursor-pointer select-none ${active
+                          ? `${colors.activeBorder} shadow-sm ring-1 ring-slate-900/10 scale-[1.01]`
                           : `${colors.border} bg-slate-50/50 hover:bg-white hover:shadow-2xs hover:border-slate-300`
-                      }`}
+                        }`}
                     >
                       <div className="flex flex-col h-full justify-between gap-2">
                         <div className="flex items-center justify-between gap-1">
-                          <div className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors duration-200 shrink-0 ${
-                            active ? colors.activeIconBg : colors.iconBg
-                          }`}>
+                          <div className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors duration-200 shrink-0 ${active ? colors.activeIconBg : colors.iconBg
+                            }`}>
                             <Icon size={13} />
                           </div>
-                          <span className={`text-[7px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded leading-none shrink-0 ${
-                            active ? "bg-white/20 text-white" : "bg-slate-200/60 text-slate-500"
-                          }`}>
+                          <span className={`text-[7px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded leading-none shrink-0 ${active ? "bg-white/20 text-white" : "bg-slate-200/60 text-slate-500"
+                            }`}>
                             {card.key === "all" ? "Live" : card.value > 0 ? "Active" : "Empty"}
                           </span>
                         </div>
                         <div className="min-w-0">
-                          <p className={`text-[8px] sm:text-[8.5px] font-bold uppercase tracking-tight truncate leading-tight ${
-                            active ? colors.activeLabel : colors.label
-                          }`} title={card.label}>
+                          <p className={`text-[8px] sm:text-[8.5px] font-bold uppercase tracking-tight truncate leading-tight ${active ? colors.activeLabel : colors.label
+                            }`} title={card.label}>
                             {card.label}
                           </p>
-                          <p className={`text-base sm:text-lg font-black tracking-tight leading-none mt-1 ${
-                            active ? colors.activeValue : colors.value
-                          }`}>
+                          <p className={`text-base sm:text-lg font-black tracking-tight leading-none mt-1 ${active ? colors.activeValue : colors.value
+                            }`}>
                             {card.value}
                           </p>
                         </div>
@@ -1442,11 +1420,10 @@ export default function CrmContainer({
                   <button
                     key={tab.id}
                     onClick={() => setRecordCategoryTab(tab.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider border-b-2 transition-all select-none cursor-pointer whitespace-nowrap ${
-                      recordCategoryTab === tab.id 
-                        ? "border-indigo-600 text-indigo-600 bg-indigo-50/40 rounded-t-lg font-black" 
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider border-b-2 transition-all select-none cursor-pointer whitespace-nowrap ${recordCategoryTab === tab.id
+                        ? "border-indigo-600 text-indigo-600 bg-indigo-50/40 rounded-t-lg font-black"
                         : "border-transparent text-slate-400 hover:text-slate-700 hover:bg-slate-50/80 rounded-t-lg"
-                    }`}
+                      }`}
                   >
                     <tab.icon size={12} /> {tab.label}
                   </button>
@@ -1460,7 +1437,7 @@ export default function CrmContainer({
                   <input
                     value={search}
                     onChange={(e) => handleSearchChange(e.target.value)}
-                    placeholder="Search Company, Owner, TRN, License No, Service Scope…"
+                    placeholder="Search Company, Contact, Email, Phone, Deal Title…"
                     className="w-full h-8 sm:h-8.5 rounded-lg border border-slate-200/90 bg-white pl-8 pr-3 text-[11px] font-medium text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/10 placeholder:text-slate-400 shadow-2xs transition-all"
                   />
                 </div>
@@ -1470,21 +1447,19 @@ export default function CrmContainer({
                   <div className="flex items-center h-8 sm:h-8.5 rounded-lg border border-slate-200/90 bg-slate-100/70 p-0.5 shrink-0">
                     <button
                       onClick={() => setViewMode("board")}
-                      className={`h-full px-2.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all select-none cursor-pointer ${
-                        viewMode === "board" 
-                          ? "bg-white text-slate-900 shadow-2xs font-bold" 
+                      className={`h-full px-2.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all select-none cursor-pointer ${viewMode === "board"
+                          ? "bg-white text-slate-900 shadow-2xs font-bold"
                           : "text-slate-500 hover:text-slate-800"
-                      }`}
+                        }`}
                     >
                       Board
                     </button>
                     <button
                       onClick={() => setViewMode("list")}
-                      className={`h-full px-2.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all select-none cursor-pointer ${
-                        viewMode === "list" 
-                          ? "bg-white text-slate-900 shadow-2xs font-bold" 
+                      className={`h-full px-2.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all select-none cursor-pointer ${viewMode === "list"
+                          ? "bg-white text-slate-900 shadow-2xs font-bold"
                           : "text-slate-500 hover:text-slate-800"
-                      }`}
+                        }`}
                     >
                       List
                     </button>
@@ -1520,66 +1495,118 @@ export default function CrmContainer({
                 </div>
               </div>
 
-              {/* Quick Filter Chips Bar & Edit Stages */}
-              <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-1.5">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 mr-0.5 select-none">
-                    Quick Filters:
-                  </span>
-                  {[
-                    { key: "vat_due_today", label: "VAT Due Today" },
-                    { key: "ct_due", label: "Corporate Tax Due" },
-                    { key: "tl_expiring", label: "License Expiring" },
-                    { key: "payment_pending", label: "Payment Pending" },
-                    { key: "completed_clients", label: "Completed Clients" },
-                    { key: "pending_clients", label: "Pending Clients" }
-                  ].map(chip => {
-                    const isActive = quickFilter === chip.key;
-                    return (
-                      <button
-                        key={chip.key}
-                        onClick={() => setQuickFilter(isActive ? "" : chip.key)}
-                        className={`px-2.5 py-1 rounded-md text-[8px] sm:text-[8.5px] font-bold uppercase tracking-wider transition-all border select-none cursor-pointer leading-tight ${
-                          isActive
-                            ? "bg-indigo-600 text-white border-indigo-700 shadow-2xs"
-                            : "bg-white text-slate-600 border-slate-200/90 hover:bg-slate-50 hover:border-slate-300"
-                        }`}
+              {/* Dynamic Filter Bar & Edit Stages */}
+              {(() => {
+                const dynamicSources = Array.from(
+                  new Set([
+                    ...(Array.isArray(summary?.leadsBySource) ? summary.leadsBySource.map(s => s._id).filter(Boolean) : []),
+                    ...(customers || []).map(c => c.leadSource).filter(Boolean)
+                  ])
+                );
+                const paymentPendingCount = (customers || []).filter(c => c.paymentStatus === "Pending").length;
+                const completedCount = (customers || []).filter(c => c.workStatus === "Completed").length;
+                const pendingWorkCount = (customers || []).filter(c => c.workStatus === "Pending").length;
+                const dynamicQuickChips = [
+                  { key: "payment_pending", label: "Payment Pending", count: paymentPendingCount },
+                  { key: "completed_clients", label: "Completed Clients", count: completedCount },
+                  { key: "pending_clients", label: "Pending Clients", count: pendingWorkCount }
+                ].filter(chip => chip.count > 0 || quickFilter === chip.key);
+
+                const hasAnyFilter = Boolean(
+                  quickFilter || search || stageFilter || sourceFilter || healthFilter || serviceTypeFilter || workStatusFilter || paymentStatusFilter
+                );
+
+                return (
+                  <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {/* Dynamic Stage Filter */}
+                      <select
+                        value={stageFilter}
+                        onChange={(e) => setStageFilter(e.target.value)}
+                        className="h-7 px-2 rounded-md bg-white border border-slate-200/90 text-[9px] font-bold uppercase tracking-wider text-slate-700 outline-none focus:border-indigo-400 cursor-pointer"
                       >
-                        {chip.label}
+                        <option value="">Stage: All ({boardColumns.length})</option>
+                        {boardColumns.map((col) => (
+                          <option key={col.key} value={col.key}>{col.label}</option>
+                        ))}
+                      </select>
+
+                      {/* Dynamic Source Filter */}
+                      {dynamicSources.length > 0 && (
+                        <select
+                          value={sourceFilter}
+                          onChange={(e) => setSourceFilter(e.target.value)}
+                          className="h-7 px-2 rounded-md bg-white border border-slate-200/90 text-[9px] font-bold uppercase tracking-wider text-slate-700 outline-none focus:border-indigo-400 cursor-pointer"
+                        >
+                          <option value="">Source: All ({dynamicSources.length})</option>
+                          {dynamicSources.map((src) => (
+                            <option key={src} value={src}>{String(src).replaceAll("_", " ")}</option>
+                          ))}
+                        </select>
+                      )}
+
+                      {/* Dynamic Quick Chips (only rendered when matching records exist) */}
+                      {dynamicQuickChips.map(chip => {
+                        const isActive = quickFilter === chip.key;
+                        return (
+                          <button
+                            key={chip.key}
+                            onClick={() => setQuickFilter(isActive ? "" : chip.key)}
+                            className={`px-2 py-1 rounded-md text-[8.5px] font-bold uppercase tracking-wider transition-all border select-none cursor-pointer leading-tight inline-flex items-center gap-1 ${isActive
+                                ? "bg-indigo-600 text-white border-indigo-700 shadow-2xs"
+                                : "bg-white text-slate-600 border-slate-200/90 hover:bg-slate-50 hover:border-slate-300"
+                              }`}
+                          >
+                            <span>{chip.label}</span>
+                            <span className={`px-1 rounded text-[8px] ${isActive ? "bg-indigo-500 text-white" : "bg-slate-100 text-slate-500"}`}>
+                              {chip.count}
+                            </span>
+                          </button>
+                        );
+                      })}
+
+                      {hasAnyFilter && (
+                        <button
+                          onClick={() => {
+                            setQuickFilter("");
+                            setSearch("");
+                            setStageFilter("");
+                            setSourceFilter("");
+                            setHealthFilter("");
+                            setServiceTypeFilter("");
+                            setWorkStatusFilter("");
+                            setPaymentStatusFilter("");
+                          }}
+                          className="px-2 py-1 rounded-md text-[8.5px] font-bold uppercase tracking-wider text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
+                        >
+                          Reset Filters
+                        </button>
+                      )}
+                    </div>
+
+                    {canManagePipeline && (
+                      <button
+                        onClick={() => setShowStageEditor(true)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-slate-200/90 text-[8.5px] font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-50 shadow-2xs transition-all cursor-pointer shrink-0"
+                      >
+                        <UserCheck size={11} className="text-slate-500" /> Edit Stages
                       </button>
-                    );
-                  })}
-
-                  {(quickFilter || search || serviceTypeFilter || workStatusFilter || paymentStatusFilter) && (
-                    <button
-                      onClick={() => {
-                        setQuickFilter("");
-                        setSearch("");
-                        setServiceTypeFilter("");
-                        setWorkStatusFilter("");
-                        setPaymentStatusFilter("");
-                      }}
-                      className="px-2 py-1 rounded-md text-[8px] sm:text-[8.5px] font-bold uppercase tracking-wider text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
-                    >
-                      Reset Filters
-                    </button>
-                  )}
-                </div>
-
-                {canManagePipeline && (
-                  <button
-                    onClick={() => setShowStageEditor(true)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-slate-200/90 text-[8px] sm:text-[8.5px] font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-50 shadow-2xs transition-all cursor-pointer shrink-0"
-                  >
-                    <UserCheck size={11} className="text-slate-500" /> Edit Stages
-                  </button>
-                )}
-              </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </section>
 
           {/* ── Content View ── */}
-          {!loading && customers.length > 0 && <CrmPipelineBar customers={customers} />}
+          {!loading && customers.length > 0 && (
+            <CrmPipelineBar
+              customers={customers}
+              stagesConfig={boardColumns}
+              activeStage={stageFilter}
+              onSelectStage={(key) => setStageFilter(stageFilter === key ? "" : key)}
+            />
+          )}
 
           {actionMessage.text && (
             <div className={`rounded-2xl border px-5 py-4 text-[11px] font-bold ${actionMessage.type === "error" ? "border-red-200 bg-red-50 text-red-600" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
@@ -1590,6 +1617,8 @@ export default function CrmContainer({
           {recordCategoryTab === "reports" ? (
             <CrmReportsView
               summary={summary}
+              customers={customers}
+              websiteId={websiteId}
               onDrillDown={onDrillDown}
               activeRange={activeRange}
               setActiveRange={setActiveRange}
@@ -1637,137 +1666,123 @@ export default function CrmContainer({
         </>
       )}
 
-      {workspaceTab === "contacts" && (
-        <CrmContactsView websiteId={websiteId} />
-      )}
+      <Suspense fallback={<div className="p-8 text-center text-xs font-bold text-slate-400">Loading CRM module...</div>}>
+        {workspaceTab === "contacts" && (
+          <CrmContactsView websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "companies" && (
-        <CrmCompaniesView websiteId={websiteId} />
-      )}
+        {workspaceTab === "companies" && (
+          <CrmCompaniesView websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "deals" && (
-        <CrmDealsView websiteId={websiteId} />
-      )}
+        {workspaceTab === "deals" && (
+          <CrmDealsView websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "pipelines" && (
-        <CrmPipelinesConfig websiteId={websiteId} />
-      )}
+        {workspaceTab === "pipelines" && (
+          <CrmPipelinesConfig websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "calendar" && (
-        <CrmCalendarView websiteId={websiteId} />
-      )}
+        {workspaceTab === "calendar" && (
+          <CrmCalendarView websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "products" && (
-        <CrmProductsView websiteId={websiteId} />
-      )}
+        {workspaceTab === "products" && (
+          <CrmProductsView websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "quotations" && (
-        <CrmQuotationsView websiteId={websiteId} />
-      )}
+        {workspaceTab === "quotations" && (
+          <CrmQuotationsView websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "salesorders" && (
-        <CrmSalesOrdersView websiteId={websiteId} />
-      )}
+        {workspaceTab === "salesorders" && (
+          <CrmSalesOrdersView websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "finance" && (
-        <CrmFinanceDashboard websiteId={websiteId} />
-      )}
+        {workspaceTab === "finance" && (
+          <CrmFinanceDashboard websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "subscriptions" && (
-        <CrmSubscriptionsView websiteId={websiteId} />
-      )}
+        {workspaceTab === "subscriptions" && (
+          <CrmSubscriptionsView websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "invoices" && (
-        <CrmInvoicesView websiteId={websiteId} />
-      )}
+        {workspaceTab === "invoices" && (
+          <CrmInvoicesView websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "payments-ledger" && (
-        <CrmPaymentsLedgerView websiteId={websiteId} />
-      )}
+        {workspaceTab === "payments-ledger" && (
+          <CrmPaymentsLedgerView websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "vat-dashboard" && (
-        <VatFilingDashboard websiteId={websiteId} teamMembers={teamMembers} onOpenCustomer={(c) => setActiveCustomer360Id(c._id)} />
-      )}
+        {workspaceTab === "inbox" && (
+          <CrmOmnichannelInbox websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "ct-dashboard" && (
-        <CorporateTaxDashboard websiteId={websiteId} teamMembers={teamMembers} onOpenCustomer={(c) => setActiveCustomer360Id(c._id)} />
-      )}
+        {workspaceTab === "canned" && (
+          <CannedResponsesManager websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "tl-dashboard" && (
-        <TradeLicenseDashboard websiteId={websiteId} teamMembers={teamMembers} onOpenCustomer={(c) => setActiveCustomer360Id(c._id)} />
-      )}
+        {workspaceTab === "helpdesk" && (
+          <CrmHelpdeskView websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "compliance-reports" && (
-        <ComplianceReportsHub websiteId={websiteId} teamMembers={teamMembers} />
-      )}
+        {workspaceTab === "help-center" && (
+          <HelpCenterView websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "inbox" && (
-        <CrmOmnichannelInbox websiteId={websiteId} />
-      )}
+        {workspaceTab === "success" && (
+          <CrmCustomerSuccessView websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "canned" && (
-        <CannedResponsesManager websiteId={websiteId} />
-      )}
+        {workspaceTab === "workflows" && (
+          <CrmWorkflowBuilder websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "helpdesk" && (
-        <CrmHelpdeskView websiteId={websiteId} />
-      )}
+        {workspaceTab === "workflow-history" && (
+          <CrmWorkflowHistory websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "help-center" && (
-        <HelpCenterView websiteId={websiteId} />
-      )}
+        {workspaceTab === "ai" && (
+          <CrmAiConsole websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "success" && (
-        <CrmCustomerSuccessView websiteId={websiteId} />
-      )}
+        {workspaceTab === "bi" && (
+          <CrmBiDashboard websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "workflows" && (
-        <CrmWorkflowBuilder websiteId={websiteId} />
-      )}
+        {workspaceTab === "admin" && (
+          <CrmAdminConsole websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "workflow-history" && (
-        <CrmWorkflowHistory websiteId={websiteId} />
-      )}
+        {workspaceTab === "audit-logs" && (
+          <CrmAuditLogsView websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "ai" && (
-        <CrmAiConsole websiteId={websiteId} />
-      )}
+        {workspaceTab === "email-builder" && (
+          <CrmEmailBuilderView websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "bi" && (
-        <CrmBiDashboard websiteId={websiteId} />
-      )}
+        {workspaceTab === "meeting-platforms" && (
+          <MeetingPlatformsManager websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "admin" && (
-        <CrmAdminConsole websiteId={websiteId} />
-      )}
-      
-      {workspaceTab === "audit-logs" && (
-        <CrmAuditLogsView websiteId={websiteId} />
-      )}
-      
-      {workspaceTab === "email-builder" && (
-        <CrmEmailBuilderView websiteId={websiteId} />
-      )}
+        {workspaceTab === "developer" && (
+          <CrmDeveloperConsole websiteId={websiteId} />
+        )}
 
-      {workspaceTab === "meeting-platforms" && (
-        <MeetingPlatformsManager websiteId={websiteId} />
-      )}
+        {workspaceTab === "targets" && (
+          <CrmSalesTargets websiteId={websiteId} teamMembers={teamMembers} />
+        )}
 
-      {workspaceTab === "developer" && (
-        <CrmDeveloperConsole websiteId={websiteId} />
-      )}
+        {workspaceTab === "feed" && (
+          <CrmActivityFeed websiteId={websiteId} onOpenCustomer={openCustomer} />
+        )}
 
-      {workspaceTab === "targets" && (
-        <CrmSalesTargets websiteId={websiteId} teamMembers={teamMembers} />
-      )}
-
-      {workspaceTab === "feed" && (
-        <CrmActivityFeed websiteId={websiteId} onOpenCustomer={openCustomer} />
-      )}
-
-      {workspaceTab === "tasks" && (
-        <CrmTasksView onOpenCustomer={openCustomer} websiteId={websiteId} />
-      )}
+        {workspaceTab === "tasks" && (
+          <CrmTasksView onOpenCustomer={openCustomer} websiteId={websiteId} />
+        )}
+      </Suspense>
 
       {/* ── Overlays ── */}
       <CrmDrawer
@@ -1849,11 +1864,13 @@ export default function CrmContainer({
       />
 
       {activeCustomer360Id && (
-        <Customer360View
-          customerId={activeCustomer360Id}
-          websiteId={websiteId}
-          onClose={() => setActiveCustomer360Id(null)}
-        />
+        <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/20 text-xs font-bold text-slate-600">Loading Customer 360...</div>}>
+          <Customer360View
+            customerId={activeCustomer360Id}
+            websiteId={websiteId}
+            onClose={() => setActiveCustomer360Id(null)}
+          />
+        </Suspense>
       )}
     </div>
   );

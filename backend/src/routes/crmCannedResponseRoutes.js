@@ -5,6 +5,7 @@ const router = Router();
 
 router.get("/", cannedResponseController.listCannedResponses);
 router.post("/", cannedResponseController.createCannedResponse);
+router.patch("/:id", cannedResponseController.updateCannedResponse);
 router.delete("/:id", cannedResponseController.deleteCannedResponse);
 
 export default router;

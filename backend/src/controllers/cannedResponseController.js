@@ -30,13 +30,19 @@ export async function listCannedResponses(req, res) {
   }
 
   const responses = await CannedResponse.find({ $or: filters }).sort({ visibility: 1, shortcut: 1 });
+  const activeOnly = String(req.query.activeOnly || "").toLowerCase() === "true";
+
+  const visibleResponses = activeOnly
+    ? responses.filter((r) => r.isActive !== false)
+    : responses;
 
   return res.json(
-    responses.map((response) => {
+    visibleResponses.map((response) => {
       const visibility = response.visibility || "shared";
       const isOwnedByCurrentUser = String(response.managerId) === String(req.user._id);
       return {
         ...response.toObject(),
+        isActive: response.isActive !== false,
         visibility,
         scopeLabel: visibility === "personal" ? "Private" : "Shared",
         isOwnedByCurrentUser
@@ -125,4 +131,57 @@ export async function deleteCannedResponse(req, res) {
 
   broadcastDataChange({ entity: "shortcut", action: "deleted", data: { id: req.params.id } });
   return res.json({ message: "Canned response deleted" });
+}
+
+export async function updateCannedResponse(req, res) {
+  const tenantId = getTenantId(req.user);
+  const filters = [];
+
+  if (canManageSharedShortcuts(req.user)) {
+    filters.push({
+      managerId: tenantId,
+      $or: [{ visibility: "shared" }, { visibility: { $exists: false } }]
+    });
+  }
+
+  if (canManagePersonalShortcuts(req.user)) {
+    filters.push({ managerId: req.user._id, visibility: "personal" });
+  }
+
+  if (filters.length === 0) {
+    return res.status(403).json({ message: "Access denied" });
+  }
+
+  const updates = {};
+  if (typeof req.body.isActive === "boolean") {
+    updates.isActive = req.body.isActive;
+  }
+  if (typeof req.body.content === "string" && req.body.content.trim()) {
+    updates.content = req.body.content.trim();
+    updates.text = req.body.content.trim();
+  }
+  if (typeof req.body.shortcut === "string" && req.body.shortcut.trim()) {
+    updates.shortcut = req.body.shortcut.toLowerCase().replace(/\//g, "").trim();
+  }
+
+  const response = await CannedResponse.findOneAndUpdate(
+    { _id: req.params.id, $or: filters },
+    { $set: updates },
+    { new: true }
+  );
+
+  if (!response) {
+    return res.status(404).json({ message: "Canned response not found" });
+  }
+
+  broadcastDataChange({ entity: "shortcut", action: "updated", data: { id: response._id } });
+
+  const visibility = response.visibility || "shared";
+  return res.json({
+    ...response.toObject(),
+    isActive: response.isActive !== false,
+    visibility,
+    scopeLabel: visibility === "personal" ? "Private" : "Shared",
+    isOwnedByCurrentUser: String(response.managerId) === String(req.user._id)
+  });
 }

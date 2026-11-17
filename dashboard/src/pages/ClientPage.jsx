@@ -1,61 +1,49 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { useSearchParams } from "react-router-dom";
 import {
   BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area, Cell, LineChart, Line
 } from 'recharts';
 import {
-  Users, Globe, Headphones, MessageSquare, LayoutDashboard, Search, Bell, Menu, X, Trash2, Send, Paperclip, AlertTriangle, Lock, Shield, Plus, ArrowRight, Layers
+  Users, Globe, Headphones, MessageSquare, LayoutDashboard, Search, Bell, Menu, X, Trash2, Send, Paperclip, AlertTriangle, Lock, Shield, Plus, ArrowRight, Layers,
+  Bot, Sparkles, CheckCircle2, Clock, Activity, ExternalLink, ShieldCheck, Key, RefreshCw, ChevronLeft, ChevronRight, MapPin, UserCheck, Cpu, Database, Zap,
+  Package, Folder, FolderTree, Tag, BarChart3, TrendingUp, Copy, Check, Video, FileText, Target, Award, Network, CreditCard, Contact, GitBranch, BookOpen, Radio, Building2, Sliders, CircleDot, Server, Eye
 } from "lucide-react";
 import Layout from "../components/Layout.jsx";
 import ChatPanel from "../components/ChatPanel.jsx";
 import StatCard from "../components/StatCard.jsx";
-import WebsiteManager from "../components/WebsiteManager.jsx";
-import AgentManager from "../components/AgentManager.jsx";
-import ClientManager from "../components/ClientManager.jsx";
-import ConversationHub from "../components/ConversationHub.jsx";
-import TicketManager from "../components/TicketManager.jsx";
-import ConversationHistory from "../components/ConversationHistory.jsx";
-import CannedResponseManager from "../components/CannedResponseManager.jsx";
-import CategoryManager from "../components/CategoryManager.jsx";
 import { useToast } from "../context/ToastContext.jsx";
-import DepartmentManager from "../components/DepartmentManager.jsx";
-import CRMManager from "../components/CRMManager.jsx";
-import SecurityCenter from "../components/SecurityCenter.jsx";
-import HelpCenterManager from "../components/KnowledgeBaseManager.jsx";
-import EnterpriseReportsCenter from "../components/EnterpriseReportsCenter.jsx";
-import RoleManager from "../components/RoleManager.jsx";
-import AdminSubscriptionManager from "../components/AdminSubscriptionManager.jsx";
-import InventoryManager from "../components/InventoryManager.jsx";
-import CustomerManager from "../components/CustomerManager.jsx";
-import BillingPage from "./BillingPage.jsx";
-import ExecutiveFlowDashboard from "../components/ExecutiveFlowDashboard.jsx";
-import VatFilingDashboard from "../components/CrmSystem/VatFilingDashboard.jsx";
-import CorporateTaxDashboard from "../components/CrmSystem/CorporateTaxDashboard.jsx";
-import TradeLicenseDashboard from "../components/CrmSystem/TradeLicenseDashboard.jsx";
-import ComplianceReportsHub from "../components/CrmSystem/ComplianceReportsHub.jsx";
-import TaxConsultantDashboard from "../components/CrmSystem/TaxConsultantDashboard.jsx";
 import AdminOverdueFollowupsCard from "../components/CrmSystem/AdminOverdueFollowupsCard.jsx";
-import RiskRegisterManager from "../components/RiskRegisterManager.jsx";
-import SaaSFinancialCenter from "../components/SaaSFinancialCenter.jsx";
-import SlaManagementCenter from "../components/SlaManagementCenter.jsx";
-import ObservabilityPlatform from "../components/ObservabilityPlatform.jsx";
-import LoadTestCenter from "../components/LoadTestCenter.jsx";
-import ReleaseManagementCenter from "../components/ReleaseManagementCenter.jsx";
-import DeveloperPortalCenter from "../components/DeveloperPortalCenter.jsx";
-import ProductManagementCenter from "../components/ProductManagementCenter.jsx";
-import AiAutomationCenter from "../components/AiAutomationCenter.jsx";
-import ComplianceGovernanceCenter from "../components/ComplianceGovernanceCenter.jsx";
-import MobileReadinessCenter from "../components/MobileReadinessCenter.jsx";
-import EnterpriseIntegrationCenter from "../components/EnterpriseIntegrationCenter.jsx";
-import NoCodeWorkflowCenter from "../components/NoCodeWorkflowCenter.jsx";
-import AppMarketplaceCenter from "../components/AppMarketplaceCenter.jsx";
-import LowCodeStudioCenter from "../components/LowCodeStudioCenter.jsx";
-import CustomCrmModuleCenter from "../components/CustomCrmModuleCenter.jsx";
-import EnterpriseBiCenter from "../components/EnterpriseBiCenter.jsx";
-import MultiOrganizationCenter from "../components/MultiOrganizationCenter.jsx";
-import MissionControlCenter from "../components/MissionControlCenter.jsx";
-import VisualFlowBuilder from "../components/VisualFlowBuilder.jsx";
+
+const WebsiteManager = lazy(() => import("../components/WebsiteManager.jsx"));
+const AgentManager = lazy(() => import("../components/AgentManager.jsx"));
+const ClientManager = lazy(() => import("../components/ClientManager.jsx"));
+const ConversationHub = lazy(() => import("../components/ConversationHub.jsx"));
+const TicketManager = lazy(() => import("../components/TicketManager.jsx"));
+const ConversationHistory = lazy(() => import("../components/ConversationHistory.jsx"));
+const CannedResponseManager = lazy(() => import("../components/CannedResponseManager.jsx"));
+const CategoryManager = lazy(() => import("../components/CategoryManager.jsx"));
+const DepartmentManager = lazy(() => import("../components/DepartmentManager.jsx"));
+const CRMManager = lazy(() => import("../components/CRMManager.jsx"));
+const SecurityCenter = lazy(() => import("../components/SecurityCenter.jsx"));
+const HelpCenterManager = lazy(() => import("../components/KnowledgeBaseManager.jsx"));
+const EnterpriseReportsCenter = lazy(() => import("../components/EnterpriseReportsCenter.jsx"));
+const RoleManager = lazy(() => import("../components/RoleManager.jsx"));
+const AdminSubscriptionManager = lazy(() => import("../components/AdminSubscriptionManager.jsx"));
+const InventoryManager = lazy(() => import("../components/InventoryManager.jsx"));
+const CustomerManager = lazy(() => import("../components/CustomerManager.jsx"));
+const BillingPage = lazy(() => import("./BillingPage.jsx"));
+const ExecutiveFlowDashboard = lazy(() => import("../components/ExecutiveFlowDashboard.jsx"));
+const RiskRegisterManager = lazy(() => import("../components/RiskRegisterManager.jsx"));
+const SaaSFinancialCenter = lazy(() => import("../components/SaaSFinancialCenter.jsx"));
+const SlaManagementCenter = lazy(() => import("../components/SlaManagementCenter.jsx"));
+const ObservabilityPlatform = lazy(() => import("../components/ObservabilityPlatform.jsx"));
+const DeveloperPortalCenter = lazy(() => import("../components/DeveloperPortalCenter.jsx"));
+const EnterpriseIntegrationCenter = lazy(() => import("../components/EnterpriseIntegrationCenter.jsx"));
+const NoCodeWorkflowCenter = lazy(() => import("../components/NoCodeWorkflowCenter.jsx"));
+const LowCodeStudioCenter = lazy(() => import("../components/LowCodeStudioCenter.jsx"));
+const MissionControlCenter = lazy(() => import("../components/MissionControlCenter.jsx"));
+const VisualFlowBuilder = lazy(() => import("../components/VisualFlowBuilder.jsx"));
 import VoiceCallLogsTab from "../components/VoiceCallLogsTab.jsx";
 import { api } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -93,23 +81,32 @@ function getDefaultReportRange() {
 }
 
 function TrafficChart({ data = [] }) {
+  const hasValues = data.some(d => (Number(d.count) || 0) > 0);
   return (
-    <div className="h-[280px] w-full min-w-0 overflow-hidden relative" style={{ minHeight: '280px' }}>
-      <ResponsiveContainer width="100%" height="100%" minHeight={280} debounce={50}>
+    <div className="h-[190px] w-full min-w-0 overflow-hidden relative" style={{ minHeight: '190px' }}>
+      {!hasValues && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+          <span className="px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 text-[10px] font-semibold text-slate-500">
+            0 visitors recorded in this date window
+          </span>
+        </div>
+      )}
+      <ResponsiveContainer width="100%" height="100%" minHeight={190} debounce={50}>
         <AreaChart data={data}>
           <defs>
             <linearGradient id="colorTraffic" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
-              <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+              <stop offset="5%" stopColor="var(--accent, #6366f1)" stopOpacity={0.18} />
+              <stop offset="95%" stopColor="var(--accent, #6366f1)" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="5 5" vertical={false} stroke="#f1f5f9" />
-          <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: '#94a3b8' }} dy={10} stroke="#94a3b8" />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+          <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} dy={6} stroke="#94a3b8" />
+          <YAxis allowDecimals={false} width={28} axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} />
           <Tooltip
-            contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', fontSize: '10px', fontWeight: '900' }}
-            cursor={{ stroke: '#6366f1', strokeWidth: 2, strokeDasharray: '5 5' }}
+            contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.06)', fontSize: '10px', fontWeight: '700' }}
+            cursor={{ stroke: 'var(--accent, #6366f1)', strokeWidth: 1.5, strokeDasharray: '3 3' }}
           />
-          <Area type="monotone" dataKey="count" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorTraffic)" />
+          <Area type="monotone" dataKey="count" stroke="var(--accent, #6366f1)" strokeWidth={2.5} fillOpacity={1} fill="url(#colorTraffic)" />
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -117,19 +114,28 @@ function TrafficChart({ data = [] }) {
 }
 
 function ActivityChart({ data = [] }) {
+  const hasValues = data.some(d => (Number(d.count) || 0) > 0);
   return (
-    <div className="h-[280px] w-full min-w-0 overflow-hidden relative" style={{ minHeight: '280px' }}>
-      <ResponsiveContainer width="100%" height="100%" minHeight={280} debounce={50}>
+    <div className="h-[190px] w-full min-w-0 overflow-hidden relative" style={{ minHeight: '190px' }}>
+      {!hasValues && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+          <span className="px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 text-[10px] font-semibold text-slate-500">
+            0 chats recorded in this date window
+          </span>
+        </div>
+      )}
+      <ResponsiveContainer width="100%" height="100%" minHeight={190} debounce={50}>
         <BarChart data={data}>
-          <CartesianGrid strokeDasharray="5 5" vertical={false} stroke="#f1f5f9" />
-          <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: '#94a3b8' }} dy={10} stroke="#94a3b8" />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+          <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} dy={6} stroke="#94a3b8" />
+          <YAxis allowDecimals={false} width={28} axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} />
           <Tooltip
-            cursor={{ fill: '#f8fafb' }}
-            contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', fontSize: '10px', fontWeight: '900' }}
+            cursor={{ fill: '#f8fafc' }}
+            contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.06)', fontSize: '10px', fontWeight: '700' }}
           />
-          <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+          <Bar dataKey="count" radius={[4, 4, 0, 0]}>
             {data.map((_, index) => (
-              <Cell key={index} fill={index % 2 === 0 ? "#6366f1" : "#94a3b8"} fillOpacity={index % 2 === 0 ? 1 : 0.4} />
+              <Cell key={index} fill={index % 2 === 0 ? "var(--accent, #6366f1)" : "#94a3b8"} fillOpacity={index % 2 === 0 ? 0.9 : 0.4} />
             ))}
           </Bar>
         </BarChart>
@@ -139,18 +145,27 @@ function ActivityChart({ data = [] }) {
 }
 
 function SnapshotChart({ data = [] }) {
+  const hasValues = data.some(d => (Number(d.visitors) || 0) > 0 || (Number(d.chats) || 0) > 0 || (Number(d.resolutions) || 0) > 0);
   return (
-    <div className="h-[320px] w-full min-w-0 mt-6 overflow-hidden relative" style={{ minHeight: '320px' }}>
-      <ResponsiveContainer width="100%" height="100%" minHeight={320} debounce={50}>
+    <div className="h-[210px] w-full min-w-0 mt-3 overflow-hidden relative" style={{ minHeight: '210px' }}>
+      {data.length > 0 && !hasValues && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+          <span className="px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 text-[10px] font-semibold text-slate-500">
+            No cross-channel activity in selected range
+          </span>
+        </div>
+      )}
+      <ResponsiveContainer width="100%" height="100%" minHeight={210} debounce={50}>
         <LineChart data={data}>
-          <CartesianGrid strokeDasharray="5 5" vertical={false} stroke="#f1f5f9" />
-          <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: '#94a3b8' }} dy={10} stroke="#94a3b8" />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+          <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} dy={6} stroke="#94a3b8" />
+          <YAxis allowDecimals={false} width={28} axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }} />
           <Tooltip
-            contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', fontSize: '11px', fontWeight: '900' }}
+            contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 6px 16px rgba(0,0,0,0.08)', fontSize: '10px', fontWeight: '700' }}
           />
-          <Line type="monotone" dataKey="chats" stroke="#6366f1" strokeWidth={4} dot={{ r: 4, fill: '#6366f1', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7, strokeWidth: 0 }} />
-          <Line type="monotone" dataKey="visitors" stroke="#f59e0b" strokeWidth={4} dot={{ r: 4, fill: '#f59e0b', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7, strokeWidth: 0 }} />
-          <Line type="monotone" dataKey="resolutions" stroke="#10b981" strokeWidth={4} dot={{ r: 4, fill: '#10b981', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7, strokeWidth: 0 }} />
+          <Line type="monotone" dataKey="chats" stroke="var(--accent, #6366f1)" strokeWidth={2.5} dot={{ r: 3, fill: 'var(--accent, #6366f1)', strokeWidth: 1.5, stroke: '#fff' }} activeDot={{ r: 5, strokeWidth: 0 }} />
+          <Line type="monotone" dataKey="visitors" stroke="#f59e0b" strokeWidth={2.5} dot={{ r: 3, fill: '#f59e0b', strokeWidth: 1.5, stroke: '#fff' }} activeDot={{ r: 5, strokeWidth: 0 }} />
+          <Line type="monotone" dataKey="resolutions" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3, fill: '#10b981', strokeWidth: 1.5, stroke: '#fff' }} activeDot={{ r: 5, strokeWidth: 0 }} />
         </LineChart>
       </ResponsiveContainer>
     </div>
@@ -190,12 +205,59 @@ const workflowStages = [
   }
 ];
 
-const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId, procurementStats, websiteId, selectedWebsite }) => {
+const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId, procurementStats, websiteId, selectedWebsite, user }) => {
   const [selectedCategoryModal, setSelectedCategoryModal] = useState(null);
   const [categorySearch, setCategorySearch] = useState("");
+  const [categoryPage, setCategoryPage] = useState(1);
+  const CATEGORIES_PER_PAGE = 6;
   const [categories, setCategories] = useState([]);
   const [inventoryItems, setInventoryItems] = useState([]);
   const [loadingCats, setLoadingCats] = useState(false);
+  const [copiedKey, setCopiedKey] = useState(false);
+  const [graphRange, setGraphRange] = useState("7d");
+  const [crmSummary, setCrmSummary] = useState(null);
+  const [invoicesList, setInvoicesList] = useState([]);
+  const [slaOverview, setSlaOverview] = useState(null);
+  const [rangeAnalytics, setRangeAnalytics] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    const wq = websiteId ? `?websiteId=${websiteId}` : "";
+    const iq = websiteId ? `?websiteId=${websiteId}&limit=100` : "?limit=100";
+    Promise.all([
+      api(`/api/crm/summary${wq}`).catch(() => null),
+      api(`/api/crm/invoices${iq}`).catch(() => []),
+      api(`/api/sla-center/overview${wq}`).catch(() => null),
+    ]).then(([crmRes, invRes, slaRes]) => {
+      if (!active) return;
+      setCrmSummary(crmRes || null);
+      const invArr = Array.isArray(invRes) ? invRes : invRes?.invoices || invRes?.data || [];
+      setInvoicesList(invArr);
+      setSlaOverview(slaRes || null);
+    });
+    return () => { active = false; };
+  }, [websiteId]);
+
+  useEffect(() => {
+    let active = true;
+    if (graphRange === "7d") {
+      setRangeAnalytics(null);
+      return;
+    }
+    const days = graphRange === "today" ? 1 : 30;
+    const qs = `?${websiteId ? `websiteId=${websiteId}&` : ""}days=${days}&range=${graphRange}`;
+    api(`/api/analytics${qs}`)
+      .then((res) => { if (active && res) setRangeAnalytics(res); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [websiteId, graphRange]);
+
+  const handleCopyKey = (text) => {
+    if (!text) return;
+    navigator.clipboard?.writeText(text);
+    setCopiedKey(true);
+    setTimeout(() => setCopiedKey(false), 2000);
+  };
   const isNewAccount = isExpired && !stripeCustomerId;
 
   const { formatCurrency } = useCurrency();
@@ -259,296 +321,1203 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
       (cat.department && cat.department.toLowerCase().includes(q))
     );
   }, [dynamicCategories, categorySearch]);
-  const chartData = analytics.trends?.dailyChats || [];
-  const snapshotData = analytics.trends?.hourly?.map(s => ({
+
+  useEffect(() => {
+    setCategoryPage(1);
+  }, [websiteId, categorySearch]);
+
+  const totalCategoryPages = Math.max(1, Math.ceil(filteredCategories.length / CATEGORIES_PER_PAGE));
+  const safeCategoryPage = Math.min(categoryPage, totalCategoryPages);
+  const paginatedCategories = useMemo(() => {
+    const startIdx = (safeCategoryPage - 1) * CATEGORIES_PER_PAGE;
+    return filteredCategories.slice(startIdx, startIdx + CATEGORIES_PER_PAGE);
+  }, [filteredCategories, safeCategoryPage]);
+  const activeAnalytics = rangeAnalytics || analytics;
+  const rawChartData = activeAnalytics.trends?.dailyChats || [];
+  const rawVisitorData = activeAnalytics.trends?.dailyVisitors || rawChartData;
+  const sliceCount = graphRange === "today" ? 1 : graphRange === "7d" ? 7 : 30;
+  const chartData = rawChartData.slice(-sliceCount);
+  const visitorChartData = rawVisitorData.slice(-sliceCount);
+  const snapshotData = (activeAnalytics.trends?.hourly || []).map(s => ({
     label: s.time,
     visitors: s.visitors,
     chats: s.chats,
     resolutions: s.resolved
-  })) || [];
+  }));
+
+  const unassignedChats = Array.isArray(queuedSessions) ? queuedSessions.length : (analytics.totals?.queuedChats ?? 0);
+  const breachedSlas = slaOverview?.summary?.breachedSla ?? 0;
+
+  const financePulse = useMemo(() => {
+    const now = new Date();
+    let collected = 0;
+    let pendingDue = 0;
+    let pendingCount = 0;
+    let overdueCount = 0;
+    for (const inv of invoicesList) {
+      const status = String(inv.status || "").toLowerCase();
+      if (status === "void" || status === "cancelled") continue;
+      const total = Number(inv.total) || 0;
+      const paid = status === "paid" ? total : (Number(inv.paidAmount) || 0);
+      collected += paid;
+      const due = Math.max(0, total - paid);
+      if (status !== "paid" && due > 0) {
+        pendingDue += due;
+        pendingCount += 1;
+        if (status === "overdue" || (inv.dueDate && new Date(inv.dueDate) < now)) {
+          overdueCount += 1;
+        }
+      } else if (status === "overdue") {
+        overdueCount += 1;
+      }
+    }
+    return {
+      pipelineValue: Number(crmSummary?.pipelineValue ?? 0),
+      collected,
+      pendingDue,
+      pendingCount,
+      overdueCount,
+    };
+  }, [invoicesList, crmSummary]);
+
+  const hasUrgentAlerts = unassignedChats > 0 || breachedSlas > 0 || financePulse.overdueCount > 0;
+
+  const totalTickets = analytics.totals?.totalTickets ?? 0;
+  const resolvedTickets = analytics.totals?.resolvedTickets ?? 0;
+  const ticketResolutionRate = totalTickets > 0 ? Math.round((resolvedTickets / totalTickets) * 100) : 0;
+  const activeSiteWebhooks = Array.isArray(selectedWebsite?.webhooks)
+    ? selectedWebsite.webhooks.filter((w) => w.isActive !== false).length
+    : (analytics.ecosystem?.webhooksCount ?? 0);
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-4">
+      {/* 0. ACCOUNT SETUP / SUSPENSION ALERT (COMPACT) */}
       {isExpired && (
-        <div className={`border p-6 rounded-3xl flex items-center gap-6 animate-in slide-in-from-top-4 ${isNewAccount ? 'bg-indigo-50 border-indigo-100' : 'bg-rose-50 border-rose-100'}`}>
-          <div className={`w-10 h-10 text-white rounded-xl flex items-center justify-center shrink-0 ${isNewAccount ? 'bg-indigo-500' : 'bg-rose-500'}`}>
-            <AlertTriangle size={20} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h4 className={`text-[11px] font-black uppercase tracking-tight ${isNewAccount ? 'text-indigo-900' : 'text-rose-900'}`}>
-              {isNewAccount ? "Complete Platform Setup" : "Ecosystem Suspended"}
-            </h4>
-            <p className={`text-[10px] font-bold truncate ${isNewAccount ? 'text-indigo-600' : 'text-rose-600'}`}>
-              {isNewAccount ? "Welcome! Please buy a plan to activate your master support modules." : "Your subscription has expired. Advanced modules are locked until renewal."}
-            </p>
-          </div>
-          <a href="/client?tab=billing" className={`px-5 py-2 text-white rounded-lg text-[9px] font-black uppercase tracking-widest whitespace-nowrap ${isNewAccount ? 'bg-indigo-600' : 'bg-rose-600'}`}>
-            {isNewAccount ? "Buy a Plan" : "Resolve Access"}
-          </a>
-        </div>
-      )}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard label="Live Visitors" value={analytics.totals?.liveSessions || 0} trend="+12% from last hour" color="indigo" />
-        <StatCard label="Total Today" value={analytics.totals?.dailyChats || 0} trend="Daily volume" color="orange" />
-        <StatCard label="Queued" value={queuedSessions.length} trend="Waiting for agent" color="rose" />
-        <StatCard label="Avg Wait" value={(analytics.sla?.avgWaitTimeSeconds || 0) + "s"} trend="Response SLA" color="emerald" />
-      </div>
-
-      {procurementStats && (
-        <section className="bg-white/50 backdrop-blur-xl border border-white/20 p-8 rounded-[36px] shadow-sm animate-in fade-in duration-1000">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-600 mb-1">Procurement Pulse</h3>
-              <p className="text-xl font-black text-slate-900 tracking-tight">Active spending & inventory health</p>
+        <div className={`p-3.5 rounded-xl border flex items-center justify-between gap-3 animate-in slide-in-from-top-2 ${
+          isNewAccount ? 'bg-indigo-50/70 border-indigo-200' : 'bg-rose-50/70 border-rose-200'
+        }`}>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className={`w-7 h-7 text-white rounded-lg flex items-center justify-center shrink-0 ${
+              isNewAccount ? 'bg-indigo-600' : 'bg-rose-600'
+            }`}>
+              <AlertTriangle size={15} strokeWidth={2.2} />
             </div>
-            <div className="flex gap-4">
-              <div className="text-right">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Procurement Spend</p>
-                <p className="text-lg font-black text-slate-900">{formatCurrency(procurementStats.totalSpend)}</p>
-              </div>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between group hover:border-indigo-200 transition-all">
-              <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Low Stock Alerts</p>
-                <h4 className={`text-2xl font-black ${procurementStats.lowStockCount > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                  {procurementStats.lowStockCount}
-                </h4>
-              </div>
-              <div className={`p-3 rounded-xl ${procurementStats.lowStockCount > 0 ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'} group-hover:scale-110 transition-transform`}>
-                <AlertTriangle size={20} />
-              </div>
-            </div>
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between group hover:border-indigo-200 transition-all">
-              <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Active Suppliers</p>
-                <h4 className="text-2xl font-black text-slate-900">
-                  {procurementStats.topSuppliers?.length || 0}
-                </h4>
-              </div>
-              <div className="p-3 rounded-xl bg-indigo-50 text-indigo-600 group-hover:scale-110 transition-transform">
-                <Users size={20} />
-              </div>
-            </div>
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between group hover:border-indigo-200 transition-all">
-              <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total POs</p>
-                <h4 className="text-2xl font-black text-slate-900">
-                  {procurementStats.statusDistribution?.reduce((acc, s) => acc + s.count, 0) || 0}
-                </h4>
-              </div>
-              <div className="p-3 rounded-xl bg-amber-50 text-amber-600 group-hover:scale-110 transition-transform">
-                <BarChart size={20} />
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* DYNAMIC CATEGORY & SERVICE ANALYTICS HUB (100% DYNAMIC PER WEBSITE) */}
-      <section className="bg-white p-8 rounded-[36px] border border-slate-200/70 shadow-sm space-y-6 animate-in fade-in duration-700">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 text-[9px] font-black uppercase tracking-wider">
-                ⚡ AUTO-GENERATED DASHBOARDS
-              </span>
-              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${
-                dynamicCategories.length > 0
-                  ? "text-emerald-600 bg-emerald-50 border-emerald-100"
-                  : "text-slate-500 bg-slate-50 border-slate-200"
-              }`}>
-                {dynamicCategories.length > 0 ? `🟢 ${dynamicCategories.length} Categories Mapped` : "⚪ 0 Categories"}
-              </span>
-            </div>
-            <h3 className="text-xl font-black text-slate-900 tracking-tight mt-1">Category Analytics & Intelligence Hub</h3>
-            <p className="text-xs text-slate-400 font-bold">
-              Auto-generated category dashboards mapping items, subcategories & live operations for {selectedWebsite?.websiteName || selectedWebsite?.domain || "the active website"}.
-            </p>
-          </div>
-          <a
-            href="/client?tab=categories"
-            className="px-5 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-md shrink-0 flex items-center gap-1.5 self-start sm:self-auto"
-          >
-            Manage Categories
-          </a>
-        </div>
-
-        {loadingCats ? (
-          <div className="py-16 text-center text-slate-400 font-bold text-xs space-y-2">
-            <div className="w-8 h-8 mx-auto border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-            <p>Loading category intelligence...</p>
-          </div>
-        ) : dynamicCategories.length > 0 ? (
-          <>
-            {/* Category Search & Quick Filter Bar */}
-            <div className="flex items-center gap-3 bg-slate-50/80 p-3 rounded-2xl border border-slate-200/80">
-              <Search size={16} className="text-slate-400 ml-2" />
-              <input
-                type="text"
-                value={categorySearch}
-                onChange={(e) => setCategorySearch(e.target.value)}
-                placeholder="Quick search category or subcategory..."
-                className="flex-1 bg-transparent text-xs font-bold text-slate-900 outline-none placeholder:text-slate-400"
-              />
-              {categorySearch && (
-                <button onClick={() => setCategorySearch("")} className="text-[10px] font-black text-slate-400 hover:text-slate-600 px-2">
-                  CLEAR
-                </button>
-              )}
-            </div>
-
-            {/* Category Dashboards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredCategories.length === 0 ? (
-                <div className="col-span-full py-12 text-center text-slate-400 font-bold text-xs bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-                  No categories match "{categorySearch}".
-                </div>
-              ) : (
-                filteredCategories.map((cat, idx) => (
-                  <div
-                    key={cat.id || idx}
-                    onClick={() => setSelectedCategoryModal(cat)}
-                    className="p-6 rounded-3xl bg-slate-50/80 border border-slate-200/80 space-y-4 hover:border-indigo-400 hover:bg-white transition-all group hover:shadow-lg cursor-pointer active:scale-[0.98]"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-indigo-600 font-black shadow-sm group-hover:scale-110 group-hover:bg-indigo-50 transition-all">
-                          📊
-                        </div>
-                        <div>
-                          <h4 className="text-xs font-black text-slate-900 uppercase tracking-tight group-hover:text-indigo-600 transition-colors">
-                            {cat.name}
-                          </h4>
-                          <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-md">
-                            Dashboard Active ↗
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5 pt-2 border-t border-slate-200/50">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">
-                        Mapped Subcategories:
-                      </span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {cat.subs && cat.subs.length > 0 ? (
-                          cat.subs.map((s, i) => (
-                            <span key={i} className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-slate-600 text-[9px] font-bold">
-                              {s}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-[10px] text-slate-400 font-medium italic">No subcategories mapped</span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-2 text-xs font-black text-slate-900 border-t border-slate-200/50">
-                      <span className="text-slate-400 text-[10px] uppercase font-bold">Category Mapped Items:</span>
-                      <span className="text-indigo-600 font-extrabold flex items-center gap-1">
-                        {cat.items} Mapped Item{cat.items === 1 ? "" : "s"} <span className="text-[10px]">➔</span>
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </>
-        ) : (
-          /* Zero-Data Empty State When Website Has No Services/Categories */
-          <div className="py-16 px-6 text-center bg-slate-50/60 rounded-3xl border border-dashed border-slate-200/90 space-y-4">
-            <div className="w-16 h-16 mx-auto rounded-3xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-3xl shadow-sm">
-              🏷️
-            </div>
-            <div className="max-w-md mx-auto space-y-1.5">
-              <h4 className="text-base font-black text-slate-900">
-                No Services or Categories Configured
+            <div className="min-w-0">
+              <h4 className={`text-xs font-bold ${isNewAccount ? 'text-indigo-900' : 'text-rose-900'}`}>
+                {isNewAccount ? "Platform Setup Pending" : "Ecosystem Suspended"}
               </h4>
-              <p className="text-xs font-medium text-slate-500 leading-relaxed">
-                {selectedWebsite?.websiteName || "This website"} does not have any active service categories or item tiers yet. Define your services to unlock automated triaging, ticket routing, and inventory intelligence.
+              <p className={`text-[11px] font-medium truncate ${isNewAccount ? 'text-indigo-600' : 'text-rose-600'}`}>
+                {isNewAccount ? "Please activate your plan to unlock enterprise support channels." : "Subscription expired. Renew access to resume automated routing."}
               </p>
             </div>
-            <div className="pt-2">
+          </div>
+          <a
+            href="/client?tab=billing"
+            className={`px-3 py-1.5 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap shadow-sm inline-flex items-center gap-1.5 ${
+              isNewAccount ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-rose-600 hover:bg-rose-700'
+            }`}
+          >
+            <CreditCard size={12} strokeWidth={2.2} />
+            <span>{isNewAccount ? "Buy Plan" : "Renew Access"}</span>
+          </a>
+        </div>
+      )}
+
+      {/* ACTIONABLE URGENT ALERT STRIP (ONLY SHOWN WHEN URGENT ITEMS EXIST) */}
+      {hasUrgentAlerts && (
+        <div className="px-3.5 py-2.5 rounded-xl bg-amber-50/80 border border-amber-200/80 flex flex-wrap items-center justify-between gap-2 animate-in fade-in">
+          <div className="flex items-center gap-2 text-amber-800">
+            <AlertTriangle size={14} className="text-amber-600 shrink-0" />
+            <span className="text-[10.5px] font-bold uppercase tracking-wider">Attention Required:</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {unassignedChats > 0 && (
+              <a
+                href="/client?tab=chats"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-amber-200 text-amber-800 hover:border-amber-400 text-[10px] font-bold transition-colors shadow-2xs"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                <span>{unassignedChats} Unassigned Chat{unassignedChats === 1 ? "" : "s"}</span>
+                <ArrowRight size={10} />
+              </a>
+            )}
+            {breachedSlas > 0 && (
+              <a
+                href="/client?tab=sla-center"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-rose-200 text-rose-700 hover:border-rose-400 text-[10px] font-bold transition-colors shadow-2xs"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                <span>{breachedSlas} Breached SLA{breachedSlas === 1 ? "" : "s"}</span>
+                <ArrowRight size={10} />
+              </a>
+            )}
+            {financePulse.overdueCount > 0 && (
+              <a
+                href="/client?tab=crm"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-rose-200 text-rose-700 hover:border-rose-400 text-[10px] font-bold transition-colors shadow-2xs"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                <span>{financePulse.overdueCount} Overdue Invoice{financePulse.overdueCount === 1 ? "" : "s"}</span>
+                <ArrowRight size={10} />
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          SECTION 1: EXECUTIVE KPI COMMAND CENTER (6 SLEEK COMPACT WHITE CARDS)
+         ========================================================================= */}
+      <section className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-sm space-y-3">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+              <LayoutDashboard size={13} strokeWidth={2.2} />
+            </div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+              1. Executive KPI Command Center
+            </h3>
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md">
+              <Radio size={10} strokeWidth={2.4} className="text-emerald-600" />
+              <span>Real-time Live Pulse</span>
+            </span>
+          </div>
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-md">
+            <Globe size={11} strokeWidth={2.2} />
+            <span>{selectedWebsite?.websiteName || "All My Websites"}</span>
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
+          {/* Card 1: Live Visitors */}
+          <div className="p-3 rounded-xl bg-white border border-slate-200/80 hover:border-indigo-300 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.03)] space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Live Visitors</span>
+              <div className="w-6 h-6 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <Eye size={13} strokeWidth={2.2} />
+              </div>
+            </div>
+            <div className="text-xl font-bold text-slate-900 tracking-tight">
+              {analytics.totals?.liveVisitors ?? 0}
+            </div>
+            <p className="text-[10px] font-medium text-emerald-600 flex items-center gap-1">
+              <CircleDot size={10} strokeWidth={2.5} />
+              <span>{analytics.totals?.totalVisitors ?? 0} Total Visitors</span>
+            </p>
+          </div>
+
+          {/* Card 2: Today Chats */}
+          <div className="p-3 rounded-xl bg-white border border-slate-200/80 hover:border-indigo-300 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.03)] space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Chats</span>
+              <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <MessageSquare size={13} strokeWidth={2.2} />
+              </div>
+            </div>
+            <div className="text-xl font-bold text-slate-900 tracking-tight">
+              {analytics.totals?.dailyChats ?? 0}
+            </div>
+            <p className="text-[10px] font-medium text-slate-500 flex items-center gap-1">
+              <TrendingUp size={10} strokeWidth={2.2} className="text-indigo-500" />
+              <span>{analytics.totals?.aiHandledChats ?? 0} AI Handled</span>
+            </p>
+          </div>
+
+          {/* Card 3: AI Deflection */}
+          <div className="p-3 rounded-xl bg-white border border-slate-200/80 hover:border-indigo-300 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.03)] space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">AI Deflection</span>
+              <div className="w-6 h-6 rounded-md bg-cyan-50 text-cyan-600 flex items-center justify-center">
+                <Bot size={13} strokeWidth={2.2} />
+              </div>
+            </div>
+            <div className="text-xl font-bold text-cyan-700 tracking-tight">
+              {(analytics.totals?.aiDeflectionRate ?? 0) + "%"}
+            </div>
+            <p className="text-[10px] font-medium text-cyan-600 flex items-center gap-1">
+              <Sparkles size={10} strokeWidth={2.2} />
+              <span>{analytics.totals?.aiHandledChats ?? 0} Auto-Handled</span>
+            </p>
+          </div>
+
+          {/* Card 4: Waiting Queue */}
+          <div className="p-3 rounded-xl bg-white border border-slate-200/80 hover:border-indigo-300 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.03)] space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Queued Chats</span>
+              <div className="w-6 h-6 rounded-md bg-amber-50 text-amber-600 flex items-center justify-center">
+                <Clock size={13} strokeWidth={2.2} />
+              </div>
+            </div>
+            <div className={`text-xl font-bold tracking-tight ${(analytics.totals?.queuedChats ?? queuedSessions.length) > 0 ? 'text-amber-600' : 'text-slate-900'}`}>
+              {analytics.totals?.queuedChats ?? queuedSessions.length}
+            </div>
+            <p className="text-[10px] font-medium text-slate-500 flex items-center gap-1">
+              <Activity size={10} strokeWidth={2.2} className="text-amber-500" />
+              <span>{analytics.totals?.openTickets ?? 0} Open Tickets</span>
+            </p>
+          </div>
+
+          {/* Card 5: First Response SLA */}
+          <div className="p-3 rounded-xl bg-white border border-slate-200/80 hover:border-indigo-300 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.03)] space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Avg Response</span>
+              <div className="w-6 h-6 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <Zap size={13} strokeWidth={2.2} />
+              </div>
+            </div>
+            <div className="text-xl font-bold text-slate-900 tracking-tight">
+              {(analytics.sla?.avgResponseTimeSeconds ?? 0) + "s"}
+            </div>
+            <p className="text-[10px] font-medium text-emerald-600 flex items-center gap-1">
+              <CheckCircle2 size={10} strokeWidth={2.2} />
+              <span>Wait: {(analytics.sla?.avgWaitTimeSeconds ?? 0) + "s"}</span>
+            </p>
+          </div>
+
+          {/* Card 6: Customer CSAT */}
+          <div className="p-3 rounded-xl bg-white border border-slate-200/80 hover:border-indigo-300 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.03)] space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">CSAT Score</span>
+              <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <Award size={13} strokeWidth={2.2} />
+              </div>
+            </div>
+            <div className="text-xl font-bold text-slate-900 tracking-tight">
+              {(analytics.feedback?.satisfactionRate ?? 0) + "%"}
+            </div>
+            <p className="text-[10px] font-medium text-indigo-600 flex items-center gap-1">
+              <CheckCircle2 size={10} strokeWidth={2.2} />
+              <span>{analytics.feedback?.totalFeedback ?? 0} Ratings</span>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* =========================================================================
+          SECTION 2: LIVE TRAFFIC & DEMAND DYNAMICS (2 COMPACT WHITE CHARTS)
+         ========================================================================= */}
+      <div className="flex items-center justify-between gap-2 px-1">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          Traffic & Operations Window
+        </span>
+        <div className="inline-flex items-center bg-white border border-slate-200/90 rounded-lg p-0.5 shadow-2xs">
+          {[
+            { id: "today", label: "Today" },
+            { id: "7d", label: "7D" },
+            { id: "30d", label: "30D" },
+          ].map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setGraphRange(opt.id)}
+              className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                graphRange === opt.id
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-sm space-y-2.5 min-w-0">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                <TrendingUp size={13} strokeWidth={2.2} />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                  2. Realtime Traffic Evolution
+                </h3>
+                <p className="text-[11px] font-medium text-slate-400">Daily conversation & visitor volume</p>
+              </div>
+            </div>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-md text-[9px] font-bold uppercase tracking-wider">
+              <Activity size={10} strokeWidth={2.4} />
+              <span>{analytics.totals?.totalMonthlyVisitors ?? 0} Range / {analytics.totals?.totalVisitors ?? 0} Total</span>
+            </span>
+          </div>
+          <TrafficChart data={visitorChartData} />
+        </div>
+
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-sm space-y-2.5 min-w-0">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700">
+                <BarChart3 size={13} strokeWidth={2.2} />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                  Peak Demand & Chat Volume
+                </h3>
+                <p className="text-[11px] font-medium text-slate-400">Incoming support sessions distribution</p>
+              </div>
+            </div>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-[9px] font-bold uppercase tracking-wider">
+              <Clock size={10} strokeWidth={2.2} />
+              <span>{analytics.totals?.dailyChats ?? 0} Chats</span>
+            </span>
+          </div>
+          <ActivityChart data={chartData} />
+        </div>
+      </section>
+
+      {/* =========================================================================
+          SECTION 3: 24-HOUR CROSS-CHANNEL DYNAMICS & SLA RESOLUTION TIMELINE
+         ========================================================================= */}
+      <section className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-sm space-y-2.5 min-w-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
+              <Activity size={13} strokeWidth={2.2} />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                3. Cross-Channel Operations & Resolution Timeline
+              </h3>
+              <p className="text-[11px] font-medium text-slate-400">
+                Correlating live visitors, active conversations, and resolved customer tickets
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <CircleDot size={11} strokeWidth={2.5} className="text-indigo-500" />
+              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                Chats ({analytics.totals?.dailyChats ?? 0})
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <CircleDot size={11} strokeWidth={2.5} className="text-amber-500" />
+              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                Visitors ({analytics.totals?.totalVisitors ?? 0})
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <CircleDot size={11} strokeWidth={2.5} className="text-emerald-500" />
+              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                Solved ({analytics.totals?.resolvedTickets ?? 0})
+              </span>
+            </div>
+          </div>
+        </div>
+        <SnapshotChart data={snapshotData} />
+      </section>
+
+      {/* =========================================================================
+          SECTION 4: MULTI-BRAND & CONNECTED DOMAIN HUB
+         ========================================================================= */}
+      <section className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-sm space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+              <Globe size={13} strokeWidth={2.2} />
+            </div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+              4. Multi-Brand & Connected Domain Hub
+            </h3>
+          </div>
+          <a
+            href="/client?tab=websites"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
+          >
+            <span>Manage Websites ({analytics.totals?.websites ?? 0})</span>
+            <ArrowRight size={13} strokeWidth={2.2} />
+          </a>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/90 flex items-center justify-center text-indigo-600 shrink-0 shadow-xs">
+              <Building2 size={15} strokeWidth={2.2} />
+            </div>
+            <div className="min-w-0 space-y-0.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Selected Website Brand</p>
+              <p className="text-sm font-bold text-slate-900 truncate">
+                {selectedWebsite?.websiteName || "No Website Selected"}
+              </p>
+              <p className="text-[11px] font-medium text-slate-500 truncate">
+                {selectedWebsite?.domain || "No domain linked"}
+              </p>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/90 flex items-center justify-center text-indigo-600 shrink-0 shadow-xs">
+              <Key size={15} strokeWidth={2.2} />
+            </div>
+            <div className="flex-1 min-w-0 space-y-0.5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">API Tracking Key</p>
+                <button
+                  type="button"
+                  onClick={() => handleCopyKey(selectedWebsite?.apiKey || selectedWebsite?._id || "")}
+                  className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded cursor-pointer"
+                >
+                  {copiedKey ? <Check size={10} strokeWidth={2.5} /> : <Copy size={10} strokeWidth={2.2} />}
+                  <span>{copiedKey ? "Copied" : "Copy Key"}</span>
+                </button>
+              </div>
+              <p className="text-xs font-mono font-semibold text-slate-700 truncate">
+                {selectedWebsite?.apiKey ? `${selectedWebsite.apiKey.slice(0, 16)}...` : "Not Generated"}
+              </p>
+              <p className="text-[10px] font-medium text-slate-400">
+                Widget ID: {selectedWebsite?._id ? String(selectedWebsite._id).slice(-8) : "—"}
+              </p>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/90 flex items-center justify-center text-emerald-600 shrink-0 shadow-xs">
+              <Server size={15} strokeWidth={2.2} />
+            </div>
+            <div className="min-w-0 space-y-0.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Domain Webhooks & Status</p>
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 size={13} strokeWidth={2.3} className="text-emerald-600" />
+                <span className="text-xs font-bold text-emerald-700">
+                  {activeSiteWebhooks} Active Webhook{activeSiteWebhooks === 1 ? "" : "s"}
+                </span>
+              </div>
+              <p className="text-[10px] font-medium text-slate-400">
+                {analytics.totals?.websites ?? 0} Total Owned Website{(analytics.totals?.websites ?? 0) === 1 ? "" : "s"}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* =========================================================================
+          SECTION 5: AI AUTOMATION & VISUAL FLOW DECISION BUILDER
+         ========================================================================= */}
+      <section className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-sm space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-cyan-50 border border-cyan-100 flex items-center justify-center text-cyan-600">
+              <Sparkles size={13} strokeWidth={2.2} />
+            </div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+              5. AI Agent & Visual Decision Automation
+            </h3>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-50 text-cyan-700 border border-cyan-100 text-[10px] font-bold">
+              <Bot size={11} strokeWidth={2.2} />
+              <span>{selectedWebsite?.aiEnabled !== false ? "AI Enabled" : "AI Paused"}</span>
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <a
+              href="/client?tab=flow-builder"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold rounded-lg transition-colors border border-indigo-100"
+            >
+              <GitBranch size={12} strokeWidth={2.2} />
+              <span>Visual Flow Builder</span>
+              <ArrowRight size={11} strokeWidth={2.2} />
+            </a>
+            <a
+              href="/client?tab=help-center"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-[11px] font-bold rounded-lg transition-colors border border-cyan-100"
+            >
+              <BookOpen size={12} strokeWidth={2.2} />
+              <span>Train Knowledge Base</span>
+              <ArrowRight size={11} strokeWidth={2.2} />
+            </a>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/90 flex items-center justify-center text-cyan-600 shrink-0 shadow-xs">
+              <GitBranch size={15} strokeWidth={2.2} />
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Visual Decision Flows</p>
+              <p className="text-sm font-bold text-slate-900">
+                {analytics.ecosystem?.activeFlows ?? 0} Active Flow{(analytics.ecosystem?.activeFlows ?? 0) === 1 ? "" : "s"}
+              </p>
+              <p className="text-[11px] font-medium text-slate-500">
+                {analytics.ecosystem?.totalFlows ?? 0} total flows configured for this website
+              </p>
+            </div>
+          </div>
+          <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/90 flex items-center justify-center text-indigo-600 shrink-0 shadow-xs">
+              <Database size={15} strokeWidth={2.2} />
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Knowledge Base Articles</p>
+              <p className="text-sm font-bold text-slate-900">
+                {analytics.ecosystem?.kbArticles ?? 0} Indexed Article{(analytics.ecosystem?.kbArticles ?? 0) === 1 ? "" : "s"}
+              </p>
+              <p className="text-[11px] font-medium text-slate-500">
+                {dynamicCategories.length} categories & {inventoryItems.length} catalog items synced
+              </p>
+            </div>
+          </div>
+          <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/90 flex items-center justify-center text-emerald-600 shrink-0 shadow-xs">
+              <Bot size={15} strokeWidth={2.2} />
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">AI Bot Resolution</p>
+              <p className="text-sm font-bold text-slate-900">
+                {analytics.totals?.aiHandledChats ?? 0} AI-Handled Chats
+              </p>
+              <p className="text-[11px] font-medium text-slate-500">
+                {(analytics.totals?.aiDeflectionRate ?? 0)}% automated deflection rate
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* =========================================================================
+          SECTION 6: DYNAMIC CATEGORY & SERVICES INTELLIGENCE HUB (100% DYNAMIC PER WEBSITE)
+         ========================================================================= */}
+      <section className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-sm space-y-3 animate-in fade-in duration-500">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-2.5">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                <FolderTree size={13} strokeWidth={2.2} />
+              </div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                6. Category Analytics & Services Intelligence Hub
+              </h3>
+              <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                dynamicCategories.length > 0
+                  ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+                  : "text-slate-500 bg-slate-50 border-slate-200"
+              }`}>
+                <CheckCircle2 size={10} strokeWidth={2.4} className={dynamicCategories.length > 0 ? "text-emerald-600" : "text-slate-400"} />
+                <span>{dynamicCategories.length > 0 ? `${dynamicCategories.length} Categories Mapped` : "0 Categories"}</span>
+              </span>
+            </div>
+            <p className="text-[11px] font-medium text-slate-400 pl-8">
+              Live service categories and inventory intelligence strictly for <strong className="text-slate-700 font-semibold">{selectedWebsite?.websiteName || "selected website"}</strong>
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <a
+              href="/client?tab=categories"
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold uppercase tracking-wider rounded-lg shadow-sm transition-all inline-flex items-center gap-1.5"
+            >
+              <Layers size={12} strokeWidth={2.2} />
+              <span>Manage Categories</span>
+              <ArrowRight size={12} strokeWidth={2.2} />
+            </a>
+          </div>
+        </div>
+
+        {/* Dynamic Category Quick Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} strokeWidth={2.2} />
+          <input
+            type="text"
+            value={categorySearch}
+            onChange={(e) => setCategorySearch(e.target.value)}
+            placeholder="Quick search category, service tier, or subcategory..."
+            className="w-full pl-9 pr-4 py-2 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+          />
+        </div>
+
+        {/* Categories Grid or Clean Zero-Data Empty State */}
+        {loadingCats ? (
+          <div className="py-8 text-center text-xs font-semibold text-slate-400 flex items-center justify-center gap-2">
+            <RefreshCw size={14} className="animate-spin text-indigo-500" />
+            <span>Loading categories for {selectedWebsite?.websiteName || "website"}...</span>
+          </div>
+        ) : filteredCategories.length > 0 ? (
+          <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {paginatedCategories.map((cat) => (
+              <div
+                key={cat.id}
+                onClick={() => setSelectedCategoryModal(cat)}
+                className="group relative p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-white hover:border-indigo-300 hover:shadow-sm transition-all cursor-pointer flex flex-col justify-between space-y-2.5"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-indigo-600 shadow-2xs group-hover:border-indigo-200 group-hover:bg-indigo-50 transition-colors">
+                        <BarChart3 size={14} strokeWidth={2.2} />
+                      </div>
+                      <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100">
+                        {cat.department || "General"}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold text-emerald-600 inline-flex items-center gap-1 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-md">
+                      <CheckCircle2 size={10} strokeWidth={2.4} />
+                      <span>Active</span>
+                    </span>
+                  </div>
+
+                  <h4 className="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors uppercase tracking-tight">
+                    {cat.name}
+                  </h4>
+
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {cat.subs.slice(0, 3).map((sub, sIdx) => (
+                      <span
+                        key={sIdx}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-600 text-[10px] font-medium"
+                      >
+                        <Folder size={10} strokeWidth={2} className="text-slate-400" />
+                        <span>{sub}</span>
+                      </span>
+                    ))}
+                    {cat.subs.length > 3 && (
+                      <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 text-[9px] font-bold">
+                        +{cat.subs.length - 3} more
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                  <span className="font-semibold text-slate-600 inline-flex items-center gap-1.5">
+                    <Package size={12} strokeWidth={2.2} className="text-indigo-500" />
+                    <span>{cat.items} Mapped Items</span>
+                  </span>
+                  <span className="font-bold text-indigo-600 group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-1">
+                    <span>Inspect</span>
+                    <ArrowRight size={12} strokeWidth={2.3} />
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {filteredCategories.length > CATEGORIES_PER_PAGE && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2.5 border-t border-slate-100">
+              <p className="text-[11px] font-medium text-slate-500">
+                Showing <span className="font-bold text-slate-800">{(safeCategoryPage - 1) * CATEGORIES_PER_PAGE + 1}</span>–<span className="font-bold text-slate-800">{Math.min(safeCategoryPage * CATEGORIES_PER_PAGE, filteredCategories.length)}</span> of <span className="font-bold text-slate-800">{filteredCategories.length}</span> categories
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setCategoryPage((p) => Math.max(1, p - 1))}
+                  disabled={safeCategoryPage <= 1}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+                >
+                  <ChevronLeft size={12} strokeWidth={2.3} />
+                  <span>Prev</span>
+                </button>
+                {Array.from({ length: totalCategoryPages }, (_, i) => i + 1).map((pageNum) => (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    onClick={() => setCategoryPage(pageNum)}
+                    className={`w-7 h-7 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                      pageNum === safeCategoryPage
+                        ? "bg-indigo-600 text-white shadow-xs"
+                        : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setCategoryPage((p) => Math.min(totalCategoryPages, p + 1))}
+                  disabled={safeCategoryPage >= totalCategoryPages}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+                >
+                  <span>Next</span>
+                  <ChevronRight size={12} strokeWidth={2.3} />
+                </button>
+              </div>
+            </div>
+          )}
+          </div>
+        ) : (
+          <div className="p-6 text-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 space-y-2.5">
+            <div className="w-10 h-10 mx-auto rounded-xl bg-white border border-slate-200 flex items-center justify-center text-indigo-600 shadow-xs">
+              <Tag size={18} strokeWidth={2.2} />
+            </div>
+            <div className="max-w-md mx-auto space-y-1">
+              <h4 className="text-xs font-bold text-slate-900">
+                No Services or Categories Configured
+              </h4>
+              <p className="text-[11px] font-medium text-slate-500 leading-relaxed">
+                {selectedWebsite?.websiteName || "This website"} does not have any active service categories configured yet.
+              </p>
+            </div>
+            <div className="pt-1">
               <a
                 href="/client?tab=categories"
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-md transition-all"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg shadow-sm transition-all"
               >
-                <Plus size={14} /> Add First Category / Service
+                <Plus size={12} strokeWidth={2.4} />
+                <span>Add First Category / Service</span>
               </a>
             </div>
           </div>
         )}
       </section>
 
-      {/* CATEGORY DASHBOARD ANALYTICS MODAL */}
+      {/* =========================================================================
+          SECTION 7: CRM & CUSTOMER CONVERSION PIPELINE TRACKER
+         ========================================================================= */}
+      <section className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-sm space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+              <Target size={13} strokeWidth={2.2} />
+            </div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+              7. CRM & Customer Conversion Pipeline Tracker
+            </h3>
+          </div>
+          <a
+            href="/client?tab=crm"
+            className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
+          >
+            <span>Open Full CRM Pipeline</span>
+            <ArrowRight size={13} strokeWidth={2.2} />
+          </a>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+          <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-indigo-600 shrink-0">
+              <MessageSquare size={13} strokeWidth={2.2} />
+            </div>
+            <div className="space-y-0.5 min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">1. New Inquiries</p>
+              <p className="text-sm font-bold text-slate-900 truncate">
+                {analytics.crm?.newInquiries ?? 0} Lead{(analytics.crm?.newInquiries ?? 0) === 1 ? "" : "s"}
+              </p>
+              <p className="text-[10px] font-medium text-indigo-600">Captured for this website</p>
+            </div>
+          </div>
+          <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-amber-600 shrink-0">
+              <Contact size={13} strokeWidth={2.2} />
+            </div>
+            <div className="space-y-0.5 min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">2. In Qualification</p>
+              <p className="text-sm font-bold text-slate-900 truncate">
+                {analytics.crm?.inQualification ?? 0} In Follow-up
+              </p>
+              <p className="text-[10px] font-medium text-amber-600">Active qualification stage</p>
+            </div>
+          </div>
+          <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-cyan-600 shrink-0">
+              <FileText size={13} strokeWidth={2.2} />
+            </div>
+            <div className="space-y-0.5 min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">3. Proposals Sent</p>
+              <p className="text-sm font-bold text-slate-900 truncate">
+                {analytics.crm?.proposalsSent ?? 0} Quotation{(analytics.crm?.proposalsSent ?? 0) === 1 ? "" : "s"}
+              </p>
+              <p className="text-[10px] font-medium text-cyan-600">Active commercial proposals</p>
+            </div>
+          </div>
+          <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-emerald-600 shrink-0">
+              <UserCheck size={13} strokeWidth={2.2} />
+            </div>
+            <div className="space-y-0.5 min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">4. Deals Won</p>
+              <p className="text-sm font-bold text-emerald-700 truncate">
+                {analytics.crm?.dealsWon ?? 0} Customer{(analytics.crm?.dealsWon ?? 0) === 1 ? "" : "s"}
+              </p>
+              <p className="text-[10px] font-medium text-emerald-600">Converted in Customer Master</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Revenue & Finance Pulse */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 border-t border-slate-100">
+          <div className="p-2.5 rounded-xl bg-indigo-50/50 border border-indigo-100/80 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-[9.5px] font-bold uppercase tracking-wider text-indigo-500">Pipeline Value</p>
+              <p className="text-sm font-bold text-slate-900 truncate">{formatCurrency(financePulse.pipelineValue)}</p>
+            </div>
+            <span className="text-[9.5px] font-bold text-indigo-600 bg-white px-2 py-0.5 rounded-md border border-indigo-100 shrink-0">
+              Open CRM
+            </span>
+          </div>
+
+          <div className="p-2.5 rounded-xl bg-emerald-50/50 border border-emerald-100/80 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-[9.5px] font-bold uppercase tracking-wider text-emerald-600">Collected Revenue</p>
+              <p className="text-sm font-bold text-emerald-700 truncate">{formatCurrency(financePulse.collected)}</p>
+            </div>
+            <span className="text-[9.5px] font-bold text-emerald-700 bg-white px-2 py-0.5 rounded-md border border-emerald-100 shrink-0">
+              Paid
+            </span>
+          </div>
+
+          <div className="p-2.5 rounded-xl bg-amber-50/50 border border-amber-100/80 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-[9.5px] font-bold uppercase tracking-wider text-amber-600">Pending / Overdue</p>
+              <p className="text-sm font-bold text-slate-900 truncate">{formatCurrency(financePulse.pendingDue)}</p>
+            </div>
+            <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded-md border shrink-0 ${
+              financePulse.overdueCount > 0
+                ? "bg-rose-50 text-rose-700 border-rose-200"
+                : "bg-white text-amber-700 border-amber-100"
+            }`}>
+              {financePulse.pendingCount} inv{financePulse.overdueCount > 0 ? ` · ${financePulse.overdueCount} overdue` : ""}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* =========================================================================
+          SECTION 8: TEAM & PERSONNEL LIVE WORKLOAD MONITOR
+         ========================================================================= */}
+      <section className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-sm space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+              <Headphones size={13} strokeWidth={2.2} />
+            </div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+              8. Team & Agent Live Workload Monitor
+            </h3>
+          </div>
+          <a
+            href="/client?tab=agents"
+            className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
+          >
+            <span>Manage Agents & Shifts ({analytics.totals?.agents ?? 0})</span>
+            <ArrowRight size={13} strokeWidth={2.2} />
+          </a>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/90 flex items-center justify-center text-emerald-600 shrink-0 shadow-xs">
+              <Users size={15} strokeWidth={2.2} />
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Human Personnel Active</p>
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 size={13} strokeWidth={2.3} className="text-emerald-600" />
+                <span className="text-sm font-bold text-slate-900">
+                  {analytics.totals?.onlineAgents ?? 0} Online / {analytics.totals?.agents ?? 0} Total
+                </span>
+              </div>
+              <p className="text-[11px] font-medium text-slate-500">Assigned strictly to your organization</p>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/90 flex items-center justify-center text-indigo-600 shrink-0 shadow-xs">
+              <Building2 size={15} strokeWidth={2.2} />
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Service Departments</p>
+              <p className="text-sm font-bold text-slate-900">
+                {analytics.ecosystem?.departmentsCount ?? 0} Department{(analytics.ecosystem?.departmentsCount ?? 0) === 1 ? "" : "s"} Active
+              </p>
+              <p className="text-[11px] font-medium text-slate-500">Configured for ticket & chat routing</p>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/90 flex items-center justify-center text-indigo-600 shrink-0 shadow-xs">
+              <Clock size={15} strokeWidth={2.2} />
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Average Handle Time</p>
+              <p className="text-sm font-bold text-indigo-700">
+                {(analytics.sla?.avgHandleTimeMinutes ?? 0) + " min"} Avg Duration
+              </p>
+              <p className="text-[11px] font-medium text-slate-500">
+                {analytics.leaderboard?.length ?? 0} active agent{(analytics.leaderboard?.length ?? 0) === 1 ? "" : "s"} in period leaderboard
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Live Agent Leaderboard & Visitor Geo Distribution Sub-Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 pt-1">
+          <div className="p-3 rounded-xl bg-slate-50/50 border border-slate-200/70 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <Award size={12} strokeWidth={2.2} className="text-indigo-600" />
+                <span>Live Agent Chat Leaderboard</span>
+              </span>
+              <span className="text-[10px] font-semibold text-slate-400">Top 3 Performers</span>
+            </div>
+            {Array.isArray(analytics.leaderboard) && analytics.leaderboard.length > 0 ? (
+              <div className="space-y-1.5">
+                {analytics.leaderboard.slice(0, 3).map((ag, idx) => (
+                  <div key={ag._id || idx} className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-white border border-slate-200/70 text-xs">
+                    <span className="font-bold text-slate-800 truncate">{idx + 1}. {ag.name || ag.email || "Agent"}</span>
+                    <span className="text-[11px] font-bold text-indigo-600 shrink-0">
+                      {ag.chatsHandled || 0} chats • {ag.avgHandleSeconds ? `${Math.round(ag.avgHandleSeconds)}s avg` : "—"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] font-medium text-slate-400 py-1">No agent-handled chat sessions recorded in this period yet.</p>
+            )}
+          </div>
+
+          <div className="p-3 rounded-xl bg-slate-50/50 border border-slate-200/70 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <MapPin size={12} strokeWidth={2.2} className="text-emerald-600" />
+                <span>Live Visitor Geo-Distribution</span>
+              </span>
+              <span className="text-[10px] font-semibold text-slate-400">Top Regions</span>
+            </div>
+            {Array.isArray(analytics.topCountries) && analytics.topCountries.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                {analytics.topCountries.map((c, idx) => (
+                  <span key={idx} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 text-[11px] font-semibold text-slate-700">
+                    <Globe size={11} strokeWidth={2.2} className="text-indigo-500" />
+                    <span>{c.country || "Unknown"}</span>
+                    <span className="px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 font-bold text-[10px]">{c.count}</span>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] font-medium text-slate-400 py-1">Visitor country telemetry will appear as live traffic arrives.</p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* =========================================================================
+          SECTION 9: ENTERPRISE INTEGRATIONS, SECURITY & SLA COMPLIANCE
+         ========================================================================= */}
+      <section className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-sm space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
+              <ShieldCheck size={13} strokeWidth={2.2} />
+            </div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+              9. Enterprise Integrations, Security & SLA Compliance
+            </h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <a
+              href="/client?tab=enterprise-integrations"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold rounded-lg transition-colors border border-indigo-100"
+            >
+              <Network size={12} strokeWidth={2.2} />
+              <span>JTS Meet & Webhooks</span>
+              <ArrowRight size={11} strokeWidth={2.2} />
+            </a>
+            <a
+              href="/client?tab=security"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold rounded-lg transition-colors"
+            >
+              <Lock size={12} strokeWidth={2.2} />
+              <span>Security & 2FA Center</span>
+              <ArrowRight size={11} strokeWidth={2.2} />
+            </a>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-2.5">
+          <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-indigo-600 shrink-0">
+              <Video size={13} strokeWidth={2.2} />
+            </div>
+            <div className="space-y-0.5 min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Connectors</p>
+              <div className="flex items-center gap-1">
+                <CheckCircle2 size={11} strokeWidth={2.4} className={analytics.ecosystem?.connectedIntegrations > 0 ? "text-emerald-600 shrink-0" : "text-slate-400 shrink-0"} />
+                <span className="text-xs font-bold text-slate-900 truncate">
+                  {analytics.ecosystem?.connectedIntegrations ?? 0} Connected
+                </span>
+              </div>
+              <p className="text-[10px] font-medium text-slate-500">
+                {activeSiteWebhooks} webhook endpoint{activeSiteWebhooks === 1 ? "" : "s"} active
+              </p>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-emerald-600 shrink-0">
+              <Lock size={13} strokeWidth={2.2} />
+            </div>
+            <div className="space-y-0.5 min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">2FA & Access Control</p>
+              <div className="flex items-center gap-1">
+                <CheckCircle2 size={11} strokeWidth={2.4} className={user?.twoFactorEnabled ? "text-emerald-600 shrink-0" : "text-amber-500 shrink-0"} />
+                <span className={`text-xs font-bold truncate ${user?.twoFactorEnabled ? "text-emerald-700" : "text-slate-800"}`}>
+                  {user?.twoFactorEnabled ? "2FA Enabled" : "2FA Not Enabled"}
+                </span>
+              </div>
+              <p className="text-[10px] font-medium text-slate-500">
+                {analytics.ecosystem?.customRolesCount ?? 0} custom RBAC role{(analytics.ecosystem?.customRolesCount ?? 0) === 1 ? "" : "s"}
+              </p>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-indigo-600 shrink-0">
+              <FileText size={13} strokeWidth={2.2} />
+            </div>
+            <div className="space-y-0.5 min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tenant Audit Trail</p>
+              <div className="flex items-center gap-1">
+                <CheckCircle2 size={11} strokeWidth={2.4} className="text-emerald-600 shrink-0" />
+                <span className="text-xs font-bold text-slate-900 truncate">
+                  {analytics.ecosystem?.auditLogsCount ?? 0} Audit Events
+                </span>
+              </div>
+              <p className="text-[10px] font-medium text-slate-500">100% isolated tenant logs</p>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-emerald-600 shrink-0">
+              <Activity size={13} strokeWidth={2.2} />
+            </div>
+            <div className="space-y-0.5 min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Ticket Resolution Rate</p>
+              <div className="flex items-center gap-1">
+                <CheckCircle2 size={11} strokeWidth={2.4} className="text-emerald-600 shrink-0" />
+                <span className="text-xs font-bold text-slate-900 truncate">
+                  {ticketResolutionRate}% Resolved
+                </span>
+              </div>
+              <p className="text-[10px] font-medium text-slate-500">
+                {resolvedTickets} of {totalTickets} tickets closed
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* OPTIONAL PROCUREMENT PULSE (COMPACT WHITE CARD) */}
+      {procurementStats && (
+        <section className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-sm space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                <Package size={13} strokeWidth={2.2} />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                  Procurement & Spending Pulse
+                </h3>
+                <p className="text-[11px] font-medium text-slate-400">Inventory spending & stock levels</p>
+              </div>
+            </div>
+            <span className="text-xs font-bold text-slate-900">
+              Total Spend: {formatCurrency(procurementStats.totalSpend)}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+            <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Low Stock Alerts</p>
+                <h4 className={`text-lg font-bold ${procurementStats.lowStockCount > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                  {procurementStats.lowStockCount}
+                </h4>
+              </div>
+              <AlertTriangle size={16} strokeWidth={2.2} className={procurementStats.lowStockCount > 0 ? 'text-rose-500' : 'text-emerald-500'} />
+            </div>
+            <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Suppliers</p>
+                <h4 className="text-lg font-bold text-slate-900">
+                  {procurementStats.topSuppliers?.length || 0}
+                </h4>
+              </div>
+              <Users size={16} strokeWidth={2.2} className="text-indigo-500" />
+            </div>
+            <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Purchase Orders</p>
+                <h4 className="text-lg font-bold text-slate-900">
+                  {procurementStats.statusDistribution?.reduce((acc, s) => acc + s.count, 0) || 0}
+                </h4>
+              </div>
+              <BarChart3 size={16} strokeWidth={2.2} className="text-amber-500" />
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* CATEGORY DASHBOARD ANALYTICS MODAL (COMPACT WHITE THEME WITH SHARP REACT ICONS) */}
       {selectedCategoryModal && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="relative w-full max-w-xl bg-white rounded-[32px] p-8 border border-slate-200 shadow-2xl space-y-6 animate-in zoom-in-95 duration-300">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-xl font-black">
-                  📊
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg bg-white rounded-2xl p-5 border border-slate-200 shadow-xl space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                  <BarChart3 size={18} strokeWidth={2.2} />
                 </div>
                 <div>
-                  <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-md uppercase tracking-wider">
-                    🟢 Auto-Generated Dashboard Active
+                  <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded uppercase tracking-wider">
+                    <CheckCircle2 size={10} strokeWidth={2.4} />
+                    <span>Live Category</span>
                   </span>
-                  <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight mt-0.5">
-                    {selectedCategoryModal.name} Analytics
+                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-tight mt-0.5">
+                    {selectedCategoryModal.name}
                   </h3>
                 </div>
               </div>
               <button
                 onClick={() => setSelectedCategoryModal(null)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all"
               >
-                <X size={18} />
+                <X size={16} strokeWidth={2.2} />
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Mapped Items</p>
-                <p className="text-2xl font-black text-slate-900 mt-1">{selectedCategoryModal.items} Mapped Items</p>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Total Mapped Items</p>
+                <p className="text-lg font-bold text-slate-900 mt-0.5">{selectedCategoryModal.items} Items</p>
               </div>
-              <div className="p-5 rounded-2xl bg-indigo-50/50 border border-indigo-100">
-                <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">Category Valuation</p>
-                <p className="text-2xl font-black text-indigo-900 mt-1">{selectedCategoryModal.val}</p>
+              <div className="p-3 rounded-xl bg-indigo-50/50 border border-indigo-100">
+                <p className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider">Category Valuation</p>
+                <p className="text-lg font-bold text-indigo-900 mt-0.5">{selectedCategoryModal.val}</p>
               </div>
             </div>
 
             {/* Mapped Item Names List */}
-            <div className="space-y-2">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mapped Items List:</p>
-              <div className="space-y-2 max-h-40 overflow-y-auto">
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mapped Items List:</p>
+              <div className="space-y-1.5 max-h-36 overflow-y-auto">
                 {selectedCategoryModal.itemNames && selectedCategoryModal.itemNames.length > 0 ? (
                   selectedCategoryModal.itemNames.map((item, idx) => (
-                    <div key={idx} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
-                      <span className="text-xs font-black text-slate-900 flex items-center gap-2">
-                        📦 {item}
+                    <div key={idx} className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs">
+                      <span className="font-semibold text-slate-800 flex items-center gap-1.5">
+                        <Package size={13} strokeWidth={2.2} className="text-indigo-600 shrink-0" />
+                        <span>{item}</span>
                       </span>
-                      <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-lg">
-                        LIVE
+                      <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded">
+                        <CheckCircle2 size={9} strokeWidth={2.4} />
+                        <span>LIVE</span>
                       </span>
                     </div>
                   ))
                 ) : (
-                  <div className="p-4 rounded-2xl bg-slate-50 text-center text-xs font-semibold text-slate-400">
-                    No individual inventory items linked to this category yet.
+                  <div className="p-3 rounded-lg bg-slate-50 text-center text-xs font-medium text-slate-400">
+                    No individual inventory items linked yet.
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="space-y-2">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mapped Subcategories & Tiers:</p>
-              <div className="flex flex-wrap gap-2">
+            {/* Subcategories */}
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Subcategories & Tiers:</p>
+              <div className="flex flex-wrap gap-1.5">
                 {selectedCategoryModal.subs && selectedCategoryModal.subs.length > 0 ? (
                   selectedCategoryModal.subs.map((s, i) => (
-                    <span key={i} className="px-3.5 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 text-xs font-black flex items-center gap-1.5">
-                      📁 {s}
+                    <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-semibold">
+                      <Folder size={11} strokeWidth={2.2} className="text-indigo-500" />
+                      <span>{s}</span>
                     </span>
                   ))
                 ) : (
@@ -557,124 +1526,19 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-100 flex items-center justify-between text-xs font-black text-emerald-900">
-              <span>Operational Status:</span>
-              <span className="bg-emerald-600 text-white px-3 py-1 rounded-xl text-[10px] uppercase tracking-wider">
-                Realtime Auto-Sync Enabled
-              </span>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
               <a
                 href="/client?tab=categories"
-                className="px-6 py-3.5 rounded-2xl bg-indigo-600 text-white text-xs font-black uppercase tracking-wider hover:bg-indigo-700 transition-all shadow-lg flex items-center gap-2"
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold uppercase tracking-wider transition-all shadow-sm inline-flex items-center gap-1.5"
               >
-                <span>Manage in Categories Hub</span>
-                <ArrowRight size={14} />
+                <Layers size={13} strokeWidth={2.2} />
+                <span>Open Categories Hub</span>
+                <ArrowRight size={13} strokeWidth={2.2} />
               </a>
             </div>
           </div>
         </div>
       )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-        <div className="bg-white p-10 rounded-3xl border border-slate-200/60 shadow-sm space-y-8 min-w-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-1">Traffic Evolution</h3>
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-tighter">Real-time visitor counts</p>
-            </div>
-            <div className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[10px] font-black uppercase tracking-widest">Live Updates</div>
-          </div>
-          <TrafficChart data={chartData} />
-        </div>
-        <div className="bg-white p-10 rounded-3xl border border-slate-200/60 shadow-sm space-y-8 min-w-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-1">Peak Volume Distribution</h3>
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-tighter">Chat requests by hour</p>
-            </div>
-            <div className="px-3 py-1 bg-slate-50 text-slate-400 rounded-lg text-[10px] font-black uppercase tracking-widest">Static Mode</div>
-          </div>
-          <ActivityChart data={chartData} />
-        </div>
-      </div>
-
-      <div className="bg-white p-12 rounded-[40px] border border-slate-200/60 shadow-sm overflow-hidden relative group min-w-0">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8 mb-12">
-          <div className="space-y-2">
-            <h3 className="text-2xl font-black text-slate-900 tracking-tight">Command Center <span className="text-indigo-600 italic">Core Dynamics</span></h3>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest max-w-md leading-relaxed">Cross-referencing visitors, active conversations, and resolution rates in 24-hour window.</p>
-          </div>
-          <div className="flex gap-4">
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.4)]"></div><span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Chats</span></div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]"></div><span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Visitors</span></div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]"></div><span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Solved</span></div>
-          </div>
-        </div>
-        <SnapshotChart data={snapshotData} />
-      </div>
-
-      <section className="bg-[linear-gradient(135deg,#0f172a_0%,#1e1b4b_45%,#0f766e_100%)] rounded-[40px] border border-slate-900/20 shadow-[0_25px_80px_-30px_rgba(15,23,42,0.8)] overflow-hidden text-white relative">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.12),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.22),transparent_28%)]" />
-        <div className="relative z-10 p-10 md:p-12 space-y-10">
-          <div className="max-w-3xl space-y-3">
-            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-cyan-200">System Workflow</p>
-            <h3 className="text-3xl font-black tracking-tight">Visitor to Ticket to CRM</h3>
-            <p className="text-sm font-bold text-slate-200 leading-relaxed">
-              This is the operating map for your team. Support issues become tickets, lead conversations move through CRM, and managers oversee the whole lifecycle.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 xl:grid-cols-5 gap-5">
-            {workflowStages.map((stage, index) => (
-              <article
-                key={stage.title}
-                className="relative rounded-[28px] border border-white/10 bg-white/5 backdrop-blur-xl p-6 min-h-[260px] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-              >
-                <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${stage.accent} flex items-center justify-center text-sm font-black shadow-2xl mb-5`}>
-                  0{index + 1}
-                </div>
-                <div className="space-y-2 mb-5">
-                  <h4 className="text-sm font-black uppercase tracking-tight">{stage.title}</h4>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-300 leading-relaxed">{stage.subtitle}</p>
-                </div>
-                <div className="space-y-3">
-                  {stage.points.map((point) => (
-                    <div key={point} className="flex items-start gap-3">
-                      <span className="w-2 h-2 rounded-full bg-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.7)] mt-1.5 shrink-0" />
-                      <p className="text-[11px] font-bold text-slate-100 leading-relaxed">{point}</p>
-                    </div>
-                  ))}
-                </div>
-                {index < workflowStages.length - 1 ? (
-                  <div className="hidden xl:flex absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white/10 border border-white/10 items-center justify-center text-cyan-200 font-black">
-                    ›
-                  </div>
-                ) : null}
-              </article>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            <div className="rounded-[28px] bg-white/6 border border-white/10 p-6 space-y-3">
-              <p className="text-[9px] font-black uppercase tracking-[0.25em] text-cyan-200">Support Route</p>
-              <p className="text-sm font-black">Visitor chat {"->"} Agent {"->"} Ticket {"->"} Resolution</p>
-              <p className="text-[11px] font-bold text-slate-300 leading-relaxed">Use this path for technical problems, complaints, follow-up issues, and anything that needs SLA tracking.</p>
-            </div>
-            <div className="rounded-[28px] bg-white/6 border border-white/10 p-6 space-y-3">
-              <p className="text-[9px] font-black uppercase tracking-[0.25em] text-emerald-200">Sales Route</p>
-              <p className="text-sm font-black">Visitor chat {"->"} Sales {"->"} CRM stage {"->"} Customer</p>
-              <p className="text-[11px] font-bold text-slate-300 leading-relaxed">Use this path for pricing, demos, qualification, opportunity tracking, and business follow-up.</p>
-            </div>
-            <div className="rounded-[28px] bg-white/6 border border-white/10 p-6 space-y-3">
-              <p className="text-[9px] font-black uppercase tracking-[0.25em] text-rose-200">Role Rule</p>
-              <p className="text-sm font-black">Sales edits CRM. Agent works tickets. Manager supervises. Client oversees.</p>
-              <p className="text-[11px] font-bold text-slate-300 leading-relaxed">This keeps support work and customer relationship work separate, which makes the whole system much easier to manage.</p>
-            </div>
-          </div>
-        </div>
-      </section>
     </div>
   );
 };
@@ -693,7 +1557,7 @@ export default function ClientPage() {
   const isExpired = user?.subscription?.status === "expired" || user?.subscription?.status === "suspended";
   const [searchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
-  const defaultTab = user?.role === "tax_consultant" ? "tax-consultant-dashboard" : "overview";
+  const defaultTab = user?.role === "tax_consultant" ? "crm" : "overview";
   const tab = tabParam || defaultTab;
 
   const [analytics, setAnalytics] = useState({ activeVisitors: 0, activeChats: 0, trend: [], snapshots: [] });
@@ -790,27 +1654,12 @@ export default function ClientPage() {
       { label: "Tickets", href: "/admin?tab=tickets" },
       { label: "CRM", href: "/admin?tab=crm" },
       { label: "Customer Master", href: "/admin?tab=inventory-customer" },
-      { label: "VAT Compliance", href: "/admin?tab=vat-compliance" },
-      { label: "Corporate Tax", href: "/admin?tab=corporate-tax" },
-      { label: "Trade License", href: "/admin?tab=trade-license" },
-      { label: "Compliance Reports", href: "/admin?tab=compliance-reports" },
       { label: "Risk Register", href: "/admin?tab=risk-register" },
       { label: "SLA & SLO Center", href: "/admin?tab=sla-center" },
       { label: "Observability Center", href: "/admin?tab=observability" },
-      { label: "Load & Capacity Center", href: "/admin?tab=load-testing" },
-      { label: "Release Center", href: "/admin?tab=release-management" },
       { label: "Developer Portal", href: "/admin?tab=developer-portal" },
-      { label: "Product & Roadmap", href: "/admin?tab=product-management" },
-      { label: "AI & Automation Center", href: "/admin?tab=ai-automation" },
-      { label: "Compliance Governance", href: "/admin?tab=compliance-governance" },
-      { label: "Mobile Center", href: "/admin?tab=mobile-readiness" },
       { label: "Integration Hub", href: "/admin?tab=enterprise-integrations" },
-      { label: "Workflow Builder", href: "/admin?tab=workflow-builder" },
-      { label: "App Marketplace", href: "/admin?tab=app-marketplace" },
       { label: "Low-Code Studio", href: "/admin?tab=lowcode-studio" },
-      { label: "Custom Modules", href: "/admin?tab=custom-crm-modules" },
-      { label: "Enterprise BI", href: "/admin?tab=enterprise-bi" },
-      { label: "Multi-Org Center", href: "/admin?tab=multi-organization" },
       { label: "Mission Control", href: "/admin?tab=mission-control" },
       { label: "Financial Center", href: "/admin?tab=financial-analytics" },
       {
@@ -855,7 +1704,6 @@ export default function ClientPage() {
       { label: "Categories", href: "/admin?tab=categories" },
       { label: "Shortcuts", href: "/admin?tab=shortcuts" },
       { label: "Reports", href: "/admin?tab=reports" },
-      { label: "Flow Analytics", href: "/admin?tab=flow-analytics" },
       { label: "Historical Archive", href: "/admin?tab=history" },
       { label: "Security", href: "/admin?tab=security" },
       { label: "Help Center", href: "/admin?tab=help-center" },
@@ -871,37 +1719,48 @@ export default function ClientPage() {
 
   if (userRole === "tax_consultant") {
     menuItems.length = 0;
-    menuItems.push({ label: "Dashboard", href: "/tax-consultant?tab=tax-consultant-dashboard" });
-    menuItems.push({ label: "VAT Compliance", href: "/tax-consultant?tab=vat-compliance" });
-    menuItems.push({ label: "Corporate Tax", href: "/tax-consultant?tab=corporate-tax" });
-    menuItems.push({ label: "Trade License", href: "/tax-consultant?tab=trade-license" });
-    menuItems.push({ label: "Compliance Reports", href: "/tax-consultant?tab=compliance-reports" });
     menuItems.push({ label: "CRM", href: "/tax-consultant?tab=crm" });
     menuItems.push({ label: "Customer Master", href: "/tax-consultant?tab=inventory-customer" });
   } else if (user?.role === "client") {
-    // 1. Live Helpdesk & Communication
-    if (hasModule(user, "chat")) menuItems.push({ label: "Chats", href: "/client?tab=chats" });
-    if (hasModule(user, "tickets")) menuItems.push({ label: "Tickets", href: "/client?tab=tickets" });
-    menuItems.push({ label: "Agents", href: "/client?tab=agents" });
+    menuItems.length = 0;
+    // 1. Executive Command Center
+    menuItems.push({ label: "Command Center", href: "/client" });
 
-    // 2. Sales & CRM
-    if (hasModule(user, "crm") || hasModule(user, "customer-master")) {
-      menuItems.push({ label: "Customer Master", href: "/client?tab=inventory-customer" });
+    // 2. Live Helpdesk & Communication
+    if (hasModule(user, "chat")) {
+      menuItems.push({ label: "Chats", href: "/client?tab=chats" });
+      menuItems.push({ label: "Shortcuts", href: "/client?tab=shortcuts" });
+      menuItems.push({ label: "Historical Archive", href: "/client?tab=history" });
     }
-    if (hasModule(user, "crm")) menuItems.push({ label: "CRM", href: "/client?tab=crm" });
+    if (hasModule(user, "tickets")) {
+      menuItems.push({ label: "Tickets", href: "/client?tab=tickets" });
+    }
+    if (hasModule(user, "enterprise") || hasModule(user, "sla-center")) {
+      menuItems.push({ label: "SLA & SLO Center", href: "/client?tab=sla-center" });
+      menuItems.push({ label: "Risk Register", href: "/client?tab=risk-register" });
+    }
 
-    // 3. AI & Automation
+    // 3. Multi-Brand & Websites
+    menuItems.push({ label: "Websites", href: "/client?tab=websites" });
+
+    // 4. AI & Automations
     if (hasModule(user, "flow-builder") || hasModule(user, "automation")) {
       menuItems.push({ label: "Flow Builder", href: "/client?tab=flow-builder" });
     }
-    // AI Knowledge Base / Help Center (Chatbot training on company docs, FAQs & URLs)
-    menuItems.push({ label: "Help Center", href: "/client?tab=help-center" });
-
+    if (hasModule(user, "help-center") || hasModule(user, "service")) {
+      menuItems.push({ label: "Help Center", href: "/client?tab=help-center" });
+    }
     if (hasModule(user, "voice-logs") || hasModule(user, "automation")) {
       menuItems.push({ label: "AI Voice Logs", href: "/client?tab=voice-logs" });
     }
 
-    // 4. Operations & Inventory (Collapsible Dropdown)
+    // 5. Services & Operations
+    if (hasModule(user, "categories") || hasModule(user, "service")) {
+      menuItems.push({ label: "Categories", href: "/client?tab=categories" });
+    }
+    if (hasModule(user, "departments") || hasModule(user, "service")) {
+      menuItems.push({ label: "Departments", href: "/client?tab=departments" });
+    }
     if (hasModule(user, "inventory") || hasModule(user, "operations")) {
       menuItems.push({
         label: "Inventory",
@@ -916,44 +1775,35 @@ export default function ClientPage() {
           { label: "Supplier Master", href: "/client?tab=inventory-supplier" },
           { label: "Stock In", href: "/client?tab=inventory-stock-in" },
           { label: "Stock Out", href: "/client?tab=inventory-stock-out" },
-          { label: "Adjustment", href: "/client?tab=inventory-adjustment" }
+          { label: "Adjustment", href: "/client?tab=inventory-adjustment" },
+          { label: "Movement History", href: "/client?tab=inventory-history" }
         ]
       });
     }
 
-    // 5. Service Configuration (Collapsible Dropdown)
-    if (hasModule(user, "tickets") || hasModule(user, "service")) {
-      menuItems.push({
-        label: "Service Routing",
-        children: [
-          { label: "Departments", href: "/client?tab=departments" },
-          { label: "Categories", href: "/client?tab=categories" },
-          { label: "Shortcuts", href: "/client?tab=shortcuts" },
-          { label: "Historical Archive", href: "/client?tab=history" }
-        ]
-      });
+    // 6. CRM & Customer Master
+    if (hasModule(user, "crm")) menuItems.push({ label: "CRM Pipeline", href: "/client?tab=crm" });
+    if (hasModule(user, "crm") || hasModule(user, "customer-master")) {
+      menuItems.push({ label: "Customer Master", href: "/client?tab=inventory-customer" });
     }
 
-    // 6. Enterprise Extensions (if enabled)
-    if (hasModule(user, "lowcode-studio")) {
-      menuItems.push({ label: "Low-Code Studio", href: "/client?tab=lowcode-studio" });
-    }
-    if (hasModule(user, "ai-automation")) {
-      menuItems.push({ label: "AI & OCR Hub", href: "/client?tab=ai-automation" });
-    }
-    if (hasModule(user, "multi-organization")) {
-      menuItems.push({ label: "Multi-Org Center", href: "/client?tab=multi-organization" });
-    }
-    if (hasModule(user, "enterprise-bi")) {
-      menuItems.push({ label: "Enterprise BI", href: "/client?tab=enterprise-bi" });
-    }
-
-    // 7. Analytics, Security & Administration
-    if (hasModule(user, "reports")) menuItems.push({ label: "Reports", href: "/client?tab=reports" });
-    if (hasModule(user, "security")) {
-      menuItems.push({ label: "Security", href: "/client?tab=security" });
+    // 7. Team & RBAC
+    menuItems.push({ label: "Agents", href: "/client?tab=agents" });
+    if (hasModule(user, "security") || hasModule(user, "roles")) {
       menuItems.push({ label: "Role Master", href: "/client?tab=roles" });
     }
+
+    // 8. Enterprise Integrations & Connectors
+    menuItems.push({ label: "Integrations Hub", href: "/client?tab=enterprise-integrations" });
+
+    // 9. Security, Governance & Billing
+    if (hasModule(user, "security")) {
+      menuItems.push({ label: "Security Center", href: "/client?tab=security" });
+    }
+    if (hasModule(user, "reports")) {
+      menuItems.push({ label: "Reports", href: "/client?tab=reports" });
+    }
+    menuItems.push({ label: "Billing & Plans", href: "/client?tab=billing" });
   } else if (!isAdminUser) {
     menuItems.push({ label: "Agents", href: "/client?tab=agents" });
     if (hasPermission(user, PERMISSIONS.CHAT_VIEW)) menuItems.push({ label: "Chats", href: "/client?tab=chats" });
@@ -990,6 +1840,7 @@ export default function ClientPage() {
       procurementStats={procurementStats}
       websiteId={selectedWebsiteId}
       selectedWebsite={selectedWebsite}
+      user={user}
     />
   );
   let title = user?.role === "admin" ? "Admin Command Center" : "Master Overview";
@@ -998,13 +1849,7 @@ export default function ClientPage() {
   if (tab === "chats") {
     title = "Conversation Hub";
     subtitle = "Manage real-time agent interactions";
-    content = <ConversationHub socket={socket} initialSessions={sessions} websiteId={selectedWebsiteId} currentUser={user} />;
-  }
-
-  if (tab === "flow-analytics") {
-    title = "Executive Flow Analytics";
-    subtitle = "Aggregated funnel performance, conversion tracking, and drop-off hotspots";
-    content = <ExecutiveFlowDashboard websiteId={selectedWebsiteId} />;
+    content = <ConversationHub socket={socket} initialSessions={sessions} websiteId={selectedWebsiteId} userRole={user?.role || "client"} currentUser={user} />;
   }
 
   if (tab === "flow-builder" || tab === "flows") {
@@ -1146,31 +1991,15 @@ export default function ClientPage() {
   }
 
   if (tab === "inventory-vat" || tab === "inventory-tax") {
-    title = "Inventory VAT Master";
-    subtitle = "Manage UAE FTA VAT rates, 5% standard rate, zero rated, and exempt slabs";
-    content = <InventoryManager websiteId={selectedWebsiteId} activeTab="inventory-vat" />;
-  }
-
-  if (tab === "tax-consultant-dashboard") {
-    title = "Tax Consultant Command Center";
-    subtitle = "Clean, task-oriented daily client follow-ups and compliance management";
-    content = (
-      <div className="space-y-8">
-        <TaxConsultantDashboard websiteId={selectedWebsiteId} />
-        {(userRole === "admin" || userRole === "manager") && <AdminOverdueFollowupsCard />}
-      </div>
-    );
+    title = "Inventory Tax Master";
+    subtitle = "Manage standard product tax slabs and exemption rates";
+    content = <InventoryManager websiteId={selectedWebsiteId} activeTab="inventory-tax" />;
   }
 
   if (tab === "crm") {
     title = "CRM Master Console";
     subtitle = "Strategic customer relationship management and intelligence";
-    content = (
-      <div className="space-y-8">
-        {(userRole === "admin" || userRole === "manager") && <AdminOverdueFollowupsCard />}
-        <CRMManager websiteId={selectedWebsiteId} />
-      </div>
-    );
+    content = <CRMManager websiteId={selectedWebsiteId} />;
   }
 
   if (tab === "inventory-customer") {
@@ -1181,9 +2010,9 @@ export default function ClientPage() {
 
   const isComplianceEnabled = !selectedWebsite || !Array.isArray(selectedWebsite.enabledModules) || selectedWebsite.enabledModules.includes("compliance");
 
-  if (!isComplianceEnabled && (tab === "vat-compliance" || tab === "corporate-tax" || tab === "trade-license" || tab === "compliance-reports" || tab === "tax-consultant-dashboard" || tab === "inventory-vat" || tab === "inventory-tax")) {
+  if (!isComplianceEnabled && (tab === "inventory-vat" || tab === "inventory-tax")) {
     title = "Tax & Compliance Not Enabled";
-    subtitle = "UAE Tax & Compliance suite is currently disabled for this domain";
+    subtitle = "Tax & Compliance suite is currently disabled for this domain";
     content = (
       <div className="bg-white dark:bg-slate-900 p-12 rounded-2xl border border-slate-200 dark:border-white/10 text-center max-w-md mx-auto my-12 space-y-4">
         <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto">
@@ -1195,30 +2024,6 @@ export default function ClientPage() {
         </p>
       </div>
     );
-  } else {
-    if (tab === "vat-compliance") {
-      title = "VAT Compliance Management";
-      subtitle = "Track and process monthly and quarterly VAT return filings";
-      content = <VatFilingDashboard websiteId={selectedWebsiteId} />;
-    }
-
-    if (tab === "corporate-tax") {
-      title = "Corporate Tax Compliance";
-      subtitle = "Monitor Corporate Tax filing deadlines and live countdown timers";
-      content = <CorporateTaxDashboard websiteId={selectedWebsiteId} />;
-    }
-
-    if (tab === "trade-license") {
-      title = "Trade License Renewal Hub";
-      subtitle = "5-tier color-coded alert bucket monitoring to prevent state DED fines";
-      content = <TradeLicenseDashboard websiteId={selectedWebsiteId} />;
-    }
-
-    if (tab === "compliance-reports") {
-      title = "Compliance Reports Hub";
-      subtitle = "Export PDF, Excel, and CSV compliance intelligence reports";
-      content = <ComplianceReportsHub websiteId={selectedWebsiteId} />;
-    }
   }
 
   if (tab === "risk-register") {
@@ -1243,18 +2048,6 @@ export default function ClientPage() {
     title = "Enterprise Observability & Telemetry Center";
     subtitle = "Real-Time System Metrics, Distributed Audit Logs & Smart Alert Rules";
     content = <ObservabilityPlatform />;
-  }
-
-  if (tab === "load-testing") {
-    title = "Load Testing & Capacity Planning Center";
-    subtitle = "Synthetic In-App Micro-Benchmarks, Stress Simulations & Infrastructure Scaling Recommendations";
-    content = <LoadTestCenter />;
-  }
-
-  if (tab === "release-management") {
-    title = "Production Readiness & Release Management Center";
-    subtitle = "Go-Live Pre-Flight Checklists, Multi-Stage Approval Workflows, Smoke Testing & Rollback Safety Controls";
-    content = <ReleaseManagementCenter />;
   }
 
   if (tab === "developer-portal") {
@@ -1287,46 +2080,10 @@ export default function ClientPage() {
     }
   }
 
-  if (tab === "product-management") {
-    title = "Product Management & Strategic Roadmap Center";
-    subtitle = "Vision Milestones, Feature Backlog Kanban, Voting Portal & Feature Flag Control Center";
-    content = <ProductManagementCenter />;
-  }
-
-  if (tab === "ai-automation") {
-    title = "AI Readiness, Automation & Knowledge Center";
-    subtitle = "Provider Abstraction Layer, Prompt Library, Workflow Rule Engine & Document Intelligence Interfaces";
-    content = <AiAutomationCenter />;
-  }
-
-  if (tab === "compliance-governance") {
-    title = "Enterprise Compliance & Governance Center";
-    subtitle = "Global Compliance Frameworks (GDPR, UAE PDPL, SOC 2, ISO 27001), DSAR Data Subject Portal & Retention Rules";
-    content = <ComplianceGovernanceCenter />;
-  }
-
-  if (tab === "mobile-readiness") {
-    title = "Mobile Readiness & PWA Architecture Center";
-    subtitle = "Progressive Web App (PWA), Offline Caching & Sync Queue, Biometrics & Native Hardware Hooks";
-    content = <MobileReadinessCenter />;
-  }
-
   if (tab === "enterprise-integrations" || tab === "enterprise-integration") {
-    title = "Enterprise Integration Hub & Connector Catalog";
-    subtitle = "Third-Party SaaS Connectors, OAuth 2.0 Management, Inbound/Outbound Webhooks & ERP Architecture";
-    content = <EnterpriseIntegrationCenter />;
-  }
-
-  if (tab === "workflow-builder") {
-    title = "No-Code Workflow & Automation Builder";
-    subtitle = "Visual Drag-and-Drop Canvas, Event Triggers, Condition Nodes & Multi-Channel Action Handlers";
-    content = <NoCodeWorkflowCenter />;
-  }
-
-  if (tab === "app-marketplace") {
-    title = "Enterprise App Marketplace & Plugin Architecture";
-    subtitle = "Sandboxed Extension SDK, Plugin Engine Lifecycle & Marketplace Ecosystem";
-    content = <AppMarketplaceCenter />;
+    title = "Webhook Integration Hub";
+    subtitle = "HMAC-SHA256 Signed Outbound Webhooks, Inbound Receivers & Delivery Telemetry";
+    content = <EnterpriseIntegrationCenter websiteId={selectedWebsiteId} />;
   }
 
   if (tab === "lowcode-studio") {
@@ -1335,34 +2092,16 @@ export default function ClientPage() {
     content = <LowCodeStudioCenter />;
   }
 
-  if (tab === "custom-crm-modules") {
-    title = "Custom CRM Module & REST API Code Generator";
-    subtitle = "Build Custom Tables, Auto-Generate REST APIs, Role-Based Access Control & Navigation Items";
-    content = <CustomCrmModuleCenter />;
-  }
-
-  if (tab === "enterprise-bi") {
-    title = "Enterprise Business Intelligence & Executive Cockpit";
-    subtitle = "Revenue Forecasting, Cohort Analysis, Heatmaps, Sales Funnel & Scheduled Executive Digests";
-    content = <EnterpriseBiCenter />;
-  }
-
-  if (tab === "multi-organization") {
-    title = "Multi-Organization & Holding Group Platform";
-    subtitle = "Holding Companies, Regional Subsidiaries, Shared Resource Policies & Consolidated Billing";
-    content = <MultiOrganizationCenter />;
-  }
-
   if (tab === "mission-control") {
     title = "Enterprise Mission Control Center";
     subtitle = "Master System Telemetry, Real-Time Service Health, Live Command Palette & Executive AI Insights";
-    content = <MissionControlCenter />;
+    content = <MissionControlCenter websiteId={selectedWebsiteId} />;
   }
 
   if (tab === "security") {
     title = "Security Center";
     subtitle = "Two-factor authentication, audit logs, and webhook delivery visibility";
-    content = <SecurityCenter />;
+    content = <SecurityCenter websiteId={selectedWebsiteId} />;
   }
 
   if (tab === "help-center" || tab === "knowledge-base" || tab === "faq" || tab === "ai-training") {
@@ -1423,7 +2162,7 @@ export default function ClientPage() {
   }
 
   // Handle other tabs generically for now
-  if (!["overview", "tax-consultant-dashboard", "chats", "websites", "agents", "clients", "reports", "tickets", "shortcuts", "history", "categories", "departments", "crm", "security", "billing", "subscriptions", "roles", "inventory-customer", "flow-analytics", "flow-builder", "flows", "voice-logs", "voice-calls", "help-center", "inventory", "inventory-master", "inventory-stock-in", "inventory-stock-out", "inventory-adjustment", "inventory-history", "inventory-category", "inventory-subcategory", "inventory-brand", "inventory-size", "inventory-color", "inventory-unit", "inventory-supplier", "inventory-vat", "inventory-tax", "vat-compliance", "corporate-tax", "trade-license", "compliance-reports", "risk-register", "financial-analytics", "sla-center", "observability", "load-testing", "release-management", "developer-portal", "product-management", "ai-automation", "compliance-governance", "mobile-readiness", "enterprise-integrations", "enterprise-integration", "workflow-builder", "app-marketplace", "lowcode-studio", "custom-crm-modules", "enterprise-bi", "multi-organization", "mission-control"].includes(tab)) {
+  if (!["overview", "chats", "websites", "agents", "clients", "reports", "tickets", "shortcuts", "history", "categories", "departments", "crm", "security", "billing", "subscriptions", "roles", "inventory-customer", "flow-builder", "flows", "voice-logs", "voice-calls", "help-center", "inventory", "inventory-master", "inventory-stock-in", "inventory-stock-out", "inventory-adjustment", "inventory-history", "inventory-category", "inventory-subcategory", "inventory-brand", "inventory-size", "inventory-color", "inventory-unit", "inventory-supplier", "inventory-vat", "inventory-tax", "risk-register", "financial-analytics", "sla-center", "observability", "developer-portal", "enterprise-integrations", "enterprise-integration", "lowcode-studio", "mission-control"].includes(tab)) {
     content = (
       <div className="bg-white p-24 rounded-[40px] border border-slate-200/60 shadow-sm text-center">
         <div className="max-w-xs mx-auto space-y-4">
@@ -1444,7 +2183,9 @@ export default function ClientPage() {
           {error}
         </div>
       )}
-      {content}
+      <Suspense fallback={<div className="p-8 text-center text-xs font-bold text-slate-400">Loading module...</div>}>
+        {content}
+      </Suspense>
     </Layout>
   );
 }

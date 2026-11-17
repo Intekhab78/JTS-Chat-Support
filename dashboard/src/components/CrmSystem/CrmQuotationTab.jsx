@@ -204,7 +204,6 @@ function QuoteForm({ initial, onSubmit, onCancel, submitting, websiteId, custome
                       <option value="0">0% VAT - Exempt</option>
                       <option value="0">0% VAT - Out of Scope</option>
                       <option value="5">5% VAT - Reverse Charge</option>
-                      <option value="9">9% CT - Corporate Tax</option>
                     </>
                   )}
                 </select>
@@ -492,38 +491,38 @@ export default function CRMQuotationTab({ customer, websiteId, onPostWin, onConv
   const canEdit = (q) => ["draft", "sent"].includes(q.status);
   const canDelete = (q) => ["draft", "denied"].includes(q.status);
 
-  if (loading) return <div className="py-10 text-center animate-pulse text-slate-400 text-[10px] font-black uppercase">Syncing financial data…</div>;
+  if (loading) return <div className="py-6 text-center animate-pulse text-slate-400 text-[10px] font-bold uppercase tracking-wider">Syncing financial data…</div>;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-2.5">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Digital Quotations</h3>
+      <div className="flex items-center justify-between bg-white rounded-xl border border-slate-200/70 px-3 py-2">
+        <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Digital Quotations</h3>
         {!showCreate && !editingQuote && (
           <button
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
+            className="flex items-center gap-1 px-2.5 py-1 bg-indigo-600 text-white rounded-lg text-[9px] font-bold uppercase tracking-wider hover:bg-indigo-700 transition-all cursor-pointer"
           >
-            <Plus size={12} /> New Quote
+            <Plus size={11} /> New Quote
           </button>
         )}
       </div>
 
       {/* Error Banner */}
       {error && (
-        <div className="flex items-center gap-3 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-[10px] font-black text-rose-600 uppercase tracking-widest">
-          <AlertCircle size={14} />
+        <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[9.5px] font-bold text-rose-600 uppercase tracking-wider">
+          <AlertCircle size={13} />
           {error}
-          <button onClick={() => setError("")} className="ml-auto"><X size={12} /></button>
+          <button onClick={() => setError("")} className="ml-auto cursor-pointer"><X size={12} /></button>
         </div>
       )}
 
       {/* Convert to Order Success Banner */}
       {successMsg && (
-        <div className="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-[10px] font-black text-emerald-700 uppercase tracking-widest animate-in fade-in slide-in-from-top-2 duration-300">
-          <CheckCircle size={14} />
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[9.5px] font-bold text-emerald-700 uppercase tracking-wider">
+          <CheckCircle size={13} />
           {successMsg}
-          <button onClick={() => setSuccessMsg("")} className="ml-auto"><X size={12} /></button>
+          <button onClick={() => setSuccessMsg("")} className="ml-auto cursor-pointer"><X size={12} /></button>
         </div>
       )}
 
@@ -642,56 +641,56 @@ export default function CRMQuotationTab({ customer, websiteId, onPostWin, onConv
       )}
 
       {/* Quotes List */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         {quotes.length === 0 ? (
-          <div className="py-16 text-center space-y-3 border-2 border-dashed border-slate-100 rounded-2xl">
-            <FileText size={32} className="mx-auto text-slate-100" />
-            <p className="text-[10px] font-black uppercase text-slate-300 tracking-widest">No active quotations</p>
+          <div className="py-8 bg-white text-center space-y-2 border border-dashed border-slate-200 rounded-xl">
+            <FileText size={22} className="mx-auto text-slate-300" />
+            <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">No active quotations</p>
             <button onClick={() => setShowCreate(true)}
-              className="text-[10px] font-black text-indigo-500 uppercase tracking-widest hover:text-indigo-700 transition-colors"
+              className="text-[9.5px] font-bold text-indigo-600 uppercase tracking-wider hover:text-indigo-700 transition-colors cursor-pointer"
             >+ Create First Quote</button>
           </div>
         ) : (
           quotes.map(quote => (
             <div
               key={quote._id}
-              className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:border-indigo-200 transition-all group"
+              className="bg-white rounded-xl border border-slate-200/70 hover:border-indigo-200 transition-all group"
             >
               {/* Clickable header row */}
               <div
-                className="p-5 flex items-center justify-between gap-4 cursor-pointer select-none"
+                className="p-3 flex items-center justify-between gap-3 cursor-pointer select-none"
                 onClick={() => setExpandedQuoteId(expandedQuoteId === quote._id ? null : quote._id)}
               >
                 {/* Left: Icon + Info */}
-                <div className="flex items-center gap-4 min-w-0">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${quote.status === "accepted" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${quote.status === "accepted" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
                     quote.status === "pending_approval" ? "bg-amber-50 text-amber-600 border border-amber-100 animate-pulse" :
                       quote.status === "denied" ? "bg-rose-50 text-rose-600 border border-rose-100" :
                         "bg-slate-50 text-slate-400 border border-slate-100"
                     }`}>
-                    {quote.status === "accepted" ? <CheckCircle size={18} /> :
-                      quote.status === "pending_approval" ? <Shield size={18} /> :
-                        <FileText size={18} />}
+                    {quote.status === "accepted" ? <CheckCircle size={14} /> :
+                      quote.status === "pending_approval" ? <Shield size={14} /> :
+                        <FileText size={14} />}
                   </div>
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight">{quote.quotationId}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-[11px] font-bold text-slate-900 uppercase tracking-tight">{quote.quotationId}</p>
                       {quote.invoiceNumber && (
-                        <span className="text-[8px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-lg px-2 py-0.5 uppercase tracking-wide">
+                        <span className="text-[8px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 rounded px-1.5 py-0.5 uppercase tracking-wide">
                           Invoice: {quote.invoiceNumber}
                         </span>
                       )}
                       <StatusBadge status={quote.status} />
-                      <span className="text-[8px] text-slate-300 font-bold">{expandedQuoteId === quote._id ? "▲ hide" : "▼ details"}</span>
+                      <span className="text-[8px] text-slate-400 font-semibold">{expandedQuoteId === quote._id ? "▲ hide" : "▼ details"}</span>
                     </div>
-                    <div className="flex items-center gap-3 mt-1 flex-wrap">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{new Date(quote.createdAt).toLocaleDateString()}</span>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap text-[9px] font-medium text-slate-400">
+                      <span>{new Date(quote.createdAt).toLocaleDateString()}</span>
                       {quote.validUntil && (
-                        <span className="text-[9px] font-black text-rose-400 uppercase tracking-widest">
+                        <span className="text-rose-500 font-semibold">
                           Valid till {new Date(quote.validUntil).toLocaleDateString()}
                         </span>
                       )}
-                      <span className="text-[9px] font-bold text-slate-300 uppercase">{quote.items?.length || 0} items</span>
+                      <span>{quote.items?.length || 0} items</span>
                     </div>
                   </div>
                 </div>
@@ -790,30 +789,30 @@ export default function CRMQuotationTab({ customer, websiteId, onPostWin, onConv
 
               {/* ── Expandable Detail Panel ── */}
               {expandedQuoteId === quote._id && (
-                <div className="border-t border-slate-100 px-5 pb-5 pt-4 space-y-4 bg-slate-50/60 rounded-b-2xl">
+                <div className="border-t border-slate-100 px-3 pb-3 pt-2.5 space-y-2.5 bg-slate-50/60 rounded-b-xl">
                   {/* Line items table */}
                   {quote.items?.length > 0 && (
                     <div className="overflow-x-auto">
-                      <table className="w-full text-[10px] font-bold text-slate-600">
+                      <table className="w-full text-[9.5px] font-semibold text-slate-600">
                         <thead>
                           <tr className="border-b border-slate-200">
-                            <th className="text-left pb-2 text-[8px] font-black uppercase tracking-widest text-slate-400">Item</th>
-                            <th className="text-right pb-2 text-[8px] font-black uppercase tracking-widest text-slate-400">Qty</th>
-                            <th className="text-right pb-2 text-[8px] font-black uppercase tracking-widest text-slate-400">Price</th>
-                            <th className="text-right pb-2 text-[8px] font-black uppercase tracking-widest text-slate-400">Disc%</th>
-                            <th className="text-right pb-2 text-[8px] font-black uppercase tracking-widest text-slate-400">Tax%</th>
-                            <th className="text-right pb-2 text-[8px] font-black uppercase tracking-widest text-slate-400">Total</th>
+                            <th className="text-left pb-1.5 text-[8px] font-bold uppercase tracking-wider text-slate-400">Item</th>
+                            <th className="text-right pb-1.5 text-[8px] font-bold uppercase tracking-wider text-slate-400">Qty</th>
+                            <th className="text-right pb-1.5 text-[8px] font-bold uppercase tracking-wider text-slate-400">Price</th>
+                            <th className="text-right pb-1.5 text-[8px] font-bold uppercase tracking-wider text-slate-400">Disc%</th>
+                            <th className="text-right pb-1.5 text-[8px] font-bold uppercase tracking-wider text-slate-400">Tax%</th>
+                            <th className="text-right pb-1.5 text-[8px] font-bold uppercase tracking-wider text-slate-400">Total</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                           {quote.items.map((item, idx) => (
-                            <tr key={idx} className="py-1">
-                              <td className="py-2 pr-4 max-w-[160px] truncate font-bold text-slate-700" title={item.description}>{item.description || "—"}</td>
-                              <td className="py-2 text-right">{item.quantity}</td>
-                              <td className="py-2 text-right">{formatCurrency(item.price)}</td>
-                              <td className="py-2 text-right text-rose-500">{item.discount || 0}%</td>
-                              <td className="py-2 text-right text-indigo-500">{item.taxRate || 0}%</td>
-                              <td className="py-2 text-right font-black text-slate-900">{formatCurrency(item.total ?? (item.price * item.quantity))}</td>
+                            <tr key={idx}>
+                              <td className="py-1.5 pr-3 max-w-[160px] truncate font-semibold text-slate-700" title={item.description}>{item.description || "—"}</td>
+                              <td className="py-1.5 text-right">{item.quantity}</td>
+                              <td className="py-1.5 text-right">{formatCurrency(item.price)}</td>
+                              <td className="py-1.5 text-right text-rose-500">{item.discount || 0}%</td>
+                              <td className="py-1.5 text-right text-indigo-500">{item.taxRate || 0}%</td>
+                              <td className="py-1.5 text-right font-bold text-slate-900">{formatCurrency(item.total ?? (item.price * item.quantity))}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -822,7 +821,7 @@ export default function CRMQuotationTab({ customer, websiteId, onPostWin, onConv
                   )}
 
                   {/* Totals summary */}
-                  <div className="border-t border-slate-200 pt-3 space-y-1.5 text-[10px] font-bold text-slate-600">
+                  <div className="border-t border-slate-200 pt-2 space-y-1 text-[9.5px] font-semibold text-slate-600">
                     <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(quote.subtotal)}</span></div>
                     {Number(quote.discountAmount) > 0 && (
                       <div className="flex justify-between text-rose-500"><span>Discount</span><span>-{formatCurrency(quote.discountAmount)}</span></div>
@@ -831,7 +830,7 @@ export default function CRMQuotationTab({ customer, websiteId, onPostWin, onConv
                       <div className="flex justify-between"><span>Shipping</span><span>{formatCurrency(quote.shippingCharges)}</span></div>
                     )}
                     <div className="flex justify-between"><span>Tax (GST)</span><span>+{formatCurrency(quote.tax)}</span></div>
-                    <div className="flex justify-between border-t border-slate-200 pt-2 font-black text-slate-900 text-[11px]">
+                    <div className="flex justify-between border-t border-slate-200 pt-1.5 font-bold text-slate-900 text-[10.5px]">
                       <span>Grand Total</span>
                       <span className="text-indigo-600">{formatCurrency(quote.total)}</span>
                     </div>
@@ -839,9 +838,9 @@ export default function CRMQuotationTab({ customer, websiteId, onPostWin, onConv
 
                   {/* Notes */}
                   {quote.notes && (
-                    <div className="bg-white rounded-xl border border-slate-100 px-4 py-3">
-                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">Notes</p>
-                      <p className="text-[10px] font-bold text-slate-600">{quote.notes}</p>
+                    <div className="bg-white rounded-lg border border-slate-100 px-3 py-2">
+                      <p className="text-[8px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Notes</p>
+                      <p className="text-[9.5px] font-medium text-slate-600">{quote.notes}</p>
                     </div>
                   )}
                 </div>
@@ -849,8 +848,8 @@ export default function CRMQuotationTab({ customer, websiteId, onPostWin, onConv
 
               {/* Accepted label */}
               {quote.status === "accepted" && expandedQuoteId !== quote._id && (
-                <div className="px-5 pb-4">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500 italic">✓ Confirmed Won Deal</span>
+                <div className="px-3 pb-2.5">
+                  <span className="text-[8.5px] font-bold uppercase tracking-wider text-emerald-600">✓ Confirmed Won Deal</span>
                 </div>
               )}
             </div>

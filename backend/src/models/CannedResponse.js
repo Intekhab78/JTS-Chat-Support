@@ -11,6 +11,7 @@ const cannedResponseSchema = new mongoose.Schema(
     title: { type: String, default: "" },
     category: { type: String, default: "general", index: true },
     visibility: { type: String, enum: ["shared", "personal"], default: "shared" },
+    isActive: { type: Boolean, default: true, index: true },
     tags: [{ type: String }]
   },
   { timestamps: true }

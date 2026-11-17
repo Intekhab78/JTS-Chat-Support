@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Shield, Settings, Plus, Key, ToggleLeft, ToggleRight, Trash2, Cpu, Globe, Users, Clock, AlertTriangle, Video, Edit2, Check, X as XIcon } from "lucide-react";
 import { api } from "../../api/client.js";
 import { renderPlatformIcon } from "./platformIconHelper.jsx";
@@ -16,9 +17,11 @@ export default function CrmAdminConsole({ websiteId }) {
 
   // Forms
   const [showFieldForm, setShowFieldForm] = useState(false);
+  const [editingFieldId, setEditingFieldId] = useState(null);
   const [fieldForm, setFieldForm] = useState({ entityName: "Lead", fieldName: "", fieldType: "text", isRequired: false });
 
   const [showFlagForm, setShowFlagForm] = useState(false);
+  const [editingFlagId, setEditingFlagId] = useState(null);
   const [flagForm, setFlagForm] = useState({ name: "", description: "", targetType: "tenant", isEnabled: false });
 
   const fetchData = async () => {
@@ -48,6 +51,7 @@ export default function CrmAdminConsole({ websiteId }) {
 
   useEffect(() => {
     if (websiteId) fetchData();
+    else setLoading(false);
   }, [websiteId]);
 
   const handleSaveConfig = async (e) => {
@@ -67,12 +71,30 @@ export default function CrmAdminConsole({ websiteId }) {
   const handleCreateField = async (e) => {
     e.preventDefault();
     try {
-      await api(`/api/crm/admin/custom-fields`, {
-        method: "POST",
-        body: JSON.stringify({ ...fieldForm, websiteId })
-      });
+      if (editingFieldId) {
+        await api(`/api/crm/admin/custom-fields/${editingFieldId}`, {
+          method: "PUT",
+          body: JSON.stringify({ ...fieldForm, websiteId })
+        });
+      } else {
+        await api(`/api/crm/admin/custom-fields`, {
+          method: "POST",
+          body: JSON.stringify({ ...fieldForm, websiteId })
+        });
+      }
       setShowFieldForm(false);
+      setEditingFieldId(null);
       setFieldForm({ entityName: "Lead", fieldName: "", fieldType: "text", isRequired: false });
+      fetchData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteField = async (id) => {
+    if (!window.confirm("Delete this custom field?")) return;
+    try {
+      await api(`/api/crm/admin/custom-fields/${id}`, { method: "DELETE" });
       fetchData();
     } catch (err) {
       alert(err.message);
@@ -82,12 +104,42 @@ export default function CrmAdminConsole({ websiteId }) {
   const handleCreateFlag = async (e) => {
     e.preventDefault();
     try {
-      await api(`/api/crm/admin/feature-flags`, {
-        method: "POST",
-        body: JSON.stringify({ ...flagForm, websiteId })
-      });
+      if (editingFlagId) {
+        await api(`/api/crm/admin/feature-flags/${editingFlagId}`, {
+          method: "PUT",
+          body: JSON.stringify({ ...flagForm, websiteId })
+        });
+      } else {
+        await api(`/api/crm/admin/feature-flags`, {
+          method: "POST",
+          body: JSON.stringify({ ...flagForm, websiteId })
+        });
+      }
       setShowFlagForm(false);
+      setEditingFlagId(null);
       setFlagForm({ name: "", description: "", targetType: "tenant", isEnabled: false });
+      fetchData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleToggleFlag = async (fl) => {
+    try {
+      await api(`/api/crm/admin/feature-flags/${fl._id}`, {
+        method: "PUT",
+        body: JSON.stringify({ isEnabled: !fl.isEnabled })
+      });
+      fetchData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteFlag = async (id) => {
+    if (!window.confirm("Delete this feature flag?")) return;
+    try {
+      await api(`/api/crm/admin/feature-flags/${id}`, { method: "DELETE" });
       fetchData();
     } catch (err) {
       alert(err.message);
@@ -145,12 +197,39 @@ export default function CrmAdminConsole({ websiteId }) {
               <p className="text-center py-6 text-slate-400 text-[10px] font-black uppercase">No custom fields defined</p>
             ) : (
               fields.map(f => (
-                <div key={f._id} className="p-3 bg-slate-50/50 border rounded-xl flex justify-between items-center text-xs font-bold text-slate-600">
+                <div key={f._id} className="p-3 bg-slate-50/50 border rounded-xl flex justify-between items-center text-xs font-bold text-slate-600 gap-2">
                   <div>
                     <span className="text-[8px] font-black uppercase text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded mr-2">{f.entityName}</span>
                     <span className="text-slate-800">{f.fieldName}</span>
                   </div>
-                  <span className="text-[8px] font-black uppercase text-slate-400">{f.fieldType}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[8px] font-black uppercase text-slate-400 mr-1">{f.fieldType}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingFieldId(f._id);
+                        setFieldForm({
+                          entityName: f.entityName || "Lead",
+                          fieldName: f.fieldName || "",
+                          fieldType: f.fieldType || "text",
+                          isRequired: Boolean(f.isRequired)
+                        });
+                        setShowFieldForm(true);
+                      }}
+                      className="p-1 rounded hover:bg-indigo-50 text-slate-400 hover:text-indigo-600"
+                      title="Edit Field"
+                    >
+                      <Edit2 size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteField(f._id)}
+                      className="p-1 rounded hover:bg-rose-50 text-slate-400 hover:text-rose-600"
+                      title="Delete Field"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
                 </div>
               ))
             )}
@@ -168,12 +247,46 @@ export default function CrmAdminConsole({ websiteId }) {
               <p className="text-center py-6 text-slate-400 text-[10px] font-black uppercase">No feature flags configured</p>
             ) : (
               flags.map(fl => (
-                <div key={fl._id} className="p-3 border rounded-xl flex justify-between items-center text-xs font-bold">
+                <div key={fl._id} className="p-3 border rounded-xl flex justify-between items-center text-xs font-bold gap-2">
                   <div>
                     <p className="text-[10px] font-black text-slate-800">{fl.name}</p>
                     <p className="text-[8px] text-slate-400 uppercase">{fl.description}</p>
                   </div>
-                  {fl.isEnabled ? <ToggleRight size={24} className="text-emerald-500" /> : <ToggleLeft size={24} className="text-slate-300" />}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleFlag(fl)}
+                      className="cursor-pointer"
+                      title={fl.isEnabled ? "Disable Flag" : "Enable Flag"}
+                    >
+                      {fl.isEnabled ? <ToggleRight size={24} className="text-emerald-500" /> : <ToggleLeft size={24} className="text-slate-300" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingFlagId(fl._id);
+                        setFlagForm({
+                          name: fl.name || "",
+                          description: fl.description || "",
+                          targetType: fl.targetType || "tenant",
+                          isEnabled: Boolean(fl.isEnabled)
+                        });
+                        setShowFlagForm(true);
+                      }}
+                      className="p-1 rounded hover:bg-indigo-50 text-slate-400 hover:text-indigo-600"
+                      title="Edit Flag"
+                    >
+                      <Edit2 size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteFlag(fl._id)}
+                      className="p-1 rounded hover:bg-rose-50 text-slate-400 hover:text-rose-600"
+                      title="Delete Flag"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
                 </div>
               ))
             )}
@@ -227,11 +340,11 @@ export default function CrmAdminConsole({ websiteId }) {
       </div>
 
       {/* Custom Fields Modal */}
-      {showFieldForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowFieldForm(false)} />
+      {showFieldForm && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => { setShowFieldForm(false); setEditingFieldId(null); }} />
           <form onSubmit={handleCreateField} className="relative w-full max-w-sm bg-white rounded-[32px] p-8 shadow-2xl space-y-6">
-            <h3 className="text-base font-black text-slate-900">Define Custom Field</h3>
+            <h3 className="text-base font-black text-slate-900">{editingFieldId ? "Edit Custom Field" : "Define Custom Field"}</h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Target Entity</label>
@@ -254,17 +367,18 @@ export default function CrmAdminConsole({ websiteId }) {
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Attribute Label Name</label>
               <input required value={fieldForm.fieldName} onChange={(e) => setFieldForm({ ...fieldForm, fieldName: e.target.value })} className="w-full bg-slate-50 border px-4 py-3 rounded-xl text-xs font-bold" />
             </div>
-            <button type="submit" className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-black uppercase">Register Field</button>
+            <button type="submit" className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-black uppercase">{editingFieldId ? "Update Field" : "Register Field"}</button>
           </form>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Feature Flag Modal */}
-      {showFlagForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowFlagForm(false)} />
+      {showFlagForm && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => { setShowFlagForm(false); setEditingFlagId(null); }} />
           <form onSubmit={handleCreateFlag} className="relative w-full max-w-sm bg-white rounded-[32px] p-8 shadow-2xl space-y-6">
-            <h3 className="text-base font-black text-slate-900">Add Feature Flag</h3>
+            <h3 className="text-base font-black text-slate-900">{editingFlagId ? "Edit Feature Flag" : "Add Feature Flag"}</h3>
             <div className="space-y-1">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Flag Name Identifier</label>
               <input required value={flagForm.name} onChange={(e) => setFlagForm({ ...flagForm, name: e.target.value })} className="w-full bg-slate-50 border px-4 py-3 rounded-xl text-xs font-bold" />
@@ -273,9 +387,10 @@ export default function CrmAdminConsole({ websiteId }) {
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Description</label>
               <input value={flagForm.description} onChange={(e) => setFlagForm({ ...flagForm, description: e.target.value })} className="w-full bg-slate-50 border px-4 py-3 rounded-xl text-xs font-bold" />
             </div>
-            <button type="submit" className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-black uppercase">Create Flag</button>
+            <button type="submit" className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-black uppercase">{editingFlagId ? "Update Flag" : "Create Flag"}</button>
           </form>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Meeting Platforms Management ─────────────────────────────── */}

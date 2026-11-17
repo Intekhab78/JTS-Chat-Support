@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, apiUrl } from "../api/client.js";
-import { 
+import {
   Paperclip, FileText, Check, CheckCheck, Send, Ticket, PlusCircle, UserPlus, UserCheck, UserMinus, ShieldAlert, Globe,
   Sparkles, Bot, Zap, ShoppingCart, Calendar, DollarSign, Clock, ExternalLink, ArrowRightLeft,
   MessageSquare, Plus, Phone, PhoneMissed, PhoneCall, Mail, FileSpreadsheet, X, ArrowRight, Trash2, RotateCcw, XCircle,
@@ -155,6 +155,8 @@ const renderFormattedMessage = (rawText = "") => {
   return linkify(str);
 };
 
+const EMPTY_ARRAY = [];
+
 export default function ChatPanel({
   session,
   messages,
@@ -167,24 +169,54 @@ export default function ChatPanel({
   onConvertToLead,
   onIntelClick,
   canUseShortcuts = true,
-  viewers = [],
+  viewers = EMPTY_ARRAY,
   typingAgent = null,
   currentUser = null,
   onTakeOver,
   onRelease,
   onRequestControl,
   onTransferChat,
+  onAcceptChat,
+  allSessions = EMPTY_ARRAY,
   onClose,
   onMoveToTrash,
   onRestore,
   onDeletePermanent
 }) {
+  const formatWaitDuration = (dateInput) => {
+    if (!dateInput) return null;
+    const diffMs = Math.max(0, Date.now() - new Date(dateInput).getTime());
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return { label: "Just now", urgent: false };
+    if (mins < 60) return { label: `Waiting ${mins}m`, urgent: mins >= 15 };
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return { label: `Waiting ${hrs}h ${mins % 60}m`, urgent: true };
+    return { label: `Waiting ${Math.floor(hrs / 24)}d`, urgent: true };
+  };
+
+  const activeChatCountByAgent = useMemo(() => {
+    const counts = {};
+    for (const s of allSessions) {
+      if (s.status !== "closed" && !s.archivedAt && s.assignedAgent) {
+        const id = s.assignedAgent._id || s.assignedAgent;
+        counts[id] = (counts[id] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [allSessions]);
   const isChatDisabled = disabled || readonly;
   const toast = useToast();
   const [draft, setDraft] = useState("");
   const viewportRef = useRef(null);
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 144)}px`;
+  }, [draft]);
   const [shortcuts, setShortcuts] = useState([]);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [shortcutQuery, setShortcutQuery] = useState("");
@@ -208,7 +240,7 @@ export default function ChatPanel({
       return;
     }
     if (isDictating && recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch {}
+      try { recognitionRef.current.stop(); } catch { }
       setIsDictating(false);
       return;
     }
@@ -266,16 +298,22 @@ export default function ChatPanel({
 
 
   useEffect(() => {
-    setLocalViewers(viewers);
+    setLocalViewers(prev => {
+      const next = Array.isArray(viewers) ? viewers : EMPTY_ARRAY;
+      if (prev.length === 0 && next.length === 0) return prev;
+      return next;
+    });
   }, [viewers]);
 
   useEffect(() => {
     const timer = setInterval(() => {
       setLocalViewers(prev =>
-        prev.map(v => ({
-          ...v,
-          viewingTimeSec: typeof v.viewingTimeSec === 'number' ? v.viewingTimeSec + 1 : 1
-        }))
+        prev.length === 0
+          ? prev
+          : prev.map(v => ({
+              ...v,
+              viewingTimeSec: typeof v.viewingTimeSec === 'number' ? v.viewingTimeSec + 1 : 1
+            }))
       );
     }, 1000);
     return () => clearInterval(timer);
@@ -299,8 +337,8 @@ export default function ChatPanel({
   useEffect(() => {
     if (session?.websiteId?._id || session?.websiteId) {
       const wId = session.websiteId._id || session.websiteId;
-      api(`/api/users/agents?websiteId=${wId}`).then(res => setAgentsList(Array.isArray(res) ? res : [])).catch(() => {});
-      api(`/api/departments?websiteId=${wId}`).then(res => setDepartmentsList(Array.isArray(res) ? res : [])).catch(() => {});
+      api(`/api/users/agents?websiteId=${wId}`).then(res => setAgentsList(Array.isArray(res) ? res : [])).catch(() => { });
+      api(`/api/departments?websiteId=${wId}`).then(res => setDepartmentsList(Array.isArray(res) ? res : [])).catch(() => { });
     }
   }, [session]);
 
@@ -342,10 +380,11 @@ export default function ChatPanel({
 
   useEffect(() => {
     if (!isChatDisabled && canUseShortcuts) {
-      api("/api/canned-responses")
+      api("/api/canned-responses?activeOnly=true")
         .then(res => {
-          if (Array.isArray(res) && res.length > 0) {
-            setShortcuts(res);
+          if (Array.isArray(res)) {
+            const active = res.filter((s) => s.isActive !== false);
+            setShortcuts(active.length > 0 ? active : DEFAULT_SHORTCUTS);
           } else {
             setShortcuts(DEFAULT_SHORTCUTS);
           }
@@ -371,7 +410,10 @@ export default function ChatPanel({
 
   const visitor = session.visitorId;
   const isVisitorOnline = Boolean(
-    session.status !== "closed" && !session.archivedAt && !session.closedAt
+    session.status !== "closed" &&
+    !session.archivedAt &&
+    !session.closedAt &&
+    (visitor?.isOnline || session.isOnline)
   );
   const visitorName = cleanString(visitor?.name) || cleanString(visitor?.visitorId, "Anonymous User");
   const avatarColor = getAvatarColor(visitorName);
@@ -620,7 +662,7 @@ export default function ChatPanel({
       <div className="px-3.5 py-2 border-b border-slate-100 dark:border-white/10 bg-white dark:bg-slate-900 shrink-0 sticky top-0 z-20 shadow-xs space-y-2">
         {/* Top Row: Visitor Identity + Primary Action Controls */}
         <div className="flex items-center justify-between gap-3">
-          
+
           {/* Visitor Identity & Live Status */}
           <div
             onClick={onIntelClick}
@@ -634,13 +676,12 @@ export default function ChatPanel({
               <h3 className="text-xs md:text-sm font-bold text-slate-900 dark:text-white truncate max-w-[200px]" title={visitorName}>
                 {visitorName}
               </h3>
-              
+
               {/* Status Badge */}
-              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 border shrink-0 transition-all ${
-                isVisitorOnline 
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400' 
-                  : 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400'
-              }`}>
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 border shrink-0 transition-all ${isVisitorOnline
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400'
+                : 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400'
+                }`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${isVisitorOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
                 <span>{isVisitorOnline ? "Online" : "Offline"}</span>
               </span>
@@ -654,13 +695,12 @@ export default function ChatPanel({
 
               {/* Sentiment Pill */}
               {session.sentimentLabel && (
-                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md border flex items-center gap-1 shrink-0 ${
-                  session.sentimentLabel === "positive"
-                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                    : session.sentimentLabel === "negative"
-                      ? "bg-rose-50 text-rose-700 border-rose-200 animate-pulse"
-                      : "bg-slate-100 text-slate-600 border-slate-200"
-                }`}>
+                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md border flex items-center gap-1 shrink-0 ${session.sentimentLabel === "positive"
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : session.sentimentLabel === "negative"
+                    ? "bg-rose-50 text-rose-700 border-rose-200 animate-pulse"
+                    : "bg-slate-100 text-slate-600 border-slate-200"
+                  }`}>
                   <span>{moodEmoji}</span>
                   <span className="capitalize">{session.sentimentLabel}</span>
                 </span>
@@ -699,11 +739,10 @@ export default function ChatPanel({
                     }));
                   }}
                   title={isVisitorOnline ? `Call ${visitorName || 'Visitor'} (Web Direct Voice)` : `${visitorName || 'Visitor'} is offline`}
-                  className={`p-1.5 rounded-lg border transition-all flex items-center justify-center shadow-xs active:scale-95 ${
-                    isVisitorOnline
-                      ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-sm cursor-pointer hover:scale-105"
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-60"
-                  }`}
+                  className={`p-1.5 rounded-lg border transition-all flex items-center justify-center shadow-xs active:scale-95 ${isVisitorOnline
+                    ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-sm cursor-pointer hover:scale-105"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-60"
+                    }`}
                 >
                   <Phone size={15} />
                 </button>
@@ -800,11 +839,10 @@ export default function ChatPanel({
             <button
               onClick={() => setShowSidebar(!showSidebar)}
               title="Toggle Customer Intelligence Sidebar"
-              className={`p-1.5 rounded-lg border transition-all flex items-center justify-center shadow-xs active:scale-95 ${
-                showSidebar
-                  ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-                  : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-300 dark:border-indigo-500/20"
-              }`}
+              className={`p-1.5 rounded-lg border transition-all flex items-center justify-center shadow-xs active:scale-95 ${showSidebar
+                ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-300 dark:border-indigo-500/20"
+                }`}
             >
               <Sparkles size={15} />
             </button>
@@ -816,26 +854,65 @@ export default function ChatPanel({
           <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium truncate min-w-0">
             {/* Assigned Agent Info */}
             {assignedAgentId ? (
-              <span className="text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 shrink-0">
-                <span>👤</span>
-                <span>Assigned: {isAssignedToMe ? "Me" : assignedAgentName}</span>
-              </span>
+              <>
+                <span className="text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 shrink-0">
+                  <span>👤</span>
+                  <span>Assigned: {isAssignedToMe ? "Me" : assignedAgentName}</span>
+                </span>
+                {onTransferChat && (
+                  <button
+                    type="button"
+                    onClick={() => setShowTransferModal(true)}
+                    className="p-1 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-300 bg-slate-50 hover:bg-indigo-50 dark:bg-white/5 dark:hover:bg-indigo-500/10 rounded-md border border-slate-200 dark:border-white/10 flex items-center justify-center transition-all shrink-0 active:scale-95"
+                    title="Transfer chat to another agent or department"
+                  >
+                    <ArrowRightLeft size={11} />
+                  </button>
+                )}
+              </>
             ) : (
-              <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md shrink-0">
-                ⚠️ Unassigned
-              </span>
-            )}
-
-            {/* Transfer Chat Button */}
-            {onTransferChat && (
-              <button
-                type="button"
-                onClick={() => setShowTransferModal(true)}
-                className="p-1 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-300 bg-slate-50 hover:bg-indigo-50 dark:bg-white/5 dark:hover:bg-indigo-500/10 rounded-md border border-slate-200 dark:border-white/10 flex items-center justify-center transition-all shrink-0 active:scale-95"
-                title="Transfer chat to another agent or department"
-              >
-                <ArrowRightLeft size={11} />
-              </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md">
+                  ⚠️ Unassigned
+                </span>
+                {session.status !== "closed" && (() => {
+                  const waitInfo = formatWaitDuration(session.createdAt || session.updatedAt);
+                  if (!waitInfo) return null;
+                  return (
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md border flex items-center gap-1 ${waitInfo.urgent
+                        ? "text-rose-700 bg-rose-50 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30"
+                        : "text-slate-600 bg-slate-100 border-slate-200 dark:bg-white/5 dark:text-slate-300 dark:border-white/10"
+                      }`}>
+                      <Clock size={10} />
+                      {waitInfo.label}
+                    </span>
+                  );
+                })()}
+                {onTransferChat && session.status !== "closed" && (
+                  <button
+                    type="button"
+                    onClick={() => setShowTransferModal(true)}
+                    className="text-[10px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-2 py-0.5 rounded-md transition-colors cursor-pointer flex items-center gap-1"
+                    title="Assign this chat to an agent or department"
+                  >
+                    <ArrowRightLeft size={10} />
+                    Assign
+                  </button>
+                )}
+                {onAcceptChat && session.status !== "closed" && (
+                  <button
+                    type="button"
+                    onClick={() => onAcceptChat(session.sessionId)}
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md transition-colors cursor-pointer ${onTransferChat
+                        ? "text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200"
+                        : "text-white bg-indigo-600 hover:bg-indigo-700"
+                      }`}
+                    title="Accept and assign this chat to yourself"
+                  >
+                    Accept
+                  </button>
+                )}
+              </div>
             )}
 
             <span className="text-slate-300 dark:text-slate-700">•</span>
@@ -864,11 +941,10 @@ export default function ChatPanel({
             <button
               type="button"
               onClick={() => setAutoTranslate(prev => !prev)}
-              className={`p-1.5 rounded-md border transition-all flex items-center justify-center active:scale-95 relative ${
-                autoTranslate 
-                  ? "bg-teal-600 text-white border-teal-600 shadow-2xs" 
-                  : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
-              }`}
+              className={`p-1.5 rounded-md border transition-all flex items-center justify-center active:scale-95 relative ${autoTranslate
+                ? "bg-teal-600 text-white border-teal-600 shadow-2xs"
+                : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
+                }`}
               title={autoTranslate ? "Auto-Translate: ON (Click to turn OFF)" : "Auto-Translate: OFF (Click to turn ON)"}
             >
               <Globe size={13} />
@@ -887,11 +963,10 @@ export default function ChatPanel({
                   setZeroAgentMode(false);
                 }
               }}
-              className={`p-1.5 rounded-md border transition-all flex items-center justify-center active:scale-95 relative ${
-                zeroAgentMode
-                  ? "bg-purple-600 text-white border-purple-600 shadow-2xs"
-                  : "bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/40 hover:bg-purple-100"
-              }`}
+              className={`p-1.5 rounded-md border transition-all flex items-center justify-center active:scale-95 relative ${zeroAgentMode
+                ? "bg-purple-600 text-white border-purple-600 shadow-2xs"
+                : "bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/40 hover:bg-purple-100"
+                }`}
               title={zeroAgentMode ? "Zero-Agent AI Auto Mode: ON (Click to turn OFF)" : "Zero-Agent AI Auto Mode: OFF (Click to turn ON)"}
             >
               <Bot size={13} className={isSynthesizingAiReply ? "animate-spin" : ""} />
@@ -947,7 +1022,7 @@ export default function ChatPanel({
             ref={viewportRef}
             className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 bg-slate-50/30 dark:bg-slate-900/40 custom-scrollbar"
           >
-            {session.aiSummary && (
+            {session.aiSummary && session.status === "closed" && (
               <div className="bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-500/20 p-3.5 rounded-xl flex items-start gap-2.5">
                 <FileText size={15} className="text-indigo-600 mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
@@ -1034,11 +1109,10 @@ export default function ChatPanel({
               return (
                 <div key={msg._id || i} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[75%] flex flex-col ${isMe ? "items-end" : "items-start"}`}>
-                    <div className={`px-4 py-2.5 rounded-2xl text-xs font-medium leading-relaxed shadow-sm ${
-                      isMe
-                        ? "bg-indigo-600 text-white rounded-tr-none"
-                        : "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200/80 dark:border-white/10 rounded-tl-none"
-                    }`}>
+                    <div className={`px-4 py-2.5 rounded-2xl text-xs font-medium leading-relaxed shadow-sm ${isMe
+                      ? "bg-indigo-600 text-white rounded-tr-none"
+                      : "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200/80 dark:border-white/10 rounded-tl-none"
+                      }`}>
                       {msg.attachmentUrl ? (
                         <div className="space-y-2">
                           {msg.attachmentType === "image" ? (
@@ -1060,7 +1134,7 @@ export default function ChatPanel({
                         (() => {
                           const translated = msg.translatedText || clientTranslations[msg.message]?.translatedText;
                           const langCode = String(msg.detectedLanguage || clientTranslations[msg.message]?.detectedLanguage || "ru").toLowerCase();
-                          
+
                           let flag = "🌐";
                           let langName = "Foreign Language";
                           if (langCode.includes("ru")) { flag = "🇷🇺"; langName = "Russian"; }
@@ -1097,7 +1171,7 @@ export default function ChatPanel({
                       {isMe && (
                         <div className="flex items-center">
                           {(msg.readAt || msg.status === "read") ? (
-                            <CheckCheck size={12} className="text-indigo-600" title="Read" />
+                            <CheckCheck size={12} className="text-blue-500" title="Read" />
                           ) : (msg.deliveredAt || msg.status === "delivered") ? (
                             <CheckCheck size={12} className="text-slate-400" title="Delivered" />
                           ) : (
@@ -1240,10 +1314,11 @@ export default function ChatPanel({
               )}
 
               <form onSubmit={submit} className="flex flex-col gap-2">
-                <div className="relative group">
+                <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:border-indigo-500 transition-all">
                   <textarea
                     ref={textareaRef}
-                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl pl-3 pr-36 py-2.5 text-xs md:text-sm font-medium focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 outline-none transition-all resize-none min-h-[60px] max-h-32 dark:text-white"
+                    rows={2}
+                    className="w-full bg-transparent px-3 pt-2.5 pb-1.5 text-xs md:text-sm font-medium border-0 outline-none focus:outline-none focus-visible:outline-none focus:ring-0 resize-none min-h-[44px] max-h-36 overflow-y-auto break-words dark:text-white"
                     placeholder={
                       isChatDisabled
                         ? "Session is read-only..."
@@ -1274,60 +1349,65 @@ export default function ChatPanel({
                     }}
                   />
 
-                  <div className="absolute right-2.5 bottom-2.5 flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowEmojiPicker((prev) => !prev);
-                        setShowVariablePicker(false);
-                      }}
-                      className={`w-7 h-7 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-white/10 rounded-lg transition-all ${showEmojiPicker ? "text-indigo-600 bg-indigo-50" : ""}`}
-                      title="Insert Emoji"
-                    >
-                      <Smile size={15} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={toggleVoiceDictation}
-                      className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all ${isDictating ? "bg-rose-500 text-white animate-pulse" : "text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-white/10"}`}
-                      title={isDictating ? "Stop Voice Dictation" : "Voice-to-Text Dictation"}
-                    >
-                      {isDictating ? <MicOff size={15} /> : <Mic size={15} />}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowVariablePicker(!showVariablePicker);
-                        setShowEmojiPicker(false);
-                      }}
-                      className={`w-7 h-7 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-white/10 rounded-lg transition-all font-mono font-bold text-xs ${showVariablePicker ? "text-indigo-600 bg-indigo-50" : ""}`}
-                      title="Insert placeholder variable"
-                    >
-                      {"{}"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleCreateJtsMeet}
-                      className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-white/10 rounded-lg transition-all"
-                      title="Create & Insert JTS Video Meeting Link"
-                    >
-                      <Video size={15} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-white/10 rounded-lg transition-all"
-                      title="Attach file"
-                    >
-                      <Paperclip size={15} />
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isChatDisabled || (!draft.trim() && !isUploading)}
-                      className="bg-indigo-600 text-white w-7 h-7 rounded-lg flex items-center justify-center hover:bg-indigo-700 disabled:opacity-30 disabled:grayscale transition-all shadow-sm"
-                    >
-                      <Send size={13} />
-                    </button>
+                  <div className="px-2.5 pb-2 pt-1 flex items-center justify-between gap-2 border-t border-slate-200/60 dark:border-white/5">
+                    <span className="text-[10px] text-slate-400 hidden sm:inline">
+                      Enter to send · Shift+Enter for new line
+                    </span>
+                    <div className="flex items-center gap-1 ml-auto">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowEmojiPicker((prev) => !prev);
+                          setShowVariablePicker(false);
+                        }}
+                        className={`w-7 h-7 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-white/10 rounded-lg transition-all ${showEmojiPicker ? "text-indigo-600 bg-indigo-50" : ""}`}
+                        title="Insert Emoji"
+                      >
+                        <Smile size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={toggleVoiceDictation}
+                        className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all ${isDictating ? "bg-rose-500 text-white animate-pulse" : "text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-white/10"}`}
+                        title={isDictating ? "Stop Voice Dictation" : "Voice-to-Text Dictation"}
+                      >
+                        {isDictating ? <MicOff size={15} /> : <Mic size={15} />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowVariablePicker(!showVariablePicker);
+                          setShowEmojiPicker(false);
+                        }}
+                        className={`w-7 h-7 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-white/10 rounded-lg transition-all font-mono font-bold text-xs ${showVariablePicker ? "text-indigo-600 bg-indigo-50" : ""}`}
+                        title="Insert placeholder variable"
+                      >
+                        {"{}"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCreateJtsMeet}
+                        className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-white/10 rounded-lg transition-all"
+                        title="Create & Insert JTS Video Meeting Link"
+                      >
+                        <Video size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-white/10 rounded-lg transition-all"
+                        title="Attach file"
+                      >
+                        <Paperclip size={15} />
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isChatDisabled || (!draft.trim() && !isUploading)}
+                        className="bg-indigo-600 text-white w-7 h-7 rounded-lg flex items-center justify-center hover:bg-indigo-700 disabled:opacity-30 disabled:grayscale transition-all shadow-sm"
+                      >
+                        <Send size={13} />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1507,8 +1587,12 @@ export default function ChatPanel({
                   🔄
                 </span>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">Transfer Conversation</h4>
-                  <p className="text-[11px] text-slate-400">Reassign {visitorName}'s live chat to a team member</p>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                    {isUnassigned ? "Assign Conversation" : "Transfer Conversation"}
+                  </h4>
+                  <p className="text-[11px] text-slate-400">
+                    {isUnassigned ? `Assign ${visitorName}'s live chat to a team member` : `Reassign ${visitorName}'s live chat to a team member`}
+                  </p>
                 </div>
               </div>
               <button
@@ -1529,9 +1613,15 @@ export default function ChatPanel({
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500"
                 >
                   <option value="">-- Select Target Agent --</option>
-                  {agentsList.map(a => (
-                    <option key={a._id} value={a._id}>{a.name} ({a.email})</option>
-                  ))}
+                  {agentsList.map(a => {
+                    const isOnline = a.isOnline || a.status === "online" || a.presence === "online";
+                    const loadCount = activeChatCountByAgent[a._id] || 0;
+                    return (
+                      <option key={a._id} value={a._id}>
+                        {isOnline ? "🟢" : "⚪"} {a.name} ({loadCount} active) — {a.email}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -1569,7 +1659,7 @@ export default function ChatPanel({
                 disabled={!selectedTransferAgent && !selectedTransferDept}
                 className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-sm disabled:opacity-50 transition-all flex items-center gap-1.5"
               >
-                <span>Confirm Transfer</span>
+                <span>{isUnassigned ? "Confirm Assign" : "Confirm Transfer"}</span>
               </button>
             </div>
           </div>

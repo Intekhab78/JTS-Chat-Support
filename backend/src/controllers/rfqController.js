@@ -7,14 +7,21 @@ import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 // @desc    Get all RFQs
 // @route   GET /api/procurement/rfqs
 export const getRFQs = asyncHandler(async (req, res) => {
-  const websiteIds = await getOwnedWebsiteIds(req.user);
-  const query = req.user.role === "admin" ? {} : { websiteId: { $in: websiteIds } };
-  
+  let query = {};
+  if (req.user.role === "supplier") {
+    const supplierDocs = await Supplier.find({ userId: req.user._id }).select("_id").lean();
+    const supplierIds = supplierDocs.map((s) => s._id);
+    query = { invitedSuppliers: { $in: supplierIds } };
+  } else if (req.user.role !== "admin") {
+    const websiteIds = await getOwnedWebsiteIds(req.user);
+    query = { websiteId: { $in: websiteIds } };
+  }
+
   const rfqs = await RFQ.find(query)
     .populate("websiteId", "websiteName")
     .populate("invitedSuppliers", "companyName")
     .sort("-createdAt");
-    
+
   res.status(200).json(rfqs);
 });
 
@@ -22,9 +29,9 @@ export const getRFQs = asyncHandler(async (req, res) => {
 // @route   POST /api/procurement/rfqs
 export const createRFQ = asyncHandler(async (req, res) => {
   const { title, websiteId, items, invitedSuppliers, expiryDate, notes } = req.body;
-  
-  const count = await RFQ.countDocuments();
-  const rfqNumber = `RFQ-${(count + 1).toString().padStart(4, '0')}`;
+
+  const count = await RFQ.countDocuments(websiteId ? { websiteId } : {});
+  const rfqNumber = `RFQ-${(count + 1).toString().padStart(4, '0')}-${Date.now().toString().slice(-4)}`;
   
   const rfq = await RFQ.create({
     rfqNumber,

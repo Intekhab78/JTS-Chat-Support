@@ -4,15 +4,15 @@ import { api } from "../api/client.js";
 import { useWebsite } from "../context/WebsiteContext.jsx";
 import PaginationControls from "./PaginationControls.jsx";
 import { getPaginationMeta } from "../utils/pagination.js";
-import { 
-  Shield, 
-  X, 
-  Check, 
-  Users, 
-  MessageSquare, 
-  Ticket, 
-  Settings, 
-  ChevronRight, 
+import {
+  Shield,
+  X,
+  Check,
+  Users,
+  MessageSquare,
+  Ticket,
+  Settings,
+  ChevronRight,
   AlertCircle,
   Zap,
   Lock,
@@ -51,28 +51,12 @@ const ALL_PERMISSION_GROUPS = [
       { id: "crm.view", label: "View Customers", desc: "Access customer registry and profiles", icon: Eye },
       { id: "crm.create", label: "Create Leads", desc: "Add new prospects to the pipeline", icon: UserPlus },
       { id: "crm.update", label: "Update Records", desc: "Modify customer & lead details", icon: Edit3 },
-      { id: "crm.assign", label: "Assign Owner", desc: "Change lead and customer ownership", icon: UserCheck },
+      { id: "crm.assign_owner", label: "Assign Owner", desc: "Change lead and customer ownership", icon: UserCheck },
       { id: "crm.merge", label: "Merge Leads", desc: "Combine duplicate customer records", icon: GitMerge },
       { id: "crm.send_email", label: "Send Emails", desc: "Send customer outreach and emails", icon: Mail },
       { id: "crm.manage_tasks", label: "Manage Tasks", desc: "Create and track follow-up tasks", icon: CheckSquare },
       { id: "crm.archive", label: "Archive Data", desc: "Archive inactive records", icon: Archive },
       { id: "crm.delete", label: "Permanent Delete", desc: "Delete CRM entities permanently", icon: Trash2 },
-    ]
-  },
-  {
-    id: "compliance",
-    label: "Tax & Compliance",
-    shortLabel: "Compliance",
-    icon: FileSpreadsheet,
-    color: "emerald",
-    permissions: [
-      { id: "tax.view", label: "View Compliance Suite", desc: "Access full UAE Tax & Compliance Hub", icon: Eye },
-      { id: "tax.vat", label: "VAT Compliance", desc: "Access VAT filing schedules & client status", icon: FileText },
-      { id: "tax.corporate_tax", label: "Corporate Tax", desc: "Access Corporate Tax registration & deadlines", icon: Building2 },
-      { id: "tax.trade_license", label: "Trade License Renewal", desc: "Access UAE Trade License expiry & renewals", icon: Shield },
-      { id: "tax.reports", label: "Compliance Reports", desc: "Access 360° compliance audit reports", icon: BarChart3 },
-      { id: "tax.reminder_log", label: "Record Reminders", desc: "1-Click daily follow-up logging", icon: Send },
-      { id: "tax.manage", label: "Manage Deadlines", desc: "Update filing dates and work statuses", icon: Edit3 },
     ]
   },
   {
@@ -112,8 +96,12 @@ const ALL_PERMISSION_GROUPS = [
     color: "blue",
     permissions: [
       { id: "accounts.view", label: "View Ledger", desc: "Access financial overview & ledger", icon: Eye },
-      { id: "invoice.manage", label: "Manage Invoices", desc: "Generate and track customer invoices", icon: FileText },
-      { id: "billing.view", label: "Billing Details", desc: "View subscription & payment history", icon: CreditCard },
+      { id: "invoice.view", label: "View Invoices", desc: "Browse customer invoices & receipts", icon: Eye },
+      { id: "invoice.create", label: "Create Invoices", desc: "Generate new customer invoices", icon: Plus },
+      { id: "invoice.update", label: "Edit / Mark Paid", desc: "Update invoice details & payment status", icon: Edit3 },
+      { id: "invoice.delete", label: "Delete Invoices", desc: "Void or remove invoice records", icon: Trash2 },
+      { id: "invoice.manage", label: "Full Invoice Control", desc: "Unrestricted invoice management", icon: FileText },
+      { id: "billing.view", label: "Billing & Collections", desc: "View receivables & collection history", icon: CreditCard },
     ]
   },
   {
@@ -124,8 +112,15 @@ const ALL_PERMISSION_GROUPS = [
     color: "purple",
     permissions: [
       { id: "inventory.view", label: "View Stock", desc: "Browse SKU catalog and levels", icon: Eye },
-      { id: "inventory.manage", label: "Manage Inventory", desc: "Add/edit items and stock levels", icon: Package },
-      { id: "purchase.manage", label: "Procurement POs", desc: "Manage purchase orders and suppliers", icon: ShoppingCart },
+      { id: "inventory.create", label: "Add Items", desc: "Create new products & SKUs", icon: Plus },
+      { id: "inventory.update", label: "Edit Stock & Items", desc: "Update item prices and stock levels", icon: Edit3 },
+      { id: "inventory.delete", label: "Delete Items", desc: "Remove catalog items", icon: Trash2 },
+      { id: "inventory.manage", label: "Full Inventory Control", desc: "Manage all inventory masters", icon: Package },
+      { id: "purchase.view", label: "View Purchase Orders", desc: "Browse POs and supplier requests", icon: Eye },
+      { id: "purchase.create", label: "Create POs", desc: "Raise new purchase orders", icon: Plus },
+      { id: "purchase.update", label: "Edit / Approve POs", desc: "Update PO status and receipts", icon: Edit3 },
+      { id: "purchase.delete", label: "Delete POs", desc: "Cancel or remove purchase orders", icon: Trash2 },
+      { id: "purchase.manage", label: "Full Procurement Control", desc: "Manage all POs and suppliers", icon: ShoppingCart },
     ]
   },
   {
@@ -220,30 +215,52 @@ export default function RoleManager() {
     try {
       const response = await api("/api/roles");
       setRoles(Array.isArray(response) ? response : (response?.roles || response?.data || []));
-    } catch (err) { 
-      console.error(err); 
-    } finally { 
-      setLoading(false); 
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleTogglePermission = (id) => {
-    setFormData(prev => ({
-      ...prev,
-      permissions: prev.permissions.includes(id) 
-        ? prev.permissions.filter(p => p !== id) 
-        : [...prev.permissions, id]
-    }));
+    setFormData(prev => {
+      const isRemoving = prev.permissions.includes(id);
+      let next = isRemoving
+        ? prev.permissions.filter(p => p !== id)
+        : [...prev.permissions, id];
+
+      const syncFamily = (manageId, childIds) => {
+        if (id === manageId) {
+          if (isRemoving) {
+            next = next.filter(p => !childIds.slice(1).includes(p));
+          } else {
+            next = Array.from(new Set([...next, ...childIds]));
+          }
+        } else if (childIds.includes(id)) {
+          if (isRemoving) {
+            next = next.filter(p => p !== manageId);
+          } else if (childIds.every(c => next.includes(c))) {
+            next = Array.from(new Set([...next, manageId]));
+          }
+        }
+      };
+
+      syncFamily("invoice.manage", ["invoice.view", "invoice.create", "invoice.update", "invoice.delete"]);
+      syncFamily("inventory.manage", ["inventory.view", "inventory.create", "inventory.update", "inventory.delete"]);
+      syncFamily("purchase.manage", ["purchase.view", "purchase.create", "purchase.update", "purchase.delete"]);
+
+      return { ...prev, permissions: next };
+    });
   };
 
   const openModal = (role = null) => {
     if (role) {
       setCurrentRole(role);
-      setFormData({ 
-        name: role.name, 
-        description: role.description || "", 
+      setFormData({
+        name: role.name,
+        description: role.description || "",
         permissions: role.permissions || [],
-        isActive: role.isActive ?? true 
+        isActive: role.isActive ?? true
       });
     } else {
       setCurrentRole(null);
@@ -278,8 +295,12 @@ export default function RoleManager() {
       }
       setIsModalOpen(false);
       loadRoles();
-    } catch (err) { 
-      alert(err.message); 
+      try {
+        localStorage.setItem("jts_permissions_updated_at", String(Date.now()));
+        window.dispatchEvent(new Event("permissions:updated"));
+      } catch { /* ignore */ }
+    } catch (err) {
+      alert(err.message);
     }
   };
 
@@ -287,8 +308,8 @@ export default function RoleManager() {
     if (!Array.isArray(roles)) return [];
     if (!searchQuery.trim()) return roles;
     const q = searchQuery.toLowerCase().trim();
-    return roles.filter(r => 
-      r.name?.toLowerCase().includes(q) || 
+    return roles.filter(r =>
+      r.name?.toLowerCase().includes(q) ||
       r.description?.toLowerCase().includes(q)
     );
   }, [roles, searchQuery]);
@@ -346,7 +367,7 @@ export default function RoleManager() {
             />
           </div>
 
-          <button 
+          <button
             onClick={() => openModal()}
             className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-xs transition-all active:scale-95 flex items-center gap-1.5 shrink-0 cursor-pointer"
           >
@@ -363,113 +384,113 @@ export default function RoleManager() {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 items-stretch">
               {pagination.pageItems.map(role => {
-          const groupBadges = getRoleGroupBadges(role.permissions || []);
-          const isSystemRole = ["admin", "client", "agent", "manager"].includes(role.name?.toLowerCase());
+                const groupBadges = getRoleGroupBadges(role.permissions || []);
+                const isSystemRole = ["admin", "client", "agent", "manager"].includes(role.name?.toLowerCase());
 
-          return (
-            <div 
-              key={role._id} 
-              className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 rounded-2xl p-3.5 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:shadow-md transition-all group flex flex-col justify-between relative"
-            >
-              <div>
-                {/* Top Row: Icon + Status + Edit/Delete */}
-                <div className="flex items-center justify-between gap-2 mb-2.5">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/5 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-950/40 border border-slate-200/60 dark:border-white/10 flex items-center justify-center text-slate-500 group-hover:text-indigo-600 transition-colors">
-                      <Lock size={15} />
+                return (
+                  <div
+                    key={role._id}
+                    className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 rounded-2xl p-3.5 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:shadow-md transition-all group flex flex-col justify-between relative"
+                  >
+                    <div>
+                      {/* Top Row: Icon + Status + Edit/Delete */}
+                      <div className="flex items-center justify-between gap-2 mb-2.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/5 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-950/40 border border-slate-200/60 dark:border-white/10 flex items-center justify-center text-slate-500 group-hover:text-indigo-600 transition-colors">
+                            <Lock size={15} />
+                          </div>
+                          {role.isActive === false && (
+                            <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-400 text-[8px] font-black uppercase rounded-md">
+                              Archived
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => openModal(role)}
+                            title="Edit Role"
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg transition-all cursor-pointer"
+                          >
+                            <Edit3 size={13} />
+                          </button>
+                          {!isSystemRole && (
+                            <button
+                              onClick={() => handleDeleteRole(role._id, role.name)}
+                              title="Delete Role"
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-all cursor-pointer"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Role Title & Summary */}
+                      <h3 className="text-xs font-black text-slate-900 dark:text-white tracking-tight uppercase group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+                        {role.name}
+                      </h3>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium line-clamp-2 min-h-[28px] mt-1 leading-snug">
+                        {role.description || "No specific functional summary provided for this identity role."}
+                      </p>
+
+                      {/* Active Module Pills */}
+                      {groupBadges.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2.5">
+                          {groupBadges.slice(0, 3).map(badge => (
+                            <span key={badge} className="px-1.5 py-0.5 rounded bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 text-[8px] font-bold text-slate-600 dark:text-slate-300 uppercase">
+                              {badge}
+                            </span>
+                          ))}
+                          {groupBadges.length > 3 && (
+                            <span className="px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-[8px] font-bold text-indigo-600 dark:text-indigo-300">
+                              +{groupBadges.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    {role.isActive === false && (
-                      <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-400 text-[8px] font-black uppercase rounded-md">
-                        Archived
-                      </span>
-                    )}
-                  </div>
 
-                  <div className="flex items-center gap-1">
-                    <button 
+                    {/* Bottom Row: Modules Pill + Modify Link */}
+                    <div
                       onClick={() => openModal(role)}
-                      title="Edit Role"
-                      className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg transition-all cursor-pointer"
+                      className="mt-3 pt-2.5 border-t border-slate-100 dark:border-white/5 flex items-center justify-between cursor-pointer"
                     >
-                      <Edit3 size={13} />
-                    </button>
-                    {!isSystemRole && (
-                      <button 
-                        onClick={() => handleDeleteRole(role._id, role.name)}
-                        title="Delete Role"
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-all cursor-pointer"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Role Title & Summary */}
-                <h3 className="text-xs font-black text-slate-900 dark:text-white tracking-tight uppercase group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
-                  {role.name}
-                </h3>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium line-clamp-2 min-h-[28px] mt-1 leading-snug">
-                  {role.description || "No specific functional summary provided for this identity role."}
-                </p>
-
-                {/* Active Module Pills */}
-                {groupBadges.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2.5">
-                    {groupBadges.slice(0, 3).map(badge => (
-                      <span key={badge} className="px-1.5 py-0.5 rounded bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 text-[8px] font-bold text-slate-600 dark:text-slate-300 uppercase">
-                        {badge}
+                      <span className="inline-flex items-center gap-1 text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        <Shield size={11} className="text-indigo-500" />
+                        {role.permissions?.length || 0} Modules
                       </span>
-                    ))}
-                    {groupBadges.length > 3 && (
-                      <span className="px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-[8px] font-bold text-indigo-600 dark:text-indigo-300">
-                        +{groupBadges.length - 3}
+                      <span className="inline-flex items-center gap-0.5 text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
+                        Modify <ChevronRight size={11} />
                       </span>
-                    )}
+                    </div>
                   </div>
-                )}
-              </div>
+                );
+              })}
 
-              {/* Bottom Row: Modules Pill + Modify Link */}
-              <div 
-                onClick={() => openModal(role)}
-                className="mt-3 pt-2.5 border-t border-slate-100 dark:border-white/5 flex items-center justify-between cursor-pointer"
+              {/* Compact Register New Card */}
+              <div
+                onClick={() => openModal()}
+                className="border border-dashed border-slate-200 dark:border-white/15 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50/20 dark:hover:bg-indigo-950/10 transition-all cursor-pointer min-h-[140px] group select-none"
               >
-                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  <Shield size={11} className="text-indigo-500" />
-                  {role.permissions?.length || 0} Modules
-                </span>
-                <span className="inline-flex items-center gap-0.5 text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
-                  Modify <ChevronRight size={11} />
-                </span>
+                <div className="w-8 h-8 rounded-full border border-dashed border-slate-300 dark:border-white/20 flex items-center justify-center group-hover:border-indigo-400 group-hover:rotate-90 transition-all">
+                  <Plus size={15} />
+                </div>
+                <p className="text-[9px] font-black uppercase tracking-wider">Register Identity</p>
               </div>
             </div>
-          );
-        })}
 
-        {/* Compact Register New Card */}
-        <div 
-          onClick={() => openModal()}
-          className="border border-dashed border-slate-200 dark:border-white/15 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50/20 dark:hover:bg-indigo-950/10 transition-all cursor-pointer min-h-[140px] group select-none"
-        >
-          <div className="w-8 h-8 rounded-full border border-dashed border-slate-300 dark:border-white/20 flex items-center justify-center group-hover:border-indigo-400 group-hover:rotate-90 transition-all">
-            <Plus size={15} />
-          </div>
-          <p className="text-[9px] font-black uppercase tracking-wider">Register Identity</p>
-        </div>
-      </div>
-
-      {/* Pagination Controls */}
-      {!loading && filteredRoles.length > 0 && (
-        <PaginationControls
-          currentPage={pagination.currentPage}
-          totalPages={pagination.totalPages}
-          totalItems={pagination.totalItems}
-          pageSize={19}
-          itemLabel="roles"
-          onPageChange={setPage}
-        />
-      )}
+            {/* Pagination Controls */}
+            {!loading && filteredRoles.length > 0 && (
+              <PaginationControls
+                currentPage={pagination.currentPage}
+                totalPages={pagination.totalPages}
+                totalItems={pagination.totalItems}
+                pageSize={19}
+                itemLabel="roles"
+                onPageChange={setPage}
+              />
+            )}
           </>
         );
       })()}
@@ -478,14 +499,14 @@ export default function RoleManager() {
       {isModalOpen && createPortal(
         <div className="fixed inset-0 z-[99999] overflow-y-auto p-2 sm:p-4 md:p-6 flex items-center justify-center">
           {/* Dimmed Backdrop across entire window */}
-          <div 
-            className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm transition-opacity" 
-            onClick={() => setIsModalOpen(false)} 
+          <div
+            className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm transition-opacity"
+            onClick={() => setIsModalOpen(false)}
           />
-          
+
           {/* Centered Modal Card */}
           <div className="relative z-10 my-auto bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200 border border-slate-200 dark:border-white/10 overflow-hidden">
-            
+
             {/* Modal Header */}
             <div className="px-5 py-3 border-b border-slate-100 dark:border-white/10 flex items-center justify-between shrink-0 bg-slate-50/80 dark:bg-white/[0.02]">
               <div className="flex items-center gap-2.5">
@@ -501,9 +522,9 @@ export default function RoleManager() {
                   </p>
                 </div>
               </div>
-              <button 
+              <button
                 type="button"
-                onClick={() => setIsModalOpen(false)} 
+                onClick={() => setIsModalOpen(false)}
                 className="p-1.5 text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/10 rounded-lg transition-all cursor-pointer"
               >
                 <X size={16} />
@@ -511,7 +532,7 @@ export default function RoleManager() {
             </div>
 
             <form onSubmit={handleSubmit} className="flex-1 overflow-hidden flex flex-col md:flex-row min-h-0">
-              
+
               {/* Left Column: Role Details & Actions */}
               <div className="w-full md:w-72 p-4 bg-slate-50/40 dark:bg-white/[0.01] border-b md:border-b-0 md:border-r border-slate-100 dark:border-white/10 space-y-3 overflow-y-auto shrink-0 custom-scrollbar">
                 <div className="space-y-1">
@@ -570,16 +591,16 @@ export default function RoleManager() {
 
                 {/* Save & Cancel Buttons */}
                 <div className="pt-1 space-y-1.5">
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-wider py-2.5 rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 active:scale-98 cursor-pointer"
                   >
                     <Zap size={13} />
                     {currentRole ? "Synchronize Updates" : "Deploy Identity"}
                   </button>
-                  <button 
-                    type="button" 
-                    onClick={() => setIsModalOpen(false)} 
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
                     className="w-full text-slate-400 hover:text-slate-800 dark:hover:text-white font-bold text-[9px] uppercase tracking-wider py-1.5 transition-colors text-center cursor-pointer"
                   >
                     Discard Changes
@@ -589,9 +610,9 @@ export default function RoleManager() {
 
               {/* Right Column: Permission Tabs & Grid */}
               <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-                
-                {/* Horizontal Category Navigation Tabs */}
-                <div className="px-3 py-2 border-b border-slate-100 dark:border-white/10 flex items-center gap-1.5 shrink-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden bg-slate-50/40 dark:bg-white/[0.01]">
+
+                {/* Wrapped Category Navigation Tabs */}
+                <div className="px-3 py-2 border-b border-slate-100 dark:border-white/10 flex flex-wrap items-center gap-1.5 shrink-0 bg-slate-50/40 dark:bg-white/[0.01]">
                   {PERMISSION_GROUPS.map(group => {
                     const GroupIcon = group.icon;
                     const isActive = activeGroup === group.id;
@@ -602,11 +623,10 @@ export default function RoleManager() {
                         key={group.id}
                         type="button"
                         onClick={() => setActiveGroup(group.id)}
-                        className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer border ${
-                          isActive 
-                            ? `bg-white dark:bg-slate-800 border-indigo-500 text-indigo-600 dark:text-indigo-400 shadow-xs` 
+                        className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer border ${isActive
+                            ? `bg-white dark:bg-slate-800 border-indigo-500 text-indigo-600 dark:text-indigo-400 shadow-xs`
                             : 'border-transparent text-slate-500 hover:bg-white dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200'
-                        }`}
+                          }`}
                       >
                         <GroupIcon size={12} />
                         {group.label}
@@ -622,25 +642,49 @@ export default function RoleManager() {
 
                 {/* Permissions List Grid */}
                 <div className="flex-1 overflow-y-auto p-3 space-y-2.5 custom-scrollbar min-h-0">
+                  {(() => {
+                    const currentGroup = PERMISSION_GROUPS.find(g => g.id === activeGroup);
+                    const groupPermIds = currentGroup?.permissions.map(p => p.id) || [];
+                    const allSelected = groupPermIds.length > 0 && groupPermIds.every(id => formData.permissions.includes(id));
+                    return (
+                      <div className="flex items-center justify-between px-1 pb-1">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                          {currentGroup?.label} ({groupPermIds.filter(id => formData.permissions.includes(id)).length}/{groupPermIds.length})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData(prev => ({
+                              ...prev,
+                              permissions: allSelected
+                                ? prev.permissions.filter(p => !groupPermIds.includes(p))
+                                : Array.from(new Set([...prev.permissions, ...groupPermIds]))
+                            }));
+                          }}
+                          className="text-[10px] font-black uppercase tracking-wider text-indigo-600 hover:text-indigo-700 cursor-pointer"
+                        >
+                          {allSelected ? "Clear Group" : "Select All"}
+                        </button>
+                      </div>
+                    );
+                  })()}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {PERMISSION_GROUPS.find(g => g.id === activeGroup)?.permissions.map(perm => {
                       const isChecked = formData.permissions.includes(perm.id);
                       const PermIcon = perm.icon || Shield;
-                      
+
                       return (
-                        <div 
+                        <div
                           key={perm.id}
                           onClick={() => handleTogglePermission(perm.id)}
-                          className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2.5 ${
-                            isChecked 
-                              ? 'bg-indigo-50/50 dark:bg-indigo-950/30 border-indigo-400 dark:border-indigo-600 shadow-xs' 
+                          className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2.5 ${isChecked
+                              ? 'bg-indigo-50/50 dark:bg-indigo-950/30 border-indigo-400 dark:border-indigo-600 shadow-xs'
                               : 'bg-white dark:bg-slate-800/60 border-slate-200/80 dark:border-white/10 hover:border-slate-300'
-                          }`}
+                            }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
-                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                              isChecked ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-white/5 text-slate-400'
-                            }`}>
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isChecked ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-white/5 text-slate-400'
+                              }`}>
                               <PermIcon size={13} />
                             </div>
                             <div className="min-w-0">
@@ -653,9 +697,8 @@ export default function RoleManager() {
                             </div>
                           </div>
 
-                          <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-all ${
-                            isChecked ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-600'
-                          }`}>
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-all ${isChecked ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-600'
+                            }`}>
                             {isChecked && <Check size={11} strokeWidth={3} />}
                           </div>
                         </div>

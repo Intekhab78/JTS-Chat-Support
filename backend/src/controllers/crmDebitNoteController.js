@@ -1,4 +1,5 @@
 import { DebitNote } from "../models/DebitNote.js";
+import { logCrmActivity } from "../services/activityLoggerService.js";
 import { getOwnedWebsiteIds } from "../utils/roleUtils.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
@@ -25,7 +26,10 @@ export const listDebitNotes = asyncHandler(async (req, res) => {
 
   if (customerId) query.customerId = customerId;
 
-  const notes = await DebitNote.find(query).sort({ createdAt: -1 });
+  const notes = await DebitNote.find(query)
+    .populate("customerId", "name companyName email")
+    .populate("invoiceId", "invoiceNumber invoiceId total")
+    .sort({ createdAt: -1 });
   res.json(notes);
 });
 
@@ -47,5 +51,31 @@ export const createDebitNote = asyncHandler(async (req, res) => {
     debitNoteNumber
   });
 
+  await logCrmActivity({
+    websiteId: resolvedWebsiteId,
+    type: "note",
+    title: `Debit Note Issued: ${debitNoteNumber}`,
+    description: `Debit Note ${debitNoteNumber} issued for ${note.amount}${note.reason ? ` (${note.reason})` : ""}.`,
+    customerId: note.customerId,
+    ownerId: req.user._id
+  }).catch(() => {});
+
   res.status(201).json(note);
+});
+
+export const updateDebitNoteStatus = asyncHandler(async (req, res) => {
+  requirePermission(req.user, PERMISSIONS.CRM_UPDATE);
+  const ownedWebsiteIds = await getOwnedWebsiteIds(req.user);
+  const note = await DebitNote.findById(req.params.id);
+  if (!note) throw new AppError("Debit note not found", 404);
+  if (!ownedWebsiteIds.map(id => id.toString()).includes(String(note.websiteId))) {
+    throw new AppError("Unauthorized access", 403);
+  }
+  const { status } = req.body;
+  if (!["pending", "paid", "cancelled"].includes(status)) {
+    throw new AppError("Invalid debit note status", 400);
+  }
+  note.status = status;
+  await note.save();
+  res.json(note);
 });
