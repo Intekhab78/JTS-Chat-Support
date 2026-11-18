@@ -618,6 +618,11 @@ const DEFAULT_ICE_SERVERS = [
               if (silenceTimer) clearTimeout(silenceTimer);
               voiceOverlay.style.display = "none";
               renderDefaultVoiceUI();
+              if (ui && ui.messages) {
+                setTimeout(() => {
+                  ui.messages.scrollTop = ui.messages.scrollHeight;
+                }, 50);
+              }
             }
 
             function initiateAgentHandoff(reason = "Human assistance requested") {
@@ -686,12 +691,33 @@ const DEFAULT_ICE_SERVERS = [
                   card.className = "csw-speech-card-ai";
                   const ticketId = item.ticketId;
                   const ticketLink = item.ticketLink || (ticketId ? `${originUrl}/ticket-status/${ticketId}` : null);
+                  const catalogList = Array.isArray(item.catalogItems) ? item.catalogItems : [];
+                  const catalogHtml = catalogList.length > 0 ? `
+                    <div style="margin-top:7px; display:flex; flex-direction:column; gap:5px;">
+                      ${catalogList.map(ci => `
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; padding:5px 8px; background:rgba(15,23,42,0.65); border:1px solid rgba(56,189,248,0.28); border-radius:7px;">
+                          <div style="min-width:0; flex:1;">
+                            <div style="font-size:10.5px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${String(ci.name || "Product").replace(/</g, "&lt;")}</div>
+                            <div style="font-size:9px; color:#94a3b8;">${ci.price != null ? `${ci.currency || "USD"} ${ci.price}` : "Custom Pricing"} • ${ci.category || "Catalog"}</div>
+                          </div>
+                          <button type="button" class="csw-voice-quote-btn" data-item-name="${String(ci.name || "Product").replace(/"/g, "&quot;")}" style="background:rgba(56,189,248,0.2); border:1px solid rgba(56,189,248,0.45); color:#38bdf8; border-radius:6px; padding:3px 7px; font-size:9px; font-weight:800; cursor:pointer; flex-shrink:0;">Quote</button>
+                        </div>
+                      `).join("")}
+                    </div>
+                  ` : "";
+                  const quoteBadgeHtml = item.quoteRequested ? `
+                    <div style="margin-top:6px; padding:4px 8px; background:rgba(16,185,129,0.18); border:1px solid rgba(16,185,129,0.4); border-radius:6px; font-size:9.5px; color:#34d399; font-weight:700; display:inline-flex; align-items:center; gap:5px;">
+                      <span>✓ Quotation Follow-Up Logged</span>
+                    </div>
+                  ` : "";
                   card.innerHTML = `
                     <div style="font-size:8.5px; font-weight:800; color:#38bdf8; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:2px; display:inline-flex; align-items:center; gap:4px;">
                       ${ICONS.bot(13, "#38bdf8")}
                       <span>AI AGENT</span>
                     </div>
                     <div style="font-size:11.5px; color:#f8fafc; font-weight:500; line-height:1.4;">${formatVoiceText(item.text, originUrl)}</div>
+                    ${catalogHtml}
+                    ${quoteBadgeHtml}
                     ${ticketId && ticketLink ? `
                       <div style="margin-top:7px;">
                         <a href="${ticketLink}" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; background:linear-gradient(135deg, rgba(14,165,233,0.25), rgba(16,185,129,0.3)); border:1px solid rgba(56,189,248,0.5); border-radius:8px; font-size:11px; color:#38bdf8; font-weight:800; text-decoration:none; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.25); transition:all 0.2s;" onmouseover="this.style.background='rgba(56,189,248,0.35)'; this.style.borderColor='#38bdf8';" onmouseout="this.style.background='linear-gradient(135deg, rgba(14,165,233,0.25), rgba(16,185,129,0.3))'; this.style.borderColor='rgba(56,189,248,0.5)';">
@@ -706,6 +732,14 @@ const DEFAULT_ICE_SERVERS = [
                       </div>
                     ` : '')}
                   `;
+                  card.querySelectorAll(".csw-voice-quote-btn").forEach(btn => {
+                    btn.onclick = () => {
+                      const itemName = btn.getAttribute("data-item-name") || "this product";
+                      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+                      isAiSpeaking = false;
+                      processQueryAndRespond(`Please send me a quotation for ${itemName}`);
+                    };
+                  });
                 }
                 conversationFeed.appendChild(card);
               });
@@ -766,6 +800,13 @@ const DEFAULT_ICE_SERVERS = [
 
               voiceHistory.push({ role: 'user', text: promptText });
               renderVoiceFeed(true);
+              try {
+                if (ui && ui.chatInterface) {
+                  ui.prechat.style.display = "none";
+                  ui.chatInterface.style.display = "flex";
+                }
+                appendMessage(ui, "visitor", `🎙️ [Voice] ${promptText}`);
+              } catch (e) { }
 
               statusBadge.innerHTML = `<span style="width:6px; height:6px; border-radius:50%; background:#38bdf8; display:inline-block; box-shadow:0 0 6px #38bdf8;"></span> ${ICONS.sparkles(11, '#38bdf8')} <span>AI THINKING & RESPONDING...</span>`;
 
@@ -795,8 +836,19 @@ const DEFAULT_ICE_SERVERS = [
                 if (data && data.voiceResponse) {
                   const ticketId = data.ticketId || data.ticket?.ticketId || null;
                   const ticketLink = data.ticketLink || (ticketId ? `${originUrl}/ticket-status/${ticketId}` : null);
-                  voiceHistory.push({ role: 'ai', text: data.voiceResponse, ticketId, ticketLink });
+                  voiceHistory.push({
+                    role: 'ai',
+                    text: data.voiceResponse,
+                    ticketId,
+                    ticketLink,
+                    catalogItems: Array.isArray(data.catalogItems) ? data.catalogItems : [],
+                    quoteRequested: Boolean(data.quoteRequested)
+                  });
                   renderVoiceFeed(false);
+                  try {
+                    const aiChatText = `🤖 [AI Voice] ${data.voiceResponse}${ticketId ? ` (Ticket #${ticketId})` : ""}`;
+                    appendMessage(ui, "agent", aiChatText, null, null, "AI Voice Assistant", true);
+                  } catch (e) { }
 
                   const respLower = (data.voiceResponse || "").toLowerCase();
                   const isCallEnding = Boolean(
@@ -948,8 +1000,10 @@ const DEFAULT_ICE_SERVERS = [
 
                     if (silenceTimer) clearTimeout(silenceTimer);
                     silenceTimer = setTimeout(() => {
-                      if (accumulatedTranscript && accumulatedTranscript.length > 2 && !isAiSpeaking) {
-                        const sendText = accumulatedTranscript;
+                      const cleanCandidate = (accumulatedTranscript || "").trim();
+                      const isFillerNoise = /^(uh+|um+|hmm+|hm+|ah+|oh+|mm+|er+)$/i.test(cleanCandidate);
+                      if (cleanCandidate && cleanCandidate.length > 2 && !isFillerNoise && !isAiSpeaking) {
+                        const sendText = cleanCandidate;
                         accumulatedTranscript = "";
                         try { recognition.stop(); } catch (e) { }
                         processQueryAndRespond(sendText);
@@ -976,6 +1030,11 @@ const DEFAULT_ICE_SERVERS = [
 
             if (speakMicBtn) {
               speakMicBtn.onclick = () => {
+                // Barge-In support: allow visitor to interrupt AI speech and speak immediately
+                if (isAiSpeaking) {
+                  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+                  isAiSpeaking = false;
+                }
                 startListening();
               };
             }

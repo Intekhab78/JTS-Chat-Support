@@ -26,13 +26,14 @@ export class AiProviderManager {
 
       case "gemini":
         return {
-          generateCompletion: async ({ prompt, temperature = 0.7, maxTokens = 1000, modelName }) => {
+          generateCompletion: async ({ prompt, temperature = 0.7, maxTokens = 1000, modelName, responseMimeType = null }) => {
             const apiKey = process.env.GEMINI_API_KEY;
             if (!apiKey) {
               console.warn("[Gemini Driver] No API key set. Running in simulation mode.");
               const latencyStart = Date.now();
               return {
                 text: `[Google Gemini Response] Simulated answer context for: "${prompt.slice(0, 40)}..."`,
+                isFallback: true,
                 tokensPrompt: 45,
                 tokensCompletion: 85,
                 cost: 0.00008,
@@ -40,8 +41,9 @@ export class AiProviderManager {
               };
             }
 
-            let resolvedModel = modelName || "gemini-flash-lite-latest";
-            const candidateModels = [resolvedModel, "gemini-flash-lite-latest", "gemini-flash-latest", "gemini-2.0-flash-lite", "gemini-2.0-flash"];
+            const DEPRECATED_MODELS = new Set(["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-1.5-pro"]);
+            let resolvedModel = (!modelName || DEPRECATED_MODELS.has(modelName)) ? "gemini-2.5-flash" : modelName;
+            const candidateModels = [resolvedModel, "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest", "gemini-flash-lite-latest"];
 
             console.log(`[LLM Driver - Google Gemini] Querying real Gemini AI model...`);
             const latencyStart = Date.now();
@@ -49,6 +51,14 @@ export class AiProviderManager {
 
             for (const modelToTry of [...new Set(candidateModels)]) {
               try {
+                const generationConfig = {
+                  temperature: Number(temperature),
+                  maxOutputTokens: Number(maxTokens)
+                };
+                if (responseMimeType) {
+                  generationConfig.responseMimeType = responseMimeType;
+                }
+
                 const response = await fetch(
                   `https://generativelanguage.googleapis.com/v1beta/models/${modelToTry}:generateContent?key=${apiKey}`,
                   {
@@ -57,10 +67,7 @@ export class AiProviderManager {
                     signal: AbortSignal.timeout(8000),
                     body: JSON.stringify({
                       contents: [{ parts: [{ text: prompt }] }],
-                      generationConfig: {
-                        temperature: Number(temperature),
-                        maxOutputTokens: Number(maxTokens)
-                      }
+                      generationConfig
                     })
                   }
                 );
@@ -93,6 +100,7 @@ export class AiProviderManager {
             console.error("[Gemini Driver] Request failed:", lastErr?.message);
             return {
               text: `Hello! I am your AI assistant powered by Google Gemini. How can I assist you today?`,
+              isFallback: true,
               tokensPrompt: 0,
               tokensCompletion: 0,
               cost: 0,

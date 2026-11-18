@@ -172,7 +172,7 @@ export const runAgentQuery = asyncHandler(async (req, res) => {
   }
 
   // Fetch model configs to determine provider drivers
-  const config = await AiModelConfig.findOne({ websiteId: resolvedWebsiteId }) || { provider: "gemini", modelName: "gemini-1.5-flash" };
+  const config = await AiModelConfig.findOne({ websiteId: resolvedWebsiteId }) || { provider: "gemini", modelName: "gemini-2.5-flash" };
   const driver = AiProviderManager.getProvider(config.provider);
 
   // 1. Fetch relevant knowledge sources for RAG context
