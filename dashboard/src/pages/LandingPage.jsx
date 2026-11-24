@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowRight,
@@ -40,48 +40,112 @@ const PLATFORM_SUITES = [
     tag: "Support",
     title: "Omnichannel Inbox & AI Copilot",
     desc: "Live chat widget (12KB), WhatsApp, Email, Voice logs, canned responses, and 1-click AI auto-drafting.",
+    highlights: [
+      "12KB async live chat & AI voice widget",
+      "Unified WhatsApp, Email & Web Chat inbox",
+      "1-click Gemini AI reply drafting & translation",
+      "Real-time agent assignment & typing indicators",
+    ],
+    ctaLabel: "Try AI Sandbox",
+    ctaAction: "sandbox",
   },
   {
     icon: Users,
     tag: "CRM",
     title: "CRM, Deals & Customer 360°",
     desc: "Lead directory, Kanban deal stages, sales targets, activity timeline, and unified customer profiles.",
+    highlights: [
+      "Drag-and-drop Kanban deal pipeline",
+      "Automated lead capture & heat scoring",
+      "360° customer timeline (chats, calls, quotes, tickets)",
+      "Sales executive targets & win-probability insights",
+    ],
+    ctaLabel: "Launch CRM Workspace",
+    ctaAction: "register",
   },
   {
     icon: CreditCard,
     tag: "Finance",
     title: "Quotes, Invoices & Ledger",
     desc: "Auto-generate invoices from accepted quotes, track Razorpay/Stripe payments, refunds, and subscriptions.",
+    highlights: [
+      "1-click Quote-to-Invoice conversion",
+      "Online Razorpay & Stripe payment links",
+      "Multi-currency billing (AED, USD, INR) & tax",
+      "General ledger, receivables & PDF receipts",
+    ],
+    ctaLabel: "Explore Billing Plans",
+    ctaAction: "pricing",
   },
   {
     icon: Package,
     tag: "Operations",
     title: "Inventory, Procurement & Suppliers",
     desc: "Stock in/out tracking, product catalog, purchase orders, supplier portal, and stock adjustments.",
+    highlights: [
+      "Real-time SKU catalog & low-stock alerts",
+      "Purchase orders & GRN receiving workflow",
+      "Dedicated Supplier Portal for order fulfillment",
+      "AI Voice & Chat catalog recommendations",
+    ],
+    ctaLabel: "Start Free Workspace",
+    ctaAction: "register",
   },
   {
     icon: BarChart3,
     tag: "Analytics",
     title: "BI Dashboards & 24 Reports",
     desc: "Executive KPI command center, MRR/ARR insights, agent metrics, and CSV, Excel & PDF exports.",
+    highlights: [
+      "24 pre-built executive & operations report cards",
+      "Agent SLA, CSAT & first-response analytics",
+      "Revenue, MRR/ARR & pipeline conversion charts",
+      "Instant CSV, Excel & PDF report exports",
+    ],
+    ctaLabel: "View Plans & Limits",
+    ctaAction: "pricing",
   },
   {
     icon: Ticket,
     tag: "Helpdesk",
     title: "SLA Ticketing & Knowledge Hub",
     desc: "Department routing, automated SLA breach escalation, self-service help center, and ticket status portal.",
+    highlights: [
+      "Auto-routed tickets from Chat, Voice & Email",
+      "Automated SLA breach escalation engine",
+      "Public self-service ticket status tracker",
+      "AI-indexed Knowledge Base & FAQ articles",
+    ],
+    ctaLabel: "Track a Ticket",
+    ctaAction: "track_ticket",
   },
   {
     icon: Workflow,
     tag: "Automation",
     title: "Flow Builder & Low-Code Studio",
     desc: "Visual automation workflows, AI knowledge sources, custom CRM fields, feature flags, and webhooks.",
+    highlights: [
+      "Visual drag-and-drop chatbot decision flows",
+      "Business hours & condition-based routing",
+      "Custom CRM fields, webhooks & REST triggers",
+      "Zero-code lead & ticket conversion nodes",
+    ],
+    ctaLabel: "See Integrations",
+    ctaAction: "integrations",
   },
   {
     icon: ShieldCheck,
     tag: "Security",
     title: "2FA, RBAC & Multi-Domain",
     desc: "Role-based access across 8+ roles, 2FA authenticator, audit logs, and isolated multi-website controls.",
+    highlights: [
+      "Granular module & button-level RBAC permissions",
+      "Multi-tenant isolation across multiple websites",
+      "2FA authenticator & session timeout controls",
+      "Complete security audit logs & IP tracking",
+    ],
+    ctaLabel: "Explore 8 Role Portals",
+    ctaAction: "integrations",
   },
 ];
 
@@ -132,23 +196,59 @@ const TESTIMONIALS = [
 ];
 
 const INTEGRATIONS_LIST = [
-  { icon: MessageSquare, name: "WhatsApp Business", tag: "Omnichannel" },
-  { icon: Mail, name: "Email & SMTP Sync", tag: "Messaging" },
-  { icon: Phone, name: "Voice Call Logs", tag: "Telephony" },
-  { icon: CreditCard, name: "Razorpay & Stripe", tag: "Payments" },
-  { icon: Workflow, name: "REST Webhooks", tag: "Automation" },
-  { icon: Code, name: "WordPress / JS 12KB", tag: "1-Line Embed" },
+  {
+    icon: MessageSquare,
+    name: "WhatsApp Business",
+    tag: "Omnichannel",
+    desc: "Connect Meta WhatsApp Cloud API to receive customer messages, send ticket alerts, and reply directly from the unified inbox.",
+    endpoint: "Webhook: /api/webhooks/whatsapp",
+  },
+  {
+    icon: Mail,
+    name: "Email & SMTP Sync",
+    tag: "Messaging",
+    desc: "Send automated ticket confirmations, quotations, invoices, and SLA escalation alerts via your custom SMTP server.",
+    endpoint: "Protocol: TLS / SMTP Relay",
+  },
+  {
+    icon: Phone,
+    name: "Voice Call Logs",
+    tag: "Telephony",
+    desc: "24/7 AI Voice Bot + WebRTC live agent calling with unified transcript sync, call recording logs, and smart ticket deduplication.",
+    endpoint: "Engine: WebRTC + Gemini Voice RAG",
+  },
+  {
+    icon: CreditCard,
+    name: "Razorpay & Stripe",
+    tag: "Payments",
+    desc: "Accept instant invoice payments, manage SaaS subscriptions, and automate payment webhook reconciliation.",
+    endpoint: "Gateways: Razorpay & Stripe Checkout",
+  },
+  {
+    icon: Workflow,
+    name: "REST Webhooks",
+    tag: "Automation",
+    desc: "Trigger real-time HMAC-signed HTTP webhooks when leads are captured, deals close, or tickets are created.",
+    endpoint: "Events: lead.*, ticket.*, invoice.*",
+  },
+  {
+    icon: Code,
+    name: "WordPress / JS 12KB",
+    tag: "1-Line Embed",
+    desc: "Drop a single 12KB async script tag into WordPress, Shopify, React, or any HTML site to go live in under 2 minutes.",
+    endpoint: "<script src='.../chat-widget.js'>",
+  },
 ];
 
 const ROLE_WORKSPACES = [
-  "Client Owner",
-  "Support Agent",
-  "Sales Executive",
-  "Team Manager",
-  "Accounts",
-  "Purchase",
-  "Supplier Portal",
-  "Super Admin",
+  { name: "Client Owner", path: "/client", desc: "Full control over websites, team roles, billing plans, CRM, AI settings, and analytics." },
+  { name: "Support Agent", path: "/agent", desc: "Handle assigned live chats, voice calls, canned responses, AI drafts, and SLA tickets." },
+  { name: "Sales Executive", path: "/sales", desc: "Manage qualified leads, Kanban deals, quotations, sales targets, and follow-up tasks." },
+  { name: "Team Manager", path: "/manager", desc: "Monitor live agent queues, reassign chats, track SLA escalations, and review team KPIs." },
+  { name: "Accounts", path: "/accounts", desc: "Manage customer invoices, payment collections, general ledger, and financial reports." },
+  { name: "Purchase", path: "/purchase", desc: "Create purchase orders, manage vendor procurement, and track inventory stock levels." },
+  { name: "Supplier Portal", path: "/supplier", desc: "Dedicated external portal for suppliers to view POs, confirm shipments, and submit invoices." },
+  { name: "Super Admin", path: "/admin", desc: "Platform-wide multi-tenant governance, subscription plans, audit logs, and system health." },
 ];
 
 const FAQS = [
@@ -178,6 +278,12 @@ export default function LandingPage() {
   const [dbPlans, setDbPlans] = useState([]);
   const [userCustomInput, setUserCustomInput] = useState("");
   const [copiedSnippet, setCopiedSnippet] = useState(false);
+  const [heroDraftSent, setHeroDraftSent] = useState(false);
+  const [selectedModule, setSelectedModule] = useState(null);
+  const [selectedIntegration, setSelectedIntegration] = useState(null);
+  const [selectedRole, setSelectedRole] = useState(null);
+  const [ticketModalOpen, setTicketModalOpen] = useState(false);
+  const [ticketLookupId, setTicketLookupId] = useState("");
 
   // Widget customizer preview state
   const [previewColor, setPreviewColor] = useState("#4f46e5");
@@ -193,6 +299,15 @@ export default function LandingPage() {
   ]);
   const [plansLoading, setPlansLoading] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
+  const [sandboxTurns, setSandboxTurns] = useState(0);
+  const sandboxFeedRef = useRef(null);
+  const MAX_SANDBOX_TURNS = 10;
+
+  useEffect(() => {
+    if (sandboxFeedRef.current) {
+      sandboxFeedRef.current.scrollTop = sandboxFeedRef.current.scrollHeight;
+    }
+  }, [chatMessages, isTyping]);
 
   useEffect(() => {
     let isMounted = true;
@@ -236,28 +351,66 @@ export default function LandingPage() {
     }, 500);
   };
 
-  const handleCustomSend = (e) => {
+  const handleCustomSend = async (e) => {
     e.preventDefault();
-    const query = userCustomInput.trim();
+    const query = userCustomInput.trim().slice(0, 300);
     if (!query || isTyping) return;
     setUserCustomInput("");
-    setChatMessages((prev) => [...prev, { sender: "user", text: query }]);
+    const nextHistory = [...chatMessages, { sender: "user", text: query }];
+    setChatMessages(nextHistory);
+
+    if (sandboxTurns >= MAX_SANDBOX_TURNS) {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          sender: "agent",
+          text: "You've reached the live demo preview limit (10 messages). Create a free account in 30 seconds to continue with unlimited AI Copilot access!",
+          action: { label: "Start Free Forever →", path: "/login?mode=register&plan=free" },
+        },
+      ]);
+      return;
+    }
+
+    setSandboxTurns((n) => n + 1);
     setIsTyping(true);
-    setTimeout(() => {
-      const lower = query.toLowerCase();
-      let reply =
+
+    const lower = query.toLowerCase();
+    let actionButton = null;
+    if (lower.includes("account") || lower.includes("create") || lower.includes("register") || lower.includes("sign up") || lower.includes("start")) {
+      actionButton = { label: "Create Free Account →", path: "/login?mode=register&plan=free" };
+    } else if (lower.includes("sign in") || lower.includes("login")) {
+      actionButton = { label: "Sign In →", path: "/login?mode=login" };
+    } else if (lower.includes("portal")) {
+      actionButton = { label: "Open Customer Portal →", path: "/customer-portal" };
+    }
+
+    try {
+      const data = await api("/api/widget/sandbox-ai", {
+        method: "POST",
+        body: JSON.stringify({ query, history: nextHistory.slice(-6) }),
+      });
+      const replyText =
+        data?.text ||
+        "JTS Support unifies AI Live Chat, CRM, Invoicing, Inventory, and BI Reports in one workspace.";
+      setChatMessages((prev) => [...prev, { sender: "agent", text: replyText, action: actionButton }]);
+    } catch {
+      let fallbackReply =
         "JTS Support unifies live chat, AI Copilot, CRM deals, invoicing, inventory, and BI analytics in one fast workspace.";
-      if (lower.includes("price") || lower.includes("free") || lower.includes("plan")) {
-        reply = plans.length > 0
+      if (lower.includes("account") || lower.includes("create") || lower.includes("register") || lower.includes("sign up")) {
+        fallbackReply =
+          "Click 'Start Free Forever' (or the button below) to create your workspace in 30 seconds — no credit card required!";
+      } else if (lower.includes("price") || lower.includes("free") || lower.includes("plan")) {
+        fallbackReply = plans.length > 0
           ? `Available plans: ${plans.map((p) => `${p.name} (${p.currencySymbol || "$"}${p.monthlyPrice}/mo)`).join(", ")}. Annual billing saves up to 20%.`
           : "Check the pricing section below for our current plans and limits.";
       } else if (lower.includes("report") || lower.includes("bi") || lower.includes("analytics")) {
-        reply =
+        fallbackReply =
           "Built-in BI Analytics, MRR/ARR tracking, and 24 exportable report cards (CSV, Excel, PDF) are included.";
       }
-      setChatMessages((prev) => [...prev, { sender: "agent", text: reply }]);
+      setChatMessages((prev) => [...prev, { sender: "agent", text: fallbackReply, action: actionButton }]);
+    } finally {
       setIsTyping(false);
-    }, 600);
+    }
   };
 
   const copyScriptSnippet = () => {
@@ -428,7 +581,7 @@ export default function LandingPage() {
               </button>
               <button
                 type="button"
-                onClick={() => navigate("/portal")}
+                onClick={() => navigate("/customer-portal")}
                 className="px-3 py-2.5 text-xs font-semibold text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer"
               >
                 Customer Portal →
@@ -472,23 +625,29 @@ export default function LandingPage() {
               <div className="p-4 space-y-3">
                 <div className="grid grid-cols-3 gap-2.5">
                   {[
-                    { label: "Active Queue", value: "128 Live", color: "text-slate-900" },
-                    { label: "AI Draft Rate", value: "96.4%", color: "text-indigo-600" },
-                    { label: "Avg Resolution", value: "1m 42s", color: "text-emerald-600" },
+                    { label: "Active Queue", value: "128 Live", color: "text-slate-900", target: "modules" },
+                    { label: "AI Draft Rate", value: "96.4%", color: "text-indigo-600", target: "sandbox" },
+                    { label: "Avg Resolution", value: "1m 42s", color: "text-emerald-600", target: "pricing" },
                   ].map((kpi) => (
-                    <div
+                    <button
                       key={kpi.label}
-                      className="rounded-xl bg-slate-50 border border-slate-200/70 p-2.5"
+                      type="button"
+                      onClick={() => scrollToSection(kpi.target)}
+                      className="rounded-xl bg-slate-50 hover:bg-indigo-50/60 border border-slate-200/70 hover:border-indigo-200 p-2.5 text-left transition-all cursor-pointer"
                     >
                       <div className="text-[10px] font-semibold text-slate-500">{kpi.label}</div>
                       <div className={`text-sm font-extrabold mt-0.5 ${kpi.color}`}>
                         {kpi.value}
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
 
-                <div className="rounded-xl border border-slate-200/80 p-3 flex items-center justify-between gap-3 bg-white">
+                <button
+                  type="button"
+                  onClick={() => scrollToSection("sandbox")}
+                  className="w-full text-left rounded-xl border border-slate-200/80 hover:border-indigo-300 p-3 flex items-center justify-between gap-3 bg-white transition-all cursor-pointer"
+                >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center shrink-0">
                       AV
@@ -505,20 +664,38 @@ export default function LandingPage() {
                   <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold shrink-0">
                     Hot 96%
                   </span>
-                </div>
+                </button>
 
                 <div className="rounded-xl border border-indigo-200/80 bg-indigo-50/50 p-3 flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-[11px] font-bold text-indigo-700 flex items-center gap-1">
-                      <Sparkles className="w-3 h-3" /> AI Copilot Auto-Draft Ready
+                      <Sparkles className="w-3 h-3" />{" "}
+                      {heroDraftSent ? "AI Reply Dispatched Live!" : "AI Copilot Auto-Draft Ready"}
                     </div>
                     <div className="text-[11px] text-slate-600 truncate mt-0.5">
                       “Yes! Pro supports 10 domains with isolated CRM &amp; AI toggles.”
                     </div>
                   </div>
-                  <span className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[10px] font-semibold shrink-0">
-                    1-Click Send
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHeroDraftSent(true);
+                      setTimeout(() => setHeroDraftSent(false), 2500);
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-white text-[10px] font-semibold shrink-0 cursor-pointer transition-all inline-flex items-center gap-1 ${
+                      heroDraftSent
+                        ? "bg-emerald-600 hover:bg-emerald-700"
+                        : "bg-indigo-600 hover:bg-indigo-700"
+                    }`}
+                  >
+                    {heroDraftSent ? (
+                      <>
+                        <Check className="w-3 h-3" /> Sent
+                      </>
+                    ) : (
+                      "1-Click Send"
+                    )}
+                  </button>
                 </div>
               </div>
             </div>
@@ -533,7 +710,7 @@ export default function LandingPage() {
             [Zap, "99.99% Uptime SLA", () => scrollToSection("modules")],
             [Globe, "Multi-Tenant Isolation", () => scrollToSection("integrations")],
             [Lock, "2FA & RBAC Security", () => scrollToSection("integrations")],
-            [Building2, "Client Portal & Helpdesk", () => navigate("/portal")],
+            [Building2, "Client Portal & Helpdesk", () => navigate("/customer-portal")],
             [BarChart3, "BI & 24 Report Cards", () => scrollToSection("modules")],
             [Clock, "2-Min Widget Setup", () => scrollToSection("setup")],
           ].map(([Icon, text, onClick]) => (
@@ -565,25 +742,36 @@ export default function LandingPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-          {PLATFORM_SUITES.map(({ icon: Icon, tag, title, desc }) => (
-            <div
-              key={title}
-              className="rounded-2xl border border-slate-200/85 bg-white p-4 hover:border-indigo-300 hover:shadow-[0_10px_28px_-12px_rgba(79,70,229,0.2)] transition-all space-y-2"
-            >
-              <div className="flex items-center justify-between">
-                <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
-                  <Icon className="w-4 h-4" />
+          {PLATFORM_SUITES.map((suite) => {
+            const { icon: Icon, tag, title, desc } = suite;
+            return (
+              <button
+                key={title}
+                type="button"
+                onClick={() => setSelectedModule(suite)}
+                className="group text-left rounded-2xl border border-slate-200/85 bg-white p-4 hover:border-indigo-400 hover:shadow-[0_10px_28px_-12px_rgba(79,70,229,0.22)] transition-all space-y-2 cursor-pointer flex flex-col justify-between"
+              >
+                <div className="space-y-2 w-full">
+                  <div className="flex items-center justify-between">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                      {tag}
+                    </span>
+                  </div>
+                  <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 leading-snug group-hover:text-indigo-700 transition-colors">
+                    {title}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 leading-relaxed">{desc}</p>
                 </div>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                  {tag}
-                </span>
-              </div>
-              <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 leading-snug">
-                {title}
-              </h3>
-              <p className="text-[11px] text-slate-500 leading-relaxed">{desc}</p>
-            </div>
-          ))}
+                <div className="pt-1 text-[10.5px] font-bold text-indigo-600 inline-flex items-center gap-1 opacity-80 group-hover:opacity-100">
+                  <span>Explore details</span>
+                  <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+              </button>
+            );
+          })}
         </div>
       </section>
 
@@ -605,7 +793,7 @@ export default function LandingPage() {
             </div>
 
             <div className="p-4 space-y-3">
-              <div className="h-44 overflow-y-auto space-y-2 pr-1">
+              <div ref={sandboxFeedRef} className="h-44 overflow-y-auto space-y-2 pr-1 scroll-smooth">
                 {chatMessages.map((m, idx) => (
                   <div
                     key={idx}
@@ -618,11 +806,29 @@ export default function LandingPage() {
                         }`}
                     >
                       {m.text}
+                      {m.action && (
+                        <div className="mt-2">
+                          <button
+                            type="button"
+                            onClick={() => navigate(m.action.path)}
+                            className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold cursor-pointer inline-flex items-center gap-1"
+                          >
+                            {m.action.label}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
                 {isTyping && (
-                  <div className="text-[11px] text-slate-400 font-medium">AI Copilot typing...</div>
+                  <div className="flex justify-start">
+                    <div className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2 text-[11px] text-slate-500 font-medium">
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: "150ms" }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: "300ms" }} />
+                      <span className="ml-1">Thinking...</span>
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -643,7 +849,8 @@ export default function LandingPage() {
                 <input
                   value={userCustomInput}
                   onChange={(e) => setUserCustomInput(e.target.value)}
-                  placeholder="Ask about pricing, CRM, or setup..."
+                  maxLength={300}
+                  placeholder={sandboxTurns >= MAX_SANDBOX_TURNS ? "Demo limit reached — Start free to continue..." : "Ask about pricing, CRM, or setup..."}
                   className="flex-1 bg-slate-50 focus:bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-indigo-500"
                 />
                 <button
@@ -920,20 +1127,25 @@ export default function LandingPage() {
               </span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {INTEGRATIONS_LIST.map(({ icon: Icon, name, tag }) => (
-                <div
-                  key={name}
-                  className="rounded-xl border border-slate-200/80 bg-slate-50/50 p-2.5 flex items-start gap-2"
-                >
-                  <div className="w-7 h-7 rounded-lg bg-white border border-slate-200/80 flex items-center justify-center text-indigo-600 shrink-0">
-                    <Icon className="w-3.5 h-3.5" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[11px] font-bold text-slate-900 truncate">{name}</div>
-                    <div className="text-[10px] text-slate-500">{tag}</div>
-                  </div>
-                </div>
-              ))}
+              {INTEGRATIONS_LIST.map((item) => {
+                const { icon: Icon, name, tag } = item;
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => setSelectedIntegration(item)}
+                    className="group text-left rounded-xl border border-slate-200/80 hover:border-indigo-300 bg-slate-50/50 hover:bg-indigo-50/40 p-2.5 flex items-start gap-2 transition-all cursor-pointer"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-white border border-slate-200/80 group-hover:border-indigo-200 flex items-center justify-center text-indigo-600 shrink-0">
+                      <Icon className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-bold text-slate-900 group-hover:text-indigo-700 truncate">{name}</div>
+                      <div className="text-[10px] text-slate-500">{tag}</div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -955,13 +1167,15 @@ export default function LandingPage() {
               </div>
 
               <div className="flex flex-wrap gap-1.5">
-                {ROLE_WORKSPACES.map((roleName) => (
-                  <span
-                    key={roleName}
-                    className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200/80 text-[11px] font-semibold text-slate-700"
+                {ROLE_WORKSPACES.map((roleItem) => (
+                  <button
+                    key={roleItem.name}
+                    type="button"
+                    onClick={() => setSelectedRole(roleItem)}
+                    className="px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-indigo-50 border border-slate-200/80 hover:border-indigo-300 text-[11px] font-semibold text-slate-700 hover:text-indigo-700 transition-colors cursor-pointer"
                   >
-                    {roleName}
-                  </span>
+                    {roleItem.name}
+                  </button>
                 ))}
               </div>
             </div>
@@ -978,7 +1192,7 @@ export default function LandingPage() {
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
-                  onClick={() => navigate("/portal")}
+                  onClick={() => navigate("/customer-portal")}
                   className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-semibold cursor-pointer"
                 >
                   Open Portal →
@@ -1147,24 +1361,24 @@ export default function LandingPage() {
             <div className="lg:col-span-2 space-y-2.5">
               <p className="text-[11px] font-black uppercase tracking-wider text-slate-900">Platform</p>
               <ul className="space-y-2 text-xs font-medium text-slate-600">
-                <li>
-                  <a href="#modules" className="hover:text-indigo-600 transition-colors">Platform Modules</a>
-                </li>
-                <li>
-                  <a href="#sandbox" className="hover:text-indigo-600 transition-colors">Live AI Sandbox</a>
-                </li>
-                <li>
-                  <a href="#setup" className="hover:text-indigo-600 transition-colors">2-Min Widget Setup</a>
-                </li>
-                <li>
-                  <a href="#integrations" className="hover:text-indigo-600 transition-colors">Integrations &amp; API</a>
-                </li>
-                <li>
-                  <a href="#pricing" className="hover:text-indigo-600 transition-colors">Plans &amp; Pricing</a>
-                </li>
-                <li>
-                  <a href="#faq" className="hover:text-indigo-600 transition-colors">FAQs</a>
-                </li>
+                {[
+                  ["Platform Modules", "modules"],
+                  ["Live AI Sandbox", "sandbox"],
+                  ["2-Min Widget Setup", "setup"],
+                  ["Integrations & API", "integrations"],
+                  ["Plans & Pricing", "pricing"],
+                  ["FAQs", "faq"],
+                ].map(([label, sectionId]) => (
+                  <li key={sectionId}>
+                    <button
+                      type="button"
+                      onClick={() => scrollToSection(sectionId)}
+                      className="hover:text-indigo-600 transition-colors cursor-pointer text-left"
+                    >
+                      {label}
+                    </button>
+                  </li>
+                ))}
               </ul>
             </div>
 
@@ -1193,7 +1407,7 @@ export default function LandingPage() {
                 <li>
                   <button
                     type="button"
-                    onClick={() => navigate("/portal")}
+                    onClick={() => navigate("/customer-portal")}
                     className="hover:text-indigo-600 transition-colors cursor-pointer"
                   >
                     Customer Self-Service Portal
@@ -1202,7 +1416,7 @@ export default function LandingPage() {
                 <li>
                   <button
                     type="button"
-                    onClick={() => navigate("/ticket-status")}
+                    onClick={() => setTicketModalOpen(true)}
                     className="hover:text-indigo-600 transition-colors cursor-pointer"
                   >
                     Track Support Ticket Status
@@ -1250,15 +1464,318 @@ export default function LandingPage() {
               &copy; {new Date().getFullYear()} JTS Support &middot; JTS Technologies. All rights reserved.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 font-semibold text-slate-500">
-              <span>Role-Based Access Control</span>
+              <button
+                type="button"
+                onClick={() => scrollToSection("integrations")}
+                className="hover:text-indigo-600 transition-colors cursor-pointer"
+              >
+                Role-Based Access Control
+              </button>
               <span className="text-slate-300">&bull;</span>
-              <span>Audit Logs &amp; Webhooks</span>
+              <button
+                type="button"
+                onClick={() => scrollToSection("integrations")}
+                className="hover:text-indigo-600 transition-colors cursor-pointer"
+              >
+                Audit Logs &amp; Webhooks
+              </button>
               <span className="text-slate-300">&bull;</span>
-              <span>Multi-Currency (AED / USD / INR)</span>
+              <button
+                type="button"
+                onClick={() => scrollToSection("pricing")}
+                className="hover:text-indigo-600 transition-colors cursor-pointer"
+              >
+                Multi-Currency (AED / USD / INR)
+              </button>
             </div>
           </div>
         </div>
       </footer>
+
+      {/* MODULE DETAILS MODAL */}
+      {selectedModule && (
+        <div
+          className="fixed inset-0 z-[100] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => setSelectedModule(null)}
+        >
+          <div
+            className="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-5 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                  <selectedModule.icon className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">
+                    {selectedModule.tag} Module
+                  </span>
+                  <h3 className="text-base font-extrabold text-slate-900 leading-tight">
+                    {selectedModule.title}
+                  </h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedModule(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">{selectedModule.desc}</p>
+
+            <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3 space-y-2">
+              <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500">
+                Included Capabilities
+              </div>
+              <ul className="space-y-1.5">
+                {selectedModule.highlights.map((h) => (
+                  <li key={h} className="flex items-start gap-2 text-xs text-slate-700 font-medium">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                    <span>{h}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const action = selectedModule.ctaAction;
+                  setSelectedModule(null);
+                  if (action === "register") navigate("/login?mode=register&plan=free");
+                  else if (action === "track_ticket") setTicketModalOpen(true);
+                  else scrollToSection(action);
+                }}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-semibold cursor-pointer inline-flex items-center justify-center gap-1.5"
+              >
+                <span>{selectedModule.ctaLabel}</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedModule(null);
+                  navigate("/login?mode=register&plan=free");
+                }}
+                className="py-2.5 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 cursor-pointer"
+              >
+                Start Free
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* INTEGRATION DETAILS MODAL */}
+      {selectedIntegration && (
+        <div
+          className="fixed inset-0 z-[100] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => setSelectedIntegration(null)}
+        >
+          <div
+            className="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-5 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                  <selectedIntegration.icon className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">
+                    {selectedIntegration.tag}
+                  </span>
+                  <h3 className="text-base font-extrabold text-slate-900 leading-tight">
+                    {selectedIntegration.name}
+                  </h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedIntegration(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">{selectedIntegration.desc}</p>
+
+            <div className="rounded-xl bg-slate-900 text-slate-200 px-3 py-2.5 text-[11px] font-mono">
+              {selectedIntegration.endpoint}
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedIntegration(null);
+                  navigate("/login?mode=register&plan=free");
+                }}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold cursor-pointer inline-flex items-center justify-center gap-1.5"
+              >
+                <span>Configure in Workspace</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedIntegration(null);
+                  scrollToSection("sandbox");
+                }}
+                className="py-2.5 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 cursor-pointer"
+              >
+                Live Sandbox
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ROLE WORKSPACE PREVIEW MODAL */}
+      {selectedRole && (
+        <div
+          className="fixed inset-0 z-[100] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => setSelectedRole(null)}
+        >
+          <div
+            className="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-5 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">
+                  RBAC Isolated Portal
+                </span>
+                <h3 className="text-base font-extrabold text-slate-900 mt-0.5">
+                  {selectedRole.name} Workspace
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedRole(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">{selectedRole.desc}</p>
+
+            <div className="rounded-xl bg-slate-50 border border-slate-200/80 px-3 py-2 text-[11px] text-slate-600 flex items-center justify-between">
+              <span className="font-semibold">Dedicated Route</span>
+              <code className="font-mono font-bold text-indigo-600">{selectedRole.path}</code>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedRole(null);
+                  navigate("/login?mode=login");
+                }}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold cursor-pointer inline-flex items-center justify-center gap-1.5"
+              >
+                <span>Sign In to {selectedRole.name}</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedRole(null);
+                  navigate("/login?mode=register&plan=free");
+                }}
+                className="py-2.5 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 cursor-pointer"
+              >
+                Create Workspace
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TRACK SUPPORT TICKET MODAL */}
+      {ticketModalOpen && (
+        <div
+          className="fixed inset-0 z-[100] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => setTicketModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl border border-slate-200 max-w-sm w-full p-5 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">
+                  Self-Service Helpdesk
+                </span>
+                <h3 className="text-base font-extrabold text-slate-900 mt-0.5">
+                  Track Support Ticket Status
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTicketModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const cleanId = ticketLookupId.trim();
+                if (!cleanId) return;
+                setTicketModalOpen(false);
+                navigate(`/ticket-status/${encodeURIComponent(cleanId)}`);
+              }}
+              className="space-y-3"
+            >
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  Enter Ticket ID
+                </label>
+                <input
+                  value={ticketLookupId}
+                  onChange={(e) => setTicketLookupId(e.target.value)}
+                  placeholder="e.g. TCK_ebfa96e84ca7abb3"
+                  className="w-full bg-slate-50 focus:bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-indigo-500 font-mono"
+                  autoFocus
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold cursor-pointer inline-flex items-center justify-center gap-1.5"
+                >
+                  <span>Track Ticket</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTicketModalOpen(false);
+                    navigate("/customer-portal");
+                  }}
+                  className="py-2.5 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 cursor-pointer"
+                >
+                  Customer Portal
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

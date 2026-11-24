@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { uploadAttachment, initVisitorSession, submitSessionFeedback, getWidgetConfig, submitBotStatus } from "../controllers/chatController.js";
-import { getWidgetScript, submitWidgetLead, submitWidgetTicket, executeWidgetAction, generateWidgetAiResponse } from "../controllers/widgetController.js";
+import { getWidgetScript, submitWidgetLead, submitWidgetTicket, executeWidgetAction, generateWidgetAiResponse, generatePublicSandboxAiResponse } from "../controllers/widgetController.js";
 import { requireWebsiteApiKey } from "../middleware/apiKey.js";
 import { upload } from "../utils/multerConfig.js";
 import { widgetUploadLimiter, widgetSubmissionLimiter, widgetAiLimiter } from "../middleware/rateLimiters.js";
@@ -26,5 +26,6 @@ router.post("/api/widget/lead", requireWebsiteApiKey, widgetSubmissionLimiter, s
 router.post("/api/widget/ticket", requireWebsiteApiKey, widgetSubmissionLimiter, submitWidgetTicket);
 router.post("/api/widget/action", requireWebsiteApiKey, executeWidgetAction);
 router.post("/api/widget/ai-response", requireWebsiteApiKey, widgetAiLimiter, generateWidgetAiResponse);
+router.post("/api/widget/sandbox-ai", widgetAiLimiter, generatePublicSandboxAiResponse);
 
 export default router;

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area, Cell, LineChart, Line
 } from 'recharts';
@@ -206,6 +206,10 @@ const workflowStages = [
 ];
 
 const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId, procurementStats, websiteId, selectedWebsite, user }) => {
+  const navigate = useNavigate();
+  const basePath = user?.role === "admin" ? "/admin" : "/client";
+  const goToTab = (tabName) => navigate(`${basePath}?tab=${tabName}`);
+  const goToRoute = (path) => navigate(path);
   const [selectedCategoryModal, setSelectedCategoryModal] = useState(null);
   const [categorySearch, setCategorySearch] = useState("");
   const [categoryPage, setCategoryPage] = useState(1);
@@ -411,15 +415,16 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
               </p>
             </div>
           </div>
-          <a
-            href="/client?tab=billing"
-            className={`px-3 py-1.5 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap shadow-sm inline-flex items-center gap-1.5 ${
+          <button
+            type="button"
+            onClick={() => goToTab("billing")}
+            className={`px-3 py-1.5 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap shadow-sm inline-flex items-center gap-1.5 cursor-pointer ${
               isNewAccount ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-rose-600 hover:bg-rose-700'
             }`}
           >
             <CreditCard size={12} strokeWidth={2.2} />
             <span>{isNewAccount ? "Buy Plan" : "Renew Access"}</span>
-          </a>
+          </button>
         </div>
       )}
 
@@ -432,34 +437,37 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {unassignedChats > 0 && (
-              <a
-                href="/client?tab=chats"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-amber-200 text-amber-800 hover:border-amber-400 text-[10px] font-bold transition-colors shadow-2xs"
+              <button
+                type="button"
+                onClick={() => goToTab("chats")}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-amber-200 text-amber-800 hover:border-amber-400 text-[10px] font-bold transition-colors shadow-2xs cursor-pointer"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                 <span>{unassignedChats} Unassigned Chat{unassignedChats === 1 ? "" : "s"}</span>
                 <ArrowRight size={10} />
-              </a>
+              </button>
             )}
             {breachedSlas > 0 && (
-              <a
-                href="/client?tab=sla-center"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-rose-200 text-rose-700 hover:border-rose-400 text-[10px] font-bold transition-colors shadow-2xs"
+              <button
+                type="button"
+                onClick={() => goToTab("sla-center")}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-rose-200 text-rose-700 hover:border-rose-400 text-[10px] font-bold transition-colors shadow-2xs cursor-pointer"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
                 <span>{breachedSlas} Breached SLA{breachedSlas === 1 ? "" : "s"}</span>
                 <ArrowRight size={10} />
-              </a>
+              </button>
             )}
             {financePulse.overdueCount > 0 && (
-              <a
-                href="/client?tab=crm"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-rose-200 text-rose-700 hover:border-rose-400 text-[10px] font-bold transition-colors shadow-2xs"
+              <button
+                type="button"
+                onClick={() => goToRoute("/accounts?tab=invoices")}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-rose-200 text-rose-700 hover:border-rose-400 text-[10px] font-bold transition-colors shadow-2xs cursor-pointer"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
                 <span>{financePulse.overdueCount} Overdue Invoice{financePulse.overdueCount === 1 ? "" : "s"}</span>
                 <ArrowRight size={10} />
-              </a>
+              </button>
             )}
           </div>
         </div>
@@ -482,15 +490,23 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
               <span>Real-time Live Pulse</span>
             </span>
           </div>
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-md">
+          <button
+            type="button"
+            onClick={() => goToTab("websites")}
+            className="inline-flex items-center gap-1.5 text-[10px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 px-2.5 py-1 rounded-md cursor-pointer transition-colors"
+          >
             <Globe size={11} strokeWidth={2.2} />
             <span>{selectedWebsite?.websiteName || "All My Websites"}</span>
-          </span>
+          </button>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
           {/* Card 1: Live Visitors */}
-          <div className="p-3 rounded-xl bg-white border border-slate-200/80 hover:border-indigo-300 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.03)] space-y-1">
+          <button
+            type="button"
+            onClick={() => goToTab("chats")}
+            className="text-left p-3 rounded-xl bg-white border border-slate-200/80 hover:border-indigo-400 hover:shadow-sm transition-all shadow-[0_1px_2px_rgba(0,0,0,0.03)] space-y-1 cursor-pointer"
+          >
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Live Visitors</span>
               <div className="w-6 h-6 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center">
@@ -504,10 +520,14 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
               <CircleDot size={10} strokeWidth={2.5} />
               <span>{analytics.totals?.totalVisitors ?? 0} Total Visitors</span>
             </p>
-          </div>
+          </button>
 
           {/* Card 2: Today Chats */}
-          <div className="p-3 rounded-xl bg-white border border-slate-200/80 hover:border-indigo-300 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.03)] space-y-1">
+          <button
+            type="button"
+            onClick={() => goToTab("chats")}
+            className="text-left p-3 rounded-xl bg-white border border-slate-200/80 hover:border-indigo-400 hover:shadow-sm transition-all shadow-[0_1px_2px_rgba(0,0,0,0.03)] space-y-1 cursor-pointer"
+          >
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Chats</span>
               <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center">
@@ -521,10 +541,14 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
               <TrendingUp size={10} strokeWidth={2.2} className="text-indigo-500" />
               <span>{analytics.totals?.aiHandledChats ?? 0} AI Handled</span>
             </p>
-          </div>
+          </button>
 
           {/* Card 3: AI Deflection */}
-          <div className="p-3 rounded-xl bg-white border border-slate-200/80 hover:border-indigo-300 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.03)] space-y-1">
+          <button
+            type="button"
+            onClick={() => goToTab("flow-builder")}
+            className="text-left p-3 rounded-xl bg-white border border-slate-200/80 hover:border-cyan-400 hover:shadow-sm transition-all shadow-[0_1px_2px_rgba(0,0,0,0.03)] space-y-1 cursor-pointer"
+          >
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">AI Deflection</span>
               <div className="w-6 h-6 rounded-md bg-cyan-50 text-cyan-600 flex items-center justify-center">
@@ -538,10 +562,14 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
               <Sparkles size={10} strokeWidth={2.2} />
               <span>{analytics.totals?.aiHandledChats ?? 0} Auto-Handled</span>
             </p>
-          </div>
+          </button>
 
           {/* Card 4: Waiting Queue */}
-          <div className="p-3 rounded-xl bg-white border border-slate-200/80 hover:border-indigo-300 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.03)] space-y-1">
+          <button
+            type="button"
+            onClick={() => goToTab("tickets")}
+            className="text-left p-3 rounded-xl bg-white border border-slate-200/80 hover:border-amber-400 hover:shadow-sm transition-all shadow-[0_1px_2px_rgba(0,0,0,0.03)] space-y-1 cursor-pointer"
+          >
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Queued Chats</span>
               <div className="w-6 h-6 rounded-md bg-amber-50 text-amber-600 flex items-center justify-center">
@@ -555,10 +583,14 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
               <Activity size={10} strokeWidth={2.2} className="text-amber-500" />
               <span>{analytics.totals?.openTickets ?? 0} Open Tickets</span>
             </p>
-          </div>
+          </button>
 
           {/* Card 5: First Response SLA */}
-          <div className="p-3 rounded-xl bg-white border border-slate-200/80 hover:border-indigo-300 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.03)] space-y-1">
+          <button
+            type="button"
+            onClick={() => goToTab("sla-center")}
+            className="text-left p-3 rounded-xl bg-white border border-slate-200/80 hover:border-emerald-400 hover:shadow-sm transition-all shadow-[0_1px_2px_rgba(0,0,0,0.03)] space-y-1 cursor-pointer"
+          >
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Avg Response</span>
               <div className="w-6 h-6 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center">
@@ -572,10 +604,14 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
               <CheckCircle2 size={10} strokeWidth={2.2} />
               <span>Wait: {(analytics.sla?.avgWaitTimeSeconds ?? 0) + "s"}</span>
             </p>
-          </div>
+          </button>
 
           {/* Card 6: Customer CSAT */}
-          <div className="p-3 rounded-xl bg-white border border-slate-200/80 hover:border-indigo-300 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.03)] space-y-1">
+          <button
+            type="button"
+            onClick={() => goToTab("reports")}
+            className="text-left p-3 rounded-xl bg-white border border-slate-200/80 hover:border-indigo-400 hover:shadow-sm transition-all shadow-[0_1px_2px_rgba(0,0,0,0.03)] space-y-1 cursor-pointer"
+          >
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">CSAT Score</span>
               <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center">
@@ -589,7 +625,7 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
               <CheckCircle2 size={10} strokeWidth={2.2} />
               <span>{analytics.feedback?.totalFeedback ?? 0} Ratings</span>
             </p>
-          </div>
+          </button>
         </div>
       </section>
 
@@ -721,17 +757,22 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
               4. Multi-Brand & Connected Domain Hub
             </h3>
           </div>
-          <a
-            href="/client?tab=websites"
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
+          <button
+            type="button"
+            onClick={() => goToTab("websites")}
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors cursor-pointer"
           >
             <span>Manage Websites ({analytics.totals?.websites ?? 0})</span>
             <ArrowRight size={13} strokeWidth={2.2} />
-          </a>
+          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-3">
+          <button
+            type="button"
+            onClick={() => goToTab("websites")}
+            className="text-left p-3.5 rounded-xl bg-slate-50/70 hover:bg-white border border-slate-200/70 hover:border-indigo-300 flex items-start gap-3 transition-all cursor-pointer"
+          >
             <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/90 flex items-center justify-center text-indigo-600 shrink-0 shadow-xs">
               <Building2 size={15} strokeWidth={2.2} />
             </div>
@@ -744,9 +785,12 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
                 {selectedWebsite?.domain || "No domain linked"}
               </p>
             </div>
-          </div>
+          </button>
 
-          <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-3">
+          <div
+            onClick={() => goToTab("websites")}
+            className="p-3.5 rounded-xl bg-slate-50/70 hover:bg-white border border-slate-200/70 hover:border-indigo-300 flex items-start gap-3 transition-all cursor-pointer"
+          >
             <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/90 flex items-center justify-center text-indigo-600 shrink-0 shadow-xs">
               <Key size={15} strokeWidth={2.2} />
             </div>
@@ -755,7 +799,10 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">API Tracking Key</p>
                 <button
                   type="button"
-                  onClick={() => handleCopyKey(selectedWebsite?.apiKey || selectedWebsite?._id || "")}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCopyKey(selectedWebsite?.apiKey || selectedWebsite?._id || "");
+                  }}
                   className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded cursor-pointer"
                 >
                   {copiedKey ? <Check size={10} strokeWidth={2.5} /> : <Copy size={10} strokeWidth={2.2} />}
@@ -771,7 +818,11 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
             </div>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-3">
+          <button
+            type="button"
+            onClick={() => goToTab("enterprise-integrations")}
+            className="text-left p-3.5 rounded-xl bg-slate-50/70 hover:bg-white border border-slate-200/70 hover:border-emerald-300 flex items-start gap-3 transition-all cursor-pointer"
+          >
             <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/90 flex items-center justify-center text-emerald-600 shrink-0 shadow-xs">
               <Server size={15} strokeWidth={2.2} />
             </div>
@@ -787,7 +838,7 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
                 {analytics.totals?.websites ?? 0} Total Owned Website{(analytics.totals?.websites ?? 0) === 1 ? "" : "s"}
               </p>
             </div>
-          </div>
+          </button>
         </div>
       </section>
 
@@ -809,27 +860,33 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <a
-              href="/client?tab=flow-builder"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold rounded-lg transition-colors border border-indigo-100"
+            <button
+              type="button"
+              onClick={() => goToTab("flow-builder")}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold rounded-lg transition-colors border border-indigo-100 cursor-pointer"
             >
               <GitBranch size={12} strokeWidth={2.2} />
               <span>Visual Flow Builder</span>
               <ArrowRight size={11} strokeWidth={2.2} />
-            </a>
-            <a
-              href="/client?tab=help-center"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-[11px] font-bold rounded-lg transition-colors border border-cyan-100"
+            </button>
+            <button
+              type="button"
+              onClick={() => goToTab("help-center")}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-[11px] font-bold rounded-lg transition-colors border border-cyan-100 cursor-pointer"
             >
               <BookOpen size={12} strokeWidth={2.2} />
               <span>Train Knowledge Base</span>
               <ArrowRight size={11} strokeWidth={2.2} />
-            </a>
+            </button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-3">
+          <button
+            type="button"
+            onClick={() => goToTab("flow-builder")}
+            className="text-left p-3.5 rounded-xl bg-slate-50/70 hover:bg-white border border-slate-200/70 hover:border-cyan-300 flex items-start gap-3 transition-all cursor-pointer"
+          >
             <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/90 flex items-center justify-center text-cyan-600 shrink-0 shadow-xs">
               <GitBranch size={15} strokeWidth={2.2} />
             </div>
@@ -842,8 +899,12 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
                 {analytics.ecosystem?.totalFlows ?? 0} total flows configured for this website
               </p>
             </div>
-          </div>
-          <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-3">
+          </button>
+          <button
+            type="button"
+            onClick={() => goToTab("help-center")}
+            className="text-left p-3.5 rounded-xl bg-slate-50/70 hover:bg-white border border-slate-200/70 hover:border-indigo-300 flex items-start gap-3 transition-all cursor-pointer"
+          >
             <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/90 flex items-center justify-center text-indigo-600 shrink-0 shadow-xs">
               <Database size={15} strokeWidth={2.2} />
             </div>
@@ -856,8 +917,12 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
                 {dynamicCategories.length} categories & {inventoryItems.length} catalog items synced
               </p>
             </div>
-          </div>
-          <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-3">
+          </button>
+          <button
+            type="button"
+            onClick={() => goToTab("voice-logs")}
+            className="text-left p-3.5 rounded-xl bg-slate-50/70 hover:bg-white border border-slate-200/70 hover:border-emerald-300 flex items-start gap-3 transition-all cursor-pointer"
+          >
             <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/90 flex items-center justify-center text-emerald-600 shrink-0 shadow-xs">
               <Bot size={15} strokeWidth={2.2} />
             </div>
@@ -870,7 +935,7 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
                 {(analytics.totals?.aiDeflectionRate ?? 0)}% automated deflection rate
               </p>
             </div>
-          </div>
+          </button>
         </div>
       </section>
 
@@ -901,14 +966,15 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <a
-              href="/client?tab=categories"
-              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold uppercase tracking-wider rounded-lg shadow-sm transition-all inline-flex items-center gap-1.5"
+            <button
+              type="button"
+              onClick={() => goToTab("categories")}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold uppercase tracking-wider rounded-lg shadow-sm transition-all inline-flex items-center gap-1.5 cursor-pointer"
             >
               <Layers size={12} strokeWidth={2.2} />
               <span>Manage Categories</span>
               <ArrowRight size={12} strokeWidth={2.2} />
-            </a>
+            </button>
           </div>
         </div>
 
@@ -1047,13 +1113,14 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
               </p>
             </div>
             <div className="pt-1">
-              <a
-                href="/client?tab=categories"
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg shadow-sm transition-all"
+              <button
+                type="button"
+                onClick={() => goToTab("categories")}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg shadow-sm transition-all cursor-pointer"
               >
                 <Plus size={12} strokeWidth={2.4} />
                 <span>Add First Category / Service</span>
-              </a>
+              </button>
             </div>
           </div>
         )}
@@ -1072,17 +1139,22 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
               7. CRM & Customer Conversion Pipeline Tracker
             </h3>
           </div>
-          <a
-            href="/client?tab=crm"
-            className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
+          <button
+            type="button"
+            onClick={() => goToTab("crm")}
+            className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors cursor-pointer"
           >
             <span>Open Full CRM Pipeline</span>
             <ArrowRight size={13} strokeWidth={2.2} />
-          </a>
+          </button>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-          <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-2.5">
+          <button
+            type="button"
+            onClick={() => goToTab("crm")}
+            className="text-left p-3 rounded-xl bg-slate-50/70 hover:bg-white border border-slate-200/70 hover:border-indigo-300 flex items-start gap-2.5 transition-all cursor-pointer"
+          >
             <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-indigo-600 shrink-0">
               <MessageSquare size={13} strokeWidth={2.2} />
             </div>
@@ -1093,8 +1165,12 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
               </p>
               <p className="text-[10px] font-medium text-indigo-600">Captured for this website</p>
             </div>
-          </div>
-          <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-2.5">
+          </button>
+          <button
+            type="button"
+            onClick={() => goToTab("crm")}
+            className="text-left p-3 rounded-xl bg-slate-50/70 hover:bg-white border border-slate-200/70 hover:border-amber-300 flex items-start gap-2.5 transition-all cursor-pointer"
+          >
             <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-amber-600 shrink-0">
               <Contact size={13} strokeWidth={2.2} />
             </div>
@@ -1105,8 +1181,12 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
               </p>
               <p className="text-[10px] font-medium text-amber-600">Active qualification stage</p>
             </div>
-          </div>
-          <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-2.5">
+          </button>
+          <button
+            type="button"
+            onClick={() => goToTab("crm")}
+            className="text-left p-3 rounded-xl bg-slate-50/70 hover:bg-white border border-slate-200/70 hover:border-cyan-300 flex items-start gap-2.5 transition-all cursor-pointer"
+          >
             <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-cyan-600 shrink-0">
               <FileText size={13} strokeWidth={2.2} />
             </div>
@@ -1117,8 +1197,12 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
               </p>
               <p className="text-[10px] font-medium text-cyan-600">Active commercial proposals</p>
             </div>
-          </div>
-          <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-2.5">
+          </button>
+          <button
+            type="button"
+            onClick={() => goToTab("inventory-customer")}
+            className="text-left p-3 rounded-xl bg-slate-50/70 hover:bg-white border border-slate-200/70 hover:border-emerald-300 flex items-start gap-2.5 transition-all cursor-pointer"
+          >
             <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-emerald-600 shrink-0">
               <UserCheck size={13} strokeWidth={2.2} />
             </div>
@@ -1129,12 +1213,16 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
               </p>
               <p className="text-[10px] font-medium text-emerald-600">Converted in Customer Master</p>
             </div>
-          </div>
+          </button>
         </div>
 
         {/* Revenue & Finance Pulse */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 border-t border-slate-100">
-          <div className="p-2.5 rounded-xl bg-indigo-50/50 border border-indigo-100/80 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => goToTab("crm")}
+            className="text-left p-2.5 rounded-xl bg-indigo-50/50 hover:bg-indigo-50 border border-indigo-100/80 hover:border-indigo-300 flex items-center justify-between gap-2 transition-all cursor-pointer"
+          >
             <div className="min-w-0">
               <p className="text-[9.5px] font-bold uppercase tracking-wider text-indigo-500">Pipeline Value</p>
               <p className="text-sm font-bold text-slate-900 truncate">{formatCurrency(financePulse.pipelineValue)}</p>
@@ -1142,9 +1230,13 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
             <span className="text-[9.5px] font-bold text-indigo-600 bg-white px-2 py-0.5 rounded-md border border-indigo-100 shrink-0">
               Open CRM
             </span>
-          </div>
+          </button>
 
-          <div className="p-2.5 rounded-xl bg-emerald-50/50 border border-emerald-100/80 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => goToRoute("/accounts?tab=invoices")}
+            className="text-left p-2.5 rounded-xl bg-emerald-50/50 hover:bg-emerald-50 border border-emerald-100/80 hover:border-emerald-300 flex items-center justify-between gap-2 transition-all cursor-pointer"
+          >
             <div className="min-w-0">
               <p className="text-[9.5px] font-bold uppercase tracking-wider text-emerald-600">Collected Revenue</p>
               <p className="text-sm font-bold text-emerald-700 truncate">{formatCurrency(financePulse.collected)}</p>
@@ -1152,9 +1244,13 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
             <span className="text-[9.5px] font-bold text-emerald-700 bg-white px-2 py-0.5 rounded-md border border-emerald-100 shrink-0">
               Paid
             </span>
-          </div>
+          </button>
 
-          <div className="p-2.5 rounded-xl bg-amber-50/50 border border-amber-100/80 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => goToRoute("/accounts?tab=invoices")}
+            className="text-left p-2.5 rounded-xl bg-amber-50/50 hover:bg-amber-50 border border-amber-100/80 hover:border-amber-300 flex items-center justify-between gap-2 transition-all cursor-pointer"
+          >
             <div className="min-w-0">
               <p className="text-[9.5px] font-bold uppercase tracking-wider text-amber-600">Pending / Overdue</p>
               <p className="text-sm font-bold text-slate-900 truncate">{formatCurrency(financePulse.pendingDue)}</p>
@@ -1166,7 +1262,7 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
             }`}>
               {financePulse.pendingCount} inv{financePulse.overdueCount > 0 ? ` · ${financePulse.overdueCount} overdue` : ""}
             </span>
-          </div>
+          </button>
         </div>
       </section>
 
@@ -1183,17 +1279,22 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
               8. Team & Agent Live Workload Monitor
             </h3>
           </div>
-          <a
-            href="/client?tab=agents"
-            className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
+          <button
+            type="button"
+            onClick={() => goToTab("agents")}
+            className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors cursor-pointer"
           >
             <span>Manage Agents & Shifts ({analytics.totals?.agents ?? 0})</span>
             <ArrowRight size={13} strokeWidth={2.2} />
-          </a>
+          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-3">
+          <button
+            type="button"
+            onClick={() => goToTab("agents")}
+            className="text-left p-3.5 rounded-xl bg-slate-50/70 hover:bg-white border border-slate-200/70 hover:border-emerald-300 flex items-start gap-3 transition-all cursor-pointer"
+          >
             <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/90 flex items-center justify-center text-emerald-600 shrink-0 shadow-xs">
               <Users size={15} strokeWidth={2.2} />
             </div>
@@ -1207,9 +1308,13 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
               </div>
               <p className="text-[11px] font-medium text-slate-500">Assigned strictly to your organization</p>
             </div>
-          </div>
+          </button>
 
-          <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-3">
+          <button
+            type="button"
+            onClick={() => goToTab("departments")}
+            className="text-left p-3.5 rounded-xl bg-slate-50/70 hover:bg-white border border-slate-200/70 hover:border-indigo-300 flex items-start gap-3 transition-all cursor-pointer"
+          >
             <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/90 flex items-center justify-center text-indigo-600 shrink-0 shadow-xs">
               <Building2 size={15} strokeWidth={2.2} />
             </div>
@@ -1220,9 +1325,13 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
               </p>
               <p className="text-[11px] font-medium text-slate-500">Configured for ticket & chat routing</p>
             </div>
-          </div>
+          </button>
 
-          <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-3">
+          <button
+            type="button"
+            onClick={() => goToTab("reports")}
+            className="text-left p-3.5 rounded-xl bg-slate-50/70 hover:bg-white border border-slate-200/70 hover:border-indigo-300 flex items-start gap-3 transition-all cursor-pointer"
+          >
             <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/90 flex items-center justify-center text-indigo-600 shrink-0 shadow-xs">
               <Clock size={15} strokeWidth={2.2} />
             </div>
@@ -1235,7 +1344,7 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
                 {analytics.leaderboard?.length ?? 0} active agent{(analytics.leaderboard?.length ?? 0) === 1 ? "" : "s"} in period leaderboard
               </p>
             </div>
-          </div>
+          </button>
         </div>
 
         {/* Live Agent Leaderboard & Visitor Geo Distribution Sub-Row */}
@@ -1251,12 +1360,17 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
             {Array.isArray(analytics.leaderboard) && analytics.leaderboard.length > 0 ? (
               <div className="space-y-1.5">
                 {analytics.leaderboard.slice(0, 3).map((ag, idx) => (
-                  <div key={ag._id || idx} className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-white border border-slate-200/70 text-xs">
+                  <button
+                    key={ag._id || idx}
+                    type="button"
+                    onClick={() => goToTab("agents")}
+                    className="w-full text-left flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-white hover:bg-indigo-50/50 border border-slate-200/70 hover:border-indigo-300 text-xs transition-all cursor-pointer"
+                  >
                     <span className="font-bold text-slate-800 truncate">{idx + 1}. {ag.name || ag.email || "Agent"}</span>
                     <span className="text-[11px] font-bold text-indigo-600 shrink-0">
                       {ag.chatsHandled || 0} chats • {ag.avgHandleSeconds ? `${Math.round(ag.avgHandleSeconds)}s avg` : "—"}
                     </span>
-                  </div>
+                  </button>
                 ))}
               </div>
             ) : (
@@ -1275,11 +1389,16 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
             {Array.isArray(analytics.topCountries) && analytics.topCountries.length > 0 ? (
               <div className="flex flex-wrap gap-1.5 pt-0.5">
                 {analytics.topCountries.map((c, idx) => (
-                  <span key={idx} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 text-[11px] font-semibold text-slate-700">
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => goToTab("history")}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white hover:bg-indigo-50/50 border border-slate-200/80 hover:border-indigo-300 text-[11px] font-semibold text-slate-700 transition-all cursor-pointer"
+                  >
                     <Globe size={11} strokeWidth={2.2} className="text-indigo-500" />
                     <span>{c.country || "Unknown"}</span>
                     <span className="px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 font-bold text-[10px]">{c.count}</span>
-                  </span>
+                  </button>
                 ))}
               </div>
             ) : (
@@ -1303,27 +1422,33 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
             </h3>
           </div>
           <div className="flex items-center gap-2">
-            <a
-              href="/client?tab=enterprise-integrations"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold rounded-lg transition-colors border border-indigo-100"
+            <button
+              type="button"
+              onClick={() => goToTab("enterprise-integrations")}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold rounded-lg transition-colors border border-indigo-100 cursor-pointer"
             >
               <Network size={12} strokeWidth={2.2} />
               <span>JTS Meet & Webhooks</span>
               <ArrowRight size={11} strokeWidth={2.2} />
-            </a>
-            <a
-              href="/client?tab=security"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold rounded-lg transition-colors"
+            </button>
+            <button
+              type="button"
+              onClick={() => goToTab("security")}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold rounded-lg transition-colors cursor-pointer"
             >
               <Lock size={12} strokeWidth={2.2} />
               <span>Security & 2FA Center</span>
               <ArrowRight size={11} strokeWidth={2.2} />
-            </a>
+            </button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2.5">
-          <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-2.5">
+          <button
+            type="button"
+            onClick={() => goToTab("enterprise-integrations")}
+            className="text-left p-3 rounded-xl bg-slate-50/70 hover:bg-white border border-slate-200/70 hover:border-indigo-300 flex items-start gap-2.5 transition-all cursor-pointer"
+          >
             <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-indigo-600 shrink-0">
               <Video size={13} strokeWidth={2.2} />
             </div>
@@ -1339,9 +1464,13 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
                 {activeSiteWebhooks} webhook endpoint{activeSiteWebhooks === 1 ? "" : "s"} active
               </p>
             </div>
-          </div>
+          </button>
 
-          <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-2.5">
+          <button
+            type="button"
+            onClick={() => goToTab("security")}
+            className="text-left p-3 rounded-xl bg-slate-50/70 hover:bg-white border border-slate-200/70 hover:border-emerald-300 flex items-start gap-2.5 transition-all cursor-pointer"
+          >
             <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-emerald-600 shrink-0">
               <Lock size={13} strokeWidth={2.2} />
             </div>
@@ -1357,9 +1486,13 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
                 {analytics.ecosystem?.customRolesCount ?? 0} custom RBAC role{(analytics.ecosystem?.customRolesCount ?? 0) === 1 ? "" : "s"}
               </p>
             </div>
-          </div>
+          </button>
 
-          <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-2.5">
+          <button
+            type="button"
+            onClick={() => goToTab("security")}
+            className="text-left p-3 rounded-xl bg-slate-50/70 hover:bg-white border border-slate-200/70 hover:border-indigo-300 flex items-start gap-2.5 transition-all cursor-pointer"
+          >
             <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-indigo-600 shrink-0">
               <FileText size={13} strokeWidth={2.2} />
             </div>
@@ -1373,9 +1506,13 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
               </div>
               <p className="text-[10px] font-medium text-slate-500">100% isolated tenant logs</p>
             </div>
-          </div>
+          </button>
 
-          <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-start gap-2.5">
+          <button
+            type="button"
+            onClick={() => goToTab("tickets")}
+            className="text-left p-3 rounded-xl bg-slate-50/70 hover:bg-white border border-slate-200/70 hover:border-emerald-300 flex items-start gap-2.5 transition-all cursor-pointer"
+          >
             <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-emerald-600 shrink-0">
               <Activity size={13} strokeWidth={2.2} />
             </div>
@@ -1391,7 +1528,7 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
                 {resolvedTickets} of {totalTickets} tickets closed
               </p>
             </div>
-          </div>
+          </button>
         </div>
       </section>
 
@@ -1410,12 +1547,20 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
                 <p className="text-[11px] font-medium text-slate-400">Inventory spending & stock levels</p>
               </div>
             </div>
-            <span className="text-xs font-bold text-slate-900">
-              Total Spend: {formatCurrency(procurementStats.totalSpend)}
-            </span>
+            <button
+              type="button"
+              onClick={() => goToRoute("/purchase?tab=procurement")}
+              className="text-xs font-bold text-indigo-600 hover:text-indigo-700 cursor-pointer"
+            >
+              Total Spend: {formatCurrency(procurementStats.totalSpend)} →
+            </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-            <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => goToTab("inventory-master")}
+              className="text-left p-3 rounded-xl bg-slate-50/70 hover:bg-white border border-slate-200/70 hover:border-rose-300 flex items-center justify-between transition-all cursor-pointer"
+            >
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Low Stock Alerts</p>
                 <h4 className={`text-lg font-bold ${procurementStats.lowStockCount > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
@@ -1423,8 +1568,12 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
                 </h4>
               </div>
               <AlertTriangle size={16} strokeWidth={2.2} className={procurementStats.lowStockCount > 0 ? 'text-rose-500' : 'text-emerald-500'} />
-            </div>
-            <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-center justify-between">
+            </button>
+            <button
+              type="button"
+              onClick={() => goToTab("inventory-supplier")}
+              className="text-left p-3 rounded-xl bg-slate-50/70 hover:bg-white border border-slate-200/70 hover:border-indigo-300 flex items-center justify-between transition-all cursor-pointer"
+            >
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Suppliers</p>
                 <h4 className="text-lg font-bold text-slate-900">
@@ -1432,8 +1581,12 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
                 </h4>
               </div>
               <Users size={16} strokeWidth={2.2} className="text-indigo-500" />
-            </div>
-            <div className="p-3 rounded-xl bg-slate-50/70 border border-slate-200/70 flex items-center justify-between">
+            </button>
+            <button
+              type="button"
+              onClick={() => goToRoute("/purchase?tab=procurement")}
+              className="text-left p-3 rounded-xl bg-slate-50/70 hover:bg-white border border-slate-200/70 hover:border-amber-300 flex items-center justify-between transition-all cursor-pointer"
+            >
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Purchase Orders</p>
                 <h4 className="text-lg font-bold text-slate-900">
@@ -1441,7 +1594,7 @@ const ClientOverview = ({ analytics, queuedSessions, isExpired, stripeCustomerId
                 </h4>
               </div>
               <BarChart3 size={16} strokeWidth={2.2} className="text-amber-500" />
-            </div>
+            </button>
           </div>
         </section>
       )}
